@@ -1,0 +1,9 @@
+<div class="BgColor" *ngIf="visible" (click)="hide()">
+    <div class="popUpContent" (click)="prevPropag($event)">
+        <ng-content select="h3">
+        </ng-content>
+        <mat-icon (click)="hide()">close</mat-icon>
+        <hr>
+        <ng-content select=".content-body"></ng-content>
+    </div>
+</div>

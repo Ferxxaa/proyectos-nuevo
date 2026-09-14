@@ -1,0 +1,100 @@
+<section class="widget">
+  <header style="background-color: #555555">
+    <h5 style="color: white;">
+      <strong>Sub-Proyecto
+        <span style="color: #F59325">{{SubProyecto.nombreSubProyecto}}</span>
+        en Etapa de
+        <span style="color: #F59325">{{Etapa.nombreEtapa}}</span>
+      </strong>
+    </h5>
+  </header>
+  <div class="widget-body">
+    <form #CForm="ngForm">
+      <fieldset>
+        <legend></legend>
+        <div class="form-group row">
+          <label class="col-md-offset-2 col-md-5 form-control-label"><b>Situación programada</b></label>
+          <label class="col-md-5 form-control-label"><b>Situación real</b></label>
+        </div>
+        <div class="form-group row">
+          <label class="col-md-2 form-control-label">Coordinador:</label>
+          <span class="col-md-5 form-control-label">{{Coordinador.nombre + " " + Coordinador.paterno}}</span>
+        </div>
+        <div class="form-group row">
+          <label class="col-md-2 form-control-label">Fecha inicio Etapa:</label>
+          <span class="col-md-5 form-control-label">{{fechaInicio | date:'dd/MM/yyyy'}}</span>
+          <div class="col-md-5">
+            <div id="datetimepicker1" class="input-group date">
+              <input id="txtInicioReal" name="txtInicioReal" type="text" class="form-control" (focusout)="asignaFechaInicio()" [disabled]="soloLectura"/>
+              <span class="input-group-addon">
+                <span class="fa fa-calendar"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-md-2 form-control-label">Fecha termino Etapa:</label>
+          <span class="col-md-5 form-control-label">{{fechaTermino | date:'dd/MM/yyyy'}}</span>
+          <div class="col-md-5">
+            <div id="datetimepicker2" class="input-group date">
+              <input id="txtTerminoReal" name="txtTerminoReal" type="text" class="form-control" (focusout)="asignaFechaTermino()" [disabled]="soloLectura"/>
+              <span class="input-group-addon">
+                <span class="fa fa-calendar"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-md-2 form-control-label">Ritmo Etapa:</label>
+          <span class="col-md-5 form-control-label">{{EtapaActual.duracion}}</span>
+          <span class="form-control-label col-md-5">{{DiasDiferenciaReal}}</span>
+        </div>
+        <div class="form-group row">
+          <label class="col-md-2 form-control-label">Costo Etapa</label>
+          <span id="lblCostoEtapa" class="col-md-5 form-control-label">{{EtapaActual.presupuesto}}</span>
+          <div class="col-md-5">
+            <input name="tbxCostoEtapa" type="text" [(ngModel)]="EtapaActual.costoReal" class="form-control" style="z-index: 0;" [disabled]="soloLectura">
+          </div>
+        </div>
+        <br>
+        <br>
+        <div class="form-group row">
+          <label class="col-md-2 form-control-label">Porcentaje de avance:</label>
+          <span class="col-md-5 form-control-label">{{AvanceProgramado}}%</span>
+          <div class="col-md-5">
+            <input name="tbxPorcenAct" type="text" [(ngModel)]="EtapaActual.avanceReal" class="form-control" style="z-index: 0;" [disabled]="soloLectura">
+          </div>
+        </div>
+        <div class="form-group row">
+          <label for="normal-field" class="col-md-2 form-control-label">VºBº Etapa:</label>
+          <div class="col-md-offset-5 col-md-5">
+            <div class="checkbox abc-checkbox abc-checkbox-info abc-checkbox-circle">
+              <input id="chkVBetapa" type="checkbox" name="chkVBetapa" [(ngModel)]="EtapaActual.vistoBuenoEtapa" (click)="AvanceReal()" [disabled]="soloLectura">
+              <label style="height: 5px;" for="chkVBetapa">Etapa</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label for="normal-field" class="col-md-2 form-control-label">VºBº NBI:</label>
+          <div class="col-md-offset-5 col-md-5">
+            <div class="checkbox abc-checkbox abc-checkbox-info abc-checkbox-circle" (click)="!soloLectura && setDate()">
+              <input id="chkVBnbi" type="checkbox" name="chkVBnbi" [(ngModel)]="EtapaActual.vistoBuenoRitmo" [disabled]="soloLectura">
+              <label style="height: 5px;" for="chkVBnbi">NBI</label>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+      <div class="form-actions">
+        <div class="row">
+          <div class="col-md-offset-4 col-md-8">
+            <button class="btn btn-primary" name="btnGuardarSituacion" id="btnGuardarSituacion" [disabled]="soloLectura" (click)="Agregar(CForm)">Guardar</button>
+            <button class="btn btn-inverse" name="btnFinalizar" [disabled]="soloLectura" (click)="finalizarProyecto()">Finalizar</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+
+<app-mensaje [mensaje]="texto" [visible]="msg"></app-mensaje>

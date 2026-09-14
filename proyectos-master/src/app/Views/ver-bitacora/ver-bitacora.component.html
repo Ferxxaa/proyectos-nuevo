@@ -1,0 +1,272 @@
+<section class="widget">
+  <header style="background-color: #555555">
+    <h5 style="color: white;">
+      <strong>Bitacora</strong>
+    </h5>
+  </header>
+  <br>
+  <!-- <br> -->
+  <div class="list-group list-group-lg" *ngIf="!Loader">
+    <ng-container *ngFor="let Bitacora of Bitacoras; let i = index">
+      <div class="linea">
+        <a class="list-goup-item"  (click)="!soloLectura && VerDetalle(i)">
+          <i class="fa fa-circle pull-xs-right mt-sm" style="font-size: 40px;" [ngClass]="{
+            'text-success':Bitacora.nombrePrioridad === 'Baja',
+            'text-warning':Bitacora.nombrePrioridad === 'Media',
+            'text-danger':Bitacora.nombrePrioridad === 'Alta'
+          }"></i>
+          <h6 class="no-margin" style="color:cornflowerblue">{{Bitacora.nombre + ' ' + Bitacora.paterno}}</h6>
+          <small class="text-muted">{{Bitacora.fechaCreacion | date:'dd/MM/yyyy'}}</small>
+          <small style="text-indent: 5em; margin-top: 5px;margin-bottom: 0px;display: block;">
+            <div [innerHTML]="Bitacora.descripcion"></div>
+          </small>
+        </a>
+        <a class="link" (click)="DescargarArchivo(i)" *ngIf="Bitacora.NombreAdjunto" style="width: 100%; height: 100%; cursor: pointer;">
+          <i class="glyphicon glyphicon-glyph-paperclip pull-xs-right mt-sm" style="font-size: 20px; margin-right: 20px; margin-top: 20px">
+          </i>
+        </a>
+      </div>
+    </ng-container>
+  </div>
+
+  <!-- <div class="widget-body">
+    <br>
+    <table class="table table-bordered table-striped table-hover no-footer">
+      <thead>
+        <tr>
+          <td>Id Bitacora</td>
+          <td>Descripción</td>
+          <td>Prioridad</td>
+          <td>Creador</td>
+          <td>Adjunto</td>
+          <td>Fecha Creación</td>
+          <td>Acciones</td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let Bitacora of Bitacoras; let i = index">
+          <td>{{Bitacora.idBitacora}}</td>
+          <td>{{Bitacora.descripcion}}</td>
+          <td>{{Bitacora.nombrePrioridad}}</td>
+          <td>{{Bitacora.nombre + ' ' + Bitacora.paterno}}</td>
+          <td><a href="{{Bitacora.ruta}}" *ngIf="true">{{Bitacora.nombreArchivo}}</a><a href="" *ngIf="false"></a></td>
+          <td class="center">{{Bitacora.fechaCreacion | date:'dd/MM/yyyy'}}</td>
+          <td>
+            <a (click)="Editar(i)" class="blue">
+              <div class="news-list">
+                <span class="icon" data-toggle="tooltip" title="Editar">
+                  <i class="fa fa-pencil icono"></i>
+                </span>
+              </div>
+            </a>
+            <a (click)="Confirmacion(i)" class="drop">
+              <div class="news-list">
+                <span class="icon" data-toggle="tooltip" title="Eliminar">
+                  <i class="fa fa-times-circle icono"></i>
+                </span>
+              </div>
+            </a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="loader animated fadeIn handle" *ngIf="LoadingTabla">
+      <span class="spinner">
+        <i class="fa fa-spinner fa-spin"></i>
+      </span>
+    </div>
+  </div> -->
+
+  <div class="loader animated fadeIn handle" *ngIf="Loader">
+    <span class="spinner">
+      <i class="fa fa-spinner fa-spin"></i>
+    </span>
+  </div>
+</section>
+
+
+
+
+
+
+
+
+<!-- Editar -->
+<div class="modal fade" id="exampleModalLong" tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle"
+  aria-hidden="true" *ngIf="Prioridades">
+  <div class="modal-dialog editar" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="form-group row">
+          <div class="col-md-11">
+            <h4 class="modal-title" id="exampleModalLongTitle">Editar</h4>
+          </div>
+          <div class="col-md-1">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="OcultarPopUpEditar()">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <form #EForm="ngForm" (ngSubmit)="Actualizar(EForm)">
+          <fieldset>
+            <legend></legend>
+            <div class="form-group row">
+              <label for="normal-field" class="col-md-6 form-control-label h5">Prioridad Bitacora(*):</label>
+              <div class="col-md-6">
+                <select id="drdPrioridad" class="dropdown-toggle select2-chosen-2 form-control requiered" [(ngModel)]="Bitacora.idPrioridad"
+                  name="drdPrioridad" appSelectValidator [disabled]="soloLectura">
+                  <option value=0 selected>--- Seleccione una opcion ---</option>
+                  <option *ngFor="let Prioridad of Prioridades" value={{Prioridad.idPrioridad}}>{{Prioridad.nombrePrioridad}}</option>
+                </select>
+              </div>
+              <br><br>
+              <div class="col-md-12">
+                <textarea class="form-control requiered" [(ngModel)]="Bitacora.descripcion" name="txtBitacora" required [disabled]="soloLectura"></textarea>
+              </div>
+
+            </div>
+            <div class="form-group row">
+              <div class="col-md-12">
+                <!-- col-md-offset-3 -->
+                <div class="fileinput fileinput-new input-group" data-provides="fileinput">
+                  <div class="form-control" data-trigger="fileinput">
+                    <i class="glyphicon glyphicon-file fileinput-exists"></i>
+                    <span class="fileinput-filename" id="NombreArchUpd"></span>
+                  </div>
+                  <span class="input-group-addon btn btn-secondary btn-file">
+                    <span class="fileinput-new">Adjuntar</span>
+                    <span class="fileinput-exists">Change</span>
+                    <input id="fileuploadUPD" type="file" name="fileuploadUPD" (change)="NombreArchivo()" [disabled]="soloLectura">
+                    <!-- ngFileSelect [options]="options" (onUpload)="handleUpload($event)" -->
+                  </span>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+          <div class="form-actions">
+            <div class="row">
+              <div class="col-md-offset-4 col-md-8">
+                <button ID="btnEditarBitacora" class="btn btn-success" (click)="Actualizar()" [disabled]="loading || soloLectura" *ngIf="!soloLectura">Editar</button>
+                <button ID="btnEliminarBitacora" class="btn btn-danger" (click)="Eliminar()" [disabled]="loading || soloLectura" *ngIf="!soloLectura">Eliminar</button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal" (click)="OcultarPopUpEditar()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- 
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <div class="row">
+      <div class="col-lg-12">
+        <section class="widget">
+          <header style="background-color: #555555">
+            <h2 style="color: white;">
+              <strong>Bitacora</strong>
+            </h2>
+          </header>
+          <div class="widget-body">
+            <br><br>
+            <div class="form-group row">
+              <div class="col-md-offset-10 col-md-2">
+                <a class="btn btn-primary" [routerLink]="['/Proyecto-TableroControl']">Volver</a>
+              </div>
+            </div>
+            <table class="table table-bordered table-striped table-hover no-footer">
+              <thead>
+                <tr>
+                  <td>Id Bitacora</td>
+                  <td>Descripción</td>
+                  <td>Prioridad</td>
+                  <td>Creador</td>
+                  <td>Adjunto</td>
+                  <td>Fecha Creación</td>
+                  <td>Acciones</td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let Bitacora of Bitacoras; let i = index">
+                  <td>{{Bitacora.idBitacora}}</td>
+                  <td>{{Bitacora.descripcion}}</td>
+                  <td>{{Bitacora.nombrePrioridad}}</td>
+                  <td>{{Bitacora.nombre + ' ' + Bitacora.paterno}}</td>
+                  <td><a href="{{Bitacora.ruta}}" *ngIf="true">{{Bitacora.nombreArchivo}}</a><a href="" *ngIf="false"></a></td>
+                  <td class="center">{{Bitacora.fechaCreacion | date:'dd/MM/yyyy'}}</td>
+                  <td>
+                    <a (click)="Editar(i)" class="blue">
+                      <div class="news-list">
+                        <span class="icon" data-toggle="tooltip" title="Editar">
+                          <i class="fa fa-pencil icono"></i>
+                        </span>
+                      </div>
+                    </a>
+                    <a (click)="Confirmacion(i)" class="drop">
+                      <div class="news-list">
+                        <span class="icon" data-toggle="tooltip" title="Eliminar">
+                          <i class="fa fa-times-circle icono"></i>
+                        </span>
+                      </div>
+                    </a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div> -->

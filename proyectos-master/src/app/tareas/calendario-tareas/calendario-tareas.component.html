@@ -1,0 +1,111 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main"class="content">
+    <br>
+    <div class="widget-body">
+      <div class="row">
+          <div class="col-xl-8">
+              <h1 class="page-title">{{Fecha | date:'MMMM'}} {{Fecha | date:'yyyy'}} - <b>{{Fecha | date:'EEEE'}}</b></h1>
+          </div>
+          <div class="col-xl-4 text-right" id="indicadorPermisos" style="display: none;">
+              <div class="alert alert-info" style="margin: 0; padding: 0.5rem;">
+                  <i class="fa fa-crown"></i> <strong>Vista Gerencial</strong>
+                  <br><small>Puede ver todas las tareas del sistema</small>
+              </div>
+          </div>
+      </div>
+      
+      <div class="filtros-calendario">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="filtroNombre" class="form-control-label">Buscar por Tarea:</label>
+              <input type="text" id="filtroNombre" class="form-control" placeholder="Escriba el nombre de la tarea...">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="filtroResponsable" class="form-control-label">Buscar por Responsable:</label>
+              <input type="text" id="filtroResponsable" class="form-control" placeholder="Escriba el nombre del responsable...">
+            </div>
+          </div>
+        </div>
+       
+        <div class="row">
+          <div class="col-md-12">
+            <button class="btn btn-secondary btn-sm" id="limpiarFiltros">
+              <i class="fa fa-times"></i> Limpiar Filtros
+            </button>
+            <button class="btn btn-info btn-sm ml-2" id="filtroMisTareas">
+              <i class="fa fa-user"></i> Tareas Propias
+            </button>
+            <button class="btn btn-success btn-sm ml-2" id="filtroTareasCreadas">
+              <i class="fa fa-plus-circle"></i> Tareas Asignadas
+            </button>
+            <button class="btn btn-warning btn-sm ml-2" id="filtroVistaGlobal">
+              <i class="fa fa-globe"></i> Vista Global
+            </button>
+            <!-- Select oculto para el filtro de tipo de usuario, necesario para la lógica de los botones -->
+            <select id="filtroTipoUsuario" style="display:none">
+              <option value="propias">Tareas Propias</option>
+              <option value="creadas">Tareas Asignadas</option>
+              <option value="todas">Vista Global</option>
+            </select>
+            <!-- Botones de estado al lado de los de tareas -->
+            <div class="btn-group" role="group" aria-label="Filtro Estado" style="vertical-align:middle; margin-left:32px;">
+              
+              <button type="button" class="btn btn-warning btn-sm" id="filtroEstadoPendiente" style="background-color:#ffc107;color:black;">Pendiente</button>
+              <button type="button" class="btn btn-info btn-sm" id="filtroEstadoEnProceso" style="background-color:#17a2b8;color:white;">En Proceso</button>
+              
+              
+            </div>
+            <span class="ml-3" id="contadorResultados" style="display: none;">
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-lg-5 col-xl-5" >
+          <section id="widget" class="widget" style="padding-left: 0px; background-color: transparent; margin-top: 0px; padding-top: 0px;">
+              
+          </section>
+        </div>
+        <div class="col-lg-7 col-xl-7">
+          <section class="widget widget-calendar" style="margin-top: 0px; padding-top: 0px;">
+            <div class="widget-body">
+              <div class="calendar-controls">
+                <div class="btn-group ">
+                  <button class="btn btn-secondary" id="calender-prev"><i class="fa fa-angle-left"></i></button>
+                  <button class="btn btn-secondary" id="calender-next"><i class="fa fa-angle-right"></i></button>
+                  <span style="margin-left:16px; font-size:1.3em; font-weight:bold; vertical-align:middle; display:inline-block;">
+                    {{Fecha | date:'MMMM'}} {{Fecha | date:'yyyy'}} - <b>{{Fecha | date:'EEEE'}}</b>
+                  </span>
+                </div>
+             <div id="calendar-switcher" class="btn-group pull-xs-right" data-toggle="buttons" style="visibility:hidden;" >
+                  <label class="btn btn-secondary active">
+                    <input type="radio" name="view" value="month"/> Month
+                  </label>
+                  <label class="btn btn-secondary">
+                    <input type="radio" name="view" value="agendaWeek"/> Week
+                  </label>
+                  <label class="btn btn-secondary">
+                    <input type="radio" name="view" value="agendaDay"/> Day
+                  </label>
+                </div>
+              </div>
+              <div id="calendar" class="calendar"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<style>
+  .fc-event-title{
+    font-size:10px !important;
+  }
+</style>

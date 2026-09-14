@@ -1,0 +1,288 @@
+<section class="widget">
+  <header style="background-color: #555555">
+    <h5 style="color: white;">
+      <strong><i class="fa fa-bar-chart"></i> Carta Gantt
+        <span *ngIf="nombreProyectoVisible" style="color: #F59325">{{nombreProyectoVisible}}</span>
+      </strong>
+    </h5>
+  </header>
+  <div class="widget-body" style="overflow-x: auto; padding: 10px;">
+    
+    <div *ngIf="!detalleSeguimiento || detalleSeguimiento.length === 0" class="alert alert-info text-center">
+      <i class="fa fa-info-circle fa-2x mb-2"></i>
+      <h5>No hay datos disponibles para mostrar el diagrama de Gantt</h5>
+    </div>
+
+    <div *ngIf="etapas.length > 0" class="gantt-container-modern">
+      
+      <!-- Resumen del Proyecto -->
+      <div class="project-summary">
+        <div class="row">
+          <div class="col-md-3">
+            <div class="summary-card">
+              <div class="summary-icon">
+                <i class="fa fa-calendar text-primary"></i>
+              </div>
+              <div class="summary-info">
+                <span class="summary-label">Inicio Proyecto</span>
+                <span class="summary-value">{{ formatearFecha(fechaMinima) }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="summary-card">
+              <div class="summary-icon">
+                <i class="fa fa-flag-checkered text-success"></i>
+              </div>
+              <div class="summary-info">
+                <span class="summary-label">Fin Proyecto</span>
+                <span class="summary-value">{{ formatearFecha(fechaMaxima) }}</span>
+              </div>
+            </div>
+          </div>  
+          <div class="col-md-3">
+            <div class="summary-card">
+              <div class="summary-icon">
+                <i class="fa fa-clock-o text-warning"></i>
+              </div>
+              <div class="summary-info">
+                <span class="summary-label">Duración Total</span>
+                <span class="summary-value">{{ totalDias }} días</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="summary-card">
+              <div class="summary-icon">
+                <i class="fa fa-tasks text-info"></i>
+              </div>
+              <div class="summary-info">
+                <span class="summary-label">Total Etapas</span>
+                <span class="summary-value">{{ etapas.length }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leyenda Moderna -->
+      <div class="legend-modern">
+        <div class="legend-title"><i class="fa fa-info-circle"></i> Referencias:</div>
+        <div class="legend-items">
+          <div class="legend-item-modern">
+            <div class="legend-dot programado"></div>
+            <span>Programado</span>
+          </div>
+          <div class="legend-item-modern">
+            <div class="legend-dot" style="background: #28a745;"></div>
+            <span>Completado o adelantado (+3% o 100%)</span>
+          </div>
+          <div class="legend-item-modern">
+            <div class="legend-dot" style="background: #ff9800;"></div>
+            <span>En rango (-4.9% a +2.9%)</span>
+          </div>
+          <div class="legend-item-modern">
+            <div class="legend-dot" style="background: #dc3545;"></div>
+            <span>atrasado (-5% o menos)</span>
+          </div>
+          <div class="legend-item-modern legend-item-destacado">
+            <i class="fa fa-map-marker" style="color: #ff9800; font-size: 11px;"></i>
+            <span><strong>Etapa Actual</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráfico Gantt Mejorado -->
+      <div class="gantt-chart-modern">
+        <div class="gantt-scroll-container">
+          <!-- Encabezado con Meses -->
+          <div class="gantt-header-modern">
+            <div class="gantt-label-column">ETAPA</div>
+            <div class="gantt-timeline-header" [style.width.px]="totalDias * escala">
+              <div class="gantt-month-modern" 
+                   *ngFor="let mes of obtenerMeses()" 
+                   [style.left.px]="mes.posicion"
+                   [style.width.px]="mes.ancho">
+                {{ mes.nombre }}
+              </div>
+            </div>
+          </div>
+
+        <!-- Filas de Etapas -->
+        <div class="gantt-row-modern" *ngFor="let etapa of etapas; let i = index"
+             [class.etapa-actual-row]="esEtapaActual(etapa.idEtapa)">
+          
+          <!-- Nombre y Datos de la Etapa -->
+          <div class="gantt-label-column">
+            <div class="etapa-info">
+              <div class="etapa-header">
+                <i class="fa fa-circle" [style.color]="obtenerColorPorEtapa(etapa.idEtapa)"></i>
+                <span class="etapa-nombre-text">{{ etapa.nombre }}</span>
+                <i class="fa fa-map-marker etapa-actual-icon" *ngIf="esEtapaActual(etapa.idEtapa)" 
+                   title="Etapa Actual"></i>
+              </div>
+              <div class="etapa-avance-debajo">({{ etapa.avanceReal }}%)</div>
+              <div class="etapa-estado-badge">
+                <span class="estado-badge etapa-actual-badge" *ngIf="esEtapaActual(etapa.idEtapa)">
+                  <i class="fa fa-play-circle"></i> ACTUAL
+                </span>
+                <span class="estado-badge completado" *ngIf="etapa.avanceReal >= 100 && !esEtapaActual(etapa.idEtapa)">
+                  <i class="fa fa-check-circle"></i> Completado
+                </span>
+                <span class="estado-badge en-curso" *ngIf="etapa.avanceReal > 0 && etapa.avanceReal < 100 && !esEtapaActual(etapa.idEtapa)">
+                  <i class="fa fa-spinner fa-pulse"></i> En Curso
+                </span>
+              </div>
+              <div class="etapa-barras-indicadores">
+                <span class="barra-indicador programado">Prog.</span>
+                <span class="barra-indicador real">Real</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Timeline con Barras -->
+          <div class="gantt-timeline-modern" [style.width.px]="totalDias * escala">
+            
+            <!-- Cuadrícula de Fondo -->
+            <div class="gantt-grid-modern">
+              <div class="gantt-grid-line-modern" 
+                   *ngFor="let j of [].constructor(totalDias); let idx = index"
+                   [style.left.px]="idx * escala">
+              </div>
+            </div>
+
+            <!-- Barra Programada -->
+            <div class="gantt-bar-modern programado" 
+                 *ngIf="etapa.fechaInicioProgramada && etapa.fechaTerminoProgramada"
+                 [style.left.px]="obtenerPosicion(etapa.fechaInicioProgramada)"
+                 [style.width.px]="obtenerAncho(etapa.duracionProgramada)"
+                 [style.background]="obtenerColorPorEtapa(etapa.idEtapa)"
+                 [style.border-color]="obtenerColorPorEtapa(etapa.idEtapa)">
+              <div class="bar-content">
+                <span class="bar-label" [style.color]="obtenerColorTextoAvance(etapa.idEtapa)">{{ formatearFecha(etapa.fechaInicioProgramada) }} - {{ formatearFecha(etapa.fechaTerminoProgramada) }}</span>
+              </div>
+              <div class="bar-tooltip">
+                <strong>Programado</strong><br>
+                Inicio: {{ formatearFecha(etapa.fechaInicioProgramada) }}<br>
+                Fin: {{ formatearFecha(etapa.fechaTerminoProgramada) }}<br>
+                Duración: {{ etapa.duracionProgramada }} días
+              </div>
+            </div>
+
+            <!-- Barra Real -->
+            <div class="gantt-bar-modern real" 
+                *ngIf="etapa.fechaInicioReal"
+              [style.left.px]="obtenerPosicion(etapa.fechaInicioReal)"
+                [style.width.px]="obtenerAnchoAvanceReal(etapa)"
+                 [style.background]="obtenerColorBarraReal(etapa)"
+                 [style.border-color]="getBordeBarraReal(etapa)">
+              <div class="bar-content">
+                <span class="bar-label" style="color: #fff;">
+                  {{ formatearFecha(etapa.fechaInicioReal) }}
+                  <span *ngIf="etapa.fechaTerminoReal"> - {{ formatearFecha(etapa.fechaTerminoReal) }}</span>
+                </span>
+              </div>
+              <div class="bar-tooltip">
+                <strong>Real</strong><br>
+                Inicio: {{ formatearFecha(etapa.fechaInicioReal) }}<br>
+                <span *ngIf="etapa.fechaTerminoReal">Fin: {{ formatearFecha(etapa.fechaTerminoReal) }}<br></span>
+                <span *ngIf="!etapa.fechaTerminoReal">Estado: En curso<br></span>
+                Avance Programado: {{ etapa.avanceProgramado }}%<br>
+                Avance Real: {{ etapa.avanceReal }}%<br>
+                <span *ngIf="etapa.duracionReal > 0">Duración: {{ etapa.duracionReal }} días</span>
+              </div>
+            </div>
+
+            <!-- Línea del día actual -->
+            <div class="linea-hoy" 
+                 *ngIf="mostrarLineaHoy()"
+                 [style.left.px]="obtenerPosicionHoy()"
+                 [title]="'Día actual: ' + obtenerFechaHoy()">
+            </div>
+
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <!-- Tabla de Resumen -->
+      <div class="resumen-tabla mt-4">
+        <h5><i class="fa fa-table"></i> <strong>Resumen de Etapas</strong></h5>
+        <table class="table table-hover table-bordered">
+          <thead>
+            <tr>
+              <th width="12%">Etapa</th>
+              <th width="8%">Ponderado</th>
+              <th width="13%">Fecha Inicio</th>
+              <th width="13%">Fecha Término</th>
+              <th width="10%">Avance</th>
+              <th width="11%">Duración</th>
+              <th width="15%">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let etapa of etapas">
+              <td>
+                <i class="fa fa-circle" [style.color]="obtenerColorPorEtapa(etapa.idEtapa)" style="font-size: 8px; margin-right: 5px;"></i>
+                {{ etapa.nombre }}
+              </td>
+              <td class="text-center">
+                <strong>{{ etapa.ponderado }}%</strong>
+              </td>
+              <td>
+                <div class="fecha-cell">
+                  <small class="text-muted">Prog:</small> {{ formatearFecha(etapa.fechaInicioProgramada) }}<br>
+                  <small class="text-muted">Real:</small> 
+                  <span [class.text-success]="etapa.fechaInicioReal" [class.text-muted]="!etapa.fechaInicioReal">
+                    {{ etapa.fechaInicioReal ? formatearFecha(etapa.fechaInicioReal) : 'No iniciado' }}
+                  </span>
+                </div>
+              </td>
+              <td>
+                <div class="fecha-cell">
+                  <small class="text-muted">Prog:</small> {{ formatearFecha(etapa.fechaTerminoProgramada) }}<br>
+                  <small class="text-muted">Real:</small> 
+                  <span [class.text-success]="etapa.fechaTerminoReal" [class.text-muted]="!etapa.fechaTerminoReal">
+                    {{ etapa.fechaTerminoReal ? formatearFecha(etapa.fechaTerminoReal) : 'En curso' }}
+                  </span>
+                </div>
+              </td>
+              <td class="text-center">
+                <div class="progress">
+                  <div class="progress-bar" 
+                       [style.width.%]="etapa.avanceReal"
+                       [style.background]="obtenerColorBarraReal(etapa)"
+                       role="progressbar">
+                    <strong style="color: #fff; font-size: 9px;">{{ etapa.avanceReal }}%</strong>
+                  </div>
+                </div>
+              </td>
+              <td class="text-center">
+                <div class="duracion-cell">
+                  <small class="text-muted">Prog:</small> <strong>{{ etapa.duracionProgramada }}d</strong><br>
+                  <small class="text-muted">Real:</small> 
+                  <strong [class.text-success]="etapa.duracionReal > 0">
+                    {{ etapa.duracionReal > 0 ? etapa.duracionReal + 'd' : '-' }}
+                  </strong>
+                </div>
+              </td>
+              <td class="text-center">
+                <span class="badge badge-success badge-lg" *ngIf="etapa.avanceReal >= 100">
+                  <i class="fa fa-check-circle" style="color: #28a745;"></i> Completado
+                </span>
+                <span class="badge badge-warning badge-lg" *ngIf="etapa.avanceReal > 0 && etapa.avanceReal < 100">
+                  <i class="fa fa-spinner fa-pulse" style="color: #ffc107;"></i> En Progreso
+                </span>
+                <span class="badge badge-secondary badge-lg" *ngIf="etapa.avanceReal === 0">
+                  <i class="fa fa-clock-o" style="color: #fe1a1eb4;"></i> No Iniciado
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </div>
+</section>

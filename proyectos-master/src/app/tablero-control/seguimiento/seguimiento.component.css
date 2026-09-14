@@ -1,0 +1,203 @@
+/* ===== Contenedor general ===== */
+.widget {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+  padding: 0;
+}
+
+.widget header {
+  margin: 0;
+}
+
+.widget-body {
+  --label-col: 250px;
+  --gap-col: 0.6rem;
+  padding: 0.5rem 1.25rem;
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 560px; /* evita que la grilla se aplaste; aparece scroll horizontal si no entra */
+}
+
+fieldset > legend {
+  display: none;
+}
+
+/* ===== Filas: una sola línea, vía grilla ===== */
+fieldset > div.form-group.row {
+  display: grid;
+  grid-template-columns: var(--label-col) 1fr 1fr;
+  align-items: center;
+  column-gap: var(--gap-col);
+  border-radius: 6px;
+  padding: 0.3rem 0.75rem;
+  margin-bottom: 0;
+  transition: background-color 0.15s ease;
+}
+
+fieldset > div.form-group.row:nth-child(odd) {
+  background-color: #f8f8f8;
+}
+
+fieldset > div.form-group.row:nth-child(even) {
+  background-color: #fbfbfb;
+}
+
+fieldset > div.form-group.row:hover {
+  background-color: #f0f0f0;
+}
+
+/* Anula el flex/ancho de Bootstrap para que mande nuestra grilla, */
+/* SOLO en el contenedor de cada col-* (no toca lo que hay adentro, como .input-group) */
+fieldset > div.form-group.row > [class*="col-"] {
+  flex: initial;
+  width: auto;
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
+  white-space: nowrap;
+}
+
+/* Ubicación de cada columna (etiqueta / programado / real) */
+fieldset > div.form-group.row > .col-md-2 {
+  grid-column: 1;
+}
+
+fieldset > div.form-group.row > .col-md-5:nth-child(2) {
+  grid-column: 2;
+}
+
+fieldset > div.form-group.row > .col-md-5:nth-child(3) {
+  grid-column: 3;
+}
+
+/* Fila de VºBº: el checkbox va en la columna "real" */
+fieldset > div.form-group.row > .col-md-offset-5.col-md-5 {
+  grid-column: 3 !important;
+}
+
+/* Fila de encabezado (Situación programada / real) */
+fieldset > div.form-group.row:first-of-type {
+  background-color: transparent;
+  margin-bottom: 0.2rem;
+}
+
+fieldset > div.form-group.row:first-of-type > *:nth-child(1) {
+  grid-column: 2 !important;
+  background-color: #cdfdc1 !important;
+  color: #1f5d12;
+}
+
+fieldset > div.form-group.row:first-of-type > *:nth-child(2) {
+  grid-column: 3 !important;
+  background-color: #ccdaff !important;
+  color: #1f3b8f;
+}
+
+fieldset > div.form-group.row:first-of-type > label {
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 0.3rem 0;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.78rem;
+}
+
+/* ===== Etiquetas y valores ===== */
+fieldset > div.form-group.row > label:first-child {
+  font-weight: 600;
+  color: #444;
+}
+
+fieldset > div.form-group.row > span.form-control-label {
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== Inputs editables (columna "real") ===== */
+/* Inputs sueltos (Costo, Porcentaje), sin input-group */
+fieldset > div.form-group.row > [class*="col-"] > input.form-control {
+  width: 100%;
+  border: 1px solid #d7d7d7;
+  border-radius: 4px;
+  background-color: #fff;
+  box-shadow: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+fieldset input.form-control:focus {
+  border-color: #f59325;
+  box-shadow: 0 0 0 2px rgba(245, 147, 37, 0.18);
+  outline: none;
+}
+
+fieldset input.form-control:disabled {
+  background-color: #eee;
+  color: #999;
+  cursor: not-allowed;
+}
+
+/* Selector de fecha: NO se toca display/width, Bootstrap ya resuelve el layout */
+/* (display:table en .input-group, width:1% en el addon); solo estética */
+.input-group.date .form-control {
+  border-radius: 4px 0 0 4px;
+}
+
+.input-group.date .input-group-addon {
+  border: 1px solid #d7d7d7;
+  border-left: none;
+  background-color: #fff;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+}
+
+/* ===== Checkboxes VoBo (sin tocar su display interno) ===== */
+.checkbox.abc-checkbox {
+  margin: 0;
+}
+
+.checkbox.abc-checkbox label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ===== Acciones (Guardar / Finalizar) ===== */
+.form-actions {
+  margin-top: 1.25rem;
+  padding: 1rem 1.5rem 0;
+  border-top: 1px solid #e6e6e6;
+}
+
+.form-actions .btn {
+  border-radius: 4px;
+  padding: 0.5rem 1.4rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+}
+
+.form-actions .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.form-actions .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-actions .btn-primary {
+  background-color: #f59325;
+  border-color: #f59325;
+}
+
+.form-actions .btn-primary:hover:not(:disabled) {
+  background-color: #d97e15;
+  border-color: #d97e15;
+}

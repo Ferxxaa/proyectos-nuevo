@@ -1,0 +1,9 @@
+.border{
+    border: 1px solid #cccccc;
+    padding: 0em 2em;
+    margin-bottom: 1em;
+}
+
+.bold{
+    font-weight: bold;
+}

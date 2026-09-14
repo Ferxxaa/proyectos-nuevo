@@ -1,0 +1,206 @@
+<div class="row">
+  <div class="col-lg-12">
+    <table id="Etapas" class="table table-bordered table-striped table-hover no-footer" style="background-color: #f3f3f3">
+      <thead>
+        <tr class="tnbi">
+          <th class="hidden-sm-down"></th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Requerimiento.vigente}" (click)="viewEtapa(1)">Requerimiento
+            <span *ngIf="Requerimiento.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down nbi">NBI 1</th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Factibilidad.vigente}" (click)="viewEtapa(3)">Factibilidad
+            <span *ngIf="Factibilidad.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down nbi">NBI 2</th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Layout.vigente}" (click)="viewEtapa(5)">Layout
+            <span *ngIf="Layout.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down nbi">NBI 3</th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Proyecto.vigente}" (click)="viewEtapa(7)">Proyecto
+            <span *ngIf="Proyecto.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down nbi">NBI 4</th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Licitacion.vigente}" (click)="viewEtapa(9)">Regularización
+            <span *ngIf="Licitacion.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down nbi">NBI 5</th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Adjudicacion.vigente}" (click)="viewEtapa(10)">Licitación Adjudicación
+            <span *ngIf="Adjudicacion.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down nbi">NBI 6</th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Construccion.vigente}" (click)="viewEtapa(12)">Construcción
+            <span *ngIf="Construccion.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Habilitacion.vigente}" (click)="viewEtapa(13)">Habilitación
+            <span *ngIf="Habilitacion.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down nbi">NBI 7</th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Contratista.vigente}" (click)="viewEtapa(15)">Cierre contratista
+            <span *ngIf="Contratista.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Cliente.vigente}" (click)="viewEtapa(16)">Cierre cliente
+            <span *ngIf="Cliente.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down" [ngClass]="{'activo header': Mantencion.vigente}" (click)="viewEtapa(17)">Cierre mantención
+            <span *ngIf="Mantencion.vigente" class="fa fa-circle icono"></span>
+          </th>
+          <th class="hidden-sm-down">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="vertical-align: middle">Dias</td>
+          <td class="content-tabla" [ngClass]="{activo: Requerimiento.vigente}">
+            {{Requerimiento.duracion}}
+          </td>
+          <td class="content-tabla">
+            {{NBI1.duracion}}
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Factibilidad.vigente}">
+            {{Factibilidad.duracion}}
+          </td>
+          <td class="content-tabla">
+            {{NBI2.duracion}}
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Layout.vigente}">
+            {{Layout.duracion}}
+          </td>
+          <td class="content-tabla">
+            {{NBI3.duracion}}
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Proyecto.vigente}">
+            {{Proyecto.duracion}}
+          </td>
+          <td class="content-tabla">
+            {{NBI4.duracion}}
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Licitacion.vigente}">
+            {{Licitacion.duracion}}
+          </td>
+          <td class="content-tabla">{{NBI5.duracion}}</td>
+          <td class="content-tabla" [ngClass]="{activo: Adjudicacion.vigente}">
+            {{Adjudicacion.duracion}}
+          </td>
+          <td class="content-tabla">
+            {{NBI6.duracion}}
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Construccion.vigente}">
+            {{Construccion.duracion}}
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Habilitacion.vigente}">
+            {{Habilitacion.duracion}}
+          </td>
+          <td class="content-tabla">
+            {{NBI7.duracion}}
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Contratista.vigente}">
+            {{Contratista.duracion}}
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Cliente.vigente}">
+            {{Cliente.duracion}}
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Mantencion.vigente}">
+            {{Mantencion.duracion}}
+          </td>
+          <td class="content-tabla">{{Requerimiento.duracion + NBI1.duracion + Factibilidad.duracion +
+            NBI2.duracion + Layout.duracion +
+            NBI3.duracion
+            + Proyecto.duracion + NBI4.duracion + Licitacion.duracion + Adjudicacion.duracion + NBI5.duracion +
+            Construccion.duracion
+            + Habilitacion.duracion + NBI6.duracion + Contratista.duracion + Cliente.duracion + Mantencion.duracion
+            +
+            NBI7.duracion}}
+          </td>
+        </tr>
+        <tr>
+          <td>Ponderado</td>
+          <td class="content-tabla" [ngClass]="{activo: Requerimiento.vigente}">
+            {{Requerimiento.ponderado}}%
+          </td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Factibilidad.vigente}">
+            {{Factibilidad.ponderado}}%
+          </td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Layout.vigente}">
+            {{Layout.ponderado}}%
+          </td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Proyecto.vigente}">
+            {{Proyecto.ponderado}}%
+          </td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Licitacion.vigente}">
+            {{Licitacion.ponderado}}%
+          </td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Adjudicacion.vigente}">
+            {{Adjudicacion.ponderado}}%
+          </td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Construccion.vigente}">
+            {{Construccion.ponderado}}%
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Habilitacion.vigente}">
+            {{Habilitacion.ponderado}}%
+          </td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Contratista.vigente}">
+            {{Contratista.ponderado}}%
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Cliente.vigente}">
+            {{Cliente.ponderado}}%
+          </td>
+          <td class="content-tabla" [ngClass]="{activo: Mantencion.vigente}">
+            {{Mantencion.ponderado}}%
+          </td>
+          <td class="content-tabla">100%</td>
+        </tr>
+        <tr>
+          <td>F. Termino</td>
+          <td class="content-tabla" [ngClass]="{activo: Requerimiento.vigente}">{{Terminos[0] | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Factibilidad.vigente}">{{Terminos[1] | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Layout.vigente}">{{Terminos[2] | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Proyecto.vigente}">{{Terminos[3] | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Licitacion.vigente}">{{Terminos[4] | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Adjudicacion.vigente}">{{Terminos[5] | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Construccion.vigente}">{{Terminos[6] | date:"dd/MM/yyyy"}}</td>
+          <td class="content-tabla" [ngClass]="{activo: Habilitacion.vigente}">{{Terminos[7] | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{activo: Contratista.vigente}">{{Terminos[8] | date:"dd/MM/yyyy"}}</td>
+          <td class="content-tabla" [ngClass]="{activo: Cliente.vigente}">{{Terminos[9] | date:"dd/MM/yyyy"}}</td>
+          <td class="content-tabla" [ngClass]="{activo: Mantencion.vigente}">{{Terminos[10] | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>F. Termino Real</td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Requerimiento.vigente}">{{result[0].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Factibilidad.vigente}">{{result[2].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Layout.vigente}">{{result[4].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Proyecto.vigente}">{{result[6].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Licitacion.vigente}">{{result[8].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Adjudicacion.vigente}">{{result[9].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Construccion.vigente}">{{result[11].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Habilitacion.vigente}">{{result[12].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Contratista.vigente}">{{result[14].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Cliente.vigente}">{{result[15].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td class="content-tabla" [ngClass]="{'activo bottom': Mantencion.vigente}">{{result[16].fechaTerminoReal | date:"dd/MM/yyyy"}}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,66 @@
+/* ul,
+ul li{
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+ul li div{
+    border: 1px solid black;
+}
+
+.d-flex{
+    display: flex;
+    justify-content: space-around;
+} */
+
+th{
+    font-weight: bold;
+    background-color: #0069a6;
+    color: white;
+}
+
+table,
+th{
+    text-align: center;
+}
+
+tbody tr td:nth-child(1){
+    font-weight: bold;
+}
+
+.perfil{
+    cursor: pointer;
+    transition: all 0.5s;
+}
+
+.perfil:hover mat-icon{
+    color: rgb(33, 33, 156) !important;
+}
+
+th.licitaciones{
+    background-color: #f48826;
+}
+
+th.finanzas{
+    background-color: #1a9702;
+}
+
+tbody td:nth-child(-n+6){
+    background-color: #0069a60e;
+}
+
+tbody td:nth-child(1){
+    background-color: transparent;
+}
+
+tbody td:nth-child(7),
+tbody td:nth-child(8){
+    background-color: #f48a260e;
+}
+
+tbody td:nth-child(9),
+tbody td:nth-child(10),
+tbody td:nth-child(11){
+    background-color: #1b97020e;
+}

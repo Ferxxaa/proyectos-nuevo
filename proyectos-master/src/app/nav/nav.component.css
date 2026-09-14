@@ -1,0 +1,281 @@
+:host {
+    --nav-blue: #0879b2;
+    --nav-blue-light: #2596d6;
+    --nav-green: #169b00;
+    --nav-green-light: #57d549;
+    --nav-purple: #900090;
+    --nav-purple-light: #d565d5;
+    --nav-orange: #ff891b;
+    --nav-orange-light: #f4a953;
+    --nav-submenu: #6e7178;
+}
+
+.icon i {
+    color: white !important;
+}
+
+.sidebar-nav-title {
+    color: white !important;
+}
+
+.sidebar-nav-title a {
+    color: inherit !important;
+    text-decoration: none;
+    display: block;
+}
+
+.sidebar-nav-title a:hover,
+.sidebar-nav-title a:focus {
+    color: inherit !important;
+    text-decoration: none;
+}
+
+li a {
+    color: white !important;
+}
+
+.sidebar-nav {
+    padding: 3px 0;
+    font-size: 14px;
+}
+
+/* Quita el espacio/gap entre los items del sidebar */
+.sidebar-nav > li,
+.sidebar-nav > li > ul > li,
+#sidebar-proyectos-accordion .sidebar-nav > li,
+#sidebar-tareas-accordion .sidebar-nav > li,
+#sidebar-licitaciones-accordion .sidebar-nav > li,
+#sidebar-finanzas-accordion .sidebar-nav > li {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+/* Junta el título de la sección con su submenú (sin espacio entre ambos) */
+.sidebar-nav,
+.sidebar-nav + .collapse,
+.collapse > div > ul.sidebar-nav {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Espacio entre secciones del menú (Home, Proyectos, Tareas, Licitaciones, Finanzas) */
+.js-sidebar-content > ul.sidebar-nav {
+    margin-top: 16px !important;
+}
+
+/* Home en gris */
+a.sidebar-section-home {
+    background-color: #6b6b6b !important;
+    color: white !important;
+    display: block;
+}
+
+a.sidebar-section-home:hover,
+a.sidebar-section-home:focus {
+    background-color: #6b6b6b !important;
+    color: white !important;
+    text-decoration: none;
+}
+
+/* Mantiene el botón/título de Finanzas en verde aunque el sidebar esté gris en Home */
+a.sidebar-section-finanzas {
+    background-color: var(--nav-green) !important;
+    color: white !important;
+    display: block;
+}
+
+a.sidebar-section-finanzas:hover,
+a.sidebar-section-finanzas:focus {
+    background-color: var(--nav-green) !important;
+    color: white !important;
+    text-decoration: none;
+}
+
+/* Proyectos en azul */
+a.sidebar-section-proyectos {
+    background-color: var(--nav-blue) !important;
+    color: white !important;
+    display: block;
+}
+
+a.sidebar-section-proyectos:hover,
+a.sidebar-section-proyectos:focus {
+    background-color: var(--nav-blue) !important;
+    color: white !important;
+    text-decoration: none;
+}
+
+/* Tareas en morado */
+a.sidebar-section-tareas {
+    background-color: var(--nav-purple) !important;
+    color: white !important;
+    display: block;
+}
+
+a.sidebar-section-tareas:hover,
+a.sidebar-section-tareas:focus {
+    background-color: var(--nav-purple) !important;
+    color: white !important;
+    text-decoration: none;
+}
+
+/* Licitaciones en naranjo */
+a.sidebar-section-licitaciones {
+    background-color: var(--nav-orange) !important;
+    color: white !important;
+    display: block;
+}
+
+a.sidebar-section-licitaciones:hover,
+a.sidebar-section-licitaciones:focus {
+    background-color: var(--nav-orange) !important;
+    color: white !important;
+    text-decoration: none;
+}
+
+#sidebar-proyectos-accordion .sidebar-nav > li > a {
+    background-color: var(--nav-blue-light) !important;
+}
+
+#sidebar-proyectos-accordion .sidebar-nav > li > a:hover,
+#sidebar-proyectos-accordion .sidebar-nav > li > a:focus {
+    background-color: var(--nav-blue-light) !important;
+    color: white !important;
+    text-decoration: none;
+}
+
+#sidebar-tareas-accordion .sidebar-nav > li > a {
+    background-color: var(--nav-purple-light) !important;
+}
+
+#sidebar-tareas-accordion .sidebar-nav > li > a:hover,
+#sidebar-tareas-accordion .sidebar-nav > li > a:focus {
+    background-color: var(--nav-purple-light) !important;
+    color: white !important;
+    text-decoration: none;
+}
+
+#sidebar-licitaciones-accordion .sidebar-nav > li > a {
+    background-color: var(--nav-orange-light) !important;
+}
+
+#sidebar-licitaciones-accordion .sidebar-nav > li > a:hover,
+#sidebar-licitaciones-accordion .sidebar-nav > li > a:focus {
+    background-color: var(--nav-orange-light) !important;
+    color: white !important;
+    text-decoration: none;
+}
+
+#sidebar-finanzas-accordion .sidebar-nav > li > a {
+    background-color: var(--nav-green-light) !important;
+}
+
+#sidebar-finanzas-accordion .sidebar-nav > li > a:hover,
+#sidebar-finanzas-accordion .sidebar-nav > li > a:focus {
+    background-color: var(--nav-green-light) !important;
+    color: white !important;
+    text-decoration: none;
+}
+
+#sidebar-proyectos-accordion li:has(> ul.collapse.in) > a[data-toggle="collapse"],
+#sidebar-proyectos-accordion li:has(> ul.collapsing) > a[data-toggle="collapse"],
+#sidebar-licitaciones-accordion li:has(> ul.collapse.in) > a[data-toggle="collapse"],
+#sidebar-licitaciones-accordion li:has(> ul.collapsing) > a[data-toggle="collapse"],
+#sidebar-finanzas-accordion li:has(> ul.collapse.in) > a[data-toggle="collapse"],
+#sidebar-finanzas-accordion li:has(> ul.collapsing) > a[data-toggle="collapse"] {
+    background-color: #151515 !important;
+    color: white !important;
+}
+
+.sidebar-nav>li ul {
+  /* background-color: #26b809 !important; */
+  /* background-color: #4f5a5f !important; */
+    background-color: var(--nav-submenu) !important;
+}
+
+/* Gráfico Estructural en teal/petróleo */
+a.sidebar-section-grafico {
+  background-color: #006b6b !important;
+  color: white !important;
+  display: block;
+}
+
+a.sidebar-section-grafico:hover,
+a.sidebar-section-grafico:focus {
+  background-color: #005252 !important;
+  color: white !important;
+  text-decoration: none;
+}
+/* Secciones visibles pero sin acceso para el rol Cliente */
+.menu-bloqueado li a {
+    color: #999 !important;
+    cursor: not-allowed !important;
+    background-color: #6b6969 !important;
+}
+
+.menu-bloqueado ul li a {
+    background-color: #807e7e !important;
+    color: #ccc !important;
+}
+
+/* Modal de aviso de permisos */
+.permiso-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.permiso-modal {
+    background: #fff;
+    border-radius: 6px;
+    padding: 28px 32px;
+    max-width: 360px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    animation: permiso-modal-in 0.15s ease-out;
+}
+
+.permiso-modal-icon {
+    font-size: 36px;
+    color: #f48826;
+    margin-bottom: 10px;
+}
+
+.permiso-modal h4 {
+    margin: 0 0 10px;
+    color: #333;
+    font-weight: 600;
+}
+
+.permiso-modal p {
+    margin: 0 0 20px;
+    color: #666;
+}
+
+.permiso-modal-btn {
+    background-color: #026AA7;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 24px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.permiso-modal-btn:hover {
+    background-color: #015a8f;
+}
+
+@keyframes permiso-modal-in {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}

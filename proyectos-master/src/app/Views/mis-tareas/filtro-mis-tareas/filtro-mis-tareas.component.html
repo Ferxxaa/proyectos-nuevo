@@ -1,0 +1,23 @@
+<div class="border">
+  <div class="form-group row bold">
+    <div class="col-md-3">Estado</div>
+    <div class="col-md-3">Prioridad</div>
+    <div class="col-md-3">Responsable</div>
+  </div>
+  <div class="form-group row">
+    <form action="buscador()">
+      <div class="col-md-3">
+        <app-select [listado]="estado$ | async" [id]="selectEstado.id" [texto]="selectEstado.texto" [model]="buscar.estado" (cambiar)="actualizarBuscador($event,'estado')"></app-select>
+      </div>
+      <div class="col-md-3">
+        <app-select [listado]="prioridad" [id]="selectPrioridad.id" [texto]="selectPrioridad.texto" [model]="buscar.prioridad" (cambiar)="actualizarBuscador($event,'prioridad')"></app-select>
+      </div>
+      <div class="col-md-3">
+        <app-select [listado]="responsable$ | async | arrDisting:['idUsuario','nombre']" [id]="selectResponsable.id" [texto]="selectResponsable.texto" [model]="buscar.responsable"  (cambiar)="actualizarBuscador($event,'responsable')"></app-select>
+      </div>
+      <div class="col-md-1 d-flex align-items-start">
+        <button class="btn btn-primary" (click)="limpiar()">Limpiar filtros</button>
+      </div>
+    </form>
+  </div>
+</div>

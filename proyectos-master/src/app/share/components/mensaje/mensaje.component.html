@@ -1,0 +1,24 @@
+<!-- Mensajes -->
+<div class="modal fade in" id="Mensaje" tabindex="-1" role="dialog" aria-labelledby="MensajeLongTitle" [attr.aria-hidden]="!visible" *ngIf="visible">
+  <div class="modal-dialog" role="document">
+      <span class="widget-icon">
+          <i class="fa fa-circle" style="position:absolute;color:white;top: 5px;left: 5px;"></i>
+          <i class="glyphicon glyphicon-ok-sign" style="color:green"></i>
+      </span>
+      <section class="widget widget-card ">
+          <div class="widget-body clearfix">
+              <div class="row">
+                  <div class="col-md-12">
+                      <h3 class="no-margin">{{mensaje}}</h3>
+                  </div>
+              </div>
+          </div>
+          <br>
+          <div class="modal-footer" style="background-color: #eeeeee;">
+              <div class="col-xs-offset-4 col-xs-2 ">
+                  <button type="button" class="btn btn-primary" data-dismiss="modal" (click)="OcultarMensaje()">Aceptar</button>
+              </div>
+          </div>
+      </section>
+  </div>
+</div>

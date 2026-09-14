@@ -1,0 +1,22 @@
+textarea{
+    height: 190px;
+    max-height: 190px;
+}
+
+/* ***********************************Validate Form*********************************** */
+
+.ng-invalid.ng-touched.requiered{
+    border-color: red;
+  }
+  
+  .ng-valid.ng-dirty.requiered{
+    border-color: green;
+  }
+
+/* ***********************************Loader*********************************** */
+
+.widget .loader{
+    position: relative;
+    background-color: white;
+}
+

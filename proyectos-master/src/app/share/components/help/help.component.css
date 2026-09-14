@@ -1,0 +1,16 @@
+.toltip{
+    position: relative;
+    display: inline;
+    cursor:help;
+}
+
+app-semaforo-proyecto{
+    display: none;
+    position: absolute;
+    /* top: -40px; */
+    transition: 0.5s;
+}
+
+.toltip:hover app-semaforo-proyecto{
+    display: block;
+}

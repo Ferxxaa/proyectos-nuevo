@@ -1,0 +1,545 @@
+﻿
+
+.ge-widget-body {
+  padding: 20px;
+  background: #f4f6f9;
+}
+
+/* ===== PANEL DE FILTRO ===== */
+.ge-filtro-panel {
+  background: white;
+  border: 1px solid #e0e6ed;
+  border-left: 4px solid #026AA7;
+  border-radius: 4px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.ge-filtro-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.ge-filtro-icono {
+  font-size: 18px;
+  color: #026AA7;
+  flex-shrink: 0;
+}
+
+.ge-filtro-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 240px;
+  max-width: 400px;
+}
+
+.ge-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #026AA7;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0;
+}
+
+.ge-select {
+  border: 1px solid #d0dce8;
+  border-radius: 3px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: #333;
+  background: white;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.ge-select:focus {
+  border-color: #026AA7;
+}
+
+.ge-filtro-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+
+.ge-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ge-stat-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: #026AA7;
+  line-height: 1;
+}
+
+.ge-stat-lbl {
+  font-size: 10px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ge-stat-sep {
+  width: 1px;
+  height: 32px;
+  background: #e0e6ed;
+}
+
+/* ===== CARGANDO ===== */
+.ge-cargando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px;
+  color: #026AA7;
+  font-size: 14px;
+  background: white;
+  border: 1px solid #e0e6ed;
+  border-radius: 4px;
+}
+
+/* ===== VACIO ===== */
+.ge-empty {
+  text-align: center;
+  padding: 50px 20px;
+  color: #bcc;
+  background: white;
+  border: 1px solid #e0e6ed;
+  border-radius: 4px;
+}
+
+.ge-empty i {
+  font-size: 52px;
+  color: #d4dfe8;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.ge-empty p {
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ===== SCROLL / ARBOL ===== */
+.ge-arbol-scroll {
+  overflow-x: auto;
+  padding-bottom: 24px;
+}
+
+.ge-arbol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: fit-content;
+  padding: 20px 24px 0;
+  background: white;
+  border: 1px solid #e0e6ed;
+  border-radius: 4px;
+}
+
+/* ===== NIVELES ===== */
+.ge-nivel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.ge-nivel-h {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* ===== FILAS ===== */
+.ge-fila {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 18px;
+  align-items: flex-start;
+  padding: 0 10px;
+}
+
+.ge-fila-proyectos {
+  gap: 24px;
+}
+
+.ge-fila-sp {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+/* ===== RAMAS ===== */
+.ge-rama {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.ge-sub-rama {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  position: relative;
+}
+
+/* ===== CONECTORES ===== */
+.ge-cv {
+  width: 2px;
+  height: 24px;
+  background: #c8d6e0;
+  margin: 0 auto;
+}
+
+.ge-cv-rama {
+  height: 9px;
+}
+
+.ge-ch {
+  border-top: 2px solid #c8d6e0;
+  width: 85%;
+}
+
+.ge-ch-sp {
+  display: none;
+}
+
+/* ===== TARJETAS BASE ===== */
+.ge-card {
+  width: 100%;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #e0e6ed;
+  overflow: hidden;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.ge-card:hover {
+  box-shadow: 0 4px 14px rgba(2, 106, 167, 0.1);
+  border-color: #b0c8da;
+}
+
+/* Franja superior de color */
+.ge-card-strip {
+  height: 4px;
+  width: 100%;
+}
+
+/* La tarjeta de matriz puede crecer libremente */
+.ge-card-matriz .ge-card-body {
+  height: auto;
+  min-height: 56px;
+  overflow: visible;
+}
+
+/* Proyecto: altura fija para que todos queden alineados */
+.ge-card-proyecto .ge-card-body {
+  height: 56px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ge-card-proyecto {
+  background: #f0f0f0;
+}
+
+.ge-card-proyecto:hover {
+  background: #e0e0e0;
+}
+
+.ge-card-proyecto .ge-card-strip {
+  background: #3d5a6c;
+}
+
+/* Cuerpo de la tarjeta (matriz y proyecto) */
+.ge-card-body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  min-height: 56px;
+  box-sizing: border-box;
+}
+
+/* Iconos circulares */
+.ge-card-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ge-icon-matriz {
+  background: rgba(2, 106, 167, 0.1);
+  color: #026AA7;
+}
+
+.ge-icon-proyecto {
+  background: rgba(61, 90, 108, 0.1);
+  color: #3d5a6c;
+}
+
+.ge-icon-sp {
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  background: #f0f4f8;
+  color: #6c8898;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* Contenido textual */
+.ge-card-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ge-card-nivel {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  color: #aab;
+}
+
+.ge-card-matriz .ge-card-nivel {
+  color: #5da8d3;
+}
+
+.ge-card-proyecto .ge-card-nivel {
+  color: #7a9aaa;
+}
+
+.ge-card-subproyecto .ge-card-nivel {
+  color: #999;
+}
+
+.ge-card-nombre {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2c3e50;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ge-card-meta {
+  font-size: 10px;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.ge-card-meta i {
+  font-size: 9px;
+  color: #bbb;
+}
+
+/* Badge contador (esquina derecha) */
+.ge-card-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 40px;
+  padding: 5px 7px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.ge-badge-col-matriz {
+  background: rgba(2, 106, 167, 0.07);
+  border: 1px solid rgba(2, 106, 167, 0.18);
+}
+
+.ge-badge-col-proyecto {
+  background: rgba(61, 90, 108, 0.07);
+  border: 1px solid rgba(61, 90, 108, 0.15);
+}
+
+.ge-badge-num {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  color: #026AA7;
+}
+
+.ge-badge-col-proyecto .ge-badge-num {
+  font-size: 15px;
+  color: #3d5a6c;
+}
+
+.ge-badge-lbl {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #999;
+}
+
+/* ===== TARJETA SUB-PROYECTO ===== */
+.ge-card-subproyecto {
+  border-left: 3px solid #d4c84a;
+  background: #faf5bb;
+}
+
+.ge-card-subproyecto-clickable {
+  cursor: pointer;
+}
+
+.ge-card-subproyecto:hover {
+  border-left-color: #b8ad2a;
+  background: #f5ee99;
+}
+
+.ge-card-subproyecto-cerrado {
+  border-left-color: #c62828;
+  background: #fdecea;
+}
+
+.ge-card-subproyecto-cerrado:hover {
+  border-left-color: #b71c1c;
+  background: #f9d6d2;
+}
+
+.ge-card-subproyecto-cerrado .ge-icon-sp {
+  background: #fbe3e0;
+  color: #c62828;
+}
+
+.ge-card-subproyecto-cerrado .ge-card-nombre {
+  color: #8e1c1c;
+}
+
+.ge-card-sp-body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  height: 56px;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Pill estado */
+.ge-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  white-space: nowrap;
+  align-self: flex-start;
+  flex-shrink: 0;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ge-pill-activo {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.ge-pill-inactivo {
+  background: #fce4ec;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+/* ===== SIN DATOS ===== */
+.ge-sin-data {
+  font-size: 11px;
+  color: #bbb;
+  background: #fafbfc;
+  border: 1px dashed #dde6ed;
+  border-radius: 3px;
+  padding: 6px 12px;
+  text-align: center;
+  margin-top: 2px;
+  width: 100%;
+}
+
+.ge-sin-data i {
+  margin-right: 4px;
+}
+
+.ge-sin-data-sm {
+  font-size: 10px;
+  padding: 4px 8px;
+}
+
+/* ===== NOMBRE CLICKEABLE ===== */
+.ge-card-nombre-click {
+  cursor: pointer;
+  text-decoration: underline dotted #aaa;
+}
+
+.ge-card-nombre-click:hover {
+  color: #026AA7;
+}
+
+/* Popover con nombre completo */
+.ge-nombre-popover {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 999;
+  background: #fff;
+  border: 1px solid #026AA7;
+  border-radius: 4px;
+  padding: 8px 28px 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2c3e50;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  min-width: 180px;
+  max-width: 280px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.ge-nombre-popover-close {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  cursor: pointer;
+  color: #999;
+  font-size: 11px;
+}
+
+.ge-nombre-popover-close:hover {
+  color: #c62828;
+}

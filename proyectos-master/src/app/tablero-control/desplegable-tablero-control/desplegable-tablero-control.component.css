@@ -1,0 +1,46 @@
+.col-12{
+    padding: 1rem;
+}
+
+.bg-secondary {
+    background-color: #555555;
+    font-size: 1.25rem;
+}
+
+.mb-3{
+    margin-bottom: 1rem;
+}
+
+.text-white{
+    font-weight: bold;
+}
+
+.header{
+    background-color: #ccdaff;
+    font-weight: bold;
+}
+
+.row1{
+    display: flex;
+    text-align: center;
+}
+
+.row1 > div {
+    /* flex: 0 0 14.28571428%;
+    max-width: 14.28571428%; */
+    flex: 0 0 10%;
+    max-width: 10%;
+    border: 1px solid #ccc;
+}
+
+.text-white{
+    color: white;
+}
+
+.card{
+    font-size: 1.1rem;
+}
+
+.card i{
+    font-size: 23px;
+}

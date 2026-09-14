@@ -1,0 +1,217 @@
+/* div section.widget .widget-body {
+    border: solid 1px #fff !important;
+    background-color: white !important;
+} */
+
+/* Estilo para alinear la sección del calendario con el panel de tareas */
+.widget-calendar {
+    margin-top: 0px !important; /* Alineado con el panel de tareas */
+    padding-top: 0px !important;
+}
+
+/* Mantener diseño consistente del calendario en todos los usuarios */
+#indicadorPermisos {
+    display: none !important;
+}
+
+/* Forzar alineación del panel de tareas y hacer que tenga la misma altura que el calendario */
+#widget.widget {
+    margin-top: 0px !important;
+    padding-top: 0px !important;
+    min-height: 750px; /* Altura mínima para igualar con el calendario */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Estilos para los filtros */
+.filtros-calendario {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #e9ecef;
+}
+
+.filtros-calendario .form-control {
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.filtros-calendario .form-control:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.filtros-calendario .form-control-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 5px;
+}
+
+#limpiarFiltros {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    transition: all 0.15s ease-in-out;
+}
+
+#limpiarFiltros:hover {
+    background-color: #545b62;
+    border-color: #4e555b;
+}
+
+#contadorResultados {
+    font-size: 0.9em;
+    font-weight: 500;
+    color: #6c757d;
+}
+
+/* Estilos para botones de filtro rápido */
+#filtroVistaGlobal {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+    font-weight: 600;
+}
+
+#filtroVistaGlobal:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+    color: #212529;
+}
+
+#filtroMisTareas {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+#filtroMisTareas:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+}
+
+#filtroTareasCreadas {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+#filtroTareasCreadas:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* Estilos para los selects */
+#filtroTipoUsuario, #filtroEstado {
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 0.375rem 0.75rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+#filtroTipoUsuario:focus, #filtroEstado:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Indicador visual de filtros activos */
+.filtros-calendario .form-control:not([value=""]):not(:placeholder-shown) {
+    border-left: 3px solid #007bff;
+}
+
+#filtroTipoUsuario:not([value="todas"]), #filtroEstado:not([value=""]) {
+    border-left: 3px solid #007bff;
+}
+
+/* Estilos para el panel de detalles de tareas filtradas */
+.tarea-filtrada {
+    transition: all 0.3s ease;
+}
+
+.tarea-filtrada:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+    transform: translateY(-2px) !important;
+}
+
+.widget-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #007bff;
+}
+
+/* Badges personalizados */
+.badge {
+    font-size: 0.85em;
+    padding: 0.4em 0.8em;
+    border-radius: 0.375rem;
+}
+
+/* Separadores entre tareas */
+.tarea-filtrada + .tarea-filtrada {
+    margin-top: 15px;
+}
+
+/* Iconos en los detalles */
+.tarea-filtrada .fa {
+    margin-right: 5px;
+    width: 16px;
+    text-align: center;
+}
+
+/* Colores de estados */
+.estado-pendiente { background-color: #ffc107 !important; }
+.estado-progreso { background-color: #17a2b8 !important; }
+.estado-completado { background-color: #28a745 !important; }
+.estado-cancelado { background-color: #dc3545 !important; }
+.estado-pausado { background-color: #6c757d !important; }
+
+/* Colores de prioridades */
+.prioridad-alta { background-color: #dc3545 !important; }
+.prioridad-media { background-color: #ffc107 !important; }
+.prioridad-baja { background-color: #28a745 !important; }
+
+/* Animación del panel */
+#widget {
+    transition: all 0.3s ease;
+}
+
+/* Scroll personalizado para el panel de detalles */
+#widget {
+    max-height: 600px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #026AA7 #e9ecef;
+}
+
+#widget::-webkit-scrollbar {
+    width: 12px;
+}
+
+#widget::-webkit-scrollbar-track {
+    background: #e9ecef;
+    border-radius: 6px;
+}
+
+#widget::-webkit-scrollbar-thumb {
+    background: #026AA7;
+    border-radius: 6px;
+    border: 2px solid #e9ecef;
+}
+
+#widget::-webkit-scrollbar-thumb:hover {
+    background: #014f7e;
+}
+
+/* Alerta visual: tareas sin fecha de compromiso */
+#calendar .fc-event.tarea-sin-compromiso {
+    background-color: #ffa759 !important;
+    border-color: #ffa759 !important;
+    color: #6c757d !important;
+}
+
+#calendar .fc-event.tarea-sin-compromiso .fc-title,
+#calendar .fc-event.tarea-sin-compromiso .fc-event-title {
+    color: #6c757d !important;
+    font-weight: 600;
+}

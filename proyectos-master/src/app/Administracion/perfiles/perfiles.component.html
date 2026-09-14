@@ -1,0 +1,98 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+    <main id="content" role="main" class="content">
+
+        <div class="row">
+            <div class="col-lg-12">
+
+                <section class="widget">
+                    <header style="background-color: #555555">
+                        <h2 style="color: white;">
+                            <strong>Perfiles de Usuarios</strong>
+                            <div class="right" (click)="popup.show()">
+                                <mat-icon>grid_on</mat-icon>
+                            </div>
+                        </h2>
+                    </header>
+
+                    <div class="widget-body">
+                        <fieldset>
+                            <legend></legend>
+                            <!-- <div class="form-group row">
+                                                            <label for="normal-field" class="col-md-2 form-control-label h5">Sistemas:</label>
+                                                            <div class="col-md-2">
+                                                                <select id="drdCategoria" class="dropdown-toggle select2-chosen-2 form-control" [(ngModel)]="categoria" name="drdCategoria">
+                                                                    <option value="0" selected="selected">--- Seleccione una opcion ---</option>
+                                                                    <option value="1">Gerenciamiento de Proyectos</option>
+                                                                    <option value="2">Licitaciones</option>
+                                                                    <option value="3">Finanzas</option>
+                                                                </select>
+                                                            </div>
+                                                            <label for="normal-field" class="col-md-2 ml-auto form-control-label h5">Usuario:</label>
+                                                            <div class="col-md-2">
+                                                                <select id="drdUsuarios" class="dropdown-toggle select2-chosen-2 form-control" [(ngModel)]="usuarioPerfil.idUsuario" name="drdUsuarios" (change)="cargaPerfiles()">
+                                                                    <option value="0" selected="selected">--- Seleccione una opcion ---</option>
+                                                                    <option *ngFor="let usuario of usuarios" value={{usuario.idUsuario}}>
+                                                                        {{usuario.nombreUsuario}}</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-1 h2 text-success mb0" (click)="AgregaUsuarioPerfil()">
+                                                                <i class="fa fa-plus-square"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group row">
+                                                            <label for="normal-field" class="col-md-2 form-control-label h5">Perfiles:</label>
+                                                            <div class="col-md-2">
+                                                                <select id="drdPerfiles" class="dropdown-toggle select2-chosen-2 form-control" [(ngModel)]="usuarioPerfil.idPerfil" name="drdPerfiles">
+                                                                    <option value="0" selected="selected">--- Seleccione una opcion ---</option>
+                                                                    <option *ngFor="let perfil of Perfiles | filterPerfilCategoria:categoria" value={{perfil.idPerfil}}>
+                                                                        {{perfil.nombrePerfil}}</option>
+                                                                </select>
+                                                            </div>
+                                                            <label for="normal-field" class="ml-auto col-md-2 form-control-label h5">Perfiles actuales:</label>
+                                                            <div class="ml-auto col-md-6">
+                                                                <ul>
+                                                                    <li *ngFor="let usuarioPerfil of usuarioPerfiles | filterPerfilCategoria:categoria" (dblclick)="eliminarPerfil(usuarioPerfil.usuarioPerfil)">{{usuarioPerfil.nombrePerfil}}</li>
+                                                                </ul>
+                                                            </div>
+                                                        </div> -->
+                            <app-perfiles-personas></app-perfiles-personas>
+                        </fieldset>
+                    </div>
+                    <!-- *ngIf="usuarioPerfil.idPerfil == 1 || usuarioPerfil.idPerfil == 2 || usuarioPerfil.idPerfil == 3 || usuarioPerfil.idPerfil == 4 || usuarioPerfil.idPerfil == 5" -->
+                <!-- *ngIf="usuarioPerfil.idPerfil == 7 || usuarioPerfil.idPerfil == 8" -->
+                    <!-- *ngIf="usuarioPerfil.idPerfil == 10 || usuarioPerfil.idPerfil == 11" -->
+                </section>
+
+            </div>
+        </div>
+
+    </main>
+</div>
+
+
+<app-pop-up-content>
+    <h3 class="bold">Matriz de permisos</h3>
+    <div class="content-body">
+        <div class="form-group row">
+            <label for="normal-field" class="col-md-2 form-control-label h5">Sistemas:</label>
+            <div class="col-md-2">
+                <select id="drdCategoria" class="dropdown-toggle select2-chosen-2 form-control" [(ngModel)]="categoria" name="drdCategoria">
+                    <option value="0" selected="selected">--- Seleccione una opcion ---</option>
+                    <option value="1">Gerenciamiento de Proyectos</option>
+                    <option value="2">Licitaciones</option>
+                    <option value="3">Finanzas</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <app-permisos-proyectos *ngIf="categoria==1" [perfil]="usuarioPerfil.idPerfil"></app-permisos-proyectos>
+                <app-permisos-licitaciones *ngIf="categoria==2" [perfil]="usuarioPerfil.idPerfil"></app-permisos-licitaciones>
+                <app-permisos-finanzas *ngIf="categoria==3" [perfil]="usuarioPerfil.idPerfil"></app-permisos-finanzas>
+            </div>
+        </div>
+        <!-- <app-perfiles-personas></app-perfiles-personas> -->
+    </div>
+</app-pop-up-content>

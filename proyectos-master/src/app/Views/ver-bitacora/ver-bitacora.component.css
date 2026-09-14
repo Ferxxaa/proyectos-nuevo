@@ -1,0 +1,78 @@
+/* ***********************************Iconos*********************************** */
+a{
+  text-decoration: none;
+  color: black;
+}
+
+.icon{
+    height: 1px;
+    width: 25px;
+    line-height:0px;
+    font-size: 20px;
+}
+
+.linea{
+  display: flex;
+  flex-wrap: wrap;
+  padding: 6px;
+}
+
+.linea:hover{
+  background-color: rgb(239, 251, 255);
+}
+
+.list-goup-item{
+  flex: 0 0 95%;
+  transition: 0.3s;
+}
+
+.link{
+  flex: 0 0 5%
+}
+
+.glyphicon-glyph-paperclip{
+  cursor: pointer;
+  margin-left: 5px;
+  padding-bottom: 5px;
+  transition: 0.3ms;
+}
+
+.glyphicon-glyph-paperclip:hover{
+  color: rgb(0, 0, 255);
+}
+
+/* ***********************************Tabla*********************************** */
+thead{
+    background: #026AA7;
+    color:white;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* *********************************** Loader *********************************** */
+
+.widget .loader{
+  position: relative;
+  background-color: white;
+}
+  
+.widget>.loader{
+  position: absolute;
+}
+
+.widget .loader .spinner{
+  position: absolute;
+  top: 50%;
+  /* width: 100%; */
+  margin-top: 10px;
+  /* font-size: 20px; */
+  text-align: center;
+}
+  
+
+/* *********************************** PopUP *********************************** */
+
+textarea{
+    height: 190px;
+    max-height: 190px;
+}

@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ejemplo - Control de Avance con LocalStorage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .instrucciones {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .instrucciones h1 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .instrucciones h2 {
+            color: #764ba2;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+        .paso {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+        .paso strong {
+            color: #667eea;
+        }
+        .caracteristica {
+            background: #e8f4f8;
+            padding: 10px 15px;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+        .caracteristica i {
+            color: #28a745;
+            margin-right: 8px;
+        }
+        code {
+            background: #2c3e50;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        .nota {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+        .nota strong {
+            color: #856404;
+        }
+        .ejemplo-datos {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .btn-demo {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        .btn-demo:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        #resultado {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="instrucciones">
+        <h1>📦 Control de Avance - Modo LocalStorage</h1>
+        <p>Esta funcionalidad te permite guardar datos de ejemplo en el navegador sin necesidad de backend.</p>
+
+        <h2>🚀 Cómo usar el Modo Local:</h2>
+        
+        <div class="paso">
+            <strong>Paso 1:</strong> En la aplicación Angular, haz clic en el botón <code>Modo Servidor</code> en el encabezado para cambiar a <code>Modo Local</code>.
+        </div>
+
+        <div class="paso">
+            <strong>Paso 2:</strong> Una vez activado, verás un badge amarillo que dice <code>MODO LOCAL</code> junto al título.
+        </div>
+
+        <div class="paso">
+            <strong>Paso 3:</strong> Agrega documentos usando el botón <code>Agregar Documento</code>. Los cambios se guardan automáticamente en tu navegador.
+        </div>
+
+        <div class="paso">
+            <strong>Paso 4:</strong> Puedes cerrar y volver a abrir la aplicación - tus datos se mantendrán guardados.
+        </div>
+
+        <div class="paso">
+            <strong>Paso 5:</strong> Para limpiar todos los datos, usa el botón <code>Limpiar Local</code>.
+        </div>
+
+        <h2>✨ Características:</h2>
+
+        <div class="caracteristica">
+            ✅ Guardado automático al escribir en cualquier campo
+        </div>
+
+        <div class="caracteristica">
+            ✅ Los datos persisten entre sesiones del navegador
+        </div>
+
+        <div class="caracteristica">
+            ✅ Perfecto para hacer demos y ejemplos
+        </div>
+
+        <div class="caracteristica">
+            ✅ No requiere conexión al servidor
+        </div>
+
+        <div class="caracteristica">
+            ✅ Puedes cambiar entre modo local y servidor cuando quieras
+        </div>
+
+        <div class="nota">
+            <strong>💡 Nota:</strong> Los datos guardados en modo local solo están disponibles en tu navegador. No se comparten entre dispositivos ni se sincronizan con el servidor.
+        </div>
+
+        <h2>🔧 Funciones Disponibles:</h2>
+
+        <div class="caracteristica">
+            <strong>ToggleModoLocal():</strong> Activa/desactiva el modo local
+        </div>
+
+        <div class="caracteristica">
+            <strong>GuardarEnLocal():</strong> Guarda manualmente los datos en localStorage
+        </div>
+
+        <div class="caracteristica">
+            <strong>CargarDesdeLocal():</strong> Carga los datos guardados desde localStorage
+        </div>
+
+        <div class="caracteristica">
+            <strong>LimpiarDatosLocales():</strong> Elimina todos los datos guardados localmente
+        </div>
+    </div>
+
+    <div class="ejemplo-datos">
+        <h2>🧪 Prueba el LocalStorage aquí:</h2>
+        <p>Usa estos botones para probar cómo funciona el guardado local:</p>
+
+        <button class="btn-demo btn-success" onclick="guardarEjemplo()">
+            💾 Guardar Datos de Ejemplo
+        </button>
+
+        <button class="btn-demo" onclick="cargarDatos()">
+            📂 Cargar Datos Guardados
+        </button>
+
+        <button class="btn-demo btn-danger" onclick="limpiarDatos()">
+            🗑️ Limpiar Datos
+        </button>
+
+        <div id="resultado"></div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'controles-avance-ejemplos';
+
+        function guardarEjemplo() {
+            const datosEjemplo = [
+                {
+                    idControlAvance: 1,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 474 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano General conjunto Parque, zona industrial y zona campamento',
+                    revisionActual: 2,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-01-15',
+                    fechaTerminoContrato: '2024-06-30',
+                    fechaTerminoReal: '2024-06-28',
+                    activo: true
+                },
+                {
+                    idControlAvance: 2,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45N 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de Ubicación, emplazamiento, planta de techumbre, cuadro de superficies Bodega Insumos',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-01-20',
+                    fechaTerminoContrato: '2024-07-01',
+                    activo: true
+                },
+                {
+                    idControlAvance: 3,
+                    idProyecto: 0,
+                    numeroAvance: 68,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45O 00',
+                    tipo: 'P - Planificado',
+                    descripcion: 'Plano de Ubicación, emplazamiento, planta de techumbre, cuadro de superficies Bodega Peligrosos',
+                    revisionActual: 2,
+                    estado: 'P',
+                    clasificacion: 'B',
+                    fechaInicioContrato: '2024-01-25',
+                    fechaTerminoContrato: '2024-07-10',
+                    activo: true
+                },
+                {
+                    idControlAvance: 4,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45P 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de Ubicación, emplazamiento, planta de techumbre, cuadro de superficies Bodega P. Fotovoltaicos',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-02-01',
+                    fechaTerminoContrato: '2024-07-15',
+                    activo: true
+                },
+                {
+                    idControlAvance: 5,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45Q 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de Ubicación, emplazamiento, planta de techumbre, cuadro de superficies Bodega P. Felip',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-02-03',
+                    fechaTerminoContrato: '2024-07-18',
+                    activo: true
+                },
+                {
+                    idControlAvance: 6,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45R 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de Ubicación, emplazamiento, planta de techumbre, cuadro de superficies Bodegas Respel, Suspel, Gases',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-02-05',
+                    fechaTerminoContrato: '2024-07-20',
+                    activo: true
+                },
+                {
+                    idControlAvance: 7,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45T 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de planta de Arquitectura y terminaciones Bodega Máquinas',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-02-08',
+                    fechaTerminoContrato: '2024-07-23',
+                    activo: true
+                },
+                {
+                    idControlAvance: 8,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45U 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de planta de Arquitectura y terminaciones Bodega Máquinas',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-02-10',
+                    fechaTerminoContrato: '2024-07-25',
+                    activo: true
+                },
+                {
+                    idControlAvance: 9,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45V 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de planta de Arquitectura y terminaciones Bodega P. Fotovoltaicos',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-02-12',
+                    fechaTerminoContrato: '2024-07-27',
+                    activo: true
+                },
+                {
+                    idControlAvance: 10,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45W 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de planta de Arquitectura y terminaciones Bodega Res No Peligrosos',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-02-15',
+                    fechaTerminoContrato: '2024-07-30',
+                    activo: true
+                },
+                {
+                    idControlAvance: 11,
+                    idProyecto: 0,
+                    numeroAvance: 20,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 45X 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de planta de Arquitectura y terminaciones Bodegas Respel, Suspel, Gases',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-02-18',
+                    fechaTerminoContrato: '2024-08-03',
+                    activo: true
+                },
+                {
+                    idControlAvance: 12,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC S 99 CL P 07822 00 460 00',
+                    tipo: 'ET - Especificación Técnica',
+                    descripcion: 'Especificaciones técnicas Arquitectura Zona Industrial',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-02-25',
+                    fechaTerminoContrato: '2024-08-10',
+                    activo: true
+                },
+                {
+                    idControlAvance: 13,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 462 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano fundaciones y detalles generales Bodega Insumos',
+                    revisionActual: 2,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-03-01',
+                    fechaTerminoContrato: '2024-08-15',
+                    activo: true
+                },
+                {
+                    idControlAvance: 14,
+                    idProyecto: 0,
+                    numeroAvance: 20,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 463 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano fundaciones y detalles generales Bodega Máquinas',
+                    revisionActual: 2,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-03-05',
+                    fechaTerminoContrato: '2024-08-20',
+                    activo: true
+                },
+                {
+                    idControlAvance: 15,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 464 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano fundaciones y detalles generales Bodega P. Fotovoltaicos',
+                    revisionActual: 2,
+                    estado: 'NV',
+                    clasificacion: 'C',
+                    fechaInicioContrato: '2024-03-08',
+                    fechaTerminoContrato: '2024-08-23',
+                    activo: true
+                },
+                {
+                    idControlAvance: 16,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 465 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano fundaciones y detalles generales Bodega Res No Peligrosos',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-03-10',
+                    fechaTerminoContrato: '2024-08-25',
+                    activo: true
+                },
+                {
+                    idControlAvance: 17,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 466 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano fundaciones y detalles generales Bodegas Respel, Suspel, Gases',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-03-12',
+                    fechaTerminoContrato: '2024-08-27',
+                    activo: true
+                },
+                {
+                    idControlAvance: 18,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 469 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de estructura muros, estructura cubierta, elevaciones y detalles Bodega Insumos',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-03-15',
+                    fechaTerminoContrato: '2024-08-30',
+                    activo: true
+                },
+                {
+                    idControlAvance: 19,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46A 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de estructura muros, estructura cubierta, elevaciones y detalles Bodega Máquinas',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-03-18',
+                    fechaTerminoContrato: '2024-09-02',
+                    activo: true
+                },
+                {
+                    idControlAvance: 20,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46B 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de estructura muros, estructura cubierta, elevaciones y detalles Bodega P. Fotovoltaicos',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-03-20',
+                    fechaTerminoContrato: '2024-09-05',
+                    activo: true
+                },
+                {
+                    idControlAvance: 21,
+                    idProyecto: 0,
+                    numeroAvance: 65,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46C 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano de estructura muros, estructura cubierta, elevaciones y detalles Bodegas Respel Res Peligrosos',
+                    revisionActual: 0,
+                    estado: 'P',
+                    clasificacion: 'B',
+                    fechaInicioContrato: '2024-03-25',
+                    fechaTerminoContrato: '2024-09-10',
+                    activo: true
+                },
+                {
+                    idControlAvance: 22,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46E 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano y detalles cierres perimetrales Zona Industrial',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-03-28',
+                    fechaTerminoContrato: '2024-09-15',
+                    activo: true
+                },
+                {
+                    idControlAvance: 23,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC C 99 CL P 07822 00 48G 00',
+                    tipo: 'MC - Memoria de cálculo',
+                    descripcion: 'Memoria Calculo estructural Bodega Insumos',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-04-01',
+                    fechaTerminoContrato: '2024-09-15',
+                    activo: true
+                },
+                {
+                    idControlAvance: 24,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC C 99 CL P 07822 00 48H 00',
+                    tipo: 'MC - Memoria de cálculo',
+                    descripcion: 'Memoria Calculo estructural Bodega Máquinas',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-04-05',
+                    fechaTerminoContrato: '2024-09-20',
+                    activo: true
+                },
+                {
+                    idControlAvance: 25,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC C 99 CL P 07822 00 48I 00',
+                    tipo: 'MC - Memoria de cálculo',
+                    descripcion: 'Memoria Calculo estructural Bodega P. Fotovoltaicos',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-04-10',
+                    fechaTerminoContrato: '2024-09-25',
+                    activo: true
+                },
+                {
+                    idControlAvance: 26,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC C 99 CL P 07822 00 48L 00',
+                    tipo: 'MC - Memoria de cálculo',
+                    descripcion: 'Memoria de Calculo fundación Zona Estanque de Combustible',
+                    revisionActual: 0,
+                    estado: 'NV',
+                    clasificacion: 'C',
+                    fechaInicioContrato: '2024-04-15',
+                    fechaTerminoContrato: '2024-09-30',
+                    activo: true
+                },
+                {
+                    idControlAvance: 27,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46G 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano - Cámara de alumbrado, enchufes, iluminación, cuadro de cargas Bodega Insumos',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-04-20',
+                    fechaTerminoContrato: '2024-10-05',
+                    activo: true
+                },
+                {
+                    idControlAvance: 28,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46P 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano - Distribución de alumbrado, enchufes, iluminación, cuadro de cargas Bodega de Máquinas',
+                    revisionActual: 2,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-04-25',
+                    fechaTerminoContrato: '2024-10-10',
+                    activo: true
+                },
+                {
+                    idControlAvance: 29,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46Q 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano - Distribución de alumbrado, enchufes, iluminación cuadro de cargas Bodega P. Fotovoltaicos',
+                    revisionActual: 2,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-04-27',
+                    fechaTerminoContrato: '2024-10-12',
+                    activo: true
+                },
+                {
+                    idControlAvance: 30,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46S 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano Eléctrico y corrientes débiles Bodegas de Insumos',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-02',
+                    fechaTerminoContrato: '2024-10-17',
+                    activo: true
+                },
+                {
+                    idControlAvance: 31,
+                    idProyecto: 0,
+                    numeroAvance: 65,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46T 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano Eléctrico y corrientes débiles Bodega de Máquinas',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-05',
+                    fechaTerminoContrato: '2024-10-20',
+                    activo: true
+                },
+                {
+                    idControlAvance: 32,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46U 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano Eléctrico y corrientes débiles Bodega P. Fotovoltaicos',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-08',
+                    fechaTerminoContrato: '2024-10-23',
+                    activo: true
+                },
+                {
+                    idControlAvance: 33,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46W 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano Eléctrico PTAS y AP',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-12',
+                    fechaTerminoContrato: '2024-10-27',
+                    activo: true
+                },
+                {
+                    idControlAvance: 34,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC S 99 CL P 07822 00 46X 00',
+                    tipo: 'ET - Especificación Técnica',
+                    descripcion: 'Especificaciones técnicas Electricidad Zona Industrial',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-01',
+                    fechaTerminoContrato: '2024-10-15',
+                    activo: true
+                },
+                {
+                    idControlAvance: 35,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 46Y 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano Aire acondicionado recinto Bodega de Insumos',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-15',
+                    fechaTerminoContrato: '2024-10-30',
+                    activo: true
+                },
+                {
+                    idControlAvance: 36,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC C 99 CL P 07822 00 470 00',
+                    tipo: 'MC - Memoria de cálculo',
+                    descripcion: 'Memoria Calculo sistema Aire acondicionado recinto Bodega de Insumos',
+                    revisionActual: 1,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-05',
+                    fechaTerminoContrato: '2024-10-20',
+                    activo: true
+                },
+                {
+                    idControlAvance: 37,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC D 99 CL P 07822 00 471 00',
+                    tipo: 'P - Planos',
+                    descripcion: 'Plano desarrollo aguas lluvias TK aguas a reutilizar y detalles',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-18',
+                    fechaTerminoContrato: '2024-11-02',
+                    activo: true
+                },
+                {
+                    idControlAvance: 38,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC C 99 CL P 07822 00 472 00',
+                    tipo: 'MC - Memoria de cálculo',
+                    descripcion: 'Memoria de Calculo PTAS',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-10',
+                    fechaTerminoContrato: '2024-10-25',
+                    activo: true
+                },
+                {
+                    idControlAvance: 39,
+                    idProyecto: 0,
+                    numeroAvance: 100,
+                    codigo: 'GRE EEC S 99 CL P 07822 00 473 00',
+                    tipo: 'ET - Especificación Técnica',
+                    descripcion: 'Especificaciones Técnicas PTAS',
+                    revisionActual: 0,
+                    estado: 'VA',
+                    clasificacion: 'A',
+                    fechaInicioContrato: '2024-05-15',
+                    fechaTerminoContrato: '2024-10-30',
+                    activo: true
+                }
+            ];
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(datosEjemplo));
+            mostrarResultado('✅ Datos de ejemplo guardados correctamente', 'success');
+        }
+
+        function cargarDatos() {
+            const datos = localStorage.getItem(STORAGE_KEY);
+            if (datos) {
+                const parsed = JSON.parse(datos);
+                mostrarResultado(
+                    `📊 Datos encontrados (${parsed.length} documentos):\n\n` +
+                    JSON.stringify(parsed, null, 2),
+                    'info'
+                );
+            } else {
+                mostrarResultado('⚠️ No hay datos guardados', 'warning');
+            }
+        }
+
+        function limpiarDatos() {
+            if (confirm('¿Estás seguro de que quieres eliminar todos los datos guardados?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                mostrarResultado('🗑️ Datos eliminados correctamente', 'success');
+            }
+        }
+
+        function mostrarResultado(mensaje, tipo) {
+            const resultado = document.getElementById('resultado');
+            resultado.style.display = 'block';
+            resultado.style.whiteSpace = 'pre-wrap';
+            
+            const colores = {
+                success: { bg: '#d4edda', border: '#28a745', color: '#155724' },
+                warning: { bg: '#fff3cd', border: '#ffc107', color: '#856404' },
+                info: { bg: '#d1ecf1', border: '#17a2b8', color: '#0c5460' }
+            };
+            
+            const color = colores[tipo] || colores.info;
+            resultado.style.backgroundColor = color.bg;
+            resultado.style.borderLeft = `4px solid ${color.border}`;
+            resultado.style.color = color.color;
+            resultado.textContent = mensaje;
+        }
+
+        // Cargar automáticamente al abrir la página
+        window.onload = function() {
+            const datos = localStorage.getItem(STORAGE_KEY);
+            if (datos) {
+                mostrarResultado(
+                    '💡 Hay datos guardados. Haz clic en "Cargar Datos Guardados" para verlos.',
+                    'info'
+                );
+            }
+        };
+    </script>
+</body>
+</html>

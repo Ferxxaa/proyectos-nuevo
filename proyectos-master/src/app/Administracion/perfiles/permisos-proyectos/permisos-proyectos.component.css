@@ -1,0 +1,24 @@
+thead{
+    font-weight: 600;
+    text-align: center;
+    background: #026AA7;
+    color: white;
+}
+
+.table thead th{
+    background-color: transparent;
+}
+
+thead tr th,
+tbody tr td{
+    text-align: center;
+}
+
+tbody tr td:nth-child(1){
+    font-weight: bold;
+    text-align: left;
+}
+
+.active{
+    background-color: #dae3ff59
+}

@@ -1,0 +1,9 @@
+/* ***********************************Validate Form*********************************** */
+
+.ng-invalid.ng-touched.requiered{
+    border-color: red;
+  }
+  
+  .ng-valid.ng-dirty.requiered{
+    border-color: green;
+  }

@@ -1,0 +1,256 @@
+/* ===== Corporativo Elegante ===== */
+
+/* --- Widget / Panel --- */
+:host ::ng-deep section.widget {
+  border: 1px solid #d5dce6;
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  background: #fff;
+  overflow: hidden;
+}
+
+:host ::ng-deep section.widget > header {
+  background: #555555 !important;
+  padding: 16px 28px;
+  border-bottom: 3px solid #444444;
+}
+
+:host ::ng-deep section.widget > header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.widget-body {
+  padding: 32px 36px 28px;
+  background: #fff;
+}
+
+/* --- Filtros --- */
+.filtros-panel {
+  background: #f7f9fc;
+  border: 1px solid #d5dce6;
+  border-left: 4px solid #555555;
+  padding: 24px 28px;
+  margin-bottom: 32px;
+  border-radius: 3px;
+}
+
+.filtros-panel .form-group {
+  margin-bottom: 18px;
+}
+
+.filtros-panel .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.filtros-panel label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.filtros-panel select.form-control {
+  border: 1px solid #b8c6d6;
+  border-radius: 2px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: #34495e;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.filtros-panel select.form-control:focus {
+  border-color: #555555;
+  box-shadow: 0 0 0 2px rgba(85,85,85,0.12);
+  outline: none;
+}
+
+.btn-limpiar {
+  background: #fff;
+  color: #555555;
+  border: 1px solid #b8c6d6;
+  border-radius: 2px;
+  padding: 6px 16px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-limpiar:hover {
+  background: #f0f4f8;
+  border-color: #555555;
+  color: #333;
+}
+
+.btn-limpiar i {
+  margin-right: 4px;
+}
+
+/* --- Tabla de etapas --- */
+.table-container {
+  border: 1px solid #d5dce6;
+  overflow-x: visible;
+  margin-top: 28px;
+  margin-bottom: 28px;
+  border-radius: 3px;
+}
+
+table.corporate-table {
+  margin-bottom: 0;
+  font-size: 0.8rem;
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+
+table.corporate-table thead {
+  border-bottom: 2px solid #555555;
+}
+
+th {
+  vertical-align: middle !important;
+  text-align: center;
+  padding: 10px 5px !important;
+  font-weight: 700 !important;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  border: none !important;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+th.th-label       { background: transparent !important; color: #34495e !important; border-right: 1px solid #d5dce6 !important; }
+th.th-etapa-1     { background: #7fa88e !important; }
+th.th-nbi         { background: #eceff3 !important; color: #7f8c9b !important; font-weight: 500 !important; font-style: italic; width: 3%; }
+th.th-etapa-2     { background: #4a7f3e !important; }
+th.th-etapa-3     { background: #2980b9 !important; }
+th.th-etapa-4     { background: #1b6fa0 !important; }
+th.th-etapa-5     { background: #004d80 !important; }
+th.th-etapa-5b    { background: #4a6274 !important; }
+th.th-etapa-6     { background: #c8a415 !important; }
+th.th-etapa-7     { background: #c87d15 !important; }
+th.th-etapa-8     { background: #b5422a !important; }
+th.th-etapa-8b    { background: #b5422a !important; }
+th.th-etapa-8c    { background: #b5422a !important; }
+th.th-total       { background: #555555 !important; border-left: 2px solid #444444 !important; }
+
+/* Cuerpo de tabla */
+tbody tr {
+  border-bottom: 1px solid #e8ecf1;
+  transition: background 0.12s;
+}
+
+tbody tr:hover {
+  background: #f0f4f8 !important;
+}
+
+tbody tr > td {
+  vertical-align: middle;
+  text-align: center;
+  padding: 10px 5px;
+  font-size: 0.75rem;
+  color: #2c3e50;
+  font-weight: 600;
+  border-right: 1px solid #e8ecf1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+tbody tr > td:first-child {
+  background: #f7f9fc;
+  text-align: left;
+  padding-left: 18px;
+  padding-right: 12px;
+  font-weight: 700;
+  color: #555555;
+  white-space: nowrap;
+  min-width: 120px;
+  border-right: 1px solid #d5dce6;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.3px;
+}
+
+td.nbi-cell {
+  background: #f5f7fa;
+}
+
+td .form-control {
+  padding: 3px 2px;
+  font-size: 0.72rem;
+  border: 1px solid #c5cddb;
+  border-radius: 2px;
+  text-align: center;
+  min-width: 0;
+  width: 100%;
+  color: #2c3e50;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+td .form-control:focus {
+  border-color: #555555;
+  box-shadow: inset 0 0 0 1px #555555;
+  outline: none;
+}
+
+td .form-control::placeholder {
+  color: #b0b8c5;
+  font-size: 0.6rem;
+}
+
+.cell-total {
+  font-weight: 800 !important;
+  color: #555555 !important;
+  font-size: 0.78rem !important;
+  background: #f0f0f0;
+  border-left: 2px solid #555555 !important;
+}
+
+.cell-date {
+  font-size: 0.68rem;
+  color: #5d6d7e;
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+tr.row-highlight {
+  border-top: 2px solid #d5dce6;
+}
+
+.nbi {
+  width: 3%;
+}
+
+/* --- Botones --- */
+.btn-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-top: 22px;
+  border-top: 1px solid #d5dce6;
+  margin-top: 10px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 992px) {
+  .widget-body {
+    padding: 16px 12px;
+  }
+  .filtros-panel {
+    padding: 14px 14px;
+  }
+}

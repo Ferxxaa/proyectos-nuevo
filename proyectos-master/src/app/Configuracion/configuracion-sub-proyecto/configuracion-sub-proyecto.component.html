@@ -1,0 +1,359 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <div>
+      <div class="row">
+        <div class="col-lg-12">
+          <section class="widget">
+            <header style="background-color: #555555">
+              <h2 style="color: white;">
+                <strong>Configuración de Ritmos Sub-Proyecto</strong>
+              </h2>
+            </header>
+            <div class="widget-body">
+              <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
+                <fieldset>
+                  <legend></legend>
+
+                  <div class="selector-panel">
+                    <div class="form-group row">
+                      <label for="normal-field" class="col-md-3 form-control-label">Proyecto Matriz</label>
+                      <div class="col-md-9">
+                        <select id="drdProyectoMatriz" class="form-control" [(ngModel)]="drdProyectoMatriz"
+                          name="drdProyectoMatriz" (change)="CargaProyectos()">
+                          <option value=0 selected>--- Seleccione una opcion ---</option>
+                          <option *ngFor="let ProyectoMatriz of ProyectosMatriz" value={{ProyectoMatriz.idProyectoMatriz}}>{{ProyectoMatriz.nombreProyectoMatriz}}</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="form-group row">
+                      <label for="normal-field" class="col-md-3 form-control-label">Proyecto</label>
+                      <div class="col-md-9">
+                        <select id="drdProyecto" class="form-control" [(ngModel)]="drdProyecto"
+                          name="drdProyecto" (change)="CargaSubProyectos()">
+                          <option value=0 selected>--- Seleccione una opcion ---</option>
+                          <option *ngFor="let Proyecto of Proyectos" value={{Proyecto.idProyecto}}>{{Proyecto.nombreProyecto}}</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="form-group row">
+                      <label for="normal-field" class="col-md-3 form-control-label">Sub Proyecto</label>
+                      <div class="col-md-9">
+                        <select id="drdSubProyecto" class="form-control" [(ngModel)]="drdSubProyecto"
+                          name="drdSubProyecto" (change)="CargaDatosSubProyecto()">
+                          <option value=0 selected>--- Seleccione una opcion ---</option>
+                          <option *ngFor="let SubProyecto of SubProyectos" value={{SubProyecto.idSubProyecto}}>{{SubProyecto.nombreSubProyecto}}</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="table-container">
+                  <table id="ctl00_contenidoCentral_tblEtapas" class="table no-footer corporate-table">
+                    <thead>
+                      <tr>
+                        <th class="hidden-sm-down th-label"></th>
+                        <th class="hidden-sm-down th-etapa-1">Requerimiento</th>
+                        <th class="hidden-sm-down th-nbi">NBI 1</th>
+                        <th class="hidden-sm-down th-etapa-2">Factibilidad</th>
+                        <th class="hidden-sm-down th-nbi">NBI 2</th>
+                        <th class="hidden-sm-down th-etapa-3">Layout</th>
+                        <th class="hidden-sm-down th-nbi">NBI 3</th>
+                        <th class="hidden-sm-down th-etapa-4">Proyecto</th>
+                        <th class="hidden-sm-down th-nbi">NBI 4</th>
+                        <th class="hidden-sm-down th-etapa-5">Regularización</th>
+                        <th class="hidden-sm-down th-nbi">NBI 5</th>
+                        <th class="hidden-sm-down th-etapa-5b">Licitación Adjudicación</th>
+                        <th class="hidden-sm-down th-nbi">NBI 6</th>
+                        <th class="hidden-sm-down th-etapa-6">Construcción</th>
+                        <th class="hidden-sm-down th-etapa-7">Habilitación</th>
+                        <th class="hidden-sm-down th-nbi">NBI 7</th>
+                        <th class="hidden-sm-down th-etapa-8">Cierre contratista</th>
+                        <th class="hidden-sm-down th-etapa-8b">Cierre cliente</th>
+                        <th class="hidden-sm-down th-etapa-8c">Cierre mantención</th>
+                        <th class="hidden-sm-down th-total">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Dias</td>
+                        <td>
+                          <input type="number" id="txtDRequerimiento" class="form-control" [(ngModel)]="Requerimiento.duracion"
+                            name="txtDRequerimiento" placeholder="Requerimiento" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td class="nbi-cell">
+                          <input type="number" id="txtDNBI1" class="form-control" [(ngModel)]="NBI1.duracion" name="txtDNBI1"
+                            placeholder="NBI" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDFactibilidad" class="form-control" [(ngModel)]="Factibilidad.duracion"
+                            name="txtDFactibilidad" placeholder="Factibilidad" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td class="nbi-cell">
+                          <input type="number" id="txtDNBI2" class="form-control" [(ngModel)]="NBI2.duracion" name="txtDNBI2"
+                            placeholder="NBI" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDLayout" class="form-control" [(ngModel)]="Layout.duracion" name="txtDLayout"
+                            placeholder="Layout" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td class="nbi-cell">
+                          <input type="number" id="txtDNBI3" class="form-control" [(ngModel)]="NBI3.duracion" name="txtDNBI3"
+                            placeholder="NBI" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDProyecto" class="form-control" [(ngModel)]="Proyecto.duracion"
+                            name="txtDProyecto" placeholder="Proyecto" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td class="nbi-cell">
+                          <input type="number" id="txtDNBI4" class="form-control" [(ngModel)]="NBI4.duracion" name="txtDNBI4"
+                            placeholder="NBI" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDLicitacion" class="form-control" [(ngModel)]="Regularizacion.duracion"
+                            name="txtDLicitacion" placeholder="Regularización" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td class="nbi-cell">
+                          <input type="number" id="txtDNBI5" class="form-control" [(ngModel)]="NBI5.duracion" name="txtDNBI5"
+                            placeholder="NBI" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDAdjudicacion" class="form-control" [(ngModel)]="LicitacionAdjudicacion.duracion"
+                            name="txtDAdjudicacion" placeholder="Licitación Adjudicación" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td class="nbi-cell">
+                          <input type="number" id="txtDNBI6" class="form-control" [(ngModel)]="NBI6.duracion" name="txtDNBI6"
+                            placeholder="NBI" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDConstruccion" class="form-control" [(ngModel)]="Construccion.duracion"
+                            name="txtDConstruccion" placeholder="Construcción" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDHabilitacion" class="form-control" [(ngModel)]="Habilitacion.duracion"
+                            name="txtDHabilitacion" placeholder="Habilitación" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td class="nbi-cell">
+                          <input type="number" id="txtDNBI7" class="form-control" [(ngModel)]="NBI7.duracion" name="txtDNBI7"
+                            placeholder="NBI" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDcontratista" class="form-control" [(ngModel)]="Contratista.duracion"
+                            name="txtDContratista" placeholder="Contratista" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDCliente" class="form-control" [(ngModel)]="Cliente.duracion"
+                            name="txtDCliente" placeholder="Cliente" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td>
+                          <input type="number" id="txtDMantencion" class="form-control" [(ngModel)]="Mantencion.duracion"
+                            name="txtDMantencion" placeholder="Mantención" (change)="CargaFecha()" min="0">
+                        </td>
+                        <td class="cell-total">{{Requerimiento.duracion + NBI1.duracion + Factibilidad.duracion + NBI2.duracion +
+                          Layout.duracion
+                          + NBI3.duracion + Proyecto.duracion + NBI4.duracion + Regularizacion.duracion +
+                          NBI5.duracion + LicitacionAdjudicacion.duracion
+                          + NBI6.duracion + Construccion.duracion + Habilitacion.duracion + NBI7.duracion +
+                          Contratista.duracion
+                          + Cliente.duracion + Mantencion.duracion}}</td>
+                      </tr>
+                      <tr>
+                        <td>F. Inicio</td>
+                        <td class="cell-date">{{Inicios[0] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Inicios[1] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Inicios[2] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Inicios[3] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Inicios[4] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Inicios[5] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Inicios[6] | date:"dd/MM/yyyy"}}</td>
+                        <td class="cell-date">{{Inicios[7] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Inicios[8] | date:"dd/MM/yyyy"}}</td>
+                        <td class="cell-date">{{Inicios[9] | date:"dd/MM/yyyy"}}</td>
+                        <td class="cell-date">{{Inicios[10] | date:"dd/MM/yyyy"}}</td>
+                        <td class="cell-total"></td>
+                      </tr>
+                      <tr>
+                        <td>F. Termino</td>
+                        <td class="cell-date">{{Terminos[0] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Terminos[1] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Terminos[2] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Terminos[3] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Terminos[4] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Terminos[5] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Terminos[6] | date:"dd/MM/yyyy"}}</td>
+                        <td class="cell-date">{{Terminos[7] | date:"dd/MM/yyyy"}}</td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-date">{{Terminos[8] | date:"dd/MM/yyyy"}}</td>
+                        <td class="cell-date">{{Terminos[9] | date:"dd/MM/yyyy"}}</td>
+                        <td class="cell-date">{{Terminos[10] | date:"dd/MM/yyyy"}}</td>
+                        <td class="cell-total"></td>
+                      </tr>
+                      <tr class="row-highlight">
+                        <td>Ponderado (%)</td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPRequerimiento" class="form-control requiered"
+                            [(ngModel)]="Requerimiento.ponderado" name="txtPRequerimiento" placeholder="Requerimiento"
+                            pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPFactibilidad" class="form-control" [(ngModel)]="Factibilidad.ponderado"
+                            name="txtPFactibilidad" placeholder="Factibilidad" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPLayout" class="form-control" [(ngModel)]="Layout.ponderado"
+                            name="txtPLayout" placeholder="Layout" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtProyecto" class="form-control" [(ngModel)]="Proyecto.ponderado"
+                            name="txtProyecto" placeholder="Proyecto" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPLicitacion" class="form-control" [(ngModel)]="Regularizacion.ponderado"
+                            name="txtPLicitacion" placeholder="Regularización" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                          <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPAdjudicacion" class="form-control" [(ngModel)]="LicitacionAdjudicacion.ponderado"
+                            name="txtPAdjudicacion" placeholder="Licitación Adjudicación" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPConstruccion" class="form-control" [(ngModel)]="Construccion.ponderado"
+                            name="txtPConstruccion" placeholder="Construcción" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPHabilitacion" class="form-control" [(ngModel)]="Habilitacion.ponderado"
+                            name="txtPHabilitacion" placeholder="Habilitación" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPContratista" class="form-control" [(ngModel)]="Contratista.ponderado"
+                            name="txtPContratista" placeholder="Contratista" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPCliente" class="form-control" [(ngModel)]="Cliente.ponderado"
+                            name="txtPCliente" placeholder="Cliente" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td>
+                          <input type="number" min="0" max="100" id="txtPMantencion" class="form-control" [(ngModel)]="Mantencion.ponderado"
+                            name="txtPMantencion" placeholder="Mantención" pattern="[0-9]+" (change)="SumaPonderado()">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-total">{{ sumPonderado }}</td>
+                      </tr>
+                      <tr>
+                        <td>Presupuesto (MM$)</td>
+                        <td>
+                          <input type="number" id="txtMRequerimiento" class="form-control" [(ngModel)]="Requerimiento.presupuesto"
+                            name="txtMRequerimiento" placeholder="Requerimiento">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" id="txtMFactibilidad" class="form-control" [(ngModel)]="Factibilidad.presupuesto"
+                            name="txtMFactibilidad" placeholder="Factibilidad">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" id="txtMLayout" class="form-control" [(ngModel)]="Layout.presupuesto"
+                            name="txtMLayout" placeholder="Layout">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" id="txtMProyecto" class="form-control" [(ngModel)]="Proyecto.presupuesto"
+                            name="txtMProyecto" placeholder="Proyecto">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" id="txtMLicitacion" class="form-control" [(ngModel)]="Regularizacion.presupuesto"
+                            name="txtMLicitacion" placeholder="Regularización">
+                        </td>
+                          <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" id="txtMAdjudicacion" class="form-control" [(ngModel)]="LicitacionAdjudicacion.presupuesto"
+                            name="txtMAdjudicacion" placeholder="Licitación Adjudicación">
+                        </td>
+                        <td>
+                          <input type="number" id="txtMConstruccion" class="form-control" [(ngModel)]="Construccion.presupuesto"
+                            name="txtMConstruccion" placeholder="Construcción">
+                        </td>
+                        <td>
+                          <input type="number" id="txtMHabilitacion" class="form-control" [(ngModel)]="Habilitacion.presupuesto"
+                            name="txtMHabilitacion" placeholder="Habilitación">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td>
+                          <input type="number" id="txtMContratista" class="form-control" [(ngModel)]="Contratista.presupuesto"
+                            name="txtMContratista" placeholder="Contratista">
+                        </td>
+                        <td>
+                          <input type="number" id="txtMCliente" class="form-control" [(ngModel)]="Cliente.presupuesto"
+                            name="txtMCliente" placeholder="Cliente">
+                        </td>
+                        <td>
+                          <input type="number" id="txtMMantencion" class="form-control" [(ngModel)]="Mantencion.presupuesto"
+                            name="txtMMantencion" placeholder="Mantención">
+                        </td>
+                        <td class="nbi-cell"></td>
+                        <td class="cell-total">{{ Requerimiento.presupuesto + Factibilidad.presupuesto + Layout.presupuesto +
+                          Proyecto.presupuesto
+                          + Regularizacion.presupuesto + LicitacionAdjudicacion.presupuesto + Construccion.presupuesto +
+                          Habilitacion.presupuesto
+                          + Contratista.presupuesto + Cliente.presupuesto + Mantencion.presupuesto}}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  </div>
+
+                </fieldset>
+
+                <div class="btn-bar">
+                  <input type="submit" name="btnCancela" value="Volver / Cancelar" id="btnCancela" class="btn-corp-secondary">
+                  <input type="submit" name="btnGuardar" value="Guardar" id="btnGuardar" class="btn-corp-primary">
+                </div>
+
+              </form>
+              <!-- <u>Requerimiento:</u> {{Requerimiento | json}}
+              <br> <u>NBI1:</u> {{NBI1 | json}}
+              <br> <u>Factibilidad:</u> {{Factibilidad | json}}
+              <br> <u>NBI2:</u> {{NBI2 | json}}
+              <br> <u>Layout:</u> {{Layout | json}}
+              <br> <u>NBI3:</u> {{NBI3 | json}}
+              <br> <u>Proyecto:</u> {{Proyecto | json}}
+              <br> <u>NBI4:</u> {{NBI4 | json}}
+              <br> <u>Regularizacion:</u> {{Regularizacion | json}}
+              <br> <u>NBI5:</u> {{NBI5 | json}}
+              <br> <u>LicitacionAdjudicacion:</u> {{LicitacionAdjudicacion | json}}
+              <br> <u>NBI6:</u> {{NBI6 | json}}
+              <br> <u>Construccion:</u> {{Construccion | json}}
+              <br> <u>Habilitacion:</u> {{Habilitacion | json}}
+              <br> <u>NBI7:</u> {{NBI7 | json}}
+              <br> <u>Contratista:</u> {{Contratista | json}}
+              <br> <u>Cliente:</u> {{Cliente | json}}
+              <br> <u>Mantencion:</u> {{Mantencion | json}} -->
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <app-mensaje [mensaje]="texto" [visible]="msg"></app-mensaje>
+
+</div>

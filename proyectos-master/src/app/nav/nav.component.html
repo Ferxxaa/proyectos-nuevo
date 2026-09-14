@@ -1,0 +1,328 @@
+<nav id="sidebar" class="sidebar" role="navigation" [style.background-color]="isHomeRoute ? '#4b4b4d' : (isProyectosRoute ? '#0879b2' : (isLicitacionesRoute ? '#ff891b' : (isTareasRoute ? '#900090' : '#169b00')))">
+    <!-- need this .js class to initiate slimscroll -->
+    <div class="js-sidebar-content">
+        <header class="logo hidden-sm-down">
+            <a href="Home">
+                <img src="http://trazas-nbi.com/Imagenes/NBILOGO.png">
+            </a>
+        </header>
+        <!-- main notification links are placed inside of .sidebar-nav -->
+        <h5 class="sidebar-nav-title">Menu </h5>
+        <ul id="ulMenuPrincipal" class="sidebar-nav">
+            <li>
+                <a class="sidebar-section-home" href="#sidebar-HomeMenu" data-toggle="collapse" aria-expanded="false">Home
+                    <span class="icon">
+                        <i class="fa fa-desktop"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-HomeMenu" [class.menu-bloqueado]="Cliente">
+                    <li>
+                        <a [routerLink]="['/Home']" routerLinkActive="router-link-active">Home</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Usuarios'" (click)="bloquearAcceso($event)">Administración de Usuarios</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Perfiles'" (click)="bloquearAcceso($event)">Perfiles de Usuarios</a>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+
+        
+
+        <ul class="sidebar-nav">
+            <li>
+                <a class="sidebar-section-proyectos" href="#sidebar-group-proyectos" data-toggle="collapse" aria-expanded="false">
+                    Proyectos
+                    <span class="icon">
+                        <i class="glyphicon glyphicon-align-right"></i>
+                    </span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="collapse" id="sidebar-group-proyectos">
+            <div id="sidebar-proyectos-accordion">
+                <ul id="ulMenuPrincipal" class="sidebar-nav">
+            <li>
+                <a href="#sidebar-Proyectos" data-toggle="collapse" data-parent="#sidebar-proyectos-accordion">
+                    Crear / Editar
+                    <span class="icon">
+                        <i class="glyphicon glyphicon-align-right"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-Proyectos" [class.menu-bloqueado]="Cliente">
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Proyectos-ProyectoMatriz'" (click)="bloquearAcceso($event)">Proyecto Matriz</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Proyectos-Proyecto'" (click)="bloquearAcceso($event)">Proyectos</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Proyectos-SubProyecto'" (click)="bloquearAcceso($event)">Sub-Proyectos</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Configuracion-SubProyecto'" (click)="bloquearAcceso($event)">Ritmos</a>
+                    </li>
+                </ul>
+            </li>
+            <li>
+                <a href="#sidebar-Validacion" data-toggle="collapse" data-parent="#sidebar-proyectos-accordion">
+                    Validación
+                    <span class="icon">
+                        <i class="fa fa-check-circle"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-Validacion" aria-expanded="false" style="height: 0px;" [class.menu-bloqueado]="Cliente">
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Proyectos-ValidarProyecto'" (click)="bloquearAcceso($event)">Validación Proyecto</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Proyectos-ValidarSubProyectos'" (click)="bloquearAcceso($event)">Validación Subproyectos</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Configuracion-ValidacionSubProyecto'" (click)="bloquearAcceso($event)">Validación Ritmos</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://proyectos.trazas-nbi.com/Validacion-Cierre'" (click)="bloquearAcceso($event)">Validación Cierre</a>
+                    </li>
+                </ul>
+            </li>
+            <li>
+                <a href="#sidebar-MisProyectos" data-toggle="collapse" data-parent="#sidebar-proyectos-accordion">
+                    Mis Proyectos
+                    <span class="icon">
+                        <i class="fa fa-archive"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-MisProyectos">
+                    <li>
+                        <a href="http://proyectos.trazas-nbi.com/Proyectos-MisProyectos">Mis Proyectos</a>
+                    </li>
+                    <li>
+                        <a [routerLink]="['/Grafico-Estructural']" routerLinkActive="router-link-active">Gráfico Estructural</a>
+                    </li>
+                </ul>
+            </li>
+                </ul>
+            </div>
+        </div>
+
+        <ul class="sidebar-nav">
+            <li>
+                <a class="sidebar-section-tareas" href="#sidebar-group-tareas" data-toggle="collapse" aria-expanded="false">
+                    Tareas
+                    <span class="icon">
+                        <i class="fa fa-tasks"></i>
+                    </span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="collapse" id="sidebar-group-tareas">
+            <div id="sidebar-tareas-accordion">
+                <ul class="sidebar-nav">
+                    <li>
+                        <a href="http://proyectos.trazas-nbi.com/Ver-Tareas">
+                            Mis Tareas
+                            <span class="icon">
+                                <i class="fa fa-tasks"></i>
+                            </span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="http://proyectos.trazas-nbi.com/Calendario-Tareas">
+                            Calendario
+                            <span class="icon">
+                                <i class="fa fa-calendar"></i>
+                            </span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <ul class="sidebar-nav">
+            <li>
+                <a class="sidebar-section-licitaciones" href="#sidebar-group-licitaciones" data-toggle="collapse" aria-expanded="false">
+                    Licitaciones
+                    <span class="icon">
+                        <i class="fa fa-briefcase"></i>
+                    </span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="collapse" id="sidebar-group-licitaciones" [class.menu-bloqueado]="Cliente">
+            <div id="sidebar-licitaciones-accordion">
+                <ul class="sidebar-nav">
+            <li>
+                <a href="#sidebar-Licitaciones" data-toggle="collapse" data-parent="#sidebar-licitaciones-accordion">
+                    Administración
+                    <span class="icon">
+                        <i class="fa fa-briefcase"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-Licitaciones">
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://licitaciones.trazas-nbi.com/Licitacion-Areas'" (click)="bloquearAcceso($event)">Areas</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://licitaciones.trazas-nbi.com/Licitacion-Mandantes'" (click)="bloquearAcceso($event)">Mandantes</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://licitaciones.trazas-nbi.com/Licitacion-Ejecutivos'" (click)="bloquearAcceso($event)">Ejecutivos</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://licitaciones.trazas-nbi.com/Licitacion-Hitos'" (click)="bloquearAcceso($event)">Hitos</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://licitaciones.trazas-nbi.com/Licitacion-Licitaciones'" (click)="bloquearAcceso($event)">Licitaciones</a>
+                    </li>
+                </ul>
+            </li>
+
+            <li>
+                <a [attr.href]="Cliente ? null : 'http://licitaciones.trazas-nbi.com/Licitacion-MisLicitaciones'" (click)="bloquearAcceso($event)">
+                    <span class="icon">
+                        <i class="fa fa-archive"></i>
+                    </span>Mis Licitaciones</a>
+            </li>
+            <li>
+                <a [attr.href]="Cliente ? null : 'http://licitaciones.trazas-nbi.com/Licitacion-CalendarioLic'" (click)="bloquearAcceso($event)">
+                    <span class="icon">
+                        <i class="fa fa-calendar"></i>
+                    </span>Calendario</a>
+            </li>
+            <li>
+                <a [attr.href]="Cliente ? null : 'http://licitaciones.trazas-nbi.com/Reporte-Licitaciones'" (click)="bloquearAcceso($event)">
+                    <span class="icon">
+                        <i class="fa fa-bar-chart-o"></i>
+                    </span>Gráficos</a>
+            </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Finanzas al final, después de Licitaciones -->
+        <ul class="sidebar-nav">
+            <li>
+                <a class="sidebar-section-finanzas" href="#sidebar-group-finanzas" data-toggle="collapse" aria-expanded="false">
+                    Finanzas
+                    <span class="icon">
+                        <i class="fa fa-bank"></i>
+                    </span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="collapse" id="sidebar-group-finanzas">
+            <div id="sidebar-finanzas-accordion">
+                <ul id="ulMenuPrincipal" class="sidebar-nav">
+            <li>
+                <a href="#sidebar-Finanzas" data-toggle="collapse" data-parent="#sidebar-finanzas-accordion">
+                    Configuración
+                    <span class="icon">
+                        <i class="fa fa-bank"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-Finanzas" [class.menu-bloqueado]="Cliente">
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Proveedor'" (click)="bloquearAcceso($event)">Proveedores</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Cuentas'" (click)="bloquearAcceso($event)">Cuentas de banco</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Gastos'" (click)="bloquearAcceso($event)">Tipos de Gastos</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/CentroCosto'" (click)="bloquearAcceso($event)">Centro costo</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Monto'" (click)="bloquearAcceso($event)">Parametros de Inicio</a>
+                    </li>
+                    <li>
+                        <a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Cierre'" (click)="bloquearAcceso($event)">Cierre Financiero</a>
+                    </li>
+                </ul>
+            </li>
+            <li>
+                <a href="#sidebar-Compra" data-toggle="collapse" data-parent="#sidebar-finanzas-accordion">
+                    Compra
+                    <span class="icon">
+                        <i class="fa fa-cubes"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-Compra" [class.menu-bloqueado]="Cliente">
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Cotizacion'" (click)="bloquearAcceso($event)">Cargar cotización</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/MisCotizaciones'" (click)="bloquearAcceso($event)">Mis Cotizaciones</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Cotizaciones'" (click)="bloquearAcceso($event)">Cotizaciones pendientes</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/OrdenCompra'" (click)="bloquearAcceso($event)">Orden de compra</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/MisOrdenCompra'" (click)="bloquearAcceso($event)">Mis Ordenes de compra</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Aprobacion'" (click)="bloquearAcceso($event)">Aprobación OC</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/EditaOC'" (click)="bloquearAcceso($event)">Ordenes rechazadas</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Ordenes'" (click)="bloquearAcceso($event)">Lista Ordenes de compra</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#sidebar-Vistas" data-toggle="collapse" data-parent="#sidebar-finanzas-accordion">
+                    Flujo caja
+                    <span class="icon">
+                        <i class="fa fa-file-excel-o"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-Vistas" [class.menu-bloqueado]="Cliente">
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Cuenta'" (click)="bloquearAcceso($event)">Cuenta corriente</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/ViewCentroCosto'" (click)="bloquearAcceso($event)">Centro de costo</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/IngresoEgreso'" (click)="bloquearAcceso($event)">Ingreso y Egreso</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/CajaChica'" (click)="bloquearAcceso($event)">Caja chica</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#sidebar-Reporte" data-toggle="collapse" data-parent="#sidebar-finanzas-accordion">
+                    Reportes Opera...
+                    <span class="icon">
+                        <i class="fa fa-cogs"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-Reporte" [class.menu-bloqueado]="Cliente">
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/ReporteProveedor'" (click)="bloquearAcceso($event)">Evaluacion Proveedores</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/GraficoProveedor'" (click)="bloquearAcceso($event)">Evaluacion anual Proveedores</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/ConsolidadoCentroCosto'" (click)="bloquearAcceso($event)">Consolidado Centro de Costo</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#sidebar-ReporteFinanciero" data-toggle="collapse" data-parent="#sidebar-finanzas-accordion">
+                    Reportes Financiero
+                    <span class="icon">
+                        <i class="fa fa-cogs"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-ReporteFinanciero" [class.menu-bloqueado]="Cliente">
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/GraficoOperacional'" (click)="bloquearAcceso($event)">Resumen anual Operacional</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/FacturasEmitidas'" (click)="bloquearAcceso($event)">Ventas anual</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/VentasporAreaNegocio'" (click)="bloquearAcceso($event)">Resultado por Area Negocio</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/RentabilidadAreaNegocio'" (click)="bloquearAcceso($event)">Rentabilidad por Area Negocio</a></li>
+                    <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Consolidado'" (click)="bloquearAcceso($event)">Consolidado Rentabilidad</a></li>
+                </ul>
+            </li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</nav>
+
+<!-- Modal: aviso de permisos para rol Cliente -->
+<div class="permiso-modal-overlay" *ngIf="mostrarModalPermiso" (click)="cerrarModalPermiso()">
+    <div class="permiso-modal" (click)="$event.stopPropagation()">
+        <div class="permiso-modal-icon">
+            <i class="fa fa-lock"></i>
+        </div>
+        <h4>Acceso restringido</h4>
+        <p>No tienes permisos para acceder a esta sección.</p>
+        <button type="button" class="permiso-modal-btn" (click)="cerrarModalPermiso()">Entendido</button>
+    </div>
+</div>

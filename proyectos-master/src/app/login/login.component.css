@@ -1,0 +1,350 @@
+/**** Layout ****/
+
+.Content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: white;
+}
+
+header {
+    height: 8%;
+    width: 100%;
+}
+
+.Medio {
+    height: 72%;
+    width: 100%;
+    background-image: url("/assets/Images/bg-loggin.jpg");
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+    background-position-y: bottom;
+    overflow: hidden;
+}
+
+footer {
+    position: relative;
+    height: 20%;
+    width: 100%;
+}
+
+.Loggin {
+    position: relative;
+    top: 50%;
+    height: 60%;
+    max-height: 410px;
+    width: 30%;
+    margin: 0 auto;
+    display: block;
+    background-color: rgba(255, 255, 255, 0.9);
+    transform: translatey(-50%);
+    padding: 1em;
+    text-align: center;
+    max-width: 400px;
+}
+
+/**** Header ****/
+
+.w80 {
+    height: 100%;
+    width: 80%;
+    margin: 0 auto;
+}
+
+header a span {
+    vertical-align: middle;
+}
+
+.TZS-right {
+    float: right;
+    height: 100%;
+}
+
+.h100 {
+    height: 100%;
+}
+
+.nbi-1 {
+    fill: #2c2e34;
+}
+
+.nbi-1, .nbi-11, .nbi-3, .nbi-5, .nbi-7, .nbi-9 {
+    fill-rule: evenodd;
+}
+
+.nbi-10, .nbi-12, .nbi-2, .nbi-4, .nbi-6, .nbi-8 {
+    fill: none;
+    stroke-miterlimit: 22.93;
+    stroke-width: 1.27px;
+}
+
+.nbi-2 {
+    stroke: #2c2e34;
+}
+
+.nbi-3 {
+    fill: #696c74;
+}
+
+.nbi-4 {
+    stroke: #696c74;
+}
+
+.nbi-5 {
+    fill: #d3802f;
+}
+
+.nbi-6 {
+    stroke: #d3802f;
+}
+
+.nbi-7 {
+    fill: #495258;
+}
+
+.nbi-8 {
+    stroke: #495258;
+}
+
+.nbi-9 {
+    fill: #e3a732;
+}
+
+.nbi-10 {
+    stroke: #e3a732;
+}
+
+.nbi-11 {
+    fill: #d78d30;
+}
+
+.nbi-12 {
+    stroke: #d78d30;
+}
+
+.tzs1 {
+    fill: none;
+}
+
+.tzs2 {
+    fill: #201f1d;
+}
+
+.tzs3 {
+    clip-path: url(#clip-path);
+}
+
+.tzs4 {
+    clip-path: url(#clip-path-2);
+}
+
+/**** Controles Loggin ***/
+
+.Loggin img, .Loggin h2 {
+    display: inline;
+}
+
+.Loggin h2 {
+    font-family: arial, serif;
+}
+
+.usuario {
+    margin: 1em auto;
+    margin-top: 3em;
+    padding: 1em;
+    background: white;
+    border-radius: 1em;
+    text-align: left;
+    cursor: text;
+}
+
+.pass {
+    margin: 1em auto;
+    padding: 1em;
+    background: white;
+    border-radius: 1em;
+    text-align: left;
+    cursor: text;
+}
+
+/**** Objetos loggin ****/
+
+.h50px {
+    height: 50px;
+    vertical-align: middle;
+}
+
+.usuario span, .pass span {
+    font-size: 1.5em;
+    margin-left: 10px;
+}
+
+.input-mat {
+    background: 0 0;
+    border: none;
+    font-size: 1.2em;
+    display: inline;
+}
+
+.input-mat:focus, .input-mat:active {
+    border: none;
+    outline: none;
+}
+
+form button {
+    font-size: 1.5em;
+    background: #6baa1f;
+    color: white;
+}
+
+/**** Footer ****/
+
+.slider, .info {
+    height: 50%;
+}
+
+.slider {
+    width: 50%;
+    margin: 0 auto;
+    display: block;
+    overflow: hidden;
+    min-width: 1220px;
+}
+
+.info {
+    width: 80%;
+    display: flex;
+    margin: 0 auto;
+}
+
+/**** Contenido footer ****/
+
+/* flexbox */
+
+.flex {
+    display: flex;
+    height: 100%;
+    width: 300%;
+    align-items: center;
+    animation: Scroll 40s infinite 5s;
+}
+
+.flex>div {
+    width: 11.1%;
+    display: flex;
+    align-items: center;
+    padding: 0.4em;
+    height: 100%;
+}
+
+.flex i {
+    font-size: 3em;
+    margin-right: 5px;
+    color: #e3a732;
+}
+
+.flex span {
+    font-size: 0.85em;
+    text-align: justify;
+}
+
+/**** Info ****/
+
+.Empresa, .Contactos {
+    width: 50%;
+    height: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    text-align: center;
+    background: #eee;
+    border-radius: 0 1em 0 0;
+    align-content: center;
+}
+
+.Empresa {
+    border-right: 1px solid rgb(99, 99, 99);
+    border-radius: 1em 0 0 0;
+}
+
+.info span {
+    display: block;
+    width: 100%;
+}
+
+/**** Animaciones ****/
+
+@keyframes Scroll {
+    0% {
+        transform: translateX(0);
+    }
+    8% {
+        transform: translateX(0);
+    }
+    11% {
+        transform: translateX(-11.1%);
+    }
+    18% {
+        transform: translateX(-11.1%);
+    }
+    21% {
+        transform: translateX(-22.2%);
+    }
+    36% {
+        transform: translateX(-22.2%);
+    }
+    39% {
+        transform: translateX(-33.3%);
+    }
+    54% {
+        transform: translateX(-33.3%);
+    }
+    57% {
+        transform: translateX(-44.4%);
+    }
+    72% {
+        transform: translateX(-44.4%);
+    }
+    75% {
+        transform: translateX(-55.5%);
+    }
+    90% {
+        transform: translateX(-55.5%);
+    }
+    93% {
+        transform: translateX(0%);
+    }
+}
+
+/**** PopUp ****/
+
+/* 
+.PopUp {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.7);
+} */
+
+/**** spinner ****/
+
+.spinner {
+    position: absolute;
+    background: white;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    z-index: 100;
+}
+
+.spinner i {
+    position: relative;
+    top: 46%;
+    font-size: 3em;
+}

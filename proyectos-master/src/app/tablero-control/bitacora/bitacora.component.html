@@ -1,0 +1,71 @@
+<section class="widget">
+    <header style="background-color: #555555">
+        <h5 style="color: white;">
+            <strong>Bitacora-</strong>
+            <strong>Sub-Proyecto
+        <span style="color: #F59325">{{SubProyecto.nombreSubProyecto}}</span>
+      </strong>
+        </h5>
+    </header>
+    <div class="widget-body">
+        <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
+            <fieldset>
+                <legend></legend>
+                <div class="form-group row">
+                    <label for="normal-field" class="col-md-6 form-control-label h5">Prioridad Bitacora(*):</label>
+                    <div class="col-md-6">
+                        <select class="dropdown-toggle select2-chosen-2 form-control requiered" [(ngModel)]="Bitacora.idPrioridad" name="drdPrioridad" appSelectValidator [disabled]="soloLectura">
+              <option value=0 selected>--- Seleccione una opcion ---</option>
+              <option *ngFor="let Prioridad of Prioridades" value={{Prioridad.idPrioridad}}>{{Prioridad.nombrePrioridad}}</option>
+            </select>
+                    </div>
+                    <br><br>
+                    <div class="col-md-12">
+                        <textarea class="form-control requiered" [(ngModel)]="Bitacora.descripcion" name="txtBitacora" required [disabled]="soloLectura"></textarea>
+                    </div>
+
+                </div>
+                <div class="form-group row">
+                    <div class="col-md-12">
+                        <!-- col-md-offset-3 -->
+                        <div class="fileinput fileinput-new input-group" data-provides="fileinput">
+                            <div class="form-control" data-trigger="fileinput">
+                                <i class="glyphicon glyphicon-file fileinput-exists"></i>
+                                <span class="fileinput-filename" id="NombreArch"></span>
+                            </div>
+                            <span class="input-group-addon btn btn-secondary btn-file">
+                <span class="fileinput-new">Adjuntar</span>
+                            <span class="fileinput-exists">Change</span>
+                            <input id="fileupload1" type="file" name="fileupload1" (change)="NombreArchivo()" [disabled]="soloLectura">
+                            <!-- ngFileSelect [options]="options" (onUpload)="handleUpload($event)" -->
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+            <div class="form-actions">
+                <div class="row">
+                    <div class="col-md-offset-4 col-md-8">
+                        <button ID="btnCrearArea" class="btn btn-success" [disabled]="(!CForm.valid && loader) || soloLectura">Agregar bitacora</button>
+                    </div>
+                </div>
+            </div>
+            <!-- {{Bitacora | json}} -->
+        </form>
+        <!-- <div class="form-actions">
+      <div class="row">
+        <div class="col-md-offset-4 col-md-8">
+          <a class="btn btn-primary" [routerLink]="['/Ver-Bitacora']">Ver bitacora</a>
+        </div>
+      </div>
+    </div> -->
+    </div>
+
+    <!-- Loader  -->
+    <div class="loader animated fadeIn handle" *ngIf="Loading" style="position: absolute;">
+        <span class="spinner">
+      <i class="fa fa-spinner fa-spin"></i>
+    </span>
+    </div>
+
+</section>

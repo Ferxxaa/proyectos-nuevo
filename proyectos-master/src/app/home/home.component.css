@@ -1,0 +1,81 @@
+.widget {
+    border-radius: 1rem;
+    color: white;
+}
+
+.black {
+    color: black !important;
+}
+
+.widget:hover .widget-body .row {
+    color: blue !important;
+}
+
+.foo {
+    background-image: url(fondo.jpg);
+    background-size: auto auto;
+    -webkit-background-size: 100% 100%;
+    /* Safari 3.0 */
+    -moz-background-size: 100% 100%;
+    /* Gecko 1.9.2 (Firefox 3.6) */
+    -o-background-size: 100% 100%;
+    /* Opera 9.5 */
+    background-size: 100% 100%;
+    /* Gecko 2.0 (Firefox 4.0) and other CSS3-compliant browsers */
+    /* -moz-border-image: url(fondo.jpg) 0; */
+    /* Gecko 1.9.1 (Firefox 3.5) */
+}
+
+.progress-danger {
+    background-color: red;
+}
+
+.progress-warning {
+    background-color: yellow;
+}
+
+.progress-success {
+    background-color: green;
+}
+
+.progress-primary {
+    background-color: blue;
+}
+
+.progress {
+    border-radius: 4px;
+    box-shadow: none;
+}
+
+.tooltipHome .tooltiptext {
+    visibility: hidden;
+    width: 84%;
+    padding-right: 15%;
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+    /* Position the tooltip */
+    position: absolute;
+    z-index: 1;
+}
+
+.tooltipHome:hover .tooltiptext {
+    visibility: visible;
+}
+
+label {
+    color: black;
+}
+
+.col-md-2 {
+    width: 16.6666666667%;
+}
+
+.content>div {
+    position: absolute;
+    width: 100%;
+    height: 90%;
+    background: #ffffff91;
+}

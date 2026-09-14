@@ -1,0 +1,178 @@
+﻿<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <div>
+      <div class="row">
+        <div class="col-lg-12">
+
+          <section class="widget">
+            <header style="background-color: #026AA7">
+              <h5 style="color: white;">
+                <strong><i class="fa fa-sitemap"></i> Gráfico Estructural de Matrices</strong>
+              </h5>
+            </header>
+
+            <div class="widget-body ge-widget-body">
+
+              <!-- Filtro -->
+              <div class="ge-filtro-panel">
+                <div class="ge-filtro-inner">
+                  <div class="ge-filtro-icono"><i class="fa fa-filter"></i></div>
+                  <div class="ge-filtro-campo">
+                    <label class="ge-label">Seleccionar Matriz</label>
+                    <select class="ge-select" [(ngModel)]="idMatrizFiltro" (change)="onMatrizChange(idMatrizFiltro)">
+                      <option value="0">--- Seleccione una Matriz ---</option>
+                      <option *ngFor="let m of matrices" [value]="m.idProyectoMatriz">
+                        {{ m.nombreProyectoMatriz }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="ge-filtro-stats" *ngIf="matrizSeleccionada && !cargando">
+                    <div class="ge-stat">
+                      <span class="ge-stat-num">{{ proyectos.length }}</span>
+                      <span class="ge-stat-lbl">Proyectos</span>
+                    </div>
+                    <div class="ge-stat-sep"></div>
+                    <div class="ge-stat">
+                      <span class="ge-stat-num">{{ subProyectos.length }}</span>
+                      <span class="ge-stat-lbl">Sub-Proyectos</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Error -->
+              <div class="alert alert-danger" *ngIf="error">
+                <i class="fa fa-exclamation-triangle"></i> {{ error }}
+              </div>
+
+              <!-- Cargando -->
+              <div class="ge-cargando" *ngIf="cargando">
+                <i class="fa fa-circle-o-notch fa-spin"></i>
+                <span>Cargando estructura...</span>
+              </div>
+
+              <!-- Sin seleccion -->
+              <div class="ge-empty" *ngIf="!idMatrizFiltro && !cargando">
+                <i class="fa fa-sitemap"></i>
+                <p>Seleccione una matriz para visualizar su estructura jerarquica.</p>
+              </div>
+
+              <!-- Arbol Estructural -->
+              <div class="ge-arbol-scroll" *ngIf="matrizSeleccionada && !cargando">
+                <div class="ge-arbol">
+
+                  <!-- NODO MATRIZ -->
+                  <div class="ge-nivel">
+                    <div class="ge-card ge-card-matriz">
+                      <div class="ge-card-strip"></div>
+                      <div class="ge-card-body">
+                        <div class="ge-card-icon ge-icon-matriz">
+                          <i class="fa fa-building-o"></i>
+                        </div>
+                        <div class="ge-card-content">
+                          <span class="ge-card-nivel">Proyecto Matriz</span>
+                          <strong class="ge-card-nombre">{{ matrizSeleccionada.nombreProyectoMatriz }}</strong>
+                          <div class="ge-card-meta" *ngIf="matrizSeleccionada.nombreSponsor">
+                            <i class="fa fa-briefcase"></i> {{ matrizSeleccionada.nombreSponsor }}
+                          </div>
+                          <div class="ge-card-meta" *ngIf="matrizSeleccionada.SubGerente">
+                            <i class="fa fa-user"></i> {{ matrizSeleccionada.SubGerente }}
+                          </div>
+                        </div>
+                        <div class="ge-card-badge ge-badge-col-matriz">
+                          <span class="ge-badge-num">{{ proyectos.length }}</span>
+                          <span class="ge-badge-lbl">Proyectos</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="ge-cv" *ngIf="proyectos.length > 0"></div>
+
+                  <div class="ge-sin-data" *ngIf="proyectos.length === 0">
+                    <i class="fa fa-info-circle"></i> Esta matriz no tiene proyectos asociados.
+                  </div>
+
+                  <!-- NIVEL PROYECTOS -->
+                  <div class="ge-nivel-h" *ngIf="proyectos.length > 0">
+                    <div class="ge-ch"></div>
+                  </div>
+
+                  <div class="ge-fila ge-fila-proyectos" *ngIf="proyectos.length > 0">
+                    <div class="ge-rama" *ngFor="let p of proyectos">
+                      <div class="ge-cv ge-cv-rama"></div>
+
+                      <!-- Card Proyecto -->
+                      <div class="ge-card ge-card-proyecto">
+                        <div class="ge-card-strip"></div>
+                        <div class="ge-card-body">
+                          <div class="ge-card-icon ge-icon-proyecto">
+                            <i class="fa fa-folder-open"></i>
+                          </div>
+                          <div class="ge-card-content">
+                            <span class="ge-card-nivel">Proyecto</span>
+                            <strong class="ge-card-nombre">{{ p.nombreProyecto }}</strong>
+                            <div class="ge-card-meta" *ngIf="p.Director">
+                              <i class="fa fa-user-circle-o"></i> {{ p.Director }}
+                            </div>
+                          </div>
+                          <div class="ge-card-badge ge-badge-col-proyecto">
+                            <span class="ge-badge-num">{{ getSubProyectosByProyecto(p.idProyecto).length }}</span>
+                            <span class="ge-badge-lbl">Sub-Proy.</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="ge-cv" *ngIf="getSubProyectosByProyecto(p.idProyecto).length > 0"></div>
+
+                      <!-- NIVEL SUB-PROYECTOS -->
+                      <div class="ge-fila ge-fila-sp" *ngIf="getSubProyectosByProyecto(p.idProyecto).length > 0">
+                        <div class="ge-sub-rama" *ngFor="let sp of getSubProyectosByProyecto(p.idProyecto)">
+                          <div class="ge-cv ge-cv-rama"></div>
+                            <div class="ge-card ge-card-subproyecto ge-card-subproyecto-clickable"
+                              [ngClass]="{'ge-card-subproyecto-cerrado': isSubProyectoCerradoOFinalizado(sp)}"
+                              (click)="irATableroControl(sp, $event)">
+                            <div class="ge-card-sp-body">
+                              <div class="ge-card-icon ge-icon-sp">
+                                <i class="fa fa-file-text-o"></i>
+                              </div>
+                              <div class="ge-card-content">
+                                <span class="ge-card-nivel">Sub-Proyecto</span>
+                                <strong class="ge-card-nombre ge-card-nombre-click"
+                                  [title]="sp.nombreSubProyecto"
+                                  (click)="irATableroControl(sp, $event)">
+                                  {{ sp.nombreSubProyecto }}
+                                </strong>
+                                <div class="ge-card-meta" *ngIf="sp.nombreTipoIntervencion">
+                                  <i class="fa fa-tag"></i> {{ sp.nombreTipoIntervencion }}
+                                </div>
+                              </div>
+                              <span class="ge-pill"
+                                [ngClass]="{'ge-pill-activo': isSubProyectoActivo(sp), 'ge-pill-inactivo': !isSubProyectoActivo(sp)}">
+                                {{ sp.nombreEstadoProyecto || (isSubProyectoActivo(sp) ? 'Activo' : 'Inactivo') }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="ge-sin-data ge-sin-data-sm" *ngIf="getSubProyectosByProyecto(p.idProyecto).length === 0">
+                        <i class="fa fa-minus"></i> Sin sub-proyectos
+                      </div>
+
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

@@ -1,0 +1,28 @@
+.bgPop{
+    position: fixed;
+    top: 0;
+    height: 100%;
+    background: #00000030;
+    /*background-color: #00000030;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-content: center; */
+    /* text-align: center; */
+    
+}
+
+.contenido{
+    margin: auto;
+    padding: 15px 30px;
+    margin-top: 40%;
+    background-color: white;
+    max-width: 50%;
+    min-height: 10%;
+    border-radius: 5px;
+}
+
+.acciones{
+    text-align: center;
+}

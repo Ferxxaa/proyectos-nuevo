@@ -1,0 +1,18 @@
+<div class="row titulo">
+  <b class="h5">Pendiente de Validación</b>
+</div>
+<div class="row">
+  <div class="grid" *ngIf="!cargando">
+    <div class="subProy" 
+      *ngFor="let subProyecto of allSubProyectos" 
+      (click)="selectSP(subProyecto)"
+      [ngClass]="{'activo': subProyectoSeleccionado?.idSubProyecto === subProyecto.idSubProyecto}">
+      {{subProyecto.nombreSubProyecto}}
+    </div>
+  </div>
+  <div class="loading" *ngIf="cargando">
+    <span class="spinner">
+      <i class="fa fa-spinner fa-spin"></i>
+    </span>
+  </div>
+</div>

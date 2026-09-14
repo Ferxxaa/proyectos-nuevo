@@ -1,0 +1,891 @@
+<div class="control-avance-container">
+  <!-- Encabezado simple estilo Carta Gantt -->
+  <header class="control-avance-header" style="background-color: #555555">
+    <h5 *ngIf="!ocultarTitulo" style="color: white; margin: 0;">
+      <strong>Control de Avance
+        <span *ngIf="nombreProyectoVisible" style="color: #F59325">{{nombreProyectoVisible}}</span>
+      </strong>
+    </h5>
+    <div class="header-acciones">
+      <!-- Resumen / filtro de bitácora: clic en un número filtra la tabla y el gantt por esa prioridad -->
+      <div class="bitacora-resumen" *ngIf="!LoadingTabla && !ocultarFiltros">
+        <button type="button" class="bitacora-resumen-item bitacora-resumen-alta"
+                [class.activo]="filtroBitacora === 'alta'"
+                (click)="toggleFiltroBitacora('alta')"
+                title="Filtrar por notas de prioridad Alta">
+          <i class="fa fa-circle"></i> {{totalNotasPorPrioridad.alta}}
+        </button>
+        <button type="button" class="bitacora-resumen-item bitacora-resumen-media"
+                [class.activo]="filtroBitacora === 'media'"
+                (click)="toggleFiltroBitacora('media')"
+                title="Filtrar por notas de prioridad Media">
+          <i class="fa fa-circle"></i> {{totalNotasPorPrioridad.media}}
+        </button>
+        <button type="button" class="bitacora-resumen-item bitacora-resumen-baja"
+                [class.activo]="filtroBitacora === 'baja'"
+                (click)="toggleFiltroBitacora('baja')"
+                title="Filtrar por notas de prioridad Baja">
+          <i class="fa fa-circle"></i> {{totalNotasPorPrioridad.baja}}
+        </button>
+        <button type="button" class="bitacora-resumen-limpiar" *ngIf="filtroBitacora !== 'todas'"
+                (click)="limpiarFiltroBitacora()" title="Quitar filtro">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <div class="vista-toggle" *ngIf="!LoadingTabla">
+        <button type="button" class="btn-vista" [class.activo]="vistaActiva === 'tabla'" (click)="cambiarVista('tabla')">
+          <i class="fa fa-table"></i> Tabla
+        </button>
+        <button type="button" class="btn-vista" [class.activo]="vistaActiva === 'gantt'" (click)="cambiarVista('gantt')">
+          <i class="fa fa-bar-chart"></i> Carta Gantt
+        </button>
+      </div>
+
+      <div class="plantillas-toggle" *ngIf="!LoadingTabla && !soloLectura">
+        <button type="button" class="btn-plantillas" (click)="abrirModalPlantillas()" title="Ver y usar plantillas de entregables">
+          <i class="fa fa-clone"></i> Plantillas
+        </button>
+      </div>
+
+      <button
+        *ngIf="!soloLectura"
+        type="button"
+        class="avance-header-toggle"
+        (click)="toggleFormularioAvance()"
+        [title]="mostrarFormulario ? 'Ocultar formulario' : 'Agregar título'">
+        <i class="fa" [ngClass]="mostrarFormulario ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Aviso de filtro activo -->
+  <div class="filtro-bitacora-aviso" *ngIf="!ocultarFiltros && filtroBitacora !== 'todas'">
+    <i class="fa fa-filter"></i>
+    Mostrando filas con notas de prioridad <strong>{{getPrioridadLabel(filtroBitacora)}}</strong> resaltadas.
+    <button type="button" class="filtro-bitacora-quitar" (click)="limpiarFiltroBitacora()">Quitar filtro</button>
+  </div>
+
+  <!-- Formulario de creación: puede crear un TÍTULO (raíz o dentro de otro título) o un SUBITEM -->
+  <div class="avance-form" *ngIf="!soloLectura && mostrarFormulario" [class.avance-form-titulo]="nuevoDoc.esTitulo">
+    <div class="creando-en">
+      Creando dentro de: <strong>{{nombrePadreActivo}}</strong>
+      <span class="creando-entremedio" *ngIf="ordenInsercionDespuesDe !== null">
+        <i class="fa fa-level-down"></i> Se insertará justo después de la lámina seleccionada
+      </span>
+    </div>
+
+    <div class="row row-compact">
+      <div class="col-md-3 col-sm-6 compact-field">
+        <label>Tipo de fila</label>
+        <select class="form-control" [(ngModel)]="nuevoDoc.esTitulo" (ngModelChange)="onCambioTipoFormulario()" [disabled]="ordenInsercionDespuesDe !== null">
+          <option [ngValue]="true">Título / agrupador</option>
+          <option [ngValue]="false">Subitem (documento)</option>
+        </select>
+      </div>
+      <div class="col-md-3 col-sm-6 compact-field">
+        <label>Código del Excel</label>
+        <input type="text" class="form-control" [(ngModel)]="nuevoDoc.codigoExcel"
+               placeholder="Código para encabezado Excel"
+               title="Código exclusivo para el Excel final del subproyecto">
+      </div>
+    </div>
+
+    <!-- ===== Formulario TÍTULO: solo lo que corresponde a una fila agrupadora, igual que en el Excel ===== -->
+    <ng-container *ngIf="nuevoDoc.esTitulo">
+      <div class="row row-compact mt-10">
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Código</label>
+          <input type="text" class="form-control" [(ngModel)]="nuevoDoc.codigo" placeholder="Ej: 2.- / 2.1">
+        </div>
+        <div class="col-md-3 col-sm-6 compact-field">
+          <label>Descripción</label>
+          <input type="text" class="form-control" [(ngModel)]="nuevoDoc.descripcion"
+                 (ngModelChange)="onCambioDescripcionTitulo()" placeholder="Ej: PROYECTO DE ARQUITECTURA">
+        </div>
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Prefijo láminas</label>
+          <input type="text" class="form-control input-prefijo" [ngModel]="nuevoDoc.prefijoCodigo"
+                 (ngModelChange)="onCambioPrefijoManual($event)" maxlength="6" placeholder="Ej: ARC"
+                 style="text-transform:uppercase" title="Prefijo que se usará para autonumerar las láminas de este título">
+          <small class="prefijo-preview">Códigos: {{ (nuevoDoc.prefijoCodigo || '???') }}-TRZ-01, 02, 03...</small>
+        </div>
+      </div>
+      <div class="row row-compact mt-10">
+        <div class="col-md-6 col-sm-12 compact-field form-actions compact-actions">
+          <button class="btn btn-primary btn-block" (click)="AgregarDesdeFormulario()">
+            <i class="fa fa-plus"></i> Agregar título
+          </button>
+          <button class="btn btn-default btn-block ml-5" (click)="toggleFormularioAvance()">
+            Cancelar
+          </button>
+        </div>
+      </div>
+      
+    </ng-container>
+
+    <!-- ===== Formulario SUBITEM: documento completo, con todos los campos de control ===== -->
+    <ng-container *ngIf="!nuevoDoc.esTitulo">
+      <div class="row row-compact mt-10">
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Código {{idPadreActivo ? '(autonumerado)' : ''}}</label>
+          <input type="text" class="form-control" [(ngModel)]="nuevoDoc.codigo" placeholder="Ej: MC-001">
+        </div>
+        <div class="col-md-3 col-sm-6 compact-field">
+          <label>Tipo de documento</label>
+          <select class="form-control" [(ngModel)]="nuevoDoc.tipo">
+            <option value="">Seleccione</option>
+            <option *ngFor="let tipo of tiposDocumento" [value]="tipo">{{tipo.substring(tipo.indexOf('-') + 1).trim()}}</option>
+          </select>
+        </div>
+        <div class="col-md-3 col-sm-6 compact-field">
+          <label>Descripción</label>
+          <input type="text" class="form-control" [(ngModel)]="nuevoDoc.descripcion" placeholder="Descripción del documento">
+        </div>
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Estado</label>
+          <select class="form-control" [(ngModel)]="nuevoDoc.estado">
+            <option *ngFor="let est of estadosDisponibles" [value]="est.value">{{est.label}}</option>
+          </select>
+        </div>
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>REV</label>
+          <input type="number" class="form-control" [(ngModel)]="nuevoDoc.revisionActual" min="0" placeholder="0">
+        </div>
+      </div>
+      <div class="row row-compact mt-10">
+        <div class="col-md-3 col-sm-6 compact-field">
+          <label>Fecha Inicio Programada</label>
+          <input type="date" class="form-control" [(ngModel)]="nuevoDoc.fechaInicioProgramada">
+        </div>
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Plazo Contrato (días)</label>
+          <input type="number" class="form-control" min="0" placeholder="Ej: 15" [(ngModel)]="nuevoDoc.plazoProgramado">
+        </div>
+        <div class="col-md-4 col-sm-6 compact-field">
+          <label>Adjuntar archivos (PDF / Excel)</label>
+          <input type="file" class="form-control" multiple accept=".pdf,.xls,.xlsx"
+                 (change)="onArchivosNuevoDocSeleccionados($event)">
+          <div class="archivos-seleccionados" *ngIf="archivosNuevoDoc.length > 0">
+            <div class="archivo-chip" *ngFor="let archivo of archivosNuevoDoc; let a = index">
+              <span class="archivo-link">
+                <i class="fa" [ngClass]="getIconoArchivo(archivo.name)"></i>
+                <span class="archivo-nombre">{{archivo.name}}</span>
+              </span>
+              <button type="button" class="btn-quitar-archivo" (click)="quitarArchivoNuevoDoc(a)" title="Quitar">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-4 col-sm-6 compact-field form-actions compact-actions">
+          <button class="btn btn-primary btn-block" (click)="AgregarDesdeFormulario()">
+            <i class="fa fa-plus"></i> {{ ordenInsercionDespuesDe !== null ? 'Insertar aquí' : 'Agregar documento' }}
+          </button>
+          <button class="btn btn-default btn-block ml-5" (click)="toggleFormularioAvance()">
+            Cancelar
+          </button>
+        </div>
+      </div>
+
+      <div class="row row-compact mt-10">
+        <div class="col-12 compact-field">
+          <label>Validadores del formulario</label>
+          <div class="validadores-dropdown-form">
+            <details>
+              <summary>
+                {{validadoresSeleccionados.length}} validador(es) seleccionado(s)
+                <span class="dropdown-hint">(clic para ver/editar)</span>
+              </summary>
+              <div class="validadores-seleccion-formulario">
+                <div *ngIf="cargandoValidadores" class="sin-validadores">
+                  Cargando validadores activos...
+                </div>
+                <div *ngIf="!cargandoValidadores && usuariosValidadores.length === 0" class="sin-validadores">
+                  No hay validadores activos disponibles.
+                </div>
+                <label class="check-validador" *ngFor="let usuarioValidador of usuariosValidadores">
+                  <input type="checkbox"
+                         [checked]="estaValidadorSeleccionado(usuarioValidador.idUsuario)"
+                         [disabled]="soloLectura || !puedeConfigurarValidadores() || cargandoValidadores"
+                         (change)="toggleSeleccionValidador(usuarioValidador.idUsuario, $event.target.checked)">
+                  <span>{{ usuarioValidador.nombre }}</span>
+                </label>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Información de resumen general, común a ambos formularios -->
+    <div class="row row-compact mt-10 avance-form-resumen">
+      <div class="col-md-3 col-sm-6 compact-field">
+        <label>Validadores totales</label>
+        <div class="form-resumen-valor">
+          <span class="validadores-count">{{validadoresSeleccionados.length}}</span>
+          <small *ngIf="cargandoValidadores"> Cargando...</small>
+          <small *ngIf="!cargandoValidadores"> ({{usuariosValidadores.length}} disponibles)</small>
+        </div>
+      </div>
+      <div class="col-md-2 col-sm-6 compact-field">
+        <label>Avance Prog.</label>
+        <div class="form-resumen-valor">{{ avanceDocumentosProgramado }}%</div>
+      </div>
+      <div class="col-md-2 col-sm-6 compact-field">
+        <label>Avance Real</label>
+        <div class="form-resumen-valor"
+             [class.text-success]="avanceDocumentosReal >= avanceDocumentosProgramado"
+             [class.text-warning]="avanceDocumentosReal < avanceDocumentosProgramado && avanceDocumentosReal >= avanceDocumentosProgramado - 10"
+             [class.text-danger]="avanceDocumentosReal < avanceDocumentosProgramado - 10">
+          {{ avanceDocumentosReal }}%
+        </div>
+      </div>
+      <div class="col-md-4 col-sm-6 compact-field">
+        <label>Documentos / Títulos</label>
+        <div class="form-resumen-valor">{{ ControlesAvance.length }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= VISTA TABLA JERÁRQUICA ================= -->
+  <div class="tabla-control-avance" *ngIf="vistaActiva === 'tabla'">
+    <div *ngIf="LoadingTabla" class="loading-overlay">
+      <div class="spinner"></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr class="fila-grupos-thead">
+          <th class="col-numero" rowspan="2">N°</th>
+          <th class="col-codigo" rowspan="2">Código</th>
+          <th class="col-tipo" rowspan="2">Tipo</th>
+          <th class="col-descripcion" rowspan="2">Descripción / título</th>
+          <th class="col-revision" rowspan="2">Rev.</th>
+          <th class="col-estado" rowspan="2">Estado</th>
+          <th class="grupo-programado" colspan="4">Programado</th>
+          <th class="grupo-real" colspan="4">Real</th>
+          <th class="col-bitacora" rowspan="2"><i class="fa fa-book"></i><br>Bitácora</th>
+          <th class="col-archivos" rowspan="2"><i class="fa fa-paperclip"></i><br>Archivos</th>
+          <th class="col-validadores" rowspan="2">Validación</th>
+          <th class="col-acciones" rowspan="2">Acciones</th>
+        </tr>
+        <tr class="fila-subgrupos-thead">
+          <th class="col-fecha sub-programado">F. inicio</th>
+          <th class="col-plazo sub-programado">Plazo</th>
+          <th class="col-fecha-auto sub-programado">F. término<br>(auto)</th>
+          <th class="col-avance sub-programado">% avance</th>
+          <th class="col-fecha sub-real">F. inicio</th>
+          <th class="col-plazo sub-real">Plazo</th>
+          <th class="col-fecha-auto sub-real">F. término<br>(auto)</th>
+          <th class="col-avance sub-real">% avance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="filasTabla.length === 0 && !LoadingTabla">
+          <td colspan="18" class="tabla-vacia">
+            <div class="mensaje-vacio">
+              <strong>No hay títulos ni documentos registrados</strong>
+              <p>Haga clic en "Agregar título" para comenzar a estructurar la Carta Gantt</p>
+            </div>
+          </td>
+        </tr>
+        <tr *ngFor="let fila of filasTabla; let i = index; trackBy: trackByFila"
+            [class.fila-nueva]="fila.item.idControlAvance === 0"
+            [class.fila-edicion]="filaEnEdicion === fila.indexOriginal"
+            [class.fila-titulo]="fila.item.esTitulo"
+            [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(fila.item)"
+            [class.fila-bitacora-match]="filtroBitacora !== 'todas' && itemCoincideFiltroBitacora(fila.item)"
+            [class.fila-drop-target]="filaSobreDrag === fila.item.id"
+            [class.fila-arrastrable]="!soloLectura && filaEnEdicion !== fila.indexOriginal"
+            [style.background]="fila.item.esTitulo ? getColorTituloPorNivel(fila.nivel) : null"
+            [attr.draggable]="(!soloLectura && filaEnEdicion !== fila.indexOriginal) ? true : null"
+            title="Mantén presionado y arrastra para reordenar"
+            (dragstart)="onDragStart(fila)"
+            (dragover)="onDragOver($event, fila)"
+            (dragleave)="onDragLeave()"
+            (drop)="onDrop(fila)"
+            (dragend)="onDragEnd()">
+          <td class="numero-fila" [style.paddingLeft.px]="6 + fila.nivel * 16">
+            <span class="numero-fila-contenido">
+              <button type="button" class="btn-colapsar-tabla" *ngIf="fila.tieneHijos"
+                      (click)="$event.stopPropagation(); toggleColapso(fila.item.id)"
+                      [title]="fila.colapsado ? 'Desplegar título' : 'Plegar título'">
+                <i class="fa" [ngClass]="fila.colapsado ? 'fa-caret-right' : 'fa-caret-down'"></i>
+              </button>
+              <span class="btn-colapsar-tabla-placeholder" *ngIf="fila.item.esTitulo && !fila.tieneHijos" aria-hidden="true"></span>
+              <button type="button" class="btn-agregar-excel" *ngIf="fila.item.esTitulo && !soloLectura"
+                      (click)="abrirFormularioAgregar(fila.item.id, (fila.item.codigo + ' ' + fila.item.descripcion), false)"
+                      title="Agregar subitem aquí">
+                <i class="fa fa-plus"></i>
+              </button>
+              <span class="numero-fila-num">{{fila.numero}}</span>
+            </span>
+          </td>
+          <td>
+            <div class="celda-codigo" [style.paddingLeft.px]="fila.nivel * 14">
+              <input type="text" [(ngModel)]="fila.item.codigo"
+                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                     class="input-texto input-codigo" placeholder="Código">
+              <ng-container *ngIf="fila.item.esTitulo && filaEnEdicion === fila.indexOriginal">
+                <input type="text" [(ngModel)]="fila.item.prefijoCodigo"
+                       (ngModelChange)="onCambioPrefijoTituloExistente(fila.item)"
+                       class="input-texto input-codigo input-prefijo" maxlength="6"
+                       placeholder="Prefijo (ej: ARC)"
+                       [title]="'Prefijo de las láminas de este título: ' + (fila.item.prefijoCodigo || '???') + '-TRZ-01, 02...'">
+                <button type="button" class="btn-colapsar btn-renumerar" *ngIf="fila.tieneHijos"
+                        (click)="renumerarManualmente(fila.item.id)"
+                        title="Renumerar códigos de las láminas con el prefijo actual">
+                  <i class="fa fa-refresh"></i>
+                </button>
+              </ng-container>
+            </div>
+          </td>
+          <td>
+            <select *ngIf="!fila.item.esTitulo" [(ngModel)]="fila.item.tipo"
+                  [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                    class="input-select input-compact input-estado" [ngClass]="getTipoClass(fila.item.tipo)">
+              <option value="">-</option>
+              <option *ngFor="let tipo of tiposDocumento" [value]="tipo">{{tipo.substring(tipo.indexOf('-') + 1).trim()}}</option>
+            </select>
+          </td>
+          <td>
+            <input type="text" [(ngModel)]="fila.item.descripcion"
+                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                   [class.texto-titulo]="fila.item.esTitulo"
+                   class="input-texto" placeholder="Descripción">
+          </td>
+          <td>
+            <input type="number" [(ngModel)]="fila.item.revisionActual"
+                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal || fila.item.esTitulo"
+                   min="0" class="input-numero input-small" placeholder="0">
+          </td>
+          <td>
+            <select [(ngModel)]="fila.item.estado"
+                  [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal || fila.item.esTitulo"
+                    class="input-select input-estado input-compact" [ngClass]="getEstadoClass(fila.item.estado)" [title]="getEstadoTextoCompleto(fila.item.estado)">
+              <option *ngFor="let estado of estadosDisponibles" [value]="estado.value">{{estado.label}}</option>
+            </select>
+          </td>
+          <td>
+            <input type="date" [(ngModel)]="fila.item.fechaInicioProgramada"
+                   (ngModelChange)="onCambioFechaInicioProgramada(fila.item, fila.indexOriginal)"
+                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                   class="input-fecha input-compact" title="Por defecto usa el término de la lámina anterior; también puede editarse libremente">
+          </td>
+          <td>
+            <input type="number" [(ngModel)]="fila.item.plazoProgramado"
+                   (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
+                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                   title="Días de plazo (como plazo contrato del Excel)"
+                   min="0" class="input-numero input-small" placeholder="días">
+          </td>
+          <td>
+            <input type="date" [(ngModel)]="fila.item.fechaTerminoProgramada"
+                   (ngModelChange)="onCambioFechaTerminoProgramada(fila.item, fila.indexOriginal)"
+                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                   class="input-fecha input-compact" title="Por defecto usa el inicio de la siguiente actividad; también puede editarse">
+          </td>
+          <td>
+            <div class="celda-porcentaje">
+              <input type="number" [(ngModel)]="fila.item.avanceProgramado" [disabled]="true"
+                     min="0" max="100" class="input-numero input-small" placeholder="0">
+              <span class="simbolo-porcentaje">%</span>
+            </div>
+          </td>
+          <td>
+            <input type="date" [(ngModel)]="fila.item.fechaInicio"
+                   (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
+                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                   class="input-fecha input-compact">
+          </td>
+          <td>
+            <input type="number" [(ngModel)]="fila.item.plazoReal"
+                   (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
+                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                   title="Días de plazo real (como plazo real del Excel)"
+                   min="0" class="input-numero input-small" placeholder="días">
+          </td>
+          <td>
+            <input type="text" [ngModel]="fila.item.fechaTermino" [disabled]="true"
+                   class="input-fecha input-compact input-calculado" title="Calculado: fecha inicio real + plazo real">
+          </td>
+          <td>
+            <div class="celda-porcentaje">
+              <input type="number" [(ngModel)]="fila.item.avanceReal"
+                     (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
+                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal || fila.item.esTitulo"
+                     min="0" max="100" class="input-numero input-small" [ngClass]="getClaseAvanceReal(fila.item.avanceReal, fila.item.avanceProgramado)" placeholder="0">
+              <span class="simbolo-porcentaje">%</span>
+            </div>
+          </td>
+          <td style="text-align: center;">
+            <button class="btn-bitacora" [class.tiene-notas]="fila.item.bitacora && fila.item.bitacora.length > 0"
+                    (click)="abrirModalBitacora(fila.indexOriginal)"
+                    title="Ver/Agregar notas de Bitácora">
+              <i class="fa fa-book"></i>
+              <span class="badge-bitacora" *ngIf="fila.item.bitacora && fila.item.bitacora.length > 0"
+                    [ngClass]="getPrioridadClase(getPrioridadMasReciente(fila.item))">
+                {{fila.item.bitacora.length}}
+              </span>
+            </button>
+          </td>
+          <td class="archivos-celda">
+            <div class="archivos-lista" *ngIf="fila.item.archivos && fila.item.archivos.length > 0">
+              <div class="archivo-chip" *ngFor="let archivo of fila.item.archivos">
+                <a [href]="archivo.url" target="_blank" [title]="archivo.nombre" class="archivo-link">
+                  <i class="fa" [ngClass]="getIconoArchivo(archivo.nombre)"></i>
+                  <span class="archivo-nombre">{{archivo.nombre}}</span>
+                </a>
+                <button type="button" class="btn-quitar-archivo" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal"
+                        (click)="eliminarArchivoAdjunto(fila.item, archivo, fila.indexOriginal)" title="Eliminar">
+                  <i class="fa fa-times"></i>
+                </button>
+              </div>
+            </div>
+            <label class="btn-adjuntar" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal" [class.subiendo]="subiendoArchivos[fila.indexOriginal]">
+              <i class="fa" [ngClass]="subiendoArchivos[fila.indexOriginal] ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
+              <span>{{subiendoArchivos[fila.indexOriginal] ? 'Subiendo...' : ((fila.item.archivos && fila.item.archivos.length > 0) ? 'Agregar' : 'Adjuntar')}}</span>
+              <input type="file" multiple accept=".pdf,.xls,.xlsx" style="display:none"
+                     [disabled]="subiendoArchivos[fila.indexOriginal]"
+                     (change)="onArchivosFilaSeleccionados($event, fila.item, fila.indexOriginal)">
+            </label>
+          </td>
+          <td class="validadores-celda">
+            <div *ngIf="cargandoValidadores" class="sin-validadores">
+              Cargando...
+            </div>
+            <div *ngIf="!cargandoValidadores && validadoresSeleccionados.length === 0" class="sin-validadores">
+              Sin validadores
+            </div>
+            <div *ngIf="!cargandoValidadores && validadoresSeleccionados.length > 0" class="lista-validadores-check">
+              <label class="check-validador" *ngFor="let validador of getValidadoresDocumento(fila.item)">
+                <input type="checkbox"
+                       [checked]="estaValidadorAprobado(fila.item, validador.idUsuario)"
+                       [disabled]="soloLectura || !puedeUsuarioValidar(validador.idUsuario)"
+                       (change)="toggleValidacionUsuario(fila.item, fila.indexOriginal, validador.idUsuario, $event.target.checked)">
+                <span [title]="validador.nombre">{{validador.nombre}}</span>
+              </label>
+            </div>
+          </td>
+          <td class="acciones-celda">
+            <div class="acciones-fila">
+              <ng-container *ngIf="filaEnEdicion === fila.indexOriginal; else modoVista">
+                <button class="btn-accion btn-confirmar" (click)="confirmarEdicion(fila.item, fila.indexOriginal)" title="Guardar cambios">
+                  <i class="fa fa-check"></i>
+                </button>
+                <button class="btn-accion btn-cancelar" (click)="cancelarEdicion(fila.item, fila.indexOriginal)" title="Cancelar">
+                  <i class="fa fa-times"></i>
+                </button>
+              </ng-container>
+              <ng-template #modoVista>
+                <button class="btn-accion btn-editar" (click)="activarEdicion(fila.item, fila.indexOriginal)" [disabled]="soloLectura" title="Editar esta fila">
+                  <i class="fa fa-pencil"></i> Editar
+                </button>
+                <button class="btn-accion btn-eliminar" (click)="PrepararEliminar(fila.indexOriginal)"
+                        [disabled]="soloLectura || !puedeEliminarControlAvance()"
+                        [class.btn-eliminar-bloqueado]="!puedeEliminarControlAvance()"
+                        [title]="puedeEliminarControlAvance() ? (fila.item.esTitulo && fila.tieneHijos ? 'Eliminar título y todas sus láminas' : 'Eliminar') : getMensajePermisoEliminacionAvance()">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </ng-template>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ================= VISTA CARTA GANTT (barras semanales) ================= -->
+  <div class="gantt-visual-container" *ngIf="vistaActiva === 'gantt'">
+    <div *ngIf="LoadingTabla" class="loading-overlay">
+      <div class="spinner"></div>
+    </div>
+
+    <div class="gantt-leyenda">
+      <div class="gantt-escala" role="group" aria-label="Escala de tiempo">
+        <span class="gantt-escala-label">Ver por</span>
+        <button type="button" [class.activo]="ganttEscala === 'dia'" (click)="cambiarEscalaGantt('normal')">Día</button>
+        <button type="button" [class.activo]="ganttEscala === 'semana'" (click)="cambiarEscalaGantt('semana')">Semana</button>
+        <button type="button" [class.activo]="ganttEscala === 'mes'" (click)="cambiarEscalaGantt('mes')">Mes</button>
+      </div>
+
+      <!-- Exportar a Excel: vive junto a la leyenda de la Carta Gantt, no en el header -->
+      <button type="button" class="btn-exportar-excel" *ngIf="!ocultarExportacion && !LoadingTabla && ganttBarras.length > 0"
+              (click)="exportarCartaGanttAExcel()" title="Exportar Carta Gantt a Excel">
+        <i class="fa fa-file-excel-o"></i> Exportar Excel
+      </button>
+    </div>
+
+    <div class="mensaje-vacio gantt-vacio" *ngIf="ganttBarras.length === 0">
+      <strong>Sin fechas registradas todavía</strong>
+      <p>Ingrese fechas + plazo (días) en la tabla para visualizar la Carta Gantt</p>
+    </div>
+
+    <div class="gantt-scroll" *ngIf="ganttBarras.length > 0">
+      <div class="gantt-tabla-layout">
+        <!-- Columna fija de nombres: el título se puede plegar/desplegar para mostrar sus subitems -->
+        <div class="gantt-nombres">
+          <div class="gantt-nombres-header">
+            <span class="gantt-col-item">Lámina</span>
+            <span class="gantt-col-desc">Descripción</span>
+            <span class="gantt-col-plazo">Plazo</span>
+            <span class="gantt-col-avance">% Avance</span>
+            <span class="gantt-col-bitacora">Última<br>bitácora</span>
+          </div>
+          <div class="gantt-fila-nombre" *ngFor="let barra of ganttBarras; trackBy: trackByBarra"
+               [class.gantt-fila-titulo]="barra.item.esTitulo"
+               [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(barra.item)"
+               [class.fila-bitacora-match]="filtroBitacora !== 'todas' && itemCoincideFiltroBitacora(barra.item)">
+            <span class="gantt-col-item" [style.paddingLeft.px]="6 + barra.nivel * 14">
+              <button type="button" class="btn-colapsar-gantt" *ngIf="esFilaConHijos(barra.item.id)" (click)="toggleColapso(barra.item.id)">
+                <i class="fa" [ngClass]="titulosColapsados[barra.item.id] ? 'fa-caret-right' : 'fa-caret-down'"></i>
+              </button>
+              <strong class="gantt-codigo">{{barra.item.codigo || 'Sin código'}}</strong>
+            </span>
+            <span class="gantt-col-desc" [style.paddingLeft.px]="10 + barra.nivel * 14" [title]="barra.item.descripcion">
+              <span class="gantt-descripcion">{{barra.item.descripcion}}</span>
+            </span>
+            <span class="gantt-col-plazo">
+              <ng-container *ngIf="!barra.puedeElegirFranja">{{barra.item.plazoProgramado ? (barra.item.plazoProgramado + 'd') : ''}}</ng-container>
+              <label class="check-franja" *ngIf="barra.puedeElegirFranja" title="Marca esto para pintar la franja oscura completa en el gráfico (tiene prioridad sobre su fecha/plazo)">
+                <input type="checkbox" [checked]="barra.item.mostrarFranjaCompleta" (change)="toggleFranjaCompleta(barra.item, barra.indexOriginal)">
+                <span>Franja</span>
+              </label>
+            </span>
+            <span class="gantt-col-avance">
+              <span>{{barra.item.avanceReal}}%</span>
+            </span>
+            <span class="gantt-col-bitacora">
+              <span class="gantt-bitacora-semaforo"
+                    *ngIf="getPrioridadMasReciente(barra.item)"
+                    [ngClass]="getPrioridadClase(getPrioridadMasReciente(barra.item))"
+                    [title]="'Última bitácora: ' + getPrioridadLabel(getPrioridadMasReciente(barra.item))"
+                    [attr.aria-label]="'Última bitácora: ' + getPrioridadLabel(getPrioridadMasReciente(barra.item))">
+              </span>
+                    <span class="gantt-sin-bitacora" *ngIf="!getPrioridadMasReciente(barra.item)">-</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Timeline con barras horizontales, como cualquier Carta Gantt -->
+        <div class="gantt-timeline" [class.gantt-escala-mensual]="ganttEscala === 'mes'" [style.width.px]="ganttAnchoTotalPx">
+          <div class="gantt-header-semanas" *ngIf="ganttEscala !== 'normal'">
+            <div class="gantt-semana" *ngFor="let periodo of ganttPeriodos" [style.width.px]="ganttPxPorUnidad"
+                 [title]="periodo.etiqueta + ': ' + periodo.detalle">
+              {{periodo.etiqueta}}
+            </div>
+          </div>
+          <div class="gantt-header-dias" *ngIf="ganttEscala !== 'normal'">
+            <div class="gantt-dia" *ngFor="let periodo of ganttPeriodos" [style.width.px]="ganttPxPorUnidad">
+              <span class="gantt-dia-numero gantt-periodo-detalle" [style.width.px]="ganttPxPorUnidad">
+                {{periodo.detalle}}
+              </span>
+            </div>
+          </div>
+          <div class="gantt-header-semanas" *ngIf="ganttEscala === 'normal'">
+            <div class="gantt-semana" *ngFor="let semana of ganttSemanas" [style.width.px]="semana.dias.length * ganttPxPorUnidad">
+              {{semana.etiqueta}}
+            </div>
+          </div>
+          <div class="gantt-header-dias" *ngIf="ganttEscala === 'normal'">
+            <div class="gantt-dia" *ngFor="let semana of ganttSemanas">
+              <span class="gantt-dia-numero" *ngFor="let dia of semana.dias" [style.width.px]="ganttPxPorUnidad">{{dia.numero}}</span>
+            </div>
+          </div>
+
+          <ng-container *ngIf="ganttEscala === 'normal'">
+            <div class="gantt-finde" *ngFor="let offsetFinde of ganttFinesDeSemanaOffsets" [style.left.px]="ganttDiaAPixel(offsetFinde)" [style.width.px]="ganttDiasAPixel(offsetFinde, 1)"></div>
+          </ng-container>
+
+          <div class="gantt-linea-hoy" *ngIf="ganttHoyOffset >= 0" [style.left.px]="ganttDiaAPixel(ganttHoyOffset)">
+            <span class="gantt-linea-hoy-etiqueta">Hoy</span>
+          </div>
+
+          <div class="gantt-fila" *ngFor="let barra of ganttBarras; trackBy: trackByBarra" [style.width.px]="ganttAnchoTotalPx"
+            [class.gantt-fila-titulo]="barra.esGrupo || barra.esFranjaCompleta"
+               [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(barra.item)">
+
+            <!-- Hito: fecha puntual sin plazo definido (ej. trámites tipo DOM/CONS del Excel) -->
+            <div class="gantt-hito" *ngIf="barra.esHito"
+                [style.left.px]="ganttDiaAPixel(barra.offsetHito)"
+                 [title]="barra.item.descripcion + ' — fecha sin plazo definido'">
+            </div>
+
+            <div class="gantt-barra"
+                 *ngIf="!barra.esHito && barra.ancho > 0"
+                 [class.gantt-barra-grupo]="barra.esGrupo || barra.esFranjaCompleta"
+                 [class.gantt-barra-heredada]="barra.esHeredado"
+                 [style.left.px]="ganttDiaAPixel(barra.offset)"
+                 [style.width.px]="ganttDiasAPixel(barra.offset, barra.ancho)"
+                 [title]="barra.esFranjaCompleta ? barra.item.descripcion : (barra.esHeredado ? 'Tramo estimado dentro del plazo del título (sin fecha propia)' : (barra.item.fechaInicioProgramada + ' → ' + barra.item.fechaTerminoProgramada))">
+              <div class="gantt-barra-relleno"
+                   [ngClass]="barra.clase"
+                   [style.width.px]="ganttDiasAPixel(barra.offset, barra.anchoRelleno)">
+              </div>
+              <span class="gantt-barra-texto" *ngIf="!barra.esFranjaCompleta && ganttDiasAPixel(barra.offset, barra.ancho) > 30">
+                {{barra.item.avanceReal}}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modales de Bitácora: notas con semáforo de prioridad (alta / media / baja) -->
+<div *ngFor="let item of ControlesAvance; let i = index">
+  <div class="modal fade" id="ModalBitacora{{i}}" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            Bitácora - {{item.codigo || 'Sin código'}} {{item.descripcion}}
+          </h5>
+          <button type="button" class="close" data-dismiss="modal">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Formulario de nueva nota -->
+          <div class="bitacora-nueva-nota" *ngIf="!soloLectura">
+            <textarea class="form-control" rows="2" placeholder="Escriba una nota de bitácora..."
+                      [(ngModel)]="nuevaNotaTexto[item.id]"></textarea>
+            <div class="bitacora-nueva-nota-acciones">
+              <div class="bitacora-semaforo-selector">
+                <label class="opcion-semaforo opcion-alta">
+                  <input type="radio" name="prioridad{{i}}" value="alta"
+                         [ngModel]="nuevaNotaPrioridad[item.id] || 'media'"
+                         (ngModelChange)="nuevaNotaPrioridad[item.id] = $event">
+                  Alta
+                </label>
+                <label class="opcion-semaforo opcion-media">
+                  <input type="radio" name="prioridad{{i}}" value="media"
+                         [ngModel]="nuevaNotaPrioridad[item.id] || 'media'"
+                         (ngModelChange)="nuevaNotaPrioridad[item.id] = $event">
+                  Media
+                </label>
+                <label class="opcion-semaforo opcion-baja">
+                  <input type="radio" name="prioridad{{i}}" value="baja"
+                         [ngModel]="nuevaNotaPrioridad[item.id] || 'media'"
+                         (ngModelChange)="nuevaNotaPrioridad[item.id] = $event">
+                  Baja
+                </label>
+              </div>
+              <button class="btn btn-sm btn-primary" (click)="agregarNotaBitacora(item, i)">
+                <i class="fa fa-plus"></i> Agregar nota
+              </button>
+            </div>
+          </div>
+
+          <!-- Listado de notas, semáforo por prioridad -->
+          <div class="bitacora-lista">
+            <div class="bitacora-vacia" *ngIf="!item.bitacora || item.bitacora.length === 0">
+              Sin notas registradas todavía.
+            </div>
+            <div class="bitacora-nota" *ngFor="let nota of getBitacora(item)" [ngClass]="getPrioridadClase(nota.prioridad)">
+              <span class="bitacora-punto" [ngClass]="getPrioridadClase(nota.prioridad)" [title]="getPrioridadLabel(nota.prioridad)"></span>
+              <div class="bitacora-nota-contenido">
+                <div class="bitacora-nota-cabecera">
+                  <strong>{{nota.nombreUsuarioCreador || 'Usuario'}}</strong>
+                  <span class="bitacora-nota-fecha">{{nota.fecha}}</span>
+                  <span class="bitacora-nota-badge" [ngClass]="getPrioridadClase(nota.prioridad)">{{getPrioridadLabel(nota.prioridad)}}</span>
+                  <button type="button" class="btn-quitar-archivo" *ngIf="!soloLectura"
+                          (click)="eliminarNotaBitacora(item, i, nota)" title="Eliminar nota">
+                    <i class="fa fa-times"></i>
+                  </button>
+                </div>
+                <p class="bitacora-nota-texto">{{nota.texto}}</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fa fa-times"></i> Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Plantillas de entregables: elegir disciplina completa o documentos sueltos -->
+<div class="modal fade" id="ModalPlantillas" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg plantillas-modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header plantillas-modal-header">
+        <div class="plantillas-modal-titulo">
+          <i class="fa fa-clone"></i>
+          <div>
+            <h5 class="modal-title">Plantillas de entregables</h5>
+            <span class="plantillas-modal-subtitulo">Índice de documentos por disciplina</span>
+          </div>
+        </div>
+        <button type="button" class="close" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="plantillas-ayuda">
+          Elija una disciplina completa para agregarla como título con todas sus láminas, o marque
+          documentos sueltos de distintas disciplinas y agréguelos dentro de un título existente
+          (o en la raíz). Todo queda editable después de agregarlo, igual que cualquier fila.
+        </p>
+
+        <div class="plantillas-buscador">
+          <i class="fa fa-search"></i>
+          <input type="text" [(ngModel)]="filtroPlantillasTexto"
+                 placeholder="Buscar por código, descripción o tema... (ej: memoria, ARQ 03, planta)">
+          <button type="button" class="plantillas-buscador-limpiar" *ngIf="filtroPlantillasTexto"
+                  (click)="filtroPlantillasTexto = ''" title="Limpiar búsqueda">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+
+        <div class="plantillas-creador-toggle" *ngIf="!soloLectura" (click)="toggleCreadorPlantilla()">
+          <i class="fa" [ngClass]="mostrarCreadorPlantilla ? 'fa-minus-circle' : 'fa-plus-circle'"></i>
+          <span>Crear plantilla personalizada</span>
+        </div>
+
+        <div class="plantillas-creador" *ngIf="mostrarCreadorPlantilla">
+          <div class="row row-compact">
+            <div class="col-md-8 col-sm-12 compact-field">
+              <label>Nombre de la disciplina / plantilla</label>
+              <input type="text" class="form-control" [(ngModel)]="nuevaPlantilla.nombre"
+                     placeholder="Ej: PROYECTO PAISAJISMO">
+            </div>
+          </div>
+
+          <div class="plantillas-iconos-label">Elige un ícono para identificarla</div>
+          <div class="plantillas-iconos-grid">
+            <button type="button" *ngFor="let icono of iconosDisponiblesPlantilla"
+                    class="plantillas-icono-opcion" [class.seleccionado]="nuevaPlantilla.icono === icono"
+                    (click)="seleccionarIconoPlantilla(icono)" [title]="icono">
+              <i class="fa" [ngClass]="icono"></i>
+            </button>
+          </div>
+
+          <div class="plantillas-creador-items" *ngIf="nuevaPlantilla.items.length > 0">
+            <div class="plantillas-creador-item" *ngFor="let item of nuevaPlantilla.items; let idx = index">
+              <span class="plantillas-item-codigo">{{item.codigo || '—'}}</span>
+              <span class="plantillas-item-desc">{{item.descripcion}}</span>
+              <button type="button" class="plantillas-creador-quitar" (click)="quitarLineaNuevaPlantilla(idx)" title="Quitar">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="row row-compact mt-10">
+            <div class="col-md-2 col-sm-6 compact-field">
+              <label>Código</label>
+              <input type="text" class="form-control" [(ngModel)]="nuevaPlantillaItemTemp.codigo" placeholder="Ej: PAI-01">
+            </div>
+            <div class="col-md-3 col-sm-6 compact-field">
+              <label>Tipo</label>
+              <select class="form-control" [(ngModel)]="nuevaPlantillaItemTemp.tipoSugerido">
+                <option value="">Sin tipo</option>
+                <option *ngFor="let tipo of tiposDocumento" [value]="tipo.substring(0, tipo.indexOf(' -'))">
+                  {{tipo.substring(tipo.indexOf('-') + 1).trim()}}
+                </option>
+              </select>
+            </div>
+            <div class="col-md-5 col-sm-6 compact-field">
+              <label>Descripción</label>
+              <input type="text" class="form-control" [(ngModel)]="nuevaPlantillaItemTemp.descripcion" placeholder="Ej: PLANO DE PAISAJISMO">
+            </div>
+            <div class="col-md-2 col-sm-6 compact-field plantillas-creador-agregar-linea">
+              <label>&nbsp;</label>
+              <button type="button" class="btn btn-default btn-block" (click)="agregarLineaNuevaPlantilla()">
+                <i class="fa fa-plus"></i> Agregar
+              </button>
+            </div>
+          </div>
+
+          <div class="plantillas-creador-acciones">
+            <button type="button" class="btn btn-primary" (click)="guardarPlantillaPersonalizada()">
+              <i class="fa fa-save"></i> Guardar plantilla
+            </button>
+            <button type="button" class="btn btn-default" (click)="mostrarCreadorPlantilla = false">
+              Cancelar
+            </button>
+          </div>
+        </div>
+
+        <div class="plantillas-lista">
+          <ng-container *ngFor="let grupo of gruposPlantillaTodos">
+            <div class="plantillas-grupo" *ngIf="grupoVisiblePlantilla(grupo)" [class.plantillas-grupo-personalizada]="grupo.personalizada">
+              <div class="plantillas-grupo-header" (click)="toggleGrupoPlantilla(grupo.grupo)">
+                <span class="plantillas-grupo-icono">
+                  <i class="fa" [ngClass]="getIconoGrupoPlantilla(grupo)"></i>
+                </span>
+                <div class="plantillas-grupo-titulo">
+                  <strong>{{grupo.grupo}}</strong>
+                  <span class="plantillas-grupo-contador">
+                    {{grupo.items.length}} documento(s)
+                    <em *ngIf="grupo.personalizada">· personalizada</em>
+                  </span>
+                </div>
+                <span class="plantillas-grupo-seleccionados" *ngIf="contarSeleccionadosGrupo(grupo) > 0">
+                  {{contarSeleccionadosGrupo(grupo)}} seleccionado(s)
+                </span>
+                <button type="button" class="plantillas-btn-completo"
+                        (click)="$event.stopPropagation(); agregarGrupoCompleto(grupo)"
+                        title="Crear título con todas las láminas de esta disciplina">
+                  <i class="fa fa-plus-circle"></i> Disciplina completa
+                </button>
+                <button type="button" class="plantillas-btn-eliminar-personalizada" *ngIf="grupo.personalizada"
+                        (click)="$event.stopPropagation(); eliminarPlantillaPersonalizada(grupo)"
+                        title="Eliminar esta plantilla personalizada">
+                  <i class="fa fa-trash"></i>
+                </button>
+                <i class="fa plantillas-grupo-caret" [ngClass]="mostrarItemsGrupoPlantilla(grupo) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+              </div>
+
+              <div class="plantillas-grupo-items" *ngIf="mostrarItemsGrupoPlantilla(grupo)">
+                <label class="plantillas-item plantillas-item-todos" *ngIf="!filtroPlantillasTexto">
+                  <input type="checkbox"
+                         [checked]="contarSeleccionadosGrupo(grupo) === grupo.items.length"
+                         (change)="toggleSeleccionTodoGrupo(grupo, $event.target.checked)">
+                  <em>Seleccionar todos los de este grupo</em>
+                </label>
+                <label class="plantillas-item" *ngFor="let item of itemsFiltradosPlantilla(grupo)">
+                  <input type="checkbox"
+                         [checked]="estaItemPlantillaSeleccionado(grupo.grupo, item)"
+                         (change)="toggleSeleccionPlantilla(grupo.grupo, item, $event.target.checked)">
+                  <span class="plantillas-item-codigo">{{item.codigo}}</span>
+                  <span class="plantillas-item-desc">{{item.descripcion}}</span>
+                  <span class="plantillas-item-tema" *ngIf="item.tema">{{item.tema}}</span>
+                </label>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+      <div class="modal-footer plantillas-footer">
+        <div class="plantillas-destino" *ngIf="totalSeleccionadosPlantillas > 0">
+          <span class="plantillas-destino-contador">
+            <i class="fa fa-check-square-o"></i> {{totalSeleccionadosPlantillas}} seleccionado(s)
+          </span>
+          <label class="plantillas-destino-label">Agregar dentro de:</label>
+          <select class="form-control" [(ngModel)]="destinoPlantillaIdPadre">
+            <option [ngValue]="null">Raíz (sin título)</option>
+            <option *ngFor="let titulo of titulosExistentesPlantilla" [ngValue]="titulo.id">
+              {{titulo.codigo}} {{titulo.descripcion}}
+            </option>
+          </select>
+          <button class="btn btn-primary" (click)="agregarSeleccionPlantillaAdestino()">
+            <i class="fa fa-plus"></i> Agregar seleccionados
+          </button>
+        </div>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          <i class="fa fa-times"></i> Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

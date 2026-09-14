@@ -1,0 +1,14 @@
+ul{
+    list-style: none;
+    padding-left: 0px;
+    background-color: white;
+    padding: 0.5rem;
+    min-width: 20vw;
+}
+
+li{
+    font-size: 11px;
+    text-align: left;
+    color: black;
+    font-weight: normal;
+}

@@ -1,0 +1,254 @@
+/* *********************************** Pestañas *********************************** */
+
+.clearfix ul{
+    background-color: transparent;
+}
+
+.clearfix ul li{
+    background-color: #ddd;
+    border-radius: 6px 6px 0 0;
+    margin-right: 4px;
+    margin-bottom: 0;
+}
+
+.clearfix ul li .active{
+    border-radius: 6px 6px 0 0;
+}
+
+.nav-tabs .nav-link.active {
+  border-color: transparent !important;
+  font-weight: 700;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.55);
+}
+
+#TabControlAvance {
+    text-align: center;
+    line-height: 1.2;
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+.nav-link:hover {
+    background-color: #0056b3 !important; /* Azul más oscuro al pasar el mouse */
+    color: white !important;
+}
+
+/* ***********************************Tablas Tareas*********************************** */
+
+.col-lg-7 thead{
+    font-weight: 600;
+    text-align: center;
+    background: #026AA7;
+    color: white;
+}
+
+.col-lg-7 table .icono{
+  font-size: 30px;
+}
+  
+.col-lg-7 .align-center{
+    text-align: center;
+  }
+
+.tabla-tareas-proyecto td {
+  vertical-align: top;
+}
+
+.tabla-tareas-proyecto .col-tipo-tarea {
+  min-width: 110px;
+}
+
+.tabla-tareas-proyecto .col-tipo-tarea .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.tabla-tareas-proyecto .col-descripcion-tarea,
+.tabla-tareas-proyecto .col-descripcion-tarea div {
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+
+/* *********************************** Textox *********************************** */
+
+h2{
+    font-weight: bold;
+}
+
+/* *********************************** Loader *********************************** */
+
+.loader{
+    position: relative;
+    background-color: white;
+    text-align: center;
+    font-size: 40px;
+    vertical-align: middle;
+    margin-top: 150px;
+}
+
+/* *********************************** Badges de Tipo de Tarea *********************************** */
+
+.badge {
+  font-size: 0.75em;
+  padding: 0.35em 0.65em;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.badge-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.badge-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.badge-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.badge-info {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.badge-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.badge i {
+  margin-right: 0.25em;
+}
+
+/* ***********************************Tarea Destacada desde Notificación*********************************** */
+
+.tarea-destacada {
+  background-color: #cbdafc !important; /* Fondo azul claro */
+  border-left: 4px solid #cbdafc !important; /* Borde izquierdo azul */
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.3) !important; /* Sombra amarilla */
+  animation: destacar-tarea 2s ease-in-out;
+}
+
+.tarea-destacada td {
+  background-color: transparent !important; /* Asegurar que las celdas no sobrescriban */
+}
+
+@keyframes destacar-tarea {
+  0% { 
+    background-color: #fff3cd; 
+    box-shadow: 0 0 20px rgba(255, 193, 7, 0.8);
+  }
+  50% { 
+    background-color: #ffeaa7; 
+    box-shadow: 0 0 15px rgba(255, 193, 7, 0.6);
+  }
+  100% { 
+    background-color: #fff3cd; 
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+  }
+}
+
+/* *********************************** Colores de Pestañas Personalizadas *********************************** */
+
+/* Seguimiento Proyecto - Grafito con letras blancas */
+#TabSeguimiento,
+#TabGantt,
+#TabBitDoc,
+#TabTareas,
+#TabControlHallazgos {
+  background-color: #808080 !important;
+  color: white !important;
+}
+
+#TabSeguimiento.active,
+#TabGantt.active,
+#TabBitDoc.active,
+#TabTareas.active,
+#TabControlHallazgos.active {
+  color: white !important;
+}
+
+#TabSeguimiento:hover,
+#TabGantt:hover,
+#TabBitDoc:hover,
+#TabTareas:hover,
+#TabControlHallazgos:hover {
+  background-color: #9A9A9A !important; /* Grafito intermedio al hover */
+  color: white !important;
+}
+
+/* Bitacora SSO-MA y Bitacora Calidad - color #fc0 con letras blancas */
+#TabSSOMA,
+#TabPac {
+  background-color: #fc0 !important;
+  color: rgb(0, 0, 0) !important;
+}
+
+#TabSSOMA.active,
+#TabPac.active {
+  color: rgb(0, 0, 0) !important;
+}
+
+#TabSSOMA:hover,
+#TabPac:hover {
+  background-color: #ffd633 !important;
+  color: rgb(0, 0, 0) !important;
+}
+
+/* Control de Avance - color #069 */
+#TabControlAvance {
+  background-color: #069 !important;
+  color: white !important;
+}
+
+#TabControlAvance.active {
+  color: white !important;
+}
+
+#TabControlAvance:hover {
+  background-color: rgb(47, 122, 160) !important;
+  color: white !important;
+}
+
+/* Tareas y Control de Hallazgos */
+#TabTareas {
+  background-color: #E2CEF6 !important;
+  color: #2f2140 !important;
+}
+
+#TabTareas.active {
+  color: #2f2140 !important;
+}
+
+#TabTareas:hover {
+  background-color: #d2b8ee !important;
+  color: #2f2140 !important;
+}
+
+#TabControlHallazgos {
+  background-color: #069 !important;
+  color: white !important;
+}
+
+#TabControlHallazgos.active {
+  color: white !important;
+}
+
+#TabControlHallazgos:hover {
+  background-color: rgb(47, 122, 160) !important;
+  color: white !important;
+}

@@ -1,0 +1,129 @@
+<!-- Ejemplo de integración del Control de Avance en proyecto.component.html -->
+
+<!-- Opción 1: Como tab dentro de un mat-tab-group -->
+<mat-tab-group>
+  <mat-tab label="Información General">
+    <!-- Contenido de información del proyecto -->
+  </mat-tab>
+  
+  <mat-tab label="Sub-Proyectos">
+    <!-- Contenido de sub-proyectos -->
+  </mat-tab>
+  
+  <mat-tab label="Control de Avance">
+    <div style="padding: 20px;">
+      <!-- Componente de Control de Avance -->
+      <app-control-avance [idProyecto]="Proyecto.idProyecto"></app-control-avance>
+    </div>
+  </mat-tab>
+</mat-tab-group>
+
+<!-- ========================================= -->
+
+<!-- Opción 2: Como sección independiente -->
+<div class="proyecto-container">
+  <h2>{{Proyecto.nombreProyecto}}</h2>
+  
+  <!-- Botones de navegación -->
+  <div class="navegacion-proyecto">
+    <button (click)="seccionActual = 'general'">General</button>
+    <button (click)="seccionActual = 'avance'">Control de Avance</button>
+  </div>
+  
+  <!-- Secciones -->
+  <div *ngIf="seccionActual === 'general'">
+    <!-- Información general del proyecto -->
+  </div>
+  
+  <div *ngIf="seccionActual === 'avance'">
+    <app-control-avance [idProyecto]="Proyecto.idProyecto"></app-control-avance>
+  </div>
+</div>
+
+<!-- ========================================= -->
+
+<!-- Opción 3: Como modal -->
+<button (click)="abrirControlAvance()">
+  <i class="fa fa-clipboard-check"></i> Ver Control de Avance
+</button>
+
+<div class="modal" *ngIf="mostrarControlAvance">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h3>Control de Avance - {{Proyecto.nombreProyecto}}</h3>
+      <button (click)="cerrarControlAvance()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <app-control-avance [idProyecto]="Proyecto.idProyecto"></app-control-avance>
+    </div>
+  </div>
+</div>
+
+<!-- En el TypeScript correspondiente: -->
+<!--
+export class ProyectoComponent {
+  mostrarControlAvance: boolean = false;
+  seccionActual: string = 'general';
+  
+  abrirControlAvance() {
+    this.mostrarControlAvance = true;
+  }
+  
+  cerrarControlAvance() {
+    this.mostrarControlAvance = false;
+  }
+}
+-->
+
+<!-- ========================================= -->
+
+<!-- Opción 4: Como página completa en TableroControl -->
+<div class="tablero-control">
+  <div class="menu-lateral">
+    <a routerLink="seguimiento">Seguimiento</a>
+    <a routerLink="bitacora">Bitácora</a>
+    <a routerLink="control-avance" routerLinkActive="active">
+      Control de Avance
+    </a>
+    <a routerLink="tareas">Tareas</a>
+  </div>
+  
+  <div class="contenido-principal">
+    <router-outlet></router-outlet>
+  </div>
+</div>
+
+<!-- Crear una ruta para control-avance -->
+<!--
+En el routing:
+{
+  path: 'control-avance',
+  component: ControlAvanceWrapperComponent
+}
+
+En ControlAvanceWrapperComponent:
+<app-control-avance [idProyecto]="idProyectoActual"></app-control-avance>
+-->
+
+<!-- ========================================= -->
+
+<!-- Opción 5: Dentro de un accordion -->
+<div class="accordion">
+  <div class="accordion-item">
+    <button class="accordion-header" (click)="toggleSeccion('general')">
+      Información General
+    </button>
+    <div class="accordion-body" *ngIf="seccionAbierta === 'general'">
+      <!-- Contenido general -->
+    </div>
+  </div>
+  
+  <div class="accordion-item">
+    <button class="accordion-header" (click)="toggleSeccion('avance')">
+      Control de Avance de Documentos
+    </button>
+    <div class="accordion-body" *ngIf="seccionAbierta === 'avance'">
+      <app-control-avance [idProyecto]="Proyecto.idProyecto"></app-control-avance>
+    </div>
+  </div>
+</div>

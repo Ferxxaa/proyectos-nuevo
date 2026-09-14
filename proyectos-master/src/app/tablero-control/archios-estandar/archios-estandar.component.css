@@ -1,0 +1,31 @@
+/********** Fondo Tablas Header *******/
+.table-bordered th {
+    background: transparent;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.panel-title{
+    display: flex;
+    justify-content: space-between;
+}
+
+.w80{
+    width: 80%;
+}
+
+.widget{
+    padding: 0px;
+}
+
+.widget header{
+    margin: 0px;
+}
+
+legend{
+    display: none;
+}
+
+tbody tr td:nth-child(4){
+    text-align: center;
+}

@@ -1,0 +1,85 @@
+<section class="widget">
+  <header style="background-color: #555555">
+    <h5 style="color: white;">
+      <strong>Asignar Tareas</strong>
+    
+      <strong>para Sub-Proyecto
+        <span style="color: #F59325">{{SubProyecto.nombreSubProyecto}}</span>
+      </strong>
+    </h5>
+  </header>
+  <div class="widget-body">
+    <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
+      <fieldset>
+        <legend></legend>
+        <div class="form-group row">
+          <label for="normal-field" class="col-md-6 form-control-label">Para(*):</label>
+          <div class="col-md-6">
+            <select name="drdResponsableTar" id="drdResponsableTar" class="dropdown-toggle select2-chosen-2 form-control requiered"
+              appSelectValidator [(ngModel)]="Tarea.idUsuarioResponsable">
+              <option value=0 selected>--- Seleccione una opcion ---</option>
+              <option *ngFor="let Responsable of Responsables | arrDisting:['idUsuario','nombre']" value={{Responsable.idUsuario}}>{{Responsable.nombre + '
+                '
+                + Responsable.paterno}}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label for="normal-field" class="col-md-6 form-control-label">CC:</label>
+          <div class="col-md-6">
+            <select name="drdCC" id="drdCC" class="dropdown-toggle select2-chosen-2 form-control ">
+              <option value=0 selected>--- Seleccione una opcion ---</option>
+              <option *ngFor="let Responsable of Responsables | arrDisting:['idUsuario','nombre']" value={{Responsable.idUsuario}}> {{Responsable.nombre +
+                '
+                ' + Responsable.paterno}}</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group row">
+          <div class="col-md-6">
+            <input type="submit" name="btnAgregar" value="Agregar" id="btnAgregar" class="btn btn-primary">
+          </div>
+          <span id="lblCC" class="col-md-6 form-control-label"></span>
+
+        </div>
+        <div class="form-group row">
+          <label for="normal-field" class="col-md-6 form-control-label">Prioridad(*):</label>
+          <div class="col-md-6">
+            <select name="drdPrioridadTar" id="drdPrioridadTar" class="dropdown-toggle select2-chosen-2 form-control requiered"
+              appSelectValidator [(ngModel)]="Tarea.prioridad">
+              <option value="0" selected>--- Seleccione una opcion ---</option>
+              <option value="Alta">Alta</option>
+              <option value="Media">Media</option>
+              <option value="Baja">Baja</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label for="normal-field" class="col-md-6 form-control-label">Area(*):</label>
+          <div class="col-md-6">
+            <select name="drdArea" id="drdArea" class="dropdown-toggle select2-chosen-2 form-control requiered"
+              appSelectValidator [(ngModel)]="Tarea.area">
+              <option value="0" selected>--- Seleccione una opcion ---</option>
+              <option *ngFor="let Area of Areas" value={{Area.idArea}}>{{Area.nombre}}</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group row">
+          <div class="col-md-12">
+            <textarea name="tbxTarea" rows="2" cols="20" id="tbxTarea" class="form-control" style="height:200px;"
+              [(ngModel)]="Tarea.descripcionTarea"></textarea>
+          </div>
+        </div>
+      </fieldset>
+      <div class="form-actions">
+        <div class="row">
+          <div class="col-md-offset-4 col-md-8">
+            <input type="submit" name="btnAsignar" value="Asignar" id="btnAsignar" class="btn btn-success" [disabled]="!CForm.valid">
+            <input type="button" name="btnLimpiar" value="Limpiar" id="btnLimpiar1" class="btn btn-inverse">
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>

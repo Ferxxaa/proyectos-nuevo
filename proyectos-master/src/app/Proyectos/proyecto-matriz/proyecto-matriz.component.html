@@ -1,0 +1,358 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <div>
+      <div class="row">
+        <div class="col-lg-12">
+
+          <!-- FORMULARIO CREACIÓN -->
+          <mat-card class="proyecto-card">
+            <mat-card-header class="proyecto-header">
+              <mat-card-title>
+                <mat-icon class="header-icon">business</mat-icon>
+                Administración de Proyecto Matriz
+              </mat-card-title>
+            </mat-card-header>
+
+            <mat-card-content class="proyecto-content">
+              <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
+                <div style="padding: 24px 20px;">
+                  <!-- Información del Proyecto -->
+                  <h4 class="section-title">Información del Proyecto</h4>
+                  <div class="form-row">
+                    <mat-form-field appearance="outline" class="form-field-3col">
+                      <mat-label>Nombre Proyecto Matriz (*)</mat-label>
+                      <input matInput
+                             id="txtNombre"
+                             type="text"
+                             name="txtNombre"
+                             [(ngModel)]="ProyectoMatriz.nombreProyectoMatriz"
+                             placeholder="Ingrese el nombre del proyecto matriz"
+                             required>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="form-field-3col">
+                      <mat-label>Gerente del Proyecto (*)</mat-label>
+                      <mat-select [(ngModel)]="ProyectoMatriz.idUsuarioSubGerente"
+                                 name="drdGerentes"
+                                 appSelectValidator
+                                 required>
+                        <mat-option value="0" disabled>--- Seleccione una opción ---</mat-option>
+                        <mat-option *ngFor="let Usuario of Usuarios"
+                                   [value]="Usuario.idUsuario">
+                          {{Usuario.nombre + ' ' + Usuario.paterno}}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+
+                  <!-- Directores del Proyecto -->
+                  <h4 class="section-title">Directores del Proyecto</h4>
+                  <div class="directors-grid">
+                    <div class="director-row">
+                      <mat-form-field appearance="outline" class="director-field">
+                        <mat-label>Director 1 (*)</mat-label>
+                        <mat-select [(ngModel)]="drdDirector1"
+                                   name="drdDirector1"
+                                   appSelectValidator
+                                   required>
+                          <mat-option value="0" disabled>--- Seleccione una opción ---</mat-option>
+                          <mat-option *ngFor="let Usuario of Usuarios"
+                                     [value]="Usuario.idUsuario">
+                            {{Usuario.nombre + ' ' + Usuario.paterno}}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+
+                    <div class="director-row">
+                      <mat-form-field appearance="outline" class="director-field">
+                        <mat-label>Director 2</mat-label>
+                        <mat-select [(ngModel)]="drdDirector2"
+                                   name="drdDirector2">
+                          <mat-option value="0" disabled>--- Seleccione una opción ---</mat-option>
+                          <mat-option *ngFor="let Usuario of Usuarios"
+                                     [value]="Usuario.idUsuario">
+                            {{Usuario.nombre + ' ' + Usuario.paterno}}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+
+                    <div class="director-row">
+                      <mat-form-field appearance="outline" class="director-field">
+                        <mat-label>Director 3</mat-label>
+                        <mat-select [(ngModel)]="drdDirector3"
+                                   name="drdDirector3">
+                          <mat-option value="0" disabled>--- Seleccione una opción ---</mat-option>
+                          <mat-option *ngFor="let Usuario of Usuarios"
+                                     [value]="Usuario.idUsuario">
+                            {{Usuario.nombre + ' ' + Usuario.paterno}}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+
+                    <!-- Dynamic Directors -->
+                    <div class="director-row" *ngFor="let directorExtra of directoresExtra; let i = index">
+                      <mat-form-field appearance="outline" class="director-field">
+                        <mat-label>Director {{i + 4}}</mat-label>
+                        <mat-select [(ngModel)]="directoresExtra[i]"
+                                   [name]="'drdDirectorExtra' + i">
+                          <mat-option value="0" disabled>--- Seleccione una opción ---</mat-option>
+                          <mat-option *ngFor="let Usuario of Usuarios"
+                                     [value]="Usuario.idUsuario">
+                            {{Usuario.nombre + ' ' + Usuario.paterno}}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                  </div>
+
+                  <!-- Director Management Buttons -->
+                  <div class="director-actions">
+                    <button mat-raised-button
+                            color="primary"
+                            type="button"
+                            (click)="AgregarDirector()"
+                            class="action-btn">
+                      Agregar Director
+                    </button>
+                    <button mat-raised-button
+                            color="warn"
+                            type="button"
+                            [disabled]="directoresExtra.length === 0"
+                            (click)="QuitarDirector()"
+                            class="action-btn">
+                      Quitar Director
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                  <button mat-raised-button color="primary" type="submit" [disabled]="!CForm.valid">
+                    <mat-icon>save</mat-icon>
+                    Crear Proyecto Matriz
+                  </button>
+                </div>
+              </form>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- TABLA PROYECTOS MATRIZ -->
+          <mat-card class="proyecto-card">
+            <mat-card-header class="proyecto-header">
+              <mat-card-title>
+                <mat-icon class="header-icon">list</mat-icon>
+                Proyectos Matriz Registrados
+              </mat-card-title>
+            </mat-card-header>
+
+            <mat-card-content class="proyecto-content">
+              <div class="projects-table-wrapper">
+                <table class="table table-bordered table-striped table-hover no-footer">
+                  <thead>
+                    <tr>
+                      <th scope="col">ID</th>
+                      <th scope="col">Nombre del Proyecto</th>
+                      <th scope="col">Gerente</th>
+                      <th scope="col">Directores</th>
+                      <th scope="col">Fecha de Creación</th>
+                      <th scope="col">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let element of ProyectosMatriz; let i = index">
+                      <td>{{element.idProyectoMatriz}}</td>
+                      <td><strong>{{element.nombreProyectoMatriz}}</strong></td>
+                      <td>{{element.SubGerente}}</td>
+                      <td>{{element.Directores}}</td>
+                      <td class="center">{{element.fechaCreacion | date:'dd/MM/yyyy'}}</td>
+                      <td class="center action-cell">
+                        <button mat-icon-button (click)="Editar(i)" matTooltip="Editar" color="primary">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="Confirmacion(i)" matTooltip="Eliminar" color="warn">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <mat-spinner *ngIf="LoadingTabla" diameter="50" class="spinner-center"></mat-spinner>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-spinner *ngIf="Loading" diameter="100" class="spinner-center"></mat-spinner>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL EDITAR -->
+  <div class="modal fade" id="exampleModalLong" tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle" aria-hidden="true">
+    <div class="modal-dialog editar" role="document">
+      <div class="modal-content">
+        <div class="modal-header modal-header-edit">
+          <h4 class="modal-title" id="exampleModalLongTitle">
+            <mat-icon class="modal-title-icon">edit</mat-icon>
+            Editar Proyecto Matriz
+          </h4>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="OcultarPopUpEditar()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body modal-body-edit">
+          <form #EForm="ngForm" (ngSubmit)="Actualizar(EForm)">
+
+            <!-- Sección: Información del Proyecto -->
+            <div class="edit-section">
+              <h5 class="edit-section-title">Información del Proyecto</h5>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">Nombre Proyecto Matriz (*)</label>
+                  <input type="text"
+                         name="txtNombre"
+                         class="form-control edit-input"
+                         [(ngModel)]="ProyectoMatriz.nombreProyectoMatriz"
+                         required />
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Gerente del Proyecto (*)</label>
+                  <select class="form-control edit-input"
+                          [(ngModel)]="ProyectoMatriz.idUsuarioSubGerente"
+                          name="drdGerentes"
+                          required>
+                    <option value="0" disabled>--- Seleccione una opción ---</option>
+                    <option *ngFor="let Usuario of Usuarios"
+                            [value]="Usuario.idUsuario">
+                      {{Usuario.nombre + ' ' + Usuario.paterno}}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sección: Directores -->
+            <div class="edit-section">
+              <h5 class="edit-section-title">Directores del Proyecto</h5>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">Director 1 (*)</label>
+                  <select class="form-control edit-input"
+                          [(ngModel)]="drdDirector1"
+                          name="drdDirector1"
+                          required>
+                    <option value="0" disabled>--- Seleccione una opción ---</option>
+                    <option *ngFor="let Usuario of Usuarios"
+                            [value]="Usuario.idUsuario">
+                      {{Usuario.nombre + ' ' + Usuario.paterno}}
+                    </option>
+                  </select>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Director 2</label>
+                  <select class="form-control edit-input"
+                          [(ngModel)]="drdDirector2"
+                          name="drdDirector2">
+                    <option value="0" disabled>--- Seleccione una opción ---</option>
+                    <option *ngFor="let Usuario of Usuarios"
+                            [value]="Usuario.idUsuario">
+                      {{Usuario.nombre + ' ' + Usuario.paterno}}
+                    </option>
+                  </select>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Director 3</label>
+                  <select class="form-control edit-input"
+                          [(ngModel)]="drdDirector3"
+                          name="drdDirector3">
+                    <option value="0" disabled>--- Seleccione una opción ---</option>
+                    <option *ngFor="let Usuario of Usuarios"
+                            [value]="Usuario.idUsuario">
+                      {{Usuario.nombre + ' ' + Usuario.paterno}}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Dynamic Directors -->
+              <div class="edit-row" *ngIf="directoresExtra.length > 0">
+                <div class="edit-field" *ngFor="let directorExtra of directoresExtra; let i = index">
+                  <label class="edit-label">Director {{i + 4}}</label>
+                  <select class="form-control edit-input"
+                          [(ngModel)]="directoresExtra[i]"
+                          [name]="'drdDirectorExtraEdit' + i">
+                    <option value="0" disabled>--- Seleccione una opción ---</option>
+                    <option *ngFor="let Usuario of Usuarios"
+                            [value]="Usuario.idUsuario">
+                      {{Usuario.nombre + ' ' + Usuario.paterno}}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="director-actions">
+                <button mat-raised-button
+                        color="primary"
+                        type="button"
+                        (click)="AgregarDirector()"
+                        class="action-btn">
+                  Agregar Director
+                </button>
+                <button mat-raised-button
+                        color="warn"
+                        type="button"
+                        [disabled]="directoresExtra.length === 0"
+                        (click)="QuitarDirector()"
+                        class="action-btn">
+                  Quitar Director
+                </button>
+              </div>
+            </div>
+
+            <div class="modal-form-actions">
+              <button type="button" class="btn btn-default" data-dismiss="modal" (click)="OcultarPopUpEditar()">
+                Cancelar
+              </button>
+              <button type="submit" class="btn btn-success" [disabled]="!EForm.valid">
+                <i class="fa fa-check"></i> Actualizar Proyecto Matriz
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIRMACIÓN ELIMINAR -->
+  <div class="modal fade" id="Confirm" tabindex="-1" role="dialog" aria-labelledby="ConfirmLongTitle" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header modal-header-delete">
+          <h4 class="modal-title" id="ConfirmLongTitle">
+            <mat-icon class="modal-title-icon">warning</mat-icon>
+            Confirmación
+          </h4>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="OcultarConfirmacion()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>¿Está seguro de eliminar este elemento?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal" (click)="OcultarConfirmacion()">Cancelar</button>
+          <button type="button" class="btn btn-danger" data-dismiss="modal" (click)="Eliminar()">
+            <i class="fa fa-trash"></i> Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <app-mensaje [mensaje]="texto" [visible]="msg"></app-mensaje>
+
+</div>

@@ -1,0 +1,169 @@
+<div class="panel panel-default">
+  <div class="panel-heading" style="font-weight: bold; background: #e6e6e6;">
+    Proyectos pendientes por validar cierre
+  </div>
+  <div class="panel-body" *ngIf="solicitudesCierrePendientes.length > 0">
+    <table class="table table-bordered table-striped table-hover no-footer">
+      <thead>
+        <tr>
+          <th>Proyecto</th>
+          <th>SubProyecto</th>
+          <th>Fecha solicitud</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of solicitudesCierrePendientes">
+          <td>{{item.nombreProyecto}}</td>
+          <td>{{item.nombreSubProyecto}}</td>
+          <td>{{item.fechaSolicitud | date: 'dd/MM/yyyy HH:mm'}}</td>
+          <td>
+            <button type="button" class="btn btn-success btn-sm" (click)="aprobarSolicitudCierre(item)">Validar cierre</button>
+            <button type="button" class="btn btn-danger btn-sm" (click)="anularSolicitudCierre(item)">Rechazar</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="panel-body" *ngIf="solicitudesCierrePendientes.length === 0">
+    <div class="alert alert-info" style="margin-bottom: 0;">
+      <strong>No hay cierres pendientes por validar.</strong>
+    </div>
+  </div>
+</div>
+
+<div class="panel panel-default" style="margin-top: 20px;">
+  <div class="panel-heading" style="font-weight: bold; background: #e6e6e6;">
+    Proyectos finalizados
+  </div>
+  <div class="panel-body" style="padding: 0;">
+    <table class="table table-bordered table-striped table-hover no-footer">
+      <thead>
+        <tr>
+          <th>Proyecto Matriz</th>
+          <th>Proyecto</th>
+          <th>SubProyecto</th>
+          <th>Tipo de Intervención</th>
+          <th>Etapa de Cierre</th>
+          <th>Fecha Inicio</th>
+          <th>Desviación</th>
+          <th>Sub Proyecto</th>
+          <th>Bitacora</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of proyectosCerrados$ | async | cleanDuplicados | addDuracionReal"
+          (click)="viewDetalleProyecto(item)">
+          <td>{{item.nombreProyectoMatriz}}</td>
+          <td>{{item.nombreProyecto}}</td>
+          <td>{{item.nombreSubProyecto}}</td>
+          <td>{{item.nombreTipoIntervencion}}</td>
+          <td>{{item.EtapaActual}}</td>
+          <td class="align-center">{{item.fechaInicio | date: 'dd/MM/yyyy'}}</td>
+          <ng-container *ngIf="item.detalle && item.detalle | async as detalle">
+            <td>
+              <ng-container *ngIf="(detalle | reduceDuracionReal)*100/item.DuracionTotal as desviacion">
+                <mat-icon *ngIf="desviacion < 100" class="text-success">arrow_upward</mat-icon>
+                <mat-icon *ngIf="desviacion >= 100" class="text-danger">arrow_downward</mat-icon>
+                {{100 - desviacion | number:'1.0-2'}}%
+              </ng-container>
+            </td>
+            <td class="align-center">
+              <i class="fa fa-circle icono text-danger"
+                *ngIf="item.AvanceProgramado - item.AvanceReal > 3 || item.DuracionTotal - retDuracionProyecto(detalle) < -10"></i>
+              <i class="fa fa-circle icono text-warning"
+                *ngIf="item.AvanceProgramado - item.AvanceReal <= 3 && item.AvanceReal - item.AvanceProgramado < 0 && item.DuracionTotal - retDuracionProyecto(detalle) > -10"></i>
+              <i class="fa fa-circle icono text-success"
+                *ngIf="item.AvanceProgramado - item.AvanceReal <= 0 && item.DuracionTotal - retDuracionProyecto(detalle) > 0"></i>
+            </td>
+          </ng-container>
+          <ng-container *ngIf="!item.detalle || !(item.detalle | async)">
+            <td></td>
+            <td></td>
+          </ng-container>
+          <td class="align-center">
+            <i class="fa fa-circle icono text-danger" *ngIf="item.UltBitacora == 'Alta'"></i>
+            <i class="fa fa-circle icono text-warning" *ngIf="item.UltBitacora == 'Media'"></i>
+            <i class="fa fa-circle icono text-success" *ngIf="item.UltBitacora == 'Baja'"></i>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<app-pop-up-content>
+  <h3>Detalle proyecto</h3>
+  <div class="content-body">
+    <ng-container *ngIf="detalleProyecto$ | async as detalle">
+
+      <h4>Etapas:</h4>
+      <ul>
+        <li>
+          <div class="titles">
+            <div>Etapa</div>
+            <div>Ponderación</div>
+            <div>Duración</div>
+            <div>Inicio Real</div>
+            <div>Termino Real</div>
+          </div>
+        </li>
+        <li *ngFor="let item of detalle" [ngClass]="{
+          'Requerimiento': item.idEtapa == 1,
+          'Factibilidad': item.idEtapa == 3,
+          'Layout': item.idEtapa == 5,
+          'Proyecto': item.idEtapa == 7,
+          'Licitacion': item.idEtapa == 9,
+          'Adjudicacion': item.idEtapa == 10,
+          'Construcion': item.idEtapa == 12,
+          'Habilitacion': item.idEtapa == 13,
+          'Contratista': item.idEtapa == 15,
+          'Cliente': item.idEtapa == 16,
+          'Mantencion': item.idEtapa == 17
+        }">
+          <div class="etapas" *ngIf="item.idEtapa | idEtapaToNombre | async as etapa">
+            <div class="etapa">{{etapa.nombreEtapa}}</div>
+            <div class="align-center">
+              <span *ngIf="item.ponderado">{{item.ponderado}}</span>
+              <span *ngIf="!item.ponderado">0</span>
+              %
+            </div>
+            <div class="align-center">{{item.duracion}} dias</div>
+            <div class="align-center">{{item.fechaInicioReal | date: 'dd/MM/yyyy' }}</div>
+            <div class="align-center">{{item.fechaTerminoReal | date: 'dd/MM/yyyy'}}</div>
+          </div>
+        </li>
+        <li>
+          <div class="programado">
+            <div>
+              Programado 
+            </div>
+            <div>
+              {{ detalle | reduceDuracionProgramada }} dias
+            </div>
+          </div>
+          <div class="real">
+            <div class="btop1">
+              Real
+            </div>
+            <div>
+              {{ detalle | reduceDuracionReal }} dias
+            </div>
+          </div>
+
+        </li>
+      </ul>
+      <div class="confirm">
+        <button class="btn btn-primary" (click)="cerrarProyecto()">Confirmar Cierre</button>
+        <button class="btn btn-danger" (click)="anularCierre()">Anular Cierre</button>
+      </div>
+    </ng-container>
+    <div class="mensaje" *ngIf="!detalleProyecto$">
+      <h3 [ngClass]="{'text-success': estadoMensaje == 1, 'text-danger': estadoMensaje == 2}">{{mensaje}}</h3>
+    </div>
+  </div>
+</app-pop-up-content>
+
+<!-- <ul>
+    <li *ngFor="let item of proyectosCerrados$ | async">{{item | json}}</li>
+</ul> -->

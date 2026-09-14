@@ -1,0 +1,169 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <div>
+      <div class="row">
+        <div class="col-lg-12">
+          <section class="widget">
+            <header style="background-color: #555555">
+              <h2 style="color: white;">
+                <strong>Validar Proyecto</strong>
+              </h2>
+            </header>
+            <div class="widget-body">
+              <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
+                <div class="filtros-panel">
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-2 form-control-label">Proyecto Matriz:</label>
+                    <div class="col-md-3">
+                      <select id="drdProyectoMatriz" class="form-control" [(ngModel)]="drdProyectoMatriz" name="drdProyectoMatriz"
+                        (change)="CambioProyectoMatriz()">
+                        <option value=0 selected>--- Seleccione una opcion ---</option>
+                        <option *ngFor="let ProyectoMatriz of ProyectosMatriz" value={{ProyectoMatriz.idProyectoMatriz}}>{{ProyectoMatriz.nombreProyectoMatriz}}</option>
+                      </select>
+                    </div>
+                    <label for="normal-field" class="col-md-1 form-control-label">Proyecto:</label>
+                    <div class="col-md-3">
+                      <select id="drdProyecto" class="form-control" [(ngModel)]="drdProyecto" name="drdProyecto"
+                        (change)="Buscar()">
+                        <option value=0 selected>--- Seleccione una opcion ---</option>
+                        <option *ngFor="let Proyecto of ProyectosFiltro" value={{Proyecto.idProyecto}}>{{Proyecto.nombreProyecto}}</option>
+                      </select>
+                    </div>
+                    <div class="col-md-3">
+                      <button type="button" class="btn-limpiar" (click)="LimpiarFiltros()" title="Limpiar filtros">
+                        <i class="fa fa-eraser"></i> Limpiar Filtros
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div class="titulo-seccion">
+              Pendiente de Validación
+            </div>
+            <div class="grid-container">
+              <div class="grid" *ngIf="!LoadingTabla">
+                <div class="proyecto-item" *ngFor="let Proyecto of Proyectos; let i = index" (click)="VerDetalle(i)">
+                  {{Proyecto.nombreProyecto}}
+                </div>
+              </div>
+              <div class="loading" *ngIf="LoadingTabla">
+                <span class="spinner">
+                  <i class="fa fa-spinner fa-spin"></i>
+                </span>
+              </div>
+            </div>
+            <div class="loader animated fadeIn handle" *ngIf="Loading">
+              <span class="spinner">
+                <i class="fa fa-spinner fa-spin"></i>
+              </span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <app-mensaje [mensaje]="texto" [visible]="msg"></app-mensaje>
+
+  <!-- Editar -->
+  <div class="modal fade" id="exampleModalLong" tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle" aria-hidden="true">
+    <div class="modal-dialog editar" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="form-group row">
+            <div class="col-md-11">
+              <h4 class="modal-title" id="exampleModalLongTitle">Detalle</h4>
+            </div>
+            <div class="col-md-1">
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="OcultarPopUpDetalle()">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-body">
+          <form #EForm="ngForm">
+            <fieldset>
+              <legend></legend>
+              <div class="form-group row">
+                <label for="normal-field" class="col-md-6 form-control-label h5 bold">Proyecto Matriz:</label>
+                <label for="normal-field" class="col-md-6 form-control-label h5">{{DetalleFaltante.nombreProyectoMatriz}}</label>
+              </div>
+              <div class="form-group row">
+                <label for="normal-field" class="col-md-6 form-control-label h5 bold">Proyecto:</label>
+                <label for="normal-field" class="col-md-6 form-control-label h5">{{Detalle.nombreProyecto}}</label>
+              </div>
+              <div class="form-group row">
+                <label for="normal-field" class="col-md-6 form-control-label h5 bold">Centro de Costo:</label>
+                <label for="normal-field" class="col-md-6 form-control-label h5">{{Detalle.centroCosto}}</label>
+              </div>
+              <div class="form-group row">
+                <label for="normal-field" class="col-md-6 form-control-label h5 bold">Pais:</label>
+                <label for="normal-field" class="col-md-6 form-control-label h5">{{DetalleFaltante.nombrePais}}</label>
+              </div>
+              <div class="form-group row">
+                <label for="normal-field" class="col-md-6 form-control-label h5 bold">Region:</label>
+                <label for="normal-field" class="col-md-6 form-control-label h5">{{DetalleFaltante.nombreRegion}}</label>
+              </div>
+              <div class="form-group row">
+                <label for="normal-field" class="col-md-6 form-control-label h5 bold">Costo Estimado:</label>
+                <label for="normal-field" class="col-md-6 form-control-label h5">{{Detalle.costoEstimado}}</label>
+              </div>
+              <div class="form-group row">
+                <label for="normal-field" class="col-md-6 form-control-label h5 bold">Fecha Inicio:</label>
+                <label for="normal-field" class="col-md-6 form-control-label h5">{{Detalle.fechaInicio | date:'dd/MM/yyyy'}}</label>
+              </div>
+              <div class="form-group row">
+                <label for="normal-field" class="col-md-6 form-control-label h5 bold">Fecha Termino:</label>
+                <label for="normal-field" class="col-md-6 form-control-label h5">{{Detalle.fechaTermino | date:'dd/MM/yyyy'}}</label>
+              </div>
+            </fieldset>
+            <div class="form-actions">
+              <div class="btn-actions">
+                  <button class="btn btn-success" [disabled]="!EForm.valid" (click)="Validar()">Validar</button>
+                  <button class="btn btn-danger" [disabled]="!EForm.valid" (click)="Rechazar()">Rechazar</button>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal" (click)="OcultarPopUpDetalle()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmación para envío de correo -->
+  <div class="modal fade" id="Confirm" tabindex="-1" role="dialog" aria-labelledby="ConfirmTitle" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="ConfirmTitle">Confirmación</h4>
+          <button type="button" class="close" aria-label="Close" (click)="CancelarAccion()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="h5">¿Desea enviar un correo electrónico notificando esta acción?</p>
+          <p *ngIf="accionPendiente === 'validar'" class="text-muted">
+            Se enviará un correo al usuario creador informando que el proyecto ha sido validado.
+          </p>
+          <p *ngIf="accionPendiente === 'rechazar'" class="text-muted">
+            Se abrirá su cliente de correo con una plantilla de rechazo, o puede continuar sin enviar correo.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="CancelarAccion()">Cancelar</button>
+          <button type="button" class="btn btn-warning" (click)="ConfirmarSinCorreo()">No, continuar sin correo</button>
+          <button type="button" class="btn btn-success" (click)="ConfirmarConCorreo()">Sí, enviar correo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+</div>

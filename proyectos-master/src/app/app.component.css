@@ -1,0 +1,48 @@
+.content{
+    padding: 50px 40px 42px;
+}
+
+.foo {
+    background-image: url(home/fondo.jpg);
+    background-size: auto auto;
+  
+    -webkit-background-size: 100% 100%;           /* Safari 3.0 */
+       -moz-background-size: 100% 100%;           /* Gecko 1.9.2 (Firefox 3.6) */
+         -o-background-size: 100% 100%;           /* Opera 9.5 */
+            background-size: 100% 100%;           /* Gecko 2.0 (Firefox 4.0) and other CSS3-compliant browsers */
+  
+    -moz-border-image: url(home/fondo.jpg) 0;    /* Gecko 1.9.1 (Firefox 3.5) */
+  }
+
+.sidebar-nav li a .label{
+  margin-top: 9px;
+}
+
+.login{
+  margin-left: -204px;
+}
+
+.fondo{
+  margin-top: 8px;
+  margin-right: 50px;
+  float: left;
+  height: 1232px;
+  width: 100%;
+  background: url(http://trazas-nbi.com/images/login2.jpg) top left no-repeat;
+  -webkit-background-size: 100% 50%;           /* Safari 3.0 */
+       -moz-background-size: 100% 50%;           /* Gecko 1.9.2 (Firefox 3.6) */
+         -o-background-size: 100% 50%;           /* Opera 9.5 */
+            background-size: 100% 50%;           /* Gecko 2.0 (Firefox 4.0) and other CSS3-compliant browsers */
+}
+
+.bg2 {
+  background: url(http://trazas-nbi.com//images/bg-prolongado.jpg) top left repeat-x #2894c7;
+}
+
+.ng-hide:not(.ng-hide-animate) {
+  /* These are just alternative ways of hiding an element */
+  display: block!important;
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+}

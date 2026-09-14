@@ -1,0 +1,528 @@
+<div class="control-hallazgos-container">
+
+  <!-- Encabezado -->
+  <header class="hallazgos-header" style="background-color: #555555">
+    <h5 style="color: white; margin: 0;">
+      <i class="fa fa-info-circle"></i>
+      <strong>Control de Hallazgos
+        <span *ngIf="nombreProyectoVisible" style="color: #F59325">{{nombreProyectoVisible}}</span>
+      </strong>
+    </h5>
+
+    <div class="hallazgos-header-actions">
+      <div class="bitacora-resumen" *ngIf="hallazgos.length > 0">
+        <button type="button" class="bitacora-resumen-item bitacora-resumen-alta"
+                [class.activo]="filtroSemaforo === 'alta'"
+                (click)="toggleFiltroSemaforo('alta')"
+                title="Filtrar por prioridad Alta">
+          <i class="fa fa-circle"></i> {{totalHallazgosPorPrioridad.alta}}
+        </button>
+        <button type="button" class="bitacora-resumen-item bitacora-resumen-media"
+                [class.activo]="filtroSemaforo === 'media'"
+                (click)="toggleFiltroSemaforo('media')"
+                title="Filtrar por prioridad Media">
+          <i class="fa fa-circle"></i> {{totalHallazgosPorPrioridad.media}}
+        </button>
+        <button type="button" class="bitacora-resumen-item bitacora-resumen-baja"
+                [class.activo]="filtroSemaforo === 'baja'"
+                (click)="toggleFiltroSemaforo('baja')"
+                title="Filtrar por prioridad Baja">
+          <i class="fa fa-circle"></i> {{totalHallazgosPorPrioridad.baja}}
+        </button>
+        <button type="button" class="bitacora-resumen-limpiar" *ngIf="filtroSemaforo !== 'todas'"
+                (click)="limpiarFiltroSemaforo()" title="Quitar filtro">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <button
+        *ngIf="!soloLectura && puedeAdministrarPermisoCoordinador()"
+        type="button"
+        class="hallazgos-header-permission"
+        [class.activo]="coordinadorTienePermisoEliminar"
+        (click)="togglePermisoCoordinador()">
+        <i class="fa fa-user-shield"></i> {{getTextoPermisoCoordinador()}}
+      </button>
+
+      <button
+        *ngIf="!soloLectura"
+        type="button"
+        class="hallazgos-header-toggle"
+        (click)="toggleFormularioHallazgos()"
+        [title]="mostrarFormulario ? 'Ocultar formulario' : 'Agregar hallazgo'">
+        <i class="fa" [ngClass]="mostrarFormulario ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="filtro-semaforo-aviso" *ngIf="filtroSemaforo !== 'todas'">
+    <i class="fa fa-filter"></i>
+    Mostrando hallazgos con prioridad <strong>{{getPrioridadLabel(filtroSemaforo)}}</strong>.
+    <button type="button" class="filtro-semaforo-quitar" (click)="limpiarFiltroSemaforo()">Quitar filtro</button>
+  </div>
+
+  <div class="hallazgos-body">
+
+    <!-- Formulario de creación -->
+    <div class="hallazgos-form" *ngIf="!soloLectura && mostrarFormulario">
+      <div class="row row-compact">
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Fecha</label>
+          <input type="date" class="form-control" [(ngModel)]="nuevoHallazgo.fecha">
+        </div>
+        <div class="col-md-3 col-sm-6 compact-field">
+          <label>Tipo de acción</label>
+          <select class="form-control" [(ngModel)]="nuevoHallazgo.tipoAccion">
+            <option value="">Seleccione</option>
+            <option *ngFor="let tipo of tiposAccion" [value]="tipo">{{tipo}}</option>
+          </select>
+        </div>
+        <div class="col-md-3 col-sm-6 compact-field">
+          <label>Área responsable</label>
+          <select class="form-control" [(ngModel)]="nuevoHallazgo.areaResponsable">
+            <option value="">Seleccione</option>
+            <option *ngFor="let area of areasResponsables" [value]="area">{{area}}</option>
+          </select>
+        </div>
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Quién detecta</label>
+          <select class="form-control" [(ngModel)]="nuevoHallazgo.quienDetecta">
+            <option value="">Seleccione</option>
+            <option *ngFor="let quien of quienesDetectan" [value]="quien">{{quien}}</option>
+          </select>
+        </div>
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Estado</label>
+          <select class="form-control" [(ngModel)]="nuevoHallazgo.estado">
+            <option *ngFor="let estado of estadosHallazgo" [value]="estado">{{estado}}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row row-compact mt-10">
+        <div class="col-md-3 col-sm-6 compact-field">
+          <label>Origen de hallazgo</label>
+          <select class="form-control" [(ngModel)]="nuevoHallazgo.origenHallazgo">
+            <option value="">Seleccione</option>
+            <option *ngFor="let origen of origenesHallazgo" [value]="origen">{{origen}}</option>
+          </select>
+        </div>
+        <div class="col-md-5 col-sm-6 compact-field">
+          <label>Obra</label>
+          <input type="text" class="form-control" [(ngModel)]="nuevoHallazgo.obra" placeholder="Obra">
+        </div>
+        <div class="col-md-4 col-sm-12 compact-field">
+          <label>Adjuntar archivos</label>
+          <input type="file" class="form-control" (change)="onArchivosNuevoSeleccionados($event)" multiple>
+          <div class="archivos-chip-lista mt-5" *ngIf="archivosNuevoHallazgo.length > 0">
+            <div class="archivo-chip" *ngFor="let archivo of archivosNuevoHallazgo; let ai = index">
+              <div class="archivo-chip-fila">
+                <i class="fa" [ngClass]="getIconoArchivoClass(archivo.name)"></i>
+                <span class="archivo-chip-nombre" [title]="archivo.name">{{archivo.name}}</span>
+                <button type="button" class="archivo-chip-quitar" *ngIf="!subiendoArchivosNuevoHallazgo"
+                        (click)="quitarArchivoNuevoHallazgo(ai)" title="Quitar">
+                  <i class="fa fa-times"></i>
+                </button>
+              </div>
+              <div class="archivo-chip-estado" *ngIf="subiendoArchivosNuevoHallazgo">
+                <i class="fa fa-spinner fa-spin"></i> Subiendo...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row row-compact mt-10">
+        <div class="col-md-9 col-sm-12 compact-field">
+          <label>Descripción</label>
+          <textarea class="form-control" [(ngModel)]="nuevoHallazgo.descripcion" placeholder="Descripción" rows="1"></textarea>
+        </div>
+        <div class="col-md-3 col-sm-12 compact-field form-actions compact-actions">
+          <button class="btn btn-primary btn-block" (click)="agregarHallazgo()" [disabled]="subiendoArchivosNuevoHallazgo">
+            <i class="fa" [ngClass]="subiendoArchivosNuevoHallazgo ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
+            {{subiendoArchivosNuevoHallazgo ? 'Subiendo adjuntos...' : 'Agregar registro'}}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla de hallazgos -->
+    <div class="tabla-control-hallazgos">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-numero">N°</th>
+            <th class="col-fecha">FECHA</th>
+            <th class="col-tipo">TIPO DE ACCIÓN</th>
+            <th class="col-estado">ESTADO</th>
+            <th class="col-area">ÁREA RESPONSABLE</th>
+            <th class="col-obra">OBRA</th>
+            <th class="col-detecta">QUIÉN DETECTA</th>
+            <th class="col-origen">ORIGEN</th>
+            <th class="col-bitacora">BITÁCORA</th>
+            <th class="col-adjuntos">ADJUNTOS</th>
+            <th class="col-acciones">ACCIONES</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="hallazgosFiltrados.length === 0">
+            <td colspan="11" class="tabla-vacia">
+              <div class="mensaje-vacio">
+                <strong *ngIf="hallazgos.length === 0">No hay hallazgos registrados</strong>
+                <strong *ngIf="hallazgos.length > 0">No hay hallazgos para el filtro seleccionado</strong>
+                <p *ngIf="hallazgos.length === 0">Haga clic en "Agregar registro" para comenzar</p>
+                <p *ngIf="hallazgos.length > 0">Pruebe con otro color del semáforo o quite el filtro.</p>
+              </div>
+            </td>
+          </tr>
+          <ng-container *ngFor="let item of hallazgosFiltrados; let i = index">
+            <tr>
+              <td class="numero-fila">{{item.numero}}</td>
+              <td>
+                <input type="date" [(ngModel)]="item.fecha"
+                    [disabled]="soloLectura || hallazgoEnEdicionId !== item.id"
+                       (ngModelChange)="actualizarCampoHallazgo(item, 'fecha', $event)"
+                       class="input-fecha input-compact">
+              </td>
+              <td>
+                <select [(ngModel)]="item.tipoAccion"
+                  [disabled]="soloLectura || hallazgoEnEdicionId !== item.id"
+                        (ngModelChange)="actualizarCampoHallazgo(item, 'tipoAccion', $event)"
+                        class="input-select input-tipo input-compact" [ngClass]="getTipoClass(item.tipoAccion)">
+                  <option value="">-</option>
+                  <option *ngFor="let tipo of tiposAccion" [value]="tipo">{{tipo}}</option>
+                </select>
+              </td>
+              <td>
+                <select [(ngModel)]="item.estado"
+                  [disabled]="soloLectura || hallazgoEnEdicionId !== item.id"
+                        (ngModelChange)="actualizarCampoHallazgo(item, 'estado', $event)"
+                        class="input-select input-estado input-compact" [ngClass]="getEstadoClass(item.estado)">
+                  <option *ngFor="let estado of estadosHallazgo" [value]="estado">{{estado}}</option>
+                </select>
+              </td>
+              <td>
+                <select [(ngModel)]="item.areaResponsable"
+                  [disabled]="soloLectura || hallazgoEnEdicionId !== item.id"
+                        (ngModelChange)="actualizarCampoHallazgo(item, 'areaResponsable', $event)"
+                        class="input-select input-compact">
+                  <option value="">-</option>
+                  <option *ngFor="let area of areasResponsables" [value]="area">{{area}}</option>
+                </select>
+              </td>
+              <td>
+                <input type="text" [(ngModel)]="item.obra"
+                    [disabled]="soloLectura || hallazgoEnEdicionId !== item.id"
+                       (ngModelChange)="actualizarCampoHallazgo(item, 'obra', $event)"
+                       class="input-texto" placeholder="Obra">
+              </td>
+              <td>
+                <select [(ngModel)]="item.quienDetecta"
+                  [disabled]="soloLectura || hallazgoEnEdicionId !== item.id"
+                        (ngModelChange)="actualizarCampoHallazgo(item, 'quienDetecta', $event)"
+                        class="input-select input-compact">
+                  <option value="">-</option>
+                  <option *ngFor="let quien of quienesDetectan" [value]="quien">{{quien}}</option>
+                </select>
+              </td>
+              <td>
+                <select [(ngModel)]="item.origenHallazgo"
+                  [disabled]="soloLectura || hallazgoEnEdicionId !== item.id"
+                        (ngModelChange)="actualizarCampoHallazgo(item, 'origenHallazgo', $event)"
+                        class="input-select input-compact">
+                  <option value="">-</option>
+                  <option *ngFor="let origen of origenesHallazgo" [value]="origen">{{origen}}</option>
+                </select>
+              </td>
+              <td class="bitacora-toggle-celda">
+                <button class="btn-accion btn-bitacora btn-bitacora-icon"
+                        type="button"
+                        (click)="abrirBitacoraPopup(item)"
+                        [attr.aria-label]="'Abrir bitácora del hallazgo ' + item.numero"
+                        title="Abrir bitácora">
+                  <i class="fa fa-book"></i>
+                  <span class="bitacora-prioridad-mini" [ngClass]="getPrioridadClass(getPrioridadActualHallazgo(item))"></span>
+                </button>
+              </td>
+              <td class="adjuntos-celda">
+                <div class="archivos-celda-lista" *ngIf="(item.archivos || []).length > 0">
+                  <div class="archivo-chip archivo-chip-celda" *ngFor="let archivo of item.archivos">
+                    <a [href]="archivo.url" target="_blank" rel="noopener"
+                       class="archivo-link" [title]="archivo.nombre">
+                      <i class="fa" [ngClass]="getIconoArchivoClass(archivo.nombre, archivo.url)"></i>
+                      <span class="archivo-nombre">{{getNombreCorto(archivo.nombre)}}</span>
+                    </a>
+                    <button type="button" class="archivo-chip-quitar"
+                            *ngIf="!soloLectura && hallazgoEnEdicionId === item.id"
+                            (click)="eliminarArchivoInicial(item, archivo)" title="Eliminar archivo">
+                      <i class="fa fa-times"></i>
+                    </button>
+                  </div>
+                </div>
+                <label class="btn-adjuntar-mini" *ngIf="!soloLectura && hallazgoEnEdicionId === item.id" title="Agregar archivo">
+                  <i class="fa" [ngClass]="item.id && subiendoArchivosPorFila[item.id] ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
+                  <span>Agregar</span>
+                  <input type="file" style="display:none" multiple
+                         [disabled]="!item.id"
+                         (change)="onArchivosHallazgoExistenteSeleccionados($event, item)">
+                </label>
+
+                <div class="archivos-chip-lista archivos-chip-flotante" *ngIf="item.id && (archivosSeleccionadosPorFila[item.id] || []).length > 0">
+                  <div class="archivo-chip" *ngFor="let archivo of archivosSeleccionadosPorFila[item.id]">
+                    <div class="archivo-chip-fila">
+                      <i class="fa" [ngClass]="getIconoArchivoClass(archivo.name)"></i>
+                      <span class="archivo-chip-nombre" [title]="archivo.name">{{archivo.name}}</span>
+                    </div>
+                    <div class="archivo-chip-estado">
+                      <i class="fa fa-spinner fa-spin"></i> Subiendo...
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="acciones-celda">
+                <ng-container *ngIf="hallazgoEnEdicionId !== item.id; else accionesEdicion">
+                  <button class="btn-accion btn-editar"
+                        (click)="editarHallazgo(item)"
+                        [disabled]="soloLectura || !item.id"
+                        title="Editar hallazgo">
+                    <i class="fa fa-pencil"></i>
+                    Editar
+                  </button>
+                  <button class="btn-accion btn-eliminar"
+                        (click)="eliminarHallazgo(item)"
+                        [disabled]="soloLectura"
+                        title="Eliminar">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </ng-container>
+                <ng-template #accionesEdicion>
+                  <button class="btn-accion btn-guardar"
+                          (click)="guardarEdicionHallazgo()"
+                      title="Guardar cambios"
+                      aria-label="Guardar cambios">
+                    <i class="fa fa-check"></i>
+                  </button>
+                  <button class="btn-accion btn-cancelar"
+                          (click)="cancelarEdicionHallazgo(item)"
+                      title="Cancelar edición"
+                      aria-label="Cancelar edición">
+                    <i class="fa fa-times"></i>
+                  </button>
+                </ng-template>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="bitacora-modal-overlay" *ngIf="modalBitacoraAbierto" (click)="cerrarBitacoraPopup()">
+      <div class="bitacora-modal-dialog" *ngIf="hallazgoModalSeleccionado as item" (click)="$event.stopPropagation()">
+        <div class="bitacora-modal-header">
+          <div class="bitacora-modal-heading">
+            <h5 class="modal-title">Bitácora - Hallazgo #{{item.numero}}</h5>
+            <small class="bitacora-modal-subtitle">Registro de seguimiento y acciones</small>
+          </div>
+          <button type="button" class="close" aria-label="Cerrar" (click)="cerrarBitacoraPopup()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="bitacora-modal-body">
+          <div class="bitacora-detalle">
+            <div class="bitacora-carga" *ngIf="!soloLectura">
+              <div class="row row-compact">
+                <div class="col-md-12 col-sm-12 compact-field">
+                  <label>Semáforo de prioridad</label>
+                  <div class="bitacora-semaforo-selector">
+                    <button type="button" class="opcion-semaforo opcion-alta"
+                            [class.activo]="(nuevaBitacoraForm.prioridad || 'MEDIA').toUpperCase() === 'ALTA'"
+                            title="Alta"
+                            (click)="setPrioridadDesdeBitacora('ALTA')">
+                      <i class="fa fa-circle"></i>
+                    </button>
+                    <button type="button" class="opcion-semaforo opcion-media"
+                            [class.activo]="(nuevaBitacoraForm.prioridad || 'MEDIA').toUpperCase() === 'MEDIA'"
+                            title="Media"
+                            (click)="setPrioridadDesdeBitacora('MEDIA')">
+                      <i class="fa fa-circle"></i>
+                    </button>
+                    <button type="button" class="opcion-semaforo opcion-baja"
+                            [class.activo]="(nuevaBitacoraForm.prioridad || 'MEDIA').toUpperCase() === 'BAJA'"
+                            title="Baja"
+                            (click)="setPrioridadDesdeBitacora('BAJA')">
+                      <i class="fa fa-circle"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bitacora-seccion mt-10">
+                <div class="bitacora-seccion-titulo">3.- DESCRIPCIÓN DEL HALLAZGO:</div>
+                <textarea class="form-control" rows="2" [(ngModel)]="nuevaBitacoraForm.descripcionHallazgo"></textarea>
+              </div>
+
+              <div class="bitacora-seccion mt-10">
+                <div class="bitacora-seccion-titulo">4.- ANÁLISIS DE CAUSA:</div>
+                <textarea class="form-control" rows="2" [(ngModel)]="nuevaBitacoraForm.analisisCausa"></textarea>
+              </div>
+
+              <div class="bitacora-seccion mt-10">
+                <div class="bitacora-seccion-titulo">5.- ACCIONES PROPUESTA:</div>
+                <div class="row row-compact bitacora-acciones-row">
+                  <div class="col-md-6 col-sm-12 compact-field">
+                    <div class="bitacora-subseccion bitacora-subseccion-box">
+                      <div class="bitacora-subtitulo">A) ACCIÓN INMEDIATA:</div>
+                      <textarea class="form-control" rows="2" [(ngModel)]="nuevaBitacoraForm.accionInmediata"></textarea>
+                      <div class="bitacora-campos-inline mt-10">
+                        <div class="bitacora-campo">
+                          <label class="bitacora-label-inline">Responsable</label>
+                          <input type="text" class="form-control" [(ngModel)]="nuevaBitacoraForm.responsableInmediata">
+                        </div>
+                        <div class="bitacora-campo">
+                          <label class="bitacora-label-inline">Fecha</label>
+                          <input type="date" class="form-control" [(ngModel)]="nuevaBitacoraForm.fechaInmediata">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6 col-sm-12 compact-field">
+                    <div class="bitacora-subseccion bitacora-subseccion-box">
+                      <div class="bitacora-subtitulo">B) ACCIÓN CORRECTIVA:</div>
+                      <textarea class="form-control" rows="2" [(ngModel)]="nuevaBitacoraForm.accionCorrectiva"></textarea>
+                      <div class="bitacora-campos-inline mt-10">
+                        <div class="bitacora-campo">
+                          <label class="bitacora-label-inline">Responsable</label>
+                          <input type="text" class="form-control" [(ngModel)]="nuevaBitacoraForm.responsableCorrectiva">
+                        </div>
+                        <div class="bitacora-campo">
+                          <label class="bitacora-label-inline">Fecha</label>
+                          <input type="date" class="form-control" [(ngModel)]="nuevaBitacoraForm.fechaCorrectiva">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row row-compact mt-10">
+                  <div class="col-md-12 col-sm-12 compact-field">
+                    <label class="bitacora-label-inline">Responsable de seguimiento (único)</label>
+                    <input type="text" class="form-control" [(ngModel)]="nuevaBitacoraForm.responsableSeguimiento" placeholder="Nombre del responsable de seguimiento">
+                  </div>
+                </div>
+              </div>
+
+              <div class="bitacora-adjuntos-nueva mt-10">
+                <label class="bitacora-label-inline">Adjuntar archivos a este registro de bitácora</label>
+                <input type="file" class="form-control"
+                  [disabled]="!item.id"
+                  (change)="onArchivosBitacoraSeleccionados($event)"
+                  multiple>
+                <div class="archivos-chip-lista mt-5" *ngIf="archivosNuevaBitacora.length > 0">
+                  <div class="archivo-chip" *ngFor="let archivo of archivosNuevaBitacora; let ai = index">
+                    <div class="archivo-chip-fila">
+                      <i class="fa" [ngClass]="getIconoArchivoClass(archivo.name)"></i>
+                      <span class="archivo-chip-nombre" [title]="archivo.name">{{archivo.name}}</span>
+                      <button type="button" class="archivo-chip-quitar" *ngIf="!subiendoNuevaBitacora"
+                              (click)="quitarArchivoNuevaBitacora(ai)" title="Quitar">
+                        <i class="fa fa-times"></i>
+                      </button>
+                    </div>
+                    <div class="archivo-chip-estado" *ngIf="subiendoNuevaBitacora">
+                      <i class="fa fa-spinner fa-spin"></i> Subiendo...
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bitacora-agregar mt-10">
+                <button type="button" class="btn btn-default" *ngIf="registroEnEdicionId" (click)="cancelarEdicionBitacora()" [disabled]="subiendoNuevaBitacora">
+                  Cancelar edición
+                </button>
+                <button type="button" class="btn btn-primary" (click)="agregarBitacora(item)" [disabled]="subiendoNuevaBitacora">
+                  <i class="fa" [ngClass]="subiendoNuevaBitacora ? 'fa-spinner fa-spin' : (registroEnEdicionId ? 'fa-save' : 'fa-plus')"></i>
+                  {{subiendoNuevaBitacora ? 'Guardando...' : (registroEnEdicionId ? 'Guardar cambios' : 'Agregar registro de bitácora')}}
+                </button>
+              </div>
+            </div>
+
+            <div class="bitacora-listado mt-10">
+              <div class="bitacora-listado-titulo">Registros guardados</div>
+              <div class="bitacora-vacia" *ngIf="getBitacorasOrdenadas(item).length === 0">Sin registros todavía.</div>
+              <div class="bitacora-registro" [ngClass]="getPrioridadClass(registro.prioridad)" *ngFor="let registro of getBitacorasOrdenadas(item); let ri = index">
+                <div class="bitacora-registro-head">
+                  <button type="button" class="btn-bitacora-expandir"
+                          (click)="toggleBitacoraGuardada(item, registro, ri)"
+                          [attr.aria-expanded]="estaBitacoraGuardadaExpandida(item, registro, ri)"
+                          title="Ver detalle">
+                    <span class="bitacora-prioridad-pill" [ngClass]="getPrioridadClass(registro.prioridad)">
+                      <i class="fa fa-circle"></i>
+                    </span>
+                    <strong>{{getFechaBitacora(registro.fechaRegistro)}}</strong>
+                    <span class="bitacora-resumen-texto">{{getResumenBitacora(registro)}}</span>
+                    <i class="fa" [ngClass]="estaBitacoraGuardadaExpandida(item, registro, ri) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                  </button>
+                  <button type="button" class="btn-accion btn-editar"
+                          *ngIf="!soloLectura"
+                          (click)="editarRegistroBitacora(registro)"
+                          title="Editar registro">
+                    <i class="fa fa-pencil"></i>
+                  </button>
+                  <button type="button" class="btn-accion btn-eliminar"
+                          *ngIf="!soloLectura"
+                          (click)="eliminarRegistroBitacora(item, registro)"
+                          title="Eliminar registro">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+
+                <div class="bitacora-seccion-leida" *ngIf="estaBitacoraGuardadaExpandida(item, registro, ri)">
+                  <div class="bitacora-seccion-titulo">3.- DESCRIPCIÓN DEL HALLAZGO:</div>
+                  <p>{{registro.descripcionHallazgo || '-'}}</p>
+                </div>
+
+                <div class="bitacora-seccion-leida" *ngIf="estaBitacoraGuardadaExpandida(item, registro, ri)">
+                  <div class="bitacora-seccion-titulo">4.- ANÁLISIS DE CAUSA:</div>
+                  <p>{{registro.analisisCausa || '-'}}</p>
+                </div>
+
+                <div class="bitacora-seccion-leida" *ngIf="estaBitacoraGuardadaExpandida(item, registro, ri)">
+                  <div class="bitacora-seccion-titulo">5.- ACCIONES PROPUESTA:</div>
+                  <p><strong>A) ACCIÓN INMEDIATA:</strong> {{registro.accionInmediata || '-'}}</p>
+                  <p><strong>Responsable y Fecha:</strong> {{getResponsableFechaInmediata(registro)}}</p>
+                  <p><strong>B) ACCIÓN CORRECTIVA:</strong> {{registro.accionCorrectiva || '-'}}</p>
+                  <p><strong>Responsable y Fecha:</strong> {{getResponsableFechaCorrectiva(registro)}}</p>
+                  <p><strong>Responsable de seguimiento:</strong> {{getResponsableSeguimiento(registro)}}</p>
+                </div>
+
+                <div class="bitacora-seccion-leida" *ngIf="estaBitacoraGuardadaExpandida(item, registro, ri)">
+                  <div class="bitacora-seccion-titulo">ARCHIVOS ADJUNTOS:</div>
+                  <div class="archivos-chip-lista archivos-chip-registro" *ngIf="(registro.archivos || []).length > 0; else sinAdjuntosRegistro">
+                    <div class="archivo-chip" *ngFor="let archivo of registro.archivos">
+                      <div class="archivo-chip-fila">
+                        <i class="fa" [ngClass]="getIconoArchivoClass(archivo.nombre)"></i>
+                        <a [href]="archivo.url" target="_blank" rel="noopener" class="archivo-chip-nombre" [title]="archivo.nombre">{{archivo.nombre}}</a>
+                        <button type="button" class="archivo-chip-quitar"
+                                *ngIf="!soloLectura"
+                                (click)="eliminarArchivoDeBitacora(item, registro, archivo)"
+                                title="Eliminar archivo">
+                          <i class="fa fa-times"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <ng-template #sinAdjuntosRegistro>
+                    <small class="text-muted">Sin archivos adjuntos</small>
+                  </ng-template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bitacora-modal-footer">
+          <button type="button" class="btn btn-default" (click)="cerrarBitacoraPopup()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

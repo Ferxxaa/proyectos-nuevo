@@ -1,0 +1,143 @@
+thead tr th,
+thead {
+    background: #026AA7;
+    text-align: center;
+}
+
+thead {
+    font-weight: 600;
+    text-align: center;
+    background: #026AA7;
+    color: white;
+}
+
+.align-center {
+    text-align: center;
+}
+
+tbody,
+tbody:active {
+    cursor: pointer;
+}
+
+.icono {
+    font-size: 30px;
+}
+
+
+app-pop-up-content ul,
+app-pop-up-content ul li {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+app-pop-up-content ul {
+    display: flex;
+    flex-wrap: nowrap;
+}
+
+app-pop-up-content ul li {
+    border: 1px solid #ccc;
+}
+
+app-pop-up-content ul li div.etapas{
+    height: 100%;
+}
+
+app-pop-up-content ul li div div:nth-child(1) {
+    border-bottom: 1px solid #ccc;
+}
+
+app-pop-up-content ul li div div {
+    padding: 2px 5px;
+}
+
+app-pop-up-content ul li.Requerimiento div {
+    background: #A7C69F;
+}
+
+app-pop-up-content ul li.Factibilidad div {
+    background: #669933;
+}
+
+app-pop-up-content ul li.Layout div {
+    background: #0099CC;
+}
+
+app-pop-up-content ul li.Proyecto div {
+    background: #006699;
+}
+
+app-pop-up-content ul li.Licitacion div,
+app-pop-up-content ul li.Adjudicacion div {
+    background: #003366;
+}
+
+app-pop-up-content ul li.Construcion div{
+    background: #FFCC00;
+}
+
+app-pop-up-content ul li.Habilitacion div{
+    background: #FF9900;
+}
+
+app-pop-up-content ul li.Contratista div,
+app-pop-up-content ul li.Cliente div,
+app-pop-up-content ul li.Mantencion div{
+    background: #FF3300;
+}
+
+app-pop-up-content ul li.Requerimiento div,
+app-pop-up-content ul li.Factibilidad div,
+app-pop-up-content ul li.Layout div,
+app-pop-up-content ul li.Proyecto div,
+app-pop-up-content ul li.Licitacion div,
+app-pop-up-content ul li.Adjudicacion div,
+app-pop-up-content ul li.Construcion div,
+app-pop-up-content ul li.Habilitacion div,
+app-pop-up-content ul li.Contratista div,
+app-pop-up-content ul li.Cliente div,
+app-pop-up-content ul li.Mantencion div{
+    color: white;
+}
+
+app-pop-up-content ul li.Requerimiento div div:nth-child(1),
+app-pop-up-content ul li.Factibilidad div div:nth-child(1),
+app-pop-up-content ul li.Layout div div:nth-child(1),
+app-pop-up-content ul li.Proyecto div div:nth-child(1),
+app-pop-up-content ul li.Licitacion div div:nth-child(1),
+app-pop-up-content ul li.Adjudicacion div div:nth-child(1),
+app-pop-up-content ul li.Construcion div div:nth-child(1),
+app-pop-up-content ul li.Habilitacion div div:nth-child(1),
+app-pop-up-content ul li.Contratista div div:nth-child(1),
+app-pop-up-content ul li.Cliente div div:nth-child(1),
+app-pop-up-content ul li.Mantencion div div:nth-child(1){
+    text-align: center;
+    font-weight: bold;
+}
+
+app-pop-up-content .confirm{
+    margin-top: 20px;
+    text-align: center;
+}
+
+app-pop-up-content .mensaje{
+    display: flex;
+    height: 20vh;
+    justify-content: center;
+    align-items: center;
+}
+
+app-pop-up-content .mensaje h3{
+    max-width: 40vh;
+    text-align: justify;
+}
+
+app-pop-up-content .btop1{
+    border-top: 1px solid #ccc;
+}
+
+app-pop-up-content .programado{
+    height: 50%;
+}

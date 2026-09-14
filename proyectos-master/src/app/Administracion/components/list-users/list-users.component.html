@@ -1,0 +1,72 @@
+<div class="row">
+    <div class="col-lg-12">
+        <!-- {{Persona | json}} -->
+        <section class="widget">
+            <header style="background-color: #555555">
+                <h2 style="color: white;">
+                    <strong>Gestión de Usuarios</strong>
+                </h2>
+            </header>
+            <div class="widget-body">
+
+                <mat-list role="list">
+                    <mat-list-item role="listitem" *ngFor="let item of usuarios$ | async; let i = index">
+                        <mat-icon mat-list-icon="mat-list-icon">person</mat-icon>
+                        <div mat-line="mat-line">
+                            {{item.fechaCreacion | date:'dd-MM-yyyy'}}
+                            -
+                            {{item.nombreUsuario}}
+                        </div>
+                        <div mat-line="mat-line" *ngIf="personas$[i] | async as person">
+                            {{person.nombre}}
+                            {{person.paterno}}
+                            {{person.materno}}
+                        </div>
+                        <div class="right">
+                            <mat-icon class="text-primary pointer mright" (click)="addEmail(item)">contact_mail</mat-icon>
+                            <mat-icon class="text-primary pointer" (click)="editPass(item)">mode_edit</mat-icon>
+                            <mat-icon class="text-danger pointer" (click)="confirmDelete(item)">close</mat-icon>
+                        </div>
+                    </mat-list-item>
+                </mat-list>
+            </div>
+        </section>
+    </div>
+</div>
+
+<app-pop-up-content #passwd>
+    <h3>Cambiar contraseña</h3>
+    <div class="content-body">
+        <div class="userInformation" *ngIf="editUser">
+            Usuario: {{editUser.nombreUsuario}}
+        </div>
+        <div class="pass">
+            <label for="txtpassword">Nueva contraseña</label>
+            <input class="form-control" id="txtpassword" type="password" [formControl]="password"
+                placeholder="Nueva contraseña" />
+        </div>
+        <div class="form">
+            <button class="btn btn-primary" (click)="changePassword()" [disabled]="password.invalid">Cambiar
+                contraseña</button>
+            <button class="btn btn-danger" (click)="closePopup()">Cancelar</button>
+        </div>
+    </div>
+</app-pop-up-content>
+
+<app-pop-up-content #email>
+    <h3>Agregar/Editar Email</h3>
+    <div class="content-body">
+        <div class="userInformation" *ngIf="editUser">
+            Usuario: {{editUser.nombreUsuario}}
+        </div>
+        <div class="email">
+            <label for="txtpassword">Email</label>
+            <input class="form-control" id="txtpassword" type="email" [formControl]="emailControll"
+                placeholder="Email" />
+        </div>
+        <div class="form">
+            <button class="btn btn-primary" (click)="editUserEmail()" [disabled]="emailControll.invalid">Editar usuario</button>
+            <button class="btn btn-danger" (click)="closePopup()">Cancelar</button>
+        </div>
+    </div>
+</app-pop-up-content>

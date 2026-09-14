@@ -1,0 +1,408 @@
+:host ::ng-deep .widget > header {
+  align-items: center;
+  background: #555555;
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 22px;
+}
+
+:host ::ng-deep .widget > header h2 {
+  color: #fff;
+  font-size: 21px;
+  letter-spacing: 0;
+  margin: 3px 0 0;
+}
+
+.cartas-gantt-kicker {
+  color: #e9ecef;
+  display: block;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.cartas-gantt-cabecera p {
+  color: #f1f1f1;
+  font-size: 12px;
+  margin: 5px 0 0;
+}
+
+.btn-volver-cartas {
+  align-items: center;
+  background: #8a8987;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: bold;
+  gap: 7px;
+  padding: 8px 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-volver-cartas:hover,
+.btn-volver-cartas:focus {
+  background: #888887;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.btn-volver-cartas:focus {
+  box-shadow: 0 0 0 3px rgba(245, 147, 37, 0.35);
+  outline: none;
+}
+
+.widget-body {
+  background: #f6f8f9;
+  padding: 20px 22px 24px;
+}
+
+.resumen-cartas-gantt {
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  display: flex;
+  margin-bottom: 20px;
+  min-height: 66px;
+}
+
+.resumen-cartas-item {
+  align-items: center;
+  border-right: 1px solid #e2e8eb;
+  display: flex;
+  gap: 9px;
+  padding: 12px 20px;
+}
+
+.resumen-cartas-valor {
+  color: #1a70b7;
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.resumen-cartas-etiqueta {
+  color: #6f7d84;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.resumen-cartas-estado {
+  align-items: center;
+  color: #65757d;
+  display: flex;
+  flex: 1;
+  font-size: 12px;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 20px;
+}
+
+.resumen-cartas-estado i {
+  color: #337ab7;
+}
+
+app-control-avance {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Mantiene la densidad visual de la tabla independiente del zoom del navegador. */
+:host ::ng-deep .cartas-gantt-contenido app-control-avance {
+  flex: none;
+  width: 142.857%;
+  zoom: 0.7 !important;
+}
+
+.grupo-cartas-gantt {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  margin-bottom: 22px;
+  padding: 0 12px 12px;
+}
+
+.grupo-cartas-titulo {
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid #d9e2e7;
+  border-left: 0;
+  border-top: 0;
+  border-right: 0;
+  color: #555;
+  cursor: pointer;
+  display: flex;
+  font-size: 16px;
+  justify-content: space-between;
+  margin: 0 0 12px;
+  padding: 15px 8px;
+  text-align: left;
+  width: 100%;
+}
+
+.grupo-cartas-titulo:hover {
+  background: #f8f9fa;
+}
+
+.grupo-cartas-nombre {
+  align-items: center;
+  display: flex;
+  min-width: 0;
+}
+
+.grupo-cartas-nombre i {
+  margin-right: 10px;
+  width: 12px;
+}
+
+.grupo-cartas-nombre small {
+  color: #888;
+  font-size: 11px;
+  font-weight: normal;
+  margin-left: 10px;
+}
+
+.grupo-cartas-contador {
+  color: #555555;
+  background: #e9ecef;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: normal;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.cartas-gantt-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.carta-gantt-arrastrable {
+  align-items: stretch;
+  cursor: grab;
+  display: flex;
+  position: relative;
+}
+
+.carta-gantt-arrastrable:active {
+  cursor: grabbing;
+}
+
+.carta-gantt-arrastrable:hover {
+  outline: 2px solid #adb5bd;
+  outline-offset: 2px;
+}
+
+.carta-gantt-manija {
+  align-items: center;
+  background: #e9ecef;
+  color: #6c757d;
+  display: flex;
+  justify-content: center;
+  width: 30px;
+}
+
+.carta-gantt-manija i {
+  font-size: 14px;
+}
+
+.carta-gantt-contenido {
+  flex: 1;
+  min-width: 0;
+}
+
+.carta-gantt-titulo {
+  align-items: center;
+  background: #fff4cc;
+  border: 1px solid #ced4da;
+  border-left: 5px solid #e6bd4f;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  color: #555;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 11px 14px 11px 12px;
+  text-align: left;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  width: 100%;
+}
+
+.carta-gantt-titulo:hover,
+.carta-gantt-titulo:focus {
+  background: #ffefb3;
+  border-color: #d9ad3a;
+  outline: none;
+}
+
+.carta-gantt-titulo:focus {
+  box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.25), 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.carta-gantt-titulo-abierto {
+  background: #ffefb3;
+  border-bottom-color: #d9ad3a;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.12);
+}
+
+.carta-gantt-nombre {
+  align-items: center;
+  display: flex;
+  min-width: 0;
+}
+
+.carta-gantt-nombre i {
+  color: #6c757d;
+  margin-right: 10px;
+  width: 12px;
+}
+
+.carta-gantt-etiqueta {
+  color: #6c757d;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.4px;
+  margin-right: 12px;
+  white-space: nowrap;
+}
+
+.carta-gantt-nombre strong {
+  color: #343a40;
+  font-size: 16px;
+}
+
+.carta-gantt-accion {
+  align-items: center;
+  color: #555555;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: bold;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* La vista de cartas debe mantener la tabla completa dentro del ancho disponible. */
+:host ::ng-deep .cartas-gantt-contenido .tabla-control-avance {
+  overflow-x: hidden;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .tabla-control-avance table {
+  box-sizing: border-box;
+  font-size: 10px;
+  max-width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  width: 100% !important;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .tabla-control-avance thead th {
+  padding: 4px 2px;
+  font-size: 8px;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .tabla-control-avance tbody td {
+  box-sizing: border-box;
+  height: 28px;
+  overflow: hidden;
+  padding: 2px;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .tabla-control-avance tbody tr {
+  height: 28px;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .col-numero { width: 25px; }
+:host ::ng-deep .cartas-gantt-contenido .col-codigo { min-width: 0; width: 8%; }
+:host ::ng-deep .cartas-gantt-contenido .col-tipo { min-width: 0; width: 10%; }
+:host ::ng-deep .cartas-gantt-contenido .col-descripcion { min-width: 0; width: 22%; }
+:host ::ng-deep .cartas-gantt-contenido .col-revision { width: 28px; }
+:host ::ng-deep .cartas-gantt-contenido .col-estado { min-width: 0; width: 9%; }
+:host ::ng-deep .cartas-gantt-contenido .col-fecha { min-width: 0; width: 6%; }
+:host ::ng-deep .cartas-gantt-contenido .col-plazo { min-width: 0; width: 4%; }
+:host ::ng-deep .cartas-gantt-contenido .col-fecha-auto { min-width: 0; width: 7%; }
+:host ::ng-deep .cartas-gantt-contenido .col-avance { width: 4%; }
+:host ::ng-deep .cartas-gantt-contenido .col-bitacora { min-width: 0; width: 4%; }
+:host ::ng-deep .cartas-gantt-contenido .col-archivos { min-width: 0; width: 6%; }
+:host ::ng-deep .cartas-gantt-contenido .col-validadores { min-width: 0; width: 6%; }
+:host ::ng-deep .cartas-gantt-contenido .col-acciones { min-width: 0; width: 5%; }
+
+:host ::ng-deep .cartas-gantt-contenido .input-texto,
+:host ::ng-deep .cartas-gantt-contenido .input-numero,
+:host ::ng-deep .cartas-gantt-contenido .input-fecha,
+:host ::ng-deep .cartas-gantt-contenido .input-select {
+  box-sizing: border-box;
+  font-size: 10px;
+  height: 20px;
+  line-height: 16px;
+  max-width: 100%;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .input-texto,
+:host ::ng-deep .cartas-gantt-contenido .input-numero,
+:host ::ng-deep .cartas-gantt-contenido .input-fecha {
+  height: 20px;
+  line-height: 16px;
+  padding-bottom: 1px;
+  padding-top: 1px;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .acciones-fila {
+  gap: 2px;
+  max-width: none;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .btn-accion {
+  font-size: 10px;
+  height: 23px;
+  padding: 3px 4px;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .btn-editar {
+  font-size: 0;
+  min-width: 23px;
+}
+
+:host ::ng-deep .cartas-gantt-contenido .btn-editar i {
+  font-size: 10px;
+}
+
+@media (max-width: 600px) {
+  :host ::ng-deep .widget > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .btn-volver-cartas {
+    align-self: flex-end;
+  }
+
+  .resumen-cartas-gantt {
+    flex-wrap: wrap;
+  }
+
+  .resumen-cartas-item {
+    flex: 1;
+    padding: 12px;
+  }
+
+  .resumen-cartas-estado {
+    border-top: 1px solid #e2e8eb;
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+
+  .carta-gantt-titulo {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .carta-gantt-accion {
+    padding-left: 22px;
+  }
+}

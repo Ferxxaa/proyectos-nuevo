@@ -1,0 +1,177 @@
+/**** Posiciones SVG ****/
+
+.ContentADN {
+    position: relative;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+}
+
+.CentradoAuto {
+    transform: translate( -50%, -50%);
+}
+
+.Central {
+    width: 13%;
+}
+
+.centrar {
+    display: flex;
+    top: calc(50% - 10vw);
+    position: absolute;
+    font-weight: bold;
+    width: 100%;
+    justify-content: center;
+    font-size: 2rem;
+}
+
+.Medium {
+    width: 8%;
+    cursor: pointer;
+    transition: all 0.5s;
+}
+
+.Medium:hover, #Conector7:hover {
+    transform: translate( -50%, -50%) scale(1.075);
+}
+
+.small {
+    width: 6%;
+}
+
+/**** Posiciones SVG individuales ****/
+
+/* #NBICentral {
+    top: 50%;
+    left: 50%;
+} */
+
+#Conector1 {
+    margin-top: -2.3%;
+    margin-left: -9.5%;
+}
+
+#Posable1 {
+    margin-top: -8.2%;
+    margin-left: -13.2%;
+}
+
+#Conector2 {
+    margin-top: -2.2%;
+    margin-left: 9.6%;
+}
+
+#Conector3 {
+    margin-top: -8.6%;
+    margin-left: 20.5%;
+}
+
+#Posable2 {
+    margin-top: -8.2%;
+    margin-left: 13.4%;
+}
+
+#Conector4 {
+    margin-top: 7.4%;
+    margin-left: -6.2%;
+}
+
+#Conector5 {
+    margin-top: 12.8%;
+    margin-left: -9.1%;
+}
+
+#Posable3 {
+    margin-top: 6.7%;
+    margin-left: -19%;
+}
+
+#Conector6 {
+    margin-top: 3.2%;
+    margin-left: 12.4%;
+}
+
+#Conector7 {
+    margin-top: 3.2%;
+    margin-left: 18.6%;
+    transition: all 0.5s;
+}
+
+#Posable4 {
+    margin-top: 10%;
+    margin-left: 9.6%;
+}
+
+#Conector8 {
+    margin-top: 12.8%;
+    margin-left: -15.3%;
+}
+
+/*********** Colores SVG ***********/
+
+/**** NBI Central ****/
+
+.nbi-1 {
+    fill: #2c2e34;
+}
+
+.nbi-1, .nbi-11, .nbi-3, .nbi-5, .nbi-7, .nbi-9 {
+    fill-rule: evenodd;
+}
+
+.nbi-10, .nbi-12, .nbi-2, .nbi-4, .nbi-6, .nbi-8 {
+    fill: none;
+    stroke-miterlimit: 22.93;
+    stroke-width: 1.27px;
+}
+
+.nbi-2 {
+    stroke: #2c2e34;
+}
+
+.nbi-3 {
+    fill: #696c74;
+}
+
+.nbi-4 {
+    stroke: #696c74;
+}
+
+.nbi-5 {
+    fill: #d3802f;
+}
+
+.nbi-6 {
+    stroke: #d3802f;
+}
+
+.nbi-7 {
+    fill: #495258;
+}
+
+.nbi-8 {
+    stroke: #495258;
+}
+
+.nbi-9 {
+    fill: #e3a732;
+}
+
+.nbi-10 {
+    stroke: #e3a732;
+}
+
+.nbi-11 {
+    fill: #d78d30;
+}
+
+.nbi-12 {
+    stroke: #d78d30;
+}

@@ -1,0 +1,254 @@
+/* ===== Corporativo Elegante ===== */
+
+/* --- Widget / Panel --- */
+:host ::ng-deep section.widget {
+  border: 1px solid #d5dce6;
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  background: #fff;
+  overflow: hidden;
+}
+
+:host ::ng-deep section.widget > header {
+  background: #555555 !important;
+  padding: 14px 22px;
+  border-bottom: 3px solid #444444;
+}
+
+:host ::ng-deep section.widget > header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.icon {
+  height: 1px;
+  width: 25px;
+  line-height: 0px;
+  font-size: 20px;
+}
+
+/* --- Filtros --- */
+.filtros-panel {
+  background: #f7f9fc;
+  border: 1px solid #d5dce6;
+  border-left: 4px solid #555555;
+  padding: 16px 20px;
+  margin: 20px 20px 0;
+}
+
+.filtros-panel .form-group {
+  margin-bottom: 0;
+  align-items: center;
+}
+
+.filtros-panel label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 0;
+}
+
+.filtros-panel select.form-control {
+  border: 1px solid #b8c6d6;
+  border-radius: 2px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  color: #34495e;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.filtros-panel select.form-control:focus {
+  border-color: #555555;
+  box-shadow: 0 0 0 2px rgba(85,85,85,0.12);
+  outline: none;
+}
+
+.btn-limpiar {
+  background: #fff;
+  color: #555555;
+  border: 1px solid #b8c6d6;
+  border-radius: 2px;
+  padding: 6px 16px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-limpiar:hover {
+  background: #f0f4f8;
+  border-color: #555555;
+  color: #333;
+}
+
+.btn-limpiar i {
+  margin-right: 4px;
+}
+
+/* --- Validacion Form --- */
+.ng-invalid.ng-touched.requiered {
+  border-color: red;
+}
+
+.ng-valid.ng-dirty.requiered {
+  border-color: green;
+}
+
+/* --- Título sección --- */
+.titulo-seccion {
+  background: #555555;
+  color: #fff;
+  padding: 10px 22px;
+  margin: 20px 20px 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 2px solid #444444;
+}
+
+/* --- Grid de subproyectos --- */
+.grid-container {
+  margin: 0 20px 20px;
+  border: 1px solid #d5dce6;
+  border-top: none;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.subproyecto-item {
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid #e8ecf1;
+  border-right: 1px solid #e8ecf1;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #2c3e50;
+  text-align: left;
+  position: relative;
+}
+
+.subproyecto-item:hover {
+  background: #0099CC;
+  color: #fff;
+}
+
+.subproyecto-item:nth-child(3n) {
+  border-right: none;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: #7f8c9b;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #7f8c9b;
+  font-size: 0.9rem;
+}
+
+/* --- Modal Detalle --- */
+.modal-content {
+  border: 1px solid #d5dce6;
+  border-radius: 2px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.modal-header {
+  background: #555555;
+  color: #fff;
+  border-bottom: 2px solid #444444;
+  padding: 14px 20px;
+}
+
+.modal-header .modal-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 1rem;
+}
+
+.modal-header .close {
+  color: #fff;
+  opacity: 0.8;
+  text-shadow: none;
+}
+
+.modal-header .close:hover {
+  opacity: 1;
+}
+
+.modal-body {
+  padding: 20px 24px;
+}
+
+.modal-body .form-group {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.modal-body .form-group:last-child {
+  border-bottom: none;
+}
+
+.modal-body label.bold {
+  font-weight: 700;
+  color: #555555;
+}
+
+.modal-body .h5 {
+  font-size: 0.88rem;
+}
+
+.modal-footer {
+  border-top: 1px solid #d5dce6;
+  padding: 12px 20px;
+  background: #f7f9fc;
+}
+
+/* --- Botones modal --- */
+.btn-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e8ecf1;
+  margin-top: 8px;
+}
+
+.h5 {
+  font-weight: bold;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .filtros-panel {
+    margin: 12px 12px 0;
+  }
+  .titulo-seccion {
+    margin: 12px 12px 0;
+  }
+  .grid-container {
+    margin: 0 12px 12px;
+  }
+}

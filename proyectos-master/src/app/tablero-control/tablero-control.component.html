@@ -1,0 +1,254 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+
+    <div class="form-group row">
+      <div class="col-md-11">
+        <h2>Seguimiento - Tablero de Control</h2>
+      </div>
+      <div class="col-md-1">
+        <a class="btn btn-inverse form-control" [routerLink]="['/Proyectos-MisProyectos']">Volver</a>
+      </div>
+    </div>
+    <br>
+
+    <!-- ****************************************** Tabla configuracion de fecha ******************************************-->
+    <app-tabla-header *ngIf="detalleSeguimiento && SubProyecto && usuario" [usuario]="usuario"
+      [result]="detalleSeguimiento" [SubProyecto]="SubProyecto" (emitEtapa)="loadEtapa($event)"
+      (firstEtapa)="setInicioReal($event)"></app-tabla-header>
+
+    <app-desplegable-tablero-control [Seguimiento]="SubProyecto"
+      *ngIf="cargaDesplegable"></app-desplegable-tablero-control>
+
+    <!-- ****************************************** Pestañas ******************************************-->
+    <div class="row cuerpo" id="bgRow">
+      <div class="clearfix">
+        <ul class="nav nav-tabs pull-xs-left" id="myTab" role="tablist">
+          <li class="nav-item">
+            <a class="nav-link active" id="TabSeguimiento" data-toggle="tab" role="tab" style="cursor: pointer;"
+              (click)="PestSeguimiento()"><b>Seguimiento Proyecto</b></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="TabBitDoc" data-toggle="tab" role="tab" style="cursor: pointer;"
+              (click)="PestBitDoc()"><b>Bitacora Proyecto</b></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="TabGantt" data-toggle="tab" role="tab" style="cursor: pointer;"
+              (click)="PestGantt()"><b>Carta Gantt</b></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="TabControlHallazgos" data-toggle="tab" role="tab" style="cursor: pointer;"
+              (click)="PestControlHallazgos()"><b>Control de Hallazgos</b></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="TabTareas" data-toggle="tab" role="tab" style="cursor: pointer;"
+              (click)="PestTareas()"><b>Tareas</b></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="TabSSOMA" data-toggle="tab" role="tab" style="cursor: pointer;"
+              (click)="PestSSOMA()"><b>Bitacora SSO-MA</b></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="TabPac" data-toggle="tab" role="tab" style="cursor: pointer;"
+              (click)="PestCalidad()"><b>Bitacora Calidad</b></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="TabControlAvance" data-toggle="tab" role="tab" style="cursor: pointer;"
+              (click)="PestControlAvance()"><b>Control Avance<br>de Proyecto</b></a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="tab-content mb-lg" id="myTabContent" style="overflow: hidden">
+        <br>
+        <br>
+
+        <!-- SEGUIMIENTO -->
+        <div class="row" *ngIf="rowSeguimiento">
+          <div class="col-lg-7">
+            <app-seguimiento (ActualizarSubProy)="ActualizaSP()" [idEtapa]="idEtapa" [soloLectura]="esCliente"></app-seguimiento>
+          </div>
+          <div class="col-lg-5">
+            <app-archios-estandar [perfiles]="perfilesUsuario" [soloLectura]="esCliente"></app-archios-estandar>
+          </div>
+        </div>
+
+        <!-- BITACORA DOC -->
+        <div class="row" *ngIf="rowBitDoc">
+          <div class="col-lg-5">
+            <app-bitacora [TipoBitacora]="1" [soloLectura]="esCliente" (ConseguirBitacoras)="ActualizaDoc()"></app-bitacora>
+          </div>
+          <div class="col-lg-7" *ngIf="verDoc">
+            <app-ver-bitacora [TipoBitacora]="1" [soloLectura]="esCliente"></app-ver-bitacora>
+          </div>
+          <div class="col-lg-7" *ngIf="!verDoc">
+            <div class="loader animated fadeIn handle">
+              <span class="spinner">
+                <i class="fa fa-spinner fa-spin"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SSOMA -->
+        <div class="row" *ngIf="rowSSOMA">
+          <div class="col-lg-5">
+            <app-bitacora [TipoBitacora]="2" [soloLectura]="esCliente" (ConseguirBitacoras)="ActualizaSSOMA()"></app-bitacora>
+          </div>
+          <div class="col-lg-7" *ngIf="verSSOMA">
+            <app-ver-bitacora [TipoBitacora]="2" [soloLectura]="esCliente"></app-ver-bitacora>
+          </div>
+          <div class="col-lg-7" *ngIf="!verSSOMA">
+            <div class="loader animated fadeIn handle">
+              <span class="spinner">
+                <i class="fa fa-spinner fa-spin"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAC -->
+        <div class="row" *ngIf="rowPac">
+          <div class="col-lg-5">
+            <app-bitacora [TipoBitacora]="3" [soloLectura]="esCliente" (ConseguirBitacoras)="ActualizaPac()"></app-bitacora>
+          </div>
+          <div class="col-lg-7" *ngIf="verPac">
+            <app-ver-bitacora [TipoBitacora]="3" [soloLectura]="esCliente"></app-ver-bitacora>
+          </div>
+          <div class="col-lg-7" *ngIf="!verPac">
+            <div class="loader animated fadeIn handle">
+              <span class="spinner">
+                <i class="fa fa-spinner fa-spin"></i>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAREAS -->
+        <div class="row" *ngIf="rowTareas">
+          <div class="col-lg-5">
+            <app-tareas (crearTarea)="recargarTareas()"></app-tareas>
+          </div>
+          <div class="col-lg-7">
+            <section class="widget">
+              <header style="background-color: #555555; display: flex; justify-content: space-between; align-items: center; padding: 10px;margin-left: 2px;
+    margin-right: 2px;">
+                <h5 style="color: white; margin: 0;">
+                  <strong>Tareas del Sub-Proyecto</strong>
+                </h5>
+                <a class="btn btn-inverse btn-sm" [routerLink]="['/Ver-Tareas']">Volver a mis tareas</a>
+              </header>
+              <div class="widget-body">
+                <table class="table table-bordered table-striped table-hover no-footer tabla-tareas-proyecto" style="table-layout: fixed; width: 100%;">
+                  <thead>
+                    <tr>
+                      <td style="width: 5%;">Tarea</td>
+                      <td style="width: 10%;">Tipo</td>
+                      <td style="width: 22%;">Descripción</td>
+                      <td style="width: 10%;">Estado</td>
+                      <td style="width: 12%;">Para Quién</td>
+                      <td class="align-center" style="width: 8%;">Prioridad</td>
+                      <td style="width: 10%;">Fecha Compromiso</td>
+                      <td style="width: 10%;">Creador</td>
+                      <td style="width: 10%;">Fecha Creación</td>
+                    </tr>
+                  </thead>  <!-- ✅ CORREGIDO: se agregó cierre de thead -->
+                  <tbody>
+                    <tr *ngIf="sinTareasProyecto">
+                      <td colspan="9" class="text-center">
+                        <div class="alert alert-info" style="margin: 20px;">
+                          <i class="fa fa-tasks fa-2x mb-2"></i>
+                          <br>
+                          <strong>No hay tareas específicas de este proyecto</strong>
+                          <br><br>
+                          <p class="mb-2">
+                            <i class="fa fa-lightbulb-o text-warning"></i>
+                            <strong>Para crear tareas de este proyecto:</strong>
+                          </p>
+                          <ol class="text-left" style="display: inline-block;">
+                            <li>Usa el formulario <strong>"Crear Tarea"</strong> arriba ⬆️</li>
+                            <li>Las tareas creadas aquí quedarán asociadas solo a este proyecto</li>
+                            <li>No aparecerán en otros proyectos</li>
+                          </ol>
+                          <br>
+                          <small class="text-muted">
+                            <i class="fa fa-info-circle"></i>
+                            Las tareas generales (sin proyecto específico) se pueden ver en <strong>"Mis Tareas"</strong>
+                          </small>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr *ngFor="let Tarea of Tareas; let i = index"
+                        [class]="obtenerClasesFila(Tarea)"
+                        [id]="'tarea-' + Tarea.idTarea">
+                      <td>{{Tarea.idTarea}}</td>
+                      <td class="col-tipo-tarea">
+                        <span class="badge badge-primary" *ngIf="Tarea.idUsuarioResponsable == usuario.idUsuario && Tarea.idUsuarioCreador != usuario.idUsuario">
+                          <i class="fa fa-user"></i> Asignada
+                        </span>
+                        <span class="badge badge-success" *ngIf="Tarea.idUsuarioCreador == usuario.idUsuario && Tarea.idUsuarioResponsable != usuario.idUsuario">
+                          <i class="fa fa-plus"></i> Creada
+                        </span>
+                        <span class="badge badge-warning" *ngIf="Tarea.idUsuarioResponsable == usuario.idUsuario && Tarea.idUsuarioCreador == usuario.idUsuario">
+                          <i class="fa fa-user-circle"></i> Propia
+                        </span>
+                        <span class="badge badge-info" *ngIf="Tarea.idUsuarioResponsable != usuario.idUsuario && Tarea.idUsuarioCreador != usuario.idUsuario" title="Vista de gerencia - Tarea de otro usuario">
+                          <i class="fa fa-eye"></i> Vista Global
+                        </span>
+                      </td>
+                      <td class="col-descripcion-tarea">
+                        <div [innerHTML]="Tarea.descripcionTarea"></div>
+                      </td>
+                      <td>{{Tarea.nombreEstadoTarea}}</td>
+                      <td>
+                        <span style="font-family: inherit; font-size: inherit;">{{Tarea.UsuarioResponsable}}</span>
+                      </td>
+                      <td class="align-center">
+                        <i class="fa fa-circle icono" style="color:red" *ngIf="Tarea.prioridad == 'Alta'"></i>
+                        <i class="fa fa-circle icono" style="color:yellow" *ngIf="Tarea.prioridad == 'Media'"></i>
+                        <i class="fa fa-circle icono" style="color:green" *ngIf="Tarea.prioridad == 'Baja'"></i>
+                      </td>
+                      <td>{{Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy'}}</td>
+                      <td>
+                        <i class="fa fa-user-plus"></i>
+                        <span style="font-family: inherit; font-size: inherit;">{{Tarea.UsuarioCreador}}</span>
+                      </td>
+                      <td class="center">{{Tarea.fechaCreacion | date:'dd/MM/yyyy'}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>        <!-- ✅ cierra widget-body -->
+            </section>      <!-- ✅ cierra section.widget -->
+          </div>            <!-- ✅ cierra col-lg-7 -->
+        </div>              <!-- ✅ cierra row rowTareas -->
+
+        <!-- GANTT -->
+        <div class="row" *ngIf="rowGantt">
+          <div class="col-lg-12">
+            <app-carta-gantt [detalleSeguimiento]="detalleSeguimiento"
+              [nombreProyecto]="SubProyecto?.nombreSubProyecto"></app-carta-gantt>
+          </div>
+        </div>
+
+        <!-- CONTROL AVANCE -->
+        <div class="row" *ngIf="rowControlAvance">
+          <div class="col-lg-12">
+            <app-control-avance [idProyecto]="SubProyecto?.idProyecto" [detalleSeguimiento]="detalleSeguimiento"
+              [nombreProyecto]="SubProyecto?.nombreSubProyecto" [soloLectura]="esCliente"></app-control-avance>
+          </div>
+        </div>
+
+        <!-- CONTROL HALLAZGOS -->
+        <div class="row" *ngIf="rowControlHallazgos">
+          <div class="col-lg-12">
+            <app-control-hallazgos [idProyecto]="SubProyecto?.idProyecto"
+              [nombreProyecto]="SubProyecto?.nombreSubProyecto" [soloLectura]="esCliente"></app-control-hallazgos>
+          </div>
+        </div>
+
+      </div>  <!-- cierra tab-content -->
+    </div>    <!-- cierra row cuerpo -->
+
+  </main>
+</div>        <!-- cierra content-wrap -->

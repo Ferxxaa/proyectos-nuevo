@@ -1,0 +1,456 @@
+/* Resalta la notificación seleccionada (hover) con fondo celeste pastel */
+.selected-notif {
+  background-color: #e3f6fd !important;
+}
+/* Contenedor del usuario y notificaciones */
+.user-nav-container {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+}
+
+/* Contenedor principal de notificaciones en header */
+.notifications-container-header {
+  position: absolute;
+  left: -40px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 1000;
+}
+
+/* Botón de notificaciones generales */
+.notification-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.notification-badge:hover {
+  transform: scale(1.1);
+}
+
+.notification-badge .badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #026aa7;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  line-height: 12px;
+  text-align: center;
+  z-index: 10;
+  animation: pulse 2s infinite;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.notification-badge .fa {
+  font-size: 20px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+/* Campana CON notificaciones */
+.notification-badge .fa.bell-with-notifications {
+  color: #026aa7;
+}
+
+.notification-badge .fa.bell-with-notifications:hover {
+  color: #024d7a;
+  animation: ring 0.5s ease-in-out;
+}
+
+/* Campana SIN notificaciones */
+.notification-badge .fa.bell-no-notifications {
+  color: #6c757d;
+  opacity: 0.7;
+}
+
+.notification-badge .fa.bell-no-notifications:hover {
+  color: #495057;
+  opacity: 1;
+}
+
+/* Notificación de tareas */
+.task-notification-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.task-notification-badge:hover {
+  transform: translateY(-50%) scale(1.1);
+}
+
+.task-notification-badge .badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #dc3545;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  line-height: 12px;
+  text-align: center;
+  z-index: 10;
+  animation: pulse 2s infinite;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.task-notification-badge .fa {
+  font-size: 20px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+/* Tareas CON pendientes */
+.task-notification-badge .fa.tasks-with-pending {
+  color: #ffc107;
+}
+
+.task-notification-badge .fa.tasks-with-pending:hover {
+  color: #ffca2c;
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Tareas SIN pendientes */
+.task-notification-badge .fa.tasks-no-pending {
+  color: #6c757d;
+  opacity: 0.7;
+}
+
+.task-notification-badge .fa.tasks-no-pending:hover {
+  color: #495057;
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Animación de campana cuando se hace hover */
+@keyframes ring {
+  0%, 100% { transform: rotate(0deg); }
+  10%, 30%, 50%, 70%, 90% { transform: rotate(-10deg); }
+  20%, 40%, 60%, 80% { transform: rotate(10deg); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-15deg); }
+  75% { transform: rotate(15deg); }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Dropdown de notificaciones estilo Instagram */
+.notifications-dropdown {
+  position: absolute;
+  top: 45px;
+  right: -20px;
+  width: 420px;
+  max-height: 600px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  z-index: 1000;
+  overflow: hidden;
+  animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notifications-header-dropdown {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+}
+
+.notifications-header-dropdown h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.notifications-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: #e9ecef;
+  color: #333;
+}
+
+.notifications-list {
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  display: flex;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.notification-item:hover {
+  background-color: #f8f9fa;
+}
+
+.notification-item.unread {
+  background-color: #e7f3ff;
+  border-left: 3px solid #026aa7;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-avatar {
+  width: 48px;
+  height: 48px;
+  background: #f8f9fa;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.notification-avatar i {
+  font-size: 18px;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.notification-description {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.3;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.notification-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notification-created,
+.notification-deadline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #888;
+}
+
+.notification-deadline.overdue {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.notification-deadline.warning {
+  color: #856404;
+  font-weight: 600;
+}
+
+.notification-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.priority-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.priority-alta {
+  background-color: #dc3545;
+}
+
+.priority-media {
+  background-color: #ffc107;
+}
+
+.priority-baja {
+  background-color: #28a745;
+}
+
+.btn-mark-read {
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #026aa7;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.btn-mark-read:hover {
+  background: #e7f3ff;
+}
+
+.no-notifications {
+  text-align: center;
+  padding: 40px 20px;
+  color: #888;
+}
+
+.no-notifications i {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.no-notifications p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.notifications-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e9ecef;
+  text-align: center;
+  background: #f8f9fa;
+}
+
+.notifications-footer .btn {
+  color: #026aa7;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13px;
+  border: none;
+  background: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.notifications-footer .btn:hover {
+  background: #e7f3ff;
+}
+
+/* Scrollbar personalizado para el dropdown */
+.notifications-list::-webkit-scrollbar {
+  width: 12px;
+}
+
+.notifications-list::-webkit-scrollbar-track {
+  background: #e9ecef;
+  border-radius: 6px;
+}
+
+.notifications-list::-webkit-scrollbar-thumb {
+  background: #026AA7;
+  border-radius: 6px;
+  border: 2px solid #e9ecef;
+}
+
+.notifications-list::-webkit-scrollbar-thumb:hover {
+  background: #014f7e;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .notifications-dropdown {
+    width: 350px;
+    right: -30px;
+  }
+  
+  .notification-item {
+    padding: 12px 16px;
+  }
+  
+  .notification-avatar {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Click outside para cerrar el dropdown */
+.notifications-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 999;
+}

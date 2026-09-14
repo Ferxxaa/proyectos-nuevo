@@ -1,0 +1,51 @@
+<div class="row mb-3">
+  <a class="text-white" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
+    <div class="col-12 bg-secondary">
+      Detalle de Sub-Proyecto 
+      <i class="fa fa-angle-down pull-xs-right"></i>
+    </div>
+    </a>
+  <div class="collapse" id="collapseExample">
+    <div class="card card-body col-12">
+      <div class="row1 text-white" [style.background-color]='retColor(miProyecto.EtapaActual)'>
+        <div>Inicio Sub-Proyecto</div>
+        <div>Termino Sub-Proyecto</div>
+        <div>Superficie</div>
+        <div>Tipo de Intervención</div>
+        <div>Duracion Programado</div>
+        <div>Duracion Real</div>
+        <div>% Desviación</div>
+        <div>Avance Programado</div>
+        <div>Acance Real</div>
+        <div>
+          <app-help text='Semaforo'></app-help>
+        </div>
+      </div>
+      <div class="row1" *ngIf="miProyecto">
+        <div>{{Seguimiento.fechaInicio | date:'dd/MM/yyyy'}}</div>
+        <div>{{Seguimiento.fechaTermino | date:'dd/MM/yyyy'}}</div>
+        <div>{{Seguimiento.superficie | number:'1.0-0'}}</div>
+        <div>{{miProyecto.nombreTipoIntervencion }}</div>
+        <div>{{miProyecto.DuracionTotal| number:'1.0-0'}}</div>
+        <div>{{duracionRealDisplay | number:'1.0-0'}}</div>
+        <div>
+          <ng-container *ngIf="proyectoIniciado; else desviacionNoIniciada">
+            <mat-icon *ngIf="desviacionDisplay >= 0" class="text-success">arrow_upward</mat-icon>
+            <mat-icon *ngIf="desviacionDisplay < 0" class="text-danger">arrow_downward</mat-icon>
+            {{desviacionDisplay | number:'1.0-2'}}%
+          </ng-container>
+          <ng-template #desviacionNoIniciada>0.00%</ng-template>
+        </div>
+        <div>{{avanceProgramadoDisplay}}%</div>
+        <div>{{avanceRealDisplay}}%</div>
+        <div>
+          <i class="fa fa-circle icono text-muted" *ngIf="mostrarSemaforoNeutro"></i>
+          <i class="fa fa-circle icono text-danger" *ngIf="mostrarSemaforoRojo"></i>
+          <i class="fa fa-circle icono text-warning" *ngIf="mostrarSemaforoAmarillo"></i>
+          <i class="fa fa-circle icono text-success" *ngIf="mostrarSemaforoVerde"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

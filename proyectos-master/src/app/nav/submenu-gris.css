@@ -1,0 +1,33 @@
+/* Color gris para submenús activos de Finanzas y Tareas */
+
+.sidebar-nav > li ul.submenu-gris {
+    background-color: #575555 !important;
+}
+
+/* Submenús de submenús: mismo gris (más clarito) */
+.sidebar-nav > li ul.submenu-gris ul {
+    background-color: #6b6969 !important;
+}
+
+.sidebar-nav > li ul.submenu-gris li a {
+    color: #fff !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    background-color: #575555 !important;
+}
+
+.sidebar-nav > li ul.submenu-gris ul li a {
+    color: #fff !important;
+    background-color: #6b6969 !important;
+}
+
+/* Opcional: resaltar el submenú activo */
+.sidebar-nav > li ul.submenu-gris li a:hover, .sidebar-nav > li ul.submenu-gris li a:focus {
+    background-color: #4b4a4a !important;
+    color: #fff !important;
+}
+
+.sidebar-nav > li ul.submenu-gris ul li a:hover, .sidebar-nav > li ul.submenu-gris ul li a:focus {
+    background-color: #5f5d5d !important;
+    color: #fff !important;
+}

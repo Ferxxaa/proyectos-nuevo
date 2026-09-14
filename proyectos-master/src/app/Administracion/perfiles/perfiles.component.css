@@ -1,0 +1,22 @@
+.mb0 {
+    margin-bottom: 0px;
+    margin-top: 2px;
+    cursor: pointer;
+}
+
+.ml-auto{
+    margin-left: 11%;
+}
+
+.right{
+    float: right;
+    cursor: pointer;
+}
+
+.bold{
+    font-weight: bold;
+}
+
+.content-body{
+    width: 80vw;
+}

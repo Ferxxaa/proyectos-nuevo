@@ -1,0 +1,136 @@
+<app-main></app-main>
+
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <div>
+      <div class="row">
+        <div class="col-lg-12">
+          <!-- {{Persona | json}} -->
+          <section class="widget">
+            <header style="background-color: #555555">
+              <h2 style="color: white;">
+                <strong>Creación de Usuarios</strong>
+              </h2>
+            </header>
+            <div class="widget-body">
+              <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
+                <fieldset>
+                  <legend></legend>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Nombre:</label>
+                    <div class="col-md-6">
+                      <input type="text" id="txtNombre" class="form-control requiered" [(ngModel)]="Persona.nombre"
+                        name="txtNombre" placeholder="Nombre" required>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Apellido:</label>
+                    <div class="col-md-6">
+                      <input type="text" id="txtApellido" class="form-control requiered" [(ngModel)]="Persona.paterno"
+                        name="txtApellido" placeholder="Apellido Paterno" required>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Materno:</label>
+                    <div class="col-md-6">
+                      <input type="text" id="txtMaterno" class="form-control requiered" [(ngModel)]="Persona.materno"
+                        name="txtMaterno" placeholder="Apellido Materno" required>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Rut:</label>
+                    <div class="col-md-6">
+                      <input type="text" id="txtRut" class="form-control requiered" [(ngModel)]="Persona.rut"
+                        name="txtRut" placeholder="Rut" required>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Nombre de Usuario:</label>
+                    <div class="col-md-6">
+                      <input type="text" id="txtUsuario" class="form-control requiered" [(ngModel)]="Usuario.nombreUsuario"
+                        pattern="[a-zA-Z0-9]+" name="txtUsuario" placeholder="Nombre de Usuario" required>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Fecha de Nacimiento:</label>
+                    <div class="col-md-6">
+                      <div id="datetimepicker2" class="input-group date">
+                        <input id="txtNacimiento" name="txtNacimiento" type="text" class="form-control"
+                          (focusout)="asignaFechaNacimiento()" />
+                        <span class="input-group-addon">
+                          <span class="fa fa-calendar"></span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Sexo:</label>
+                    <div class="col-md-3">
+                      <div class="radio abc-radio">
+                        <input type="radio" name="Sexo" id="radMasculino" value="M" [(ngModel)]="Persona.sexo">
+                        <label for="radMasculino">
+                          Masculino
+                        </label>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="radio abc-radio">
+                        <input type="radio" name="Sexo" id="radFemenino" value="F" [(ngModel)]="Persona.sexo">
+                        <label for="radFemenino">
+                          Femenino
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Estado civil:</label>
+                    <div class="col-md-6">
+                      <select id="drdEstadoCivil" class="dropdown-toggle select2-chosen-2 form-control"
+                        [(ngModel)]="Persona.idEstadoCivil" name="drdEstadoCivil">
+                        <option value=0 selected>--- Seleccione una opcion ---</option>
+                        <option *ngFor="let EstadoCivil of EstadosCiviles" value={{EstadoCivil.idEstadoCivil}}>
+                          {{EstadoCivil.nombreEstadoCivil}}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Usuario:</label>
+                    <div class="col-md-6">
+                      <input type="text" id="txtUsuario" class="form-control requiered"
+                        [(ngModel)]="Usuario.nombreUsuario" name="txtUsuario" placeholder="Nombre de Usuario" required>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Contraseña:</label>
+                    <div class="col-md-6">
+                      <input type="password" id="txtContrasena" class="form-control requiered"
+                        [(ngModel)]="Usuario.contraseniaUsuario" name="txtContrasena" placeholder="Contraseña" required>
+                    </div>
+                  </div>
+                  <div class="form-group row">
+                    <label for="normal-field" class="col-md-4 form-control-label h5">Email:</label>
+                    <div class="col-md-6">
+                      <input type="email" id="txtEmail" class="form-control requiered"
+                        [(ngModel)]="email.direccionMail" name="txtEmail" placeholder="Email" required>
+                    </div>
+                  </div>
+                </fieldset>
+                <div class="form-actions">
+                  <div class="row">
+                    <div class="col-md-offset-4 col-md-8">
+                      <input type="submit" name="btnGuardar" value="Guardar" id="btnGuardar" class="btn btn-success">
+                      <input type="submit" name="btnCancela" value="Volver/Cancelar" id="btnCancela"
+                        class="btn btn-inverse">
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </section>
+        </div>
+      </div>
+      <app-list-users></app-list-users>
+    </div>
+  </main>
+</div>

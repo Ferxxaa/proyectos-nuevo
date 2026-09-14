@@ -1,0 +1,295 @@
+<!-- Componente de Notificaciones -->
+<div class="notifications-container">
+  <!-- Header con controles -->
+  <div class="notifications-header">
+    <div class="row">
+      <div class="col-md-6">
+        <h3 class="notifications-title">
+          <i class="fa fa-bell"></i>
+          Notificaciones
+          <span class="badge badge-primary badge-fixed" *ngIf="conteoNoLeidas > 0">{{conteoNoLeidas}}</span>
+        </h3>
+      </div>
+      <div class="col-md-6 text-right">
+        <button class="btn btn-sm btn-success" (click)="actualizarNotificaciones()" title="Actualizar notificaciones">
+          <i class="fa fa-refresh"></i> Actualizar
+        </button>
+        <button class="btn btn-sm btn-info ml-2" (click)="marcarTodasComoLeidas()" 
+                [disabled]="conteoNoLeidas === 0" title="Marcar todas como leídas">
+          <i class="fa fa-check"></i> Marcar todas
+        </button>
+        <button class="btn btn-sm btn-warning ml-2" (click)="limpiarNotificacionesLeidas()" title="Limpiar leídas">
+          <i class="fa fa-trash"></i> Limpiar leídas
+        </button>
+        <button class="btn btn-sm btn-primary ml-2" (click)="volverAMisTareas()" title="Volver a Mis Tareas">
+          <i class="fa fa-arrow-left"></i> Volver
+        </button>
+        
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros y búsqueda -->
+  <div class="notifications-filters">
+    <div class="row">
+      <div class="col-md-2">
+        <div class="form-group">
+          <label for="filtroTipoNotificacion">Tipo:</label>
+          <select id="filtroTipoNotificacion" class="form-control form-control-sm" 
+                  [(ngModel)]="filtroTipoNotificacion" (change)="onFiltroChange()">
+            <option value="todas">Todas</option>
+            <option value="tarea">📋 Tareas</option>
+            <option value="validacion">🔔 Validaciones</option>
+            <option value="proyecto">📁 Proyectos</option>
+            <option value="general">📢 General</option>
+          </select>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <div class="form-group">
+          <label for="filtroTipo">Prioridad:</label>
+          <select id="filtroTipo" class="form-control form-control-sm" 
+                  [(ngModel)]="filtroTipo" (change)="onFiltroChange()">
+            <option value="todas">Todas</option>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <div class="form-group">
+          <label for="filtroEstado">Estado:</label>
+          <select id="filtroEstado" class="form-control form-control-sm" 
+                  [(ngModel)]="filtroEstado" (change)="onFiltroChange()">
+            <option value="todas">Todas</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="enproceso">En Proceso</option>
+            <option value="canceladas">Canceladas</option>
+          </select>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="busqueda">Buscar:</label>
+          <input type="text" id="busqueda" class="form-control form-control-sm" 
+                 placeholder="Buscar en título o descripción..."
+                 [(ngModel)]="busqueda" (input)="onBusquedaChange()">
+        </div>
+      </div>
+      <div class="col-md-2">
+        <div class="form-group">
+          <label for="itemsPorPagina">Por página:</label>
+          <select id="itemsPorPagina" class="form-control form-control-sm" 
+                  [(ngModel)]="itemsPorPagina" (change)="aplicarFiltros()">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Botones de acción -->
+    <div class="row mt-2">
+      <div class="col-md-12 text-right">
+       
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="limpiarFiltros()">
+          <i class="fa fa-times"></i> Limpiar filtros
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de notificaciones -->
+  <div class="notifications-table-container">
+    <table class="table table-hover notifications-table">
+      <thead class="table-header">
+        <tr>
+          <th class="sortable" (click)="ordenarPorColumna('leida')">
+            Estado
+            <i class="fa fa-sort" *ngIf="ordenarPor !== 'leida'"></i>
+            <i class="fa fa-sort-asc" *ngIf="ordenarPor === 'leida' && ordenAscendente"></i>
+            <i class="fa fa-sort-desc" *ngIf="ordenarPor === 'leida' && !ordenAscendente"></i>
+          </th>
+          <th class="sortable" (click)="ordenarPorColumna('prioridad')">
+            Prioridad
+            <i class="fa fa-sort" *ngIf="ordenarPor !== 'prioridad'"></i>
+            <i class="fa fa-sort-asc" *ngIf="ordenarPor === 'prioridad' && ordenAscendente"></i>
+            <i class="fa fa-sort-desc" *ngIf="ordenarPor === 'prioridad' && !ordenAscendente"></i>
+          </th>
+          <th class="sortable" (click)="ordenarPorColumna('tipo')">
+            Tipo
+            <i class="fa fa-sort" *ngIf="ordenarPor !== 'tipo'"></i>
+            <i class="fa fa-sort-asc" *ngIf="ordenarPor === 'tipo' && ordenAscendente"></i>
+            <i class="fa fa-sort-desc" *ngIf="ordenarPor === 'tipo' && !ordenAscendente"></i>
+          </th>
+          <th class="sortable" (click)="ordenarPorColumna('titulo')">
+            Notificación
+            <i class="fa fa-sort" *ngIf="ordenarPor !== 'titulo'"></i>
+            <i class="fa fa-sort-asc" *ngIf="ordenarPor === 'titulo' && ordenAscendente"></i>
+            <i class="fa fa-sort-desc" *ngIf="ordenarPor === 'titulo' && !ordenAscendente"></i>
+          </th>
+          <th class="sortable" (click)="ordenarPorColumna('fechaCreacion')">
+            Fecha
+            <i class="fa fa-sort" *ngIf="ordenarPor !== 'fechaCreacion'"></i>
+            <i class="fa fa-sort-asc" *ngIf="ordenarPor === 'fechaCreacion' && ordenAscendente"></i>
+            <i class="fa fa-sort-desc" *ngIf="ordenarPor === 'fechaCreacion' && !ordenAscendente"></i>
+          </th>
+          <th class="sortable" (click)="ordenarPorColumna('fechaVencimiento')">
+            F. Compromiso
+            <i class="fa fa-sort" *ngIf="ordenarPor !== 'fechaVencimiento'"></i>
+            <i class="fa fa-sort-asc" *ngIf="ordenarPor === 'fechaVencimiento' && ordenAscendente"></i>
+            <i class="fa fa-sort-desc" *ngIf="ordenarPor === 'fechaVencimiento' && !ordenAscendente"></i>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+    <tr *ngFor="let notificacion of notificacionesPaginadas" 
+      class="notification-row"
+      [class.unread]="!notificacion.leida"
+      [class.overdue]="estaVencida(notificacion)"
+      (click)="navegarANotificacion(notificacion, $event)"
+      [style.background-color]="notificacion.colorFondo"
+      [style.border-left]="'4px solid ' + notificacion.colorTexto">
+          
+          <!-- Estado (nombre del estado de la tarea) -->
+          <td class="text-center">
+            <!-- Reuse the same status-badge markup used in Mis Tareas to keep styles identical -->
+            <span class="status-badge" [ngClass]="{
+              'status-pending': notificacion.idEstadoTarea == 1,
+              'status-progress': notificacion.idEstadoTarea == 2,
+              'status-completed': notificacion.idEstadoTarea == 5,
+              'status-cancelled': notificacion.idEstadoTarea == 3
+            }">
+              <i class="fa" [ngClass]="{
+                'fa-clock-o': notificacion.idEstadoTarea == 1,
+                'fa-spinner': notificacion.idEstadoTarea == 2,
+                'fa-check-circle': notificacion.idEstadoTarea == 5,
+                'fa-times-circle': notificacion.idEstadoTarea == 3
+              }"></i>
+              {{ notificacion.nombreEstadoTarea || (notificacion.leida ? (notificacion.leida ? 'Leída' : 'No leída') : 'Sin estado') }}
+            </span>
+          </td>
+
+          <!-- Prioridad -->
+          <td class="text-center">
+            <i class="fa" [ngClass]="obtenerIconoPrioridad(notificacion.prioridad)"
+               [title]="'Prioridad: ' + notificacion.prioridad"></i>
+          </td>
+
+          <!-- Tipo -->
+          <td>
+            <span class="notification-type">
+              <i class="fa" [ngClass]="obtenerIconoTipo(notificacion.tipo)"></i>
+              {{obtenerTextoTipo(notificacion.tipo)}}
+            </span>
+          </td>
+
+          <!-- Título y descripción -->
+          <td class="notification-content">
+            <div class="notification-title" [style.color]="notificacion.colorTexto">
+              <a href="#" class="notification-link" (click)="navegarANotificacion(notificacion, $event)" 
+                 [style.color]="notificacion.colorTexto" style="text-decoration:none;">
+                <!-- Small icon to indicate a Tablero-Control / subproject link -->
+                <i *ngIf="notificacion.idSubProyecto" class="fa fa-columns text-muted ml-1" 
+                   title="Abre en Tablero-Control" aria-hidden="true" style="margin-right:6px;font-size:12px;"></i>
+                {{notificacion.titulo}}
+                <span *ngIf="notificacion.nombreSubProyecto" class="badge badge-info ml-1 badge-fixed">
+                  <i class="fa fa-folder-open"></i> Subproyecto: {{notificacion.nombreSubProyecto}}
+                </span>
+              </a>
+            </div>
+            <div class="notification-description">
+              {{notificacion.descripcion}}
+            </div>
+            <div class="notification-action mt-2">
+             
+            </div>
+          </td>
+
+          <!-- Fecha de creación (usar la fecha de creación de la tarea si está disponible) -->
+          <td>
+            <small class="text-muted">
+              {{ (notificacion.fechaCreacionTarea || notificacion.fechaCreacion) | date:'dd/MM/yyyy' }}
+            </small>
+          </td>
+
+          <!-- Fecha de vencimiento -->
+          <td>
+            <span *ngIf="notificacion.fechaCompromiso || notificacion.fechaVencimiento">
+              <small [class.text-danger]="estaVencida(notificacion)"
+                     [class.text-warning]="!estaVencida(notificacion) && diasHastaVencimiento(notificacion) <= 3"
+                     [class.text-muted]="!estaVencida(notificacion) && diasHastaVencimiento(notificacion) > 3">
+                {{(notificacion.fechaCompromiso || notificacion.fechaVencimiento) | date:'dd/MM/yyyy'}}
+                <br>
+                <span *ngIf="estaVencida(notificacion)" class="badge badge-danger badge-fixed">
+                  <i class="fa fa-exclamation-triangle"></i> Vencida
+                </span>
+                <span *ngIf="!estaVencida(notificacion) && diasHastaVencimiento(notificacion) <= 3" 
+                      class="badge badge-warning badge-fixed">
+                  <i class="fa fa-clock-o"></i> {{diasHastaVencimiento(notificacion)}} días
+                </span>
+              </small>
+            </span>
+            <span *ngIf="!notificacion.fechaCompromiso && !notificacion.fechaVencimiento" class="text-muted">
+              <small>-</small>
+            </span>
+          </td>
+
+         
+        </tr>
+
+        <!-- Mensaje cuando no hay notificaciones -->
+        <tr *ngIf="notificacionesPaginadas.length === 0">
+          <td colspan="7" class="text-center no-notifications">
+            <div class="empty-state">
+              <i class="fa fa-bell-slash fa-3x text-muted"></i>
+              <h4 class="text-muted">No hay notificaciones</h4>
+              <p class="text-muted">
+                <span *ngIf="notificaciones.length === 0">No tienes notificaciones en este momento.</span>
+                <span *ngIf="notificaciones.length > 0">No hay notificaciones que coincidan con los filtros aplicados.</span>
+              </p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paginación -->
+  <div class="notifications-pagination" *ngIf="totalPaginas > 1">
+    <nav aria-label="Paginación de notificaciones">
+      <ul class="pagination pagination-sm justify-content-center">
+        <li class="page-item" [class.disabled]="paginaActual === 1">
+          <a class="page-link" href="#" (click)="irAPagina(paginaActual - 1); $event.preventDefault()">
+            <i class="fa fa-chevron-left"></i>
+          </a>
+        </li>
+        
+        <!-- Páginas -->
+        <li class="page-item" *ngFor="let pagina of [].constructor(totalPaginas); let i = index"
+            [class.active]="i + 1 === paginaActual">
+          <a class="page-link" href="#" (click)="irAPagina(i + 1); $event.preventDefault()">
+            {{i + 1}}
+          </a>
+        </li>
+        
+        <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
+          <a class="page-link" href="#" (click)="irAPagina(paginaActual + 1); $event.preventDefault()">
+            <i class="fa fa-chevron-right"></i>
+          </a>
+        </li>
+      </ul>
+    </nav>
+    
+    <div class="text-center">
+      <small class="text-muted">
+        Mostrando {{(paginaActual - 1) * itemsPorPagina + 1}} - 
+        {{Math.min(paginaActual * itemsPorPagina, notificacionesFiltradas?.length || 0)}} 
+        de {{notificacionesFiltradas?.length || 0}} notificaciones
+      </small>
+    </div>
+  </div>
+</div>

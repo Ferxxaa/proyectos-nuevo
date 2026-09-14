@@ -1,0 +1,40 @@
+<ng-container
+    *ngIf="perfiles$ | async  | orderPerfiles as perfiles">
+    <!-- <ul>
+                                    <li class="d-flex bold">
+                                        <div>Usuario</div>
+                                        <div *ngFor="let perfil of perfiles">{{perfil.nombrePerfil}}</div>
+                                    </li>
+                                </ul> -->
+    <table class="table table-bordered table-striped table-hover no-footer">
+        <thead>
+            <tr>
+                <th>Sistemas</th>
+                <th colspan="5">PROYECTOS</th>
+                <th colspan="2" class="licitaciones">LICITACIONES</th>
+                <th colspan="3" class="finanzas">FINANZAS</th>
+                <th>INTERNO</th>
+            </tr>
+            <tr>
+                <th>Usuario</th>
+                <th *ngFor="let perfil of perfiles" 
+                [ngClass]="{
+                    'licitaciones': perfil.nombrePerfil.toUpperCase() == 'COORDINADORLIC' || perfil.nombrePerfil.toUpperCase() == 'DIRECTORLIC',
+                    'finanzas': perfil.nombrePerfil.toUpperCase() == 'ADMINISTRACION' || perfil.nombrePerfil.toUpperCase() == 'JEFEADMINISTRACION' || perfil.nombrePerfil.toUpperCase() == 'GENERENTE-ADMINISTRACION' 
+                }"
+                >{{perfil.nombrePerfil}}</th>
+            </tr>
+        </thead>
+        <tbody *ngIf="usuariosPerfiles">
+            <tr *ngFor="let user of usuarios$ | async">
+                <td>{{user.nombreUsuario}}</td>
+                <td *ngFor="let perfil of perfiles" >
+                    <div [ngSwitch]="userContaintsPerfil(user,perfil)" class="perfil">
+                        <mat-icon *ngSwitchCase="true" class="text-success" (click)="eliminarPerfil(user,perfil)">check</mat-icon>
+                        <mat-icon *ngSwitchDefault (click)="addPerfil(user,perfil)">crop_square</mat-icon>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</ng-container>

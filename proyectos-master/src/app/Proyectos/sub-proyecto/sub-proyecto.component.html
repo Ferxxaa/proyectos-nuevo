@@ -1,0 +1,540 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <div>
+      <div class="row">
+        <div class="col-lg-12">
+
+          <!-- FORMULARIO CREACIÓN -->
+          <mat-card class="proyecto-card">
+            <mat-card-header class="proyecto-header">
+              <mat-card-title>
+                <mat-icon class="header-icon">account_tree</mat-icon>
+                Creación de Sub Proyecto
+              </mat-card-title>
+            </mat-card-header>
+            <mat-card-content class="proyecto-content">
+              <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
+                <mat-tab-group class="form-tabs" animationDuration="300">
+
+                  <!-- TAB 1: Información General -->
+                  <mat-tab>
+                    <ng-template mat-tab-label>
+                      <mat-icon>info</mat-icon>
+                      <span class="tab-label">Información</span>
+                    </ng-template>
+                    <div class="tab-content">
+                      <h4 class="section-title">Datos del Proyecto</h4>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Proyecto Matriz (*)</mat-label>
+                          <mat-select [(ngModel)]="drdProyectoMatriz" name="drdProyectoMatriz" (selectionChange)="CargaProyectos()" required>
+                            <mat-option [value]="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let ProyectoMatriz of ProyectosMatriz" [value]="ProyectoMatriz.idProyectoMatriz">
+                              {{ProyectoMatriz.nombreProyectoMatriz}}
+                            </mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Proyecto (*)</mat-label>
+                          <mat-select [(ngModel)]="Subproyecto.idProyecto" name="drdProyecto" (selectionChange)="CargaDatosProyecto()" required>
+                            <mat-option [value]="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let Proyecto of Proyectos" [value]="Proyecto.idProyecto">
+                              {{Proyecto.nombreProyecto}}
+                            </mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Centro de costo</mat-label>
+                          <input matInput [value]="centroCosto" disabled>
+                        </mat-form-field>
+                      </div>
+
+                      <h4 class="section-title">Datos del Sub-Proyecto</h4>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Nombre Sub-Proyecto (*)</mat-label>
+                          <input matInput type="text" [(ngModel)]="Subproyecto.nombreSubProyecto" name="txtSubProyecto" required>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Sub-Centro de costo</mat-label>
+                          <input matInput type="text" [(ngModel)]="Subproyecto.centroCosto" name="txtCentroCosto">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Tipo de intervención (*)</mat-label>
+                          <mat-select [(ngModel)]="Subproyecto.idTipoIntervencion" name="drdTipoIntervencion" required>
+                            <mat-option [value]="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let TipoIntervencion of TiposIntervencion" [value]="TipoIntervencion.idTipoIntervencion">
+                              {{TipoIntervencion.nombreTipoIntervencion}}
+                            </mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                      </div>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Superficie</mat-label>
+                          <input matInput type="text" [(ngModel)]="Subproyecto.superficie" name="txtSuperficie" pattern="[0-9]+">
+                          <mat-hint>Solo números</mat-hint>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Costo Estimado</mat-label>
+                          <input matInput type="text" [(ngModel)]="Subproyecto.costoEstimado" name="txtCostoEstimado">
+                          <mat-hint>Monto en moneda local</mat-hint>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Dirección</mat-label>
+                          <input matInput type="text" [(ngModel)]="Direccion.calle" name="txtDireccion">
+                        </mat-form-field>
+                      </div>
+                    </div>
+                  </mat-tab>
+
+                  <!-- TAB 2: Ubicación -->
+                  <mat-tab>
+                    <ng-template mat-tab-label>
+                      <mat-icon>location_on</mat-icon>
+                      <span class="tab-label">Ubicación</span>
+                    </ng-template>
+                    <div class="tab-content">
+                      <h4 class="section-title">Ubicación Geográfica</h4>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>País</mat-label>
+                          <mat-select [(ngModel)]="drdPais" name="drdPais" (selectionChange)="CargaRegiones()">
+                            <mat-option [value]="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let Pais of Paises" [value]="Pais.idPais">{{Pais.nombrePais}}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Región</mat-label>
+                          <mat-select [(ngModel)]="drdRegion" name="drdRegion" (selectionChange)="CargaProvincias()">
+                            <mat-option [value]="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let Region of Regiones" [value]="Region.idRegion">{{Region.nombreRegion}}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Provincia</mat-label>
+                          <mat-select [(ngModel)]="drdProvincia" name="drdProvincia" (selectionChange)="CargaComunas()">
+                            <mat-option [value]="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let Provincia of Provincias" [value]="Provincia.idProvincia">{{Provincia.nombreProvincia}}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                      </div>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Comuna</mat-label>
+                          <mat-select [(ngModel)]="Direccion.idComuna" name="drdComuna">
+                            <mat-option [value]="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let Comuna of Comunas" [value]="Comuna.idComuna">{{Comuna.nombreComuna}}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                      </div>
+                    </div>
+                  </mat-tab>
+
+                  <!-- TAB 3: Personas -->
+                  <mat-tab>
+                    <ng-template mat-tab-label>
+                      <mat-icon>groups</mat-icon>
+                      <span class="tab-label">Personas</span>
+                    </ng-template>
+                    <div class="tab-content">
+                      <h4 class="section-title">Responsables</h4>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Gerente</mat-label>
+                          <input matInput [value]="Gerente" disabled>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Sub Gerente</mat-label>
+                          <input matInput [value]="Gerente" disabled>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Coordinadores</mat-label>
+                          <input matInput
+                            [value]="coordinadoresText"
+                            disabled>
+                        </mat-form-field>
+                      </div>
+
+                      <h4 class="section-title">Clientes Internos</h4>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Cliente Interno 1</mat-label>
+                          <mat-select [(ngModel)]="drdCliente1" name="drdCliente1">
+                            <mat-option [value]="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let Cliente of Clientes" [value]="Cliente.idUsuario">
+                              {{Cliente.nombre + " " + Cliente.paterno}}
+                            </mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Cliente Interno 2</mat-label>
+                          <mat-select [(ngModel)]="drdCliente2" name="drdCliente2">
+                            <mat-option [value]="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let Cliente of Clientes" [value]="Cliente.idUsuario">
+                              {{Cliente.nombre + " " + Cliente.paterno}}
+                            </mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                      </div>
+                    </div>
+                  </mat-tab>
+
+                  <!-- TAB 4: Fechas -->
+                  <mat-tab>
+                    <ng-template mat-tab-label>
+                      <mat-icon>calendar_today</mat-icon>
+                      <span class="tab-label">Fechas</span>
+                    </ng-template>
+                    <div class="tab-content">
+                      <h4 class="section-title">Planificación</h4>
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Fecha de Inicio (*)</mat-label>
+                          <input matInput [matDatepicker]="pickerInicio" [(ngModel)]="fechaInicioInput" name="txtInicio" (dateChange)="onFechaInicioChange($event)" required>
+                          <mat-datepicker-toggle matSuffix [for]="pickerInicio"></mat-datepicker-toggle>
+                          <mat-datepicker #pickerInicio></mat-datepicker>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Fecha de Término (*)</mat-label>
+                          <input matInput [matDatepicker]="pickerTermino" [(ngModel)]="fechaTerminoInput" name="txtTermino" (dateChange)="onFechaTerminoChange($event)" required>
+                          <mat-datepicker-toggle matSuffix [for]="pickerTermino"></mat-datepicker-toggle>
+                          <mat-datepicker #pickerTermino></mat-datepicker>
+                        </mat-form-field>
+                      </div>
+                      <div class="error-msg" *ngIf="error">{{error}}</div>
+                    </div>
+                  </mat-tab>
+
+                </mat-tab-group>
+
+                <div class="form-actions">
+                  <button mat-raised-button color="primary" type="submit" [disabled]="!CForm.valid">
+                    <mat-icon>save</mat-icon>
+                    Crear Sub-Proyecto
+                  </button>
+                </div>
+              </form>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- TABLA SUB PROYECTOS -->
+          <mat-card class="proyecto-card">
+            <mat-card-header class="proyecto-header">
+              <mat-card-title>
+                <mat-icon class="header-icon">list</mat-icon>
+                Sub Proyectos Registrados
+              </mat-card-title>
+            </mat-card-header>
+            <mat-card-content class="proyecto-content">
+              <div class="table-toolbar">
+                <mat-form-field appearance="outline" class="table-filter-field">
+                  <mat-label>Filtrar por matriz</mat-label>
+                  <mat-select [(ngModel)]="filtroProyectoMatrizTabla" name="filtroProyectoMatrizTabla">
+                    <mat-option [value]="0">Todas las matrices</mat-option>
+                    <mat-option *ngFor="let ProyectoMatriz of ProyectosMatriz" [value]="ProyectoMatriz.idProyectoMatriz">
+                      {{ProyectoMatriz.nombreProyectoMatriz}}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <div class="table-toolbar-count">
+                  {{ (subProyectosFiltrados || []).length }} subproyectos
+                </div>
+              </div>
+              <div class="projects-table-wrapper">
+                <table class="table table-bordered table-striped table-hover no-footer">
+                  <thead>
+                    <tr>
+                      <th scope="col">Proyecto Matriz</th>
+                      <th scope="col">Proyecto</th>
+                      <th scope="col">Sub Proyecto</th>
+                      <th scope="col">Tipo Intervención</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col">Fecha Creación</th>
+                      <th scope="col">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let SubProyecto of subProyectosFiltrados | sortSp">
+                      <td>{{SubProyecto.nombreProyectoMatriz}}</td>
+                      <td>{{SubProyecto.nombreProyecto}}</td>
+                      <td><strong>{{SubProyecto.nombreSubProyecto}}</strong></td>
+                      <td>{{SubProyecto.nombreTipoIntervencion}}</td>
+                      <td>
+                        <span class="badge-estado">{{SubProyecto.nombreEstadoProyecto}}</span>
+                      </td>
+                      <td class="center">{{SubProyecto.fechaCreacion | date:'dd/MM/yyyy'}}</td>
+                      <td class="center action-cell">
+                        <button mat-icon-button (click)="Editar(getSubProyectoIndex(SubProyecto))" matTooltip="Editar" color="primary">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="Confirmacion(getSubProyectoIndex(SubProyecto))" matTooltip="Eliminar" color="warn">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </td>
+                    </tr>
+                    <tr *ngIf="(subProyectosFiltrados || []).length === 0">
+                      <td colspan="7" class="table-empty-state">No hay subproyectos para la matriz seleccionada.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <mat-spinner *ngIf="LoadingTabla" diameter="50" class="spinner-center"></mat-spinner>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-spinner *ngIf="Loading" diameter="100" class="spinner-center"></mat-spinner>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL EDITAR -->
+  <div class="modal fade" id="exampleModalLong" tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle" aria-hidden="true">
+    <div class="modal-dialog editar" role="document">
+      <div class="modal-content">
+        <div class="modal-header modal-header-edit">
+          <h4 class="modal-title" id="exampleModalLongTitle">
+            <mat-icon class="modal-title-icon">edit</mat-icon>
+            Editar Sub-Proyecto
+          </h4>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="OcultarPopUpEditar()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body modal-body-edit">
+          <form #EForm="ngForm" (ngSubmit)="Actualizar(EForm)">
+
+            <!-- Sección: Proyecto -->
+            <div class="edit-section">
+              <h5 class="edit-section-title">Datos del Proyecto</h5>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">Proyecto Matriz (*)</label>
+                  <select id="drdProyectoMatrizEdit" class="form-control edit-input"
+                    [(ngModel)]="drdProyectoMatriz" name="drdProyectoMatrizEdit" (change)="CargaProyectos()">
+                    <option value=0>--- Seleccione ---</option>
+                    <option *ngFor="let ProyectoMatriz of ProyectosMatriz" value={{ProyectoMatriz.idProyectoMatriz}}>
+                      {{ProyectoMatriz.nombreProyectoMatriz}}
+                    </option>
+                  </select>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Proyecto (*)</label>
+                  <select id="drdProyectoEdit" class="form-control edit-input"
+                    [(ngModel)]="Subproyecto.idProyecto" name="drdProyectoEdit" (change)="CargaDatosProyecto()">
+                    <option value=0>--- Seleccione ---</option>
+                    <option *ngFor="let Proyecto of Proyectos" value={{Proyecto.idProyecto}}>
+                      {{Proyecto.nombreProyecto}}
+                    </option>
+                  </select>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Centro de costo</label>
+                  <div class="edit-readonly">{{centroCosto || '-'}}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sección: Sub-Proyecto -->
+            <div class="edit-section">
+              <h5 class="edit-section-title">Datos del Sub-Proyecto</h5>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">Nombre Sub-Proyecto (*)</label>
+                  <input type="text" name="txtSubProyectoEdit" class="form-control edit-input"
+                    [(ngModel)]="Subproyecto.nombreSubProyecto" required />
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Sub-Centro de costo</label>
+                  <input type="text" name="txtCentroCostoEdit" class="form-control edit-input"
+                    [(ngModel)]="Subproyecto.centroCosto" />
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Tipo de intervención (*)</label>
+                  <select id="drdTipoIntervencionEdit" class="form-control edit-input"
+                    [(ngModel)]="Subproyecto.idTipoIntervencion" name="drdTipoIntervencionEdit">
+                    <option value=0>--- Seleccione ---</option>
+                    <option *ngFor="let TipoIntervencion of TiposIntervencion" value={{TipoIntervencion.idTipoIntervencion}}>
+                      {{TipoIntervencion.nombreTipoIntervencion}}
+                    </option>
+                  </select>
+                </div>
+              </div>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">Superficie</label>
+                  <input type="text" name="txtSuperficieEdit" class="form-control edit-input"
+                    [(ngModel)]="Subproyecto.superficie" pattern="[0-9]+" />
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Costo Estimado</label>
+                  <input type="text" name="txtCostoEstimadoEdit" class="form-control edit-input"
+                    [(ngModel)]="Subproyecto.costoEstimado" />
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Dirección</label>
+                  <input type="text" name="txtDireccionEdit" class="form-control edit-input"
+                    [(ngModel)]="Direccion.calle" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Sección: Personas -->
+            <div class="edit-section">
+              <h5 class="edit-section-title">Personas</h5>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">Gerente</label>
+                  <div class="edit-readonly">{{Gerente || '-'}}</div>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Sub Gerente</label>
+                  <div class="edit-readonly">{{Gerente || '-'}}</div>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Coordinadores</label>
+                  <div class="edit-readonly" *ngIf="Coordinadores && Coordinadores.length > 0">
+                    <span *ngFor="let coordinador of Coordinadores; let i = index">
+                      {{coordinador.nombre}} {{coordinador.paterno}}<span *ngIf="i < Coordinadores.length - 1"> | </span>
+                    </span>
+                  </div>
+                  <div class="edit-readonly" *ngIf="!Coordinadores || Coordinadores.length === 0">-</div>
+                </div>
+              </div>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">Cliente Interno 1</label>
+                  <select id="drdCliente1Edit" class="form-control edit-input"
+                    [(ngModel)]="drdCliente1" name="drdCliente1Edit">
+                    <option value=0>--- Seleccione ---</option>
+                    <option *ngFor="let Cliente of Clientes" value={{Cliente.idUsuario}}>
+                      {{Cliente.nombre + " " + Cliente.paterno}}
+                    </option>
+                  </select>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Cliente Interno 2</label>
+                  <select id="drdCliente2Edit" class="form-control edit-input"
+                    [(ngModel)]="drdCliente2" name="drdCliente2Edit">
+                    <option value=0>--- Seleccione ---</option>
+                    <option *ngFor="let Cliente of Clientes" value={{Cliente.idUsuario}}>
+                      {{Cliente.nombre + " " + Cliente.paterno}}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sección: Ubicación -->
+            <div class="edit-section">
+              <h5 class="edit-section-title">Ubicación</h5>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">País</label>
+                  <select id="drdPaisEdit" class="form-control edit-input"
+                    [(ngModel)]="drdPais" name="drdPaisEdit" (change)="CargaRegiones()">
+                    <option value=0>--- Seleccione ---</option>
+                    <option *ngFor="let Pais of Paises" value={{Pais.idPais}}>{{Pais.nombrePais}}</option>
+                  </select>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Región</label>
+                  <select id="drdRegionEdit" class="form-control edit-input"
+                    [(ngModel)]="drdRegion" name="drdRegionEdit" (change)="CargaProvincias()">
+                    <option value=0>--- Seleccione ---</option>
+                    <option *ngFor="let Region of Regiones" value={{Region.idRegion}}>{{Region.nombreRegion}}</option>
+                  </select>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Provincia</label>
+                  <select id="drdProvinciaEdit" class="form-control edit-input"
+                    [(ngModel)]="drdProvincia" name="drdProvinciaEdit" (change)="CargaComunas()">
+                    <option value=0>--- Seleccione ---</option>
+                    <option *ngFor="let Provincia of Provincias" value={{Provincia.idProvincia}}>{{Provincia.nombreProvincia}}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">Comuna</label>
+                  <select id="drdComunaEdit" class="form-control edit-input"
+                    [(ngModel)]="Direccion.idComuna" name="drdComunaEdit">
+                    <option value=0>--- Seleccione ---</option>
+                    <option *ngFor="let Comuna of Comunas" value={{Comuna.idComuna}}>{{Comuna.nombreComuna}}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sección: Fechas -->
+            <div class="edit-section">
+              <h5 class="edit-section-title">Fechas</h5>
+              <div class="edit-row">
+                <div class="edit-field">
+                  <label class="edit-label">Fecha de Inicio (*)</label>
+                  <div class="input-group date">
+                    <input id="txtInicioEdit" name="txtInicioEdit" type="text" class="form-control edit-input" required
+                      (focusout)="asignaFechaInicio('txtInicioEdit')" />
+                    <span class="input-group-addon">
+                      <span class="fa fa-calendar"></span>
+                    </span>
+                  </div>
+                </div>
+                <div class="edit-field">
+                  <label class="edit-label">Fecha de Término (*)</label>
+                  <div class="input-group date">
+                    <input id="txtTerminoEdit" name="txtTerminoEdit" type="text" class="form-control edit-input" required
+                      (focusout)="asignaFechaTermino('txtTerminoEdit')" />
+                    <span class="input-group-addon">
+                      <span class="fa fa-calendar"></span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="error-msg" *ngIf="error">{{error}}</div>
+            </div>
+
+            <div class="modal-form-actions">
+              <button type="button" class="btn btn-default" data-dismiss="modal" (click)="OcultarPopUpEditar()">
+                Cancelar
+              </button>
+              <button type="submit" class="btn btn-success" [disabled]="!EForm.valid">
+                <i class="fa fa-check"></i> Guardar Cambios
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIRMACIÓN ELIMINAR -->
+  <div class="modal fade" id="Confirm" tabindex="-1" role="dialog" aria-labelledby="ConfirmLongTitle" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header modal-header-delete">
+          <h4 class="modal-title" id="ConfirmLongTitle">
+            <mat-icon class="modal-title-icon">warning</mat-icon>
+            Confirmación
+          </h4>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="OcultarConfirmacion()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>¿Está seguro de eliminar este elemento?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal" (click)="OcultarConfirmacion()">Cancelar</button>
+          <button type="button" class="btn btn-danger" data-dismiss="modal" (click)="Eliminar()">
+            <i class="fa fa-trash"></i> Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

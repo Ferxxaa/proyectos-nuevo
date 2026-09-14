@@ -1,0 +1,1110 @@
+/* Ajuste de padding para subir el contenido principal */
+.content {
+    min-height: 100%;
+    padding: 78px 30px 42px;
+    background-color: #eee;
+}
+/* Mover el filtro de tareas hacia arriba visualmente */
+.widget-body app-filtro-mis-tareas {
+    margin-top: -20px;
+    display: block;
+}
+/* ***********************************Professional Header*********************************** */
+/* Resaltado especial para tarea destacada desde notificación */
+.tarea-destacada-local {
+    background-color: #cbdafc !important;
+    border-left: 4px solid #cbdafc !important;
+    box-shadow: 0 0 8px 2px #f59e0b33;
+    transition: background-color 0.3s, box-shadow 0.3s;
+}
+.widget-header {
+    background: #555555;
+    border-radius: 0;
+    pad.table-modern thead th {
+    background: #89658f;
+    color: white;
+    font-weight: 600;
+    text-align: center;
+     height: 28px;
+     min-height: 28px;
+     max-height: 28px;
+    position: relative;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.header-title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: white;
+    letter-spacing: -0.5px;
+}
+
+.header-title[_ngcontent-c1] {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    gap: 12px;
+    color: white;
+    letter-spacing: -0.5px;
+}
+
+.task-counter {
+    background: rgba(255,255,255,0.2);
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-modern {
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.btn-modern[_ngcontent-c1] {
+    border-radius: 4px;
+    padding: 4px 20px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: -webkit-inline-box;
+    display: -ms-inline-flexbox;
+    display: inline-flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.btn-modern.btn-success {
+    background: #059669;
+    color: white;
+    border-color: #059669;
+}
+
+.btn-modern.btn-secondary {
+    background: #6b7280;
+    color: white;
+    border-color: #6b7280;
+}
+
+.btn-modern:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-decoration: none;
+    opacity: 0.9;
+}
+
+.btn-modern:hover.btn-success {
+    color: white;
+    background: #047857;
+}
+
+.btn-modern:hover.btn-secondary {
+    color: white;
+    background: #4b5563;
+}
+
+/* ***********************************Professional Stats*********************************** */
+.task-stats {
+    display: flex;
+    gap: 24px;
+    margin: 30px 0;
+    flex-wrap: wrap;
+}
+
+.stat-card {
+    background: #ffffff;
+    border-radius: 4px;
+    padding: 14px 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 150px;
+    transition: all 0.2s ease;
+}
+
+.stat-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: #d1d5db;
+}
+
+.stat-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: white;
+}
+
+.stat-pending .stat-icon {
+    background: #f59e0b;
+}
+
+.stat-progress .stat-icon {
+    background: #3b82f6;
+}
+
+.stat-overdue .stat-icon {
+    background: #ef4444;
+}
+
+.stat-info {
+    flex: 1;
+}
+
+.stat-number {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+    font-weight: 500;
+}
+
+/* ***********************************Professional Table*********************************** */
+.table-responsive {
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    background: white;
+    border: 1px solid #e5e7eb;
+    /* Evitar desplazamientos de la tabla */
+    position: relative;
+    width: 100%;
+    min-height: 0;
+    transform: translateZ(0);
+}
+
+.table-modern {
+    margin: 0;
+    border: none;
+    /* Fijar el layout de la tabla */
+    table-layout: fixed;
+    width: 100%;
+    /* Evitar movimientos de la tabla */
+    position: static;
+    top: 0;
+    left: 0;
+    transform: none;
+}
+
+.table-modern thead th {
+    background: #89658f;
+    color: white;
+    font-weight: 600;
+    text-align: center;
+    padding: 6px 2px;
+    border: none;
+    border-bottom: 4px solid white;
+    position: sticky;
+    top: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    z-index: 100;
+    /* Hacer que las columnas mantengan su tamaño fijo */
+    min-width: fit-content;
+    white-space: nowrap;
+    /* Evitar que se redimensionen */
+    width: auto !important;
+    box-sizing: border-box;
+}
+
+/* Agregar espacio entre el header y el contenido */
+.table-modern tbody tr:first-child td {
+    padding-top: 12px;
+}
+
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+.sortable:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+}
+
+.sort-icon {
+    margin-left: 6px;
+    opacity: 0.8;
+    font-size: 11px;
+    color: white;
+}
+
+/* Anchos fijos específicos para cada columna - Compactos */
+.table-modern thead th:nth-child(1) { 
+    width: 50px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+} /* ID */
+.table-modern thead th:nth-child(2) { 
+    width: 85px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+} /* Tipo */
+.table-modern thead th:nth-child(3) { 
+    width: 28% !important; 
+    text-align: left;
+    padding: 6px 8px;
+    vertical-align: middle;
+} /* Descripción */
+.table-modern thead th:nth-child(4) { 
+    width: 89px !important; 
+    text-align: center;
+    padding: 6px 12px 6px 4px;
+    vertical-align: middle;
+} /* Área */
+.table-modern thead th:nth-child(5) { 
+    width: 110px !important; 
+    text-align: left;
+    padding: 6px 6px;
+    vertical-align: middle;
+} /* Sub Proyecto */
+.table-modern thead th:nth-child(6) { 
+    width: 95px !important; 
+    text-align: left;
+    padding: 6px 4px;
+    vertical-align: middle;
+} /* Creador */
+.table-modern thead th:nth-child(7) { 
+    width: 95px !important; 
+    text-align: left;
+    padding: 6px 4px;
+    vertical-align: middle;
+} /* Para Quién */
+.table-modern thead th:nth-child(8) { 
+    width: 45px !important; 
+    text-align: center;
+    padding: 6px 2px;
+    vertical-align: middle;
+} /* Prioridad */
+.table-modern thead th:nth-child(9) { 
+    width: 95px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+} /* F. Compromiso */
+.table-modern thead th:nth-child(10) { 
+    width: 85px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+} /* Estado */
+.table-modern thead th:nth-child(11) { 
+    width: 45px !important; 
+    text-align: center;
+    padding: 6px 2px;
+    vertical-align: middle;
+} /* Historial */
+.table-modern thead th:nth-child(12) { 
+    width: 80px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+} /* Acciones */
+
+/* Aplicar los mismos anchos a las celdas del cuerpo */
+.table-modern tbody td:nth-child(1) { 
+    width: 50px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1.1;
+} /* ID */
+.table-modern tbody td:nth-child(2) { 
+    width: 85px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+    line-height: 1.1;
+} /* Tipo */
+.table-modern tbody td:nth-child(3) { 
+    width: 28% !important;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    padding: 6px 8px;
+    line-height: 1.1;
+    vertical-align: middle;
+} /* Descripción */
+.table-modern tbody td:nth-child(4) { 
+    width: 89px !important;
+    text-align: center;
+    padding: 6px 12px 6px 4px;
+    vertical-align: middle;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+} /* Área */
+
+/* Comentarios: vista/edición inline */
+.task-comments .comment-view {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.task-comments .comment-text {
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 120px;
+}
+
+.task-comments .comment-edit textarea {
+    font-size: 12px;
+    padding: 6px;
+}
+
+.task-comments .comment-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.task-comments .comment-actions .btn {
+    padding: 2px 8px;
+    font-size: 12px;
+    line-height: 1.2;
+}
+.table-modern tbody td:nth-child(5) { 
+    width: 110px !important; 
+    text-align: left;
+    padding: 6px 6px;
+    vertical-align: middle;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+} /* Sub Proyecto */
+.table-modern tbody td:nth-child(6) { 
+    width: 95px !important;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+    padding: 6px 4px;
+    line-height: 1.1;
+    vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+} /* Creador */
+.table-modern tbody td:nth-child(6) .user-info {
+    justify-content: flex-start;
+}
+.table-modern tbody td:nth-child(7) { 
+    width: 95px !important; 
+    text-align: left;
+    padding: 6px 4px;
+    vertical-align: middle;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+} /* Para Quién */
+.table-modern tbody td:nth-child(7) .user-info {
+    justify-content: flex-start;
+}
+.table-modern tbody td:nth-child(8) { 
+    width: 45px !important; 
+    text-align: center;
+    padding: 6px 2px;
+    vertical-align: middle;
+    line-height: 1.1;
+} /* Prioridad */
+.table-modern tbody td:nth-child(9) { 
+    width: 95px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+    line-height: 1.1;
+} /* F. Compromiso */
+.table-modern tbody td:nth-child(10) { 
+    width: 85px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+    line-height: 1.1;
+} /* Estado */
+.table-modern tbody td:nth-child(11) { 
+    width: 45px !important; 
+    text-align: center;
+    padding: 6px 2px;
+    vertical-align: middle;
+    line-height: 1.1;
+} /* Historial */
+.table-modern tbody td:nth-child(12) { 
+    width: 80px !important; 
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: middle;
+    line-height: 1.1;
+} /* Acciones */
+
+.table-modern tbody tr {
+    border: none;
+    transition: background-color 0.2s ease;
+    position: relative;
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    line-height: 1.1;
+}
+
+.table-modern tbody tr:hover {
+    background-color: #f8fafc;
+    /* Evitar cualquier desplazamiento */
+    transform: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    position: relative;
+}
+
+.table-modern tbody tr.overdue {
+    background-color: white;
+    border-left: 3px solid white;
+}
+
+.table-modern tbody tr.high-priority {
+    background-color: white;
+    border-left: 3px solid white;
+}
+
+.table-modern tbody td {
+    padding: 3px 5px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f3f4f6;
+    color: #374151;
+    line-height: 1.1;
+}
+
+/* ***********************************Professional Task Elements*********************************** */
+.task-id .badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: #f3f4f6;
+    color: #6b7280;
+    border-radius: 4px;
+    font-weight: 600;
+    display: inline-block;
+    vertical-align: middle;
+    text-align: center;
+    min-width: 30px;
+}
+
+/* Asegurar alineación perfecta para la columna ID */
+.table-modern tbody td:nth-child(1) * {
+    display: inline-block;
+    vertical-align: middle;
+    text-align: center;
+}
+
+/* Evitar que cualquier interacción mueva la tabla */
+.table-modern * {
+    transform: none !important;
+}
+
+.table-modern tbody tr:active,
+.table-modern tbody tr:focus,
+.table-modern tbody td:active,
+.table-modern tbody td:focus {
+    position: relative;
+    transform: none;
+    margin: 0;
+    top: 0;
+    left: 0;
+}
+
+.description-wrapper {
+    max-width: 320px;
+}
+
+.description-text {
+    
+    font-size: 12px;
+    font-weight: 500;
+    color: #1f2937;
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.1;
+}
+
+.task-meta {
+    margin-top: 3px;
+}
+
+.task-meta small {
+    color: #9ca3af;
+    font-size: 12px;
+}
+
+.area-badge {
+    background: #eff6ff;
+    color: #1d4ed8;
+    padding: 0 10px;
+    border-radius: 14px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid #dbeafe;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+    height: 28px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+/* Make the badge for 'Para Quién' match the area badges */
+.task-responsible .badge.badge-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+    height: 28px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-radius: 14px;
+}
+
+.priority-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.priority-high {
+    background: #dc2626;
+}
+
+.priority-medium {
+    background: #f59e0b;
+}
+
+.priority-low {
+    background: #16a34a;
+}
+
+.due-date {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 13px;
+}
+
+.due-date .fa {
+    font-size: 16px;
+}
+
+.due-date.overdue {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.due-date.due-soon {
+    color: #d97706;
+    font-weight: 600;
+}
+
+.due-indicator {
+    font-size: 9px;
+    color: #dc2626;
+}
+
+.status-badge {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid transparent;
+}
+
+.status-pending {
+    background: #fffbeb;
+    color: #d97706;
+    border-color: #fed7aa;
+}
+
+.status-progress {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #dbeafe;
+}
+
+.status-completed {
+    background: #f0fdf4;
+    color: #16a34a;
+    border-color: #bbf7d0;
+}
+
+.status-cancelled {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+/* ***********************************Professional Action Buttons*********************************** */
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+}
+
+.action-btn, .history-btn {
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    position: relative;
+    border: 1px solid transparent;
+    font-weight: 500;
+}
+
+.action-btn.btn-outline-primary {
+    color: #2563eb;
+    border-color: #dbeafe;
+    background: #eff6ff;
+}
+
+.action-btn.btn-outline-primary:hover {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+}
+
+.action-btn.btn-outline-warning {
+    color: #d97706;
+    border-color: #fed7aa;
+    background: #fffbeb;
+}
+
+.action-btn.btn-outline-warning:hover {
+    background: #d97706;
+    color: white;
+    border-color: #d97706;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Estilo mejorado del historial */
+.history-icon-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding: 5px;
+}
+
+.fa-book {
+    color: #026aa7;
+    font-size: 24px;
+    position: relative;
+    top: -6px;
+}
+
+.globo {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    font: initial;
+    font-size: 12px;
+    right: -13px;
+    top: -36px;
+    background: #555555;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid white;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.ContGlovo {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 10px;
+    font-family: Arial, sans-serif;
+    line-height: 1;
+}
+
+/* ***********************************Professional Empty State*********************************** */
+.empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: #6b7280;
+    background: #fafafa;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+}
+
+.empty-icon {
+    font-size: 48px;
+    color: #d1d5db;
+    margin-bottom: 24px;
+}
+
+.empty-state h3 {
+    color: #374151;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 20px;
+}
+
+.empty-state p {
+    margin-bottom: 32px;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.empty-state .btn-primary {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.empty-state .btn-primary:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    text-decoration: none;
+    color: white;
+}
+
+/* ***********************************Subtle Animations*********************************** */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.due-indicator {
+    animation: pulse 2s infinite;
+}
+
+/* ***********************************Responsive Design*********************************** */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .task-stats {
+        flex-direction: column;
+    }
+    
+    .stat-card {
+        min-width: auto;
+    }
+    
+    .table-responsive {
+        font-size: 14px;
+    }
+    
+    .description-wrapper {
+        max-width: 200px;
+    }
+}
+
+/* ***********************************Legacy Support*********************************** */
+.icon {
+    height: 1px;
+    width: 25px;
+    line-height: 0;
+    font-size: 20px;
+}
+
+.correo {
+    margin-left: 5px;
+}
+
+.fa-envelope {
+    font-size: 20px !important;
+}
+
+.flex {
+    display: flex;
+    border: none;
+    border-top: 1px solid #ddd;
+}
+
+
+/* PopUP */
+#exampleModalLong {
+    display: block;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow-y: scroll;
+}
+
+.Estado1::before {
+    content: "Pendiente"
+}
+
+.Estado2::before {
+    content: "En Proceso"
+}
+
+.Estado3::before {
+    content: "Cancelada"
+}
+
+.Estado5::before {
+    content: "Terminada"
+}
+
+/* *********************************** Loader *********************************** */
+
+.widget .loader {
+    position: relative;
+    background-color: white;
+}
+
+.widget > .loader {
+    position: absolute;
+}
+
+/* ***********************************Tablas*********************************** */
+
+thead {
+    font-weight: 600;
+    text-align: center;
+    background: #026AA7;
+    color: white;
+}
+
+table .icono {
+    font-size: 30px;
+}
+
+.align-center {
+    text-align: center;
+}
+
+tbody tr:hover {
+    border: solid #5d9eff3d 2.7px;
+    background-color: #e4e3e3;
+    /* cursor: pointer; */
+}
+
+/* ***********************************Goblo Tabla*********************************** */
+.globo {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    font: initial;
+    font-size:g 12px;
+    right: -17px;
+    top: -40px;
+}
+
+.ContGlovo {
+    color: #ffffff;
+    position: relative;
+    top: 3px;
+    font: bold;
+}
+
+.fa-book {
+    color: #ff5f01;
+}
+
+/* *********************************** Badges de Tipo de Tarea *********************************** */
+
+.badge {
+  font-size: 0.75em;
+  padding: 0.35em 0.65em;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.badge-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.badge-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.badge-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.badge-info {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.badge-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.badge-light {
+  background-color: #f8f9fa;
+  color: #212529;
+  border: 1px solid #dee2e6;
+}
+
+.badge i {
+  margin-right: 0.25em;
+}
+
+.task-type-badge {
+    font-size: 0.85em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 75px;
+    max-width: 90px;
+    height: 26px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-radius: 13px;
+}
+
+/* ***********************************Descripción Clickeable para Navegación*********************************** */
+
+.task-description-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  padding: 8px !important;
+}
+
+.task-description-clickable:hover {
+  background-color: #f8f9fa !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.task-description-clickable:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Indicador visual de que es clickeable */
+.task-description-clickable::after {
+  content: " 🔗";
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  font-size: 0.8em;
+}
+
+.task-description-clickable:hover::after {
+  opacity: 0.6;
+}
+
+.widget > header {
+    margin: -25px -19px;
+    padding: 8px 6px;
+}
+::ng-deep .task-description div,
+::ng-deep .description-wrapper div,
+::ng-deep .table-modern td div,
+::ng-deep .table-modern tbody tr td div {
+    font-family: 'Open Sans', sans-serif !important;
+}

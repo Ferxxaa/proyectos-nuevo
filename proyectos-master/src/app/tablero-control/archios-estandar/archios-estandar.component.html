@@ -1,0 +1,403 @@
+<section class="widget">
+  <header style="background-color: #555555">
+    <h5 style="color: white;">
+      <strong>
+        Archivos estandares
+      </strong>
+    </h5>
+  </header>
+  <div class="widget-body">
+      <fieldset>
+        <legend></legend>
+        
+        <div class="panel panel-default ">
+          <div class="panel-heading ">
+            <h6 class="panel-title ">
+              <a data-toggle="collapse" data-parent="#accordion" href="#collapseTwo" aria-expanded="false" class="collapsed w80"
+                (click)="CargaArchivos('collapseTwo',2)">
+                <h5 id="hArchivos2 ">
+                  Registros de seguridad y salud ocupacional PR-06
+                  <i class="fa fa-angle-down pull-xs-right "></i>
+                </h5>
+              </a>
+              <a *ngIf="!soloLectura" (click)="verPupUp(2)"><mat-icon class="text-success">add_circle</mat-icon></a>
+            </h6>
+          </div>
+          <div id="collapseTwo" class="panel-collapse collapse" aria-expanded="false ">
+            <div class="panel-body ">
+              <div id="dvArchivos2 " class="div ">
+                <div>
+                  <table class="table table-bordered table-striped table-hover no-footer" cellspacing="0" rules="all" border="1"
+                    id="grdArchivos1" style="color:Blue;border-collapse:collapse;">
+                    <thead>
+                      <tr style="color:White;background-color:#333333;font-weight:bold;">
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Proyecto Matriz</th>
+                        <th scope="col">Etapa</th>
+                        <th scope="col">acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let archivo of Archivos$ | async; let i = index">
+                        <td>
+                          <!-- href="{{archivo.ruta}}" -->
+                          <a [href]="urlnode + 'adjuntar/' + archivo.nombreArchivo" target=" _blank ">{{archivo.nombreArchivo}}</a>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <button class="text-danger" mat-icon-button (click)="eliminar(archivo)" *ngIf="admin()">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="panel panel-default ">
+          <div class="panel-heading ">
+            <h6 class="panel-title ">
+              <a class="collapsed w80" data-toggle="collapse" data-parent="#accordion" href="#collapseThree" aria-expanded="false"
+                (click)="CargaArchivos('collapseThree',3)">
+                <h5 id="hArchivos3 ">
+                  Registros de medio ambiente PR-07
+                  <i class="fa fa-angle-down pull-xs-right "></i>
+                </h5>
+              </a>
+              <a *ngIf="!soloLectura" (click)="verPupUp(3)"><mat-icon class="text-success">add_circle</mat-icon></a>
+            </h6>
+          </div>
+          <div id="collapseThree" class="panel-collapse collapse" aria-expanded="false ">
+            <div class="panel-body ">
+              <div id="dvArchivos3 " class="div ">
+                <div>
+                  <table class="table table-bordered table-striped table-hover no-footer" cellspacing="0" rules="all" border="1"
+                    id="grdArchivos1" style="color:Blue;border-collapse:collapse;">
+                    <thead>
+                      <tr style="color:White;background-color:#333333;font-weight:bold;">
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Proyecto Matriz</th>
+                        <th scope="col">Etapa</th>
+                        <th scope="col">acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let archivo of Archivos$ | async; let i = index">
+                        <td>
+                          <!-- href="{{archivo.ruta}}"  -->
+                          <a [href]="urlnode + 'adjuntar/' + archivo.nombreArchivo" target=" _blank ">{{archivo.nombreArchivo}}</a>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <button class="text-danger" mat-icon-button (click)="eliminar(archivo)" *ngIf="admin()">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="panel panel-default ">
+          <div class="panel-heading ">
+            <h6 class="panel-title ">
+              <a class="collapsed w80" data-toggle="collapse" data-parent="#accordion" href="#collapseFour" aria-expanded="false"
+                (click)="CargaArchivos('collapseFour',4)">
+                <h5 id="hArchivos4 ">
+                  Registros de investigación de incidente PR-08
+                  <i class="fa fa-angle-down pull-xs-right "></i></h5>
+              </a>
+              <a *ngIf="!soloLectura" (click)="verPupUp(4)"><mat-icon class="text-success">add_circle</mat-icon></a>
+            </h6>
+          </div>
+          <div id="collapseFour" class="panel-collapse collapse" aria-expanded="false">
+            <div class="panel-body ">
+              <div id="dvArchivos4 " class="div ">
+                <div>
+                    <table class="table table-bordered table-striped table-hover no-footer" cellspacing="0" rules="all" border="1" id="grdArchivos1"
+                    style="color:Blue;border-collapse:collapse;">
+                    <thead>
+                      <tr style="color:White;background-color:#333333;font-weight:bold;">
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Proyecto Matriz</th>
+                        <th scope="col">Etapa</th>
+                        <th scope="col">acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let archivo of Archivos$ | async; let i = index">
+                        <td>
+                          <!-- href="{{archivo.ruta}}"  -->
+                          <a [href]="urlnode + 'adjuntar/' + archivo.nombreArchivo" target=" _blank ">{{archivo.nombreArchivo}}</a>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <button class="text-danger" mat-icon-button (click)="eliminar(archivo)" *ngIf="admin()">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h6 class="panel-title">
+              <a class="collapsed w80" data-toggle="collapse" data-parent="#accordion" href="#collapseFive" aria-expanded="false"
+                (click)="CargaArchivos('collapseFive',5)">
+                <h5 id="hArchivos5">
+                  Registros de arquitectura PR 10-A
+                  <i class="fa fa-angle-down pull-xs-right"></i>
+                </h5>
+              </a>
+              <a *ngIf="!soloLectura" (click)="verPupUp(5)"><mat-icon class="text-success">add_circle</mat-icon></a>
+            </h6>
+          </div>
+          <div id="collapseFive" class="panel-collapse collapse" aria-expanded="false">
+            <div class="panel-body">
+              <div id="dvArchivos5" class="div">
+                <div>
+                  <table class="table table-bordered table-striped table-hover no-footer" cellspacing="0" rules="all" border="1"
+                    id="grdArchivos1" style="color:Blue;border-collapse:collapse;">
+                    <thead>
+                      <tr style="color:White;background-color:#333333;font-weight:bold;">
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Proyecto Matriz</th>
+                        <th scope="col">Etapa</th>
+                        <th scope="col">acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let archivo of Archivos$ | async; let i = index">
+                        <td>
+                          <!-- href="{{archivo.ruta}}" -->
+                          <a [href]="urlnode + 'adjuntar/' + archivo.nombreArchivo" target="_blank">{{archivo.nombreArchivo}}</a>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <button class="text-danger" mat-icon-button (click)="eliminar(archivo)" *ngIf="admin()">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h6 class="panel-title">
+              <a class="collapsed w80" data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="false"
+                (click)="CargaArchivos('collapseOne',1)">
+                <h5 id="hArchivos1">
+                  Registros de construcción PR 10-B
+                  <i class="fa fa-angle-down pull-xs-right"></i>
+                </h5>
+              </a>
+              <a *ngIf="!soloLectura" (click)="verPupUp(1)"><mat-icon class="text-success">add_circle</mat-icon></a>
+            </h6>
+          </div>
+          <div id="collapseOne" class="panel-collapse collapse" aria-expanded="false">
+            <div class="panel-body">
+              <div id="dvArchivos1" class="div">
+                <div>
+                  <table class="table table-bordered table-striped table-hover no-footer" cellspacing="0" rules="all" border="1"
+                    id="grdArchivos1" style="color:Blue;border-collapse:collapse;">
+                    <thead>
+                      <tr style="color:White;background-color:#333333;font-weight:bold;">
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Proyecto Matriz</th>
+                        <th scope="col">Etapa</th>
+                        <th scope="col">acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let archivo of Archivos$ | async; let i = index">
+                        <td>
+                          <!-- href="{{archivo.ruta}}" -->
+                          <a [href]="urlnode + 'adjuntar/' + archivo.nombreArchivo" target="_blank">{{archivo.nombreArchivo}}</a>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <button class="text-danger" mat-icon-button (click)="eliminar(archivo)" *ngIf="admin()">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default ">
+          <div class="panel-heading ">
+            <h6 class="panel-title ">
+              <a class="collapsed w80" data-toggle="collapse" data-parent="#accordion" href="#collapseSeven" aria-expanded="false"
+                (click)="CargaArchivos('collapseSeven',7)">
+                <h5 id="hArchivos7 ">
+                  Registros de inspección PR 10-C
+                  <i class="fa fa-angle-down pull-xs-right "></i></h5>
+              </a>
+              <a *ngIf="!soloLectura" (click)="verPupUp(7)"><mat-icon class="text-success">add_circle</mat-icon></a>
+            </h6>
+          </div>
+          <div id="collapseSeven" class="panel-collapse collapse" aria-expanded="false">
+            <div class="panel-body ">
+              <div id="dvArchivos7 " class="div ">
+                <div>
+                    <table class="table table-bordered table-striped table-hover no-footer" cellspacing="0" rules="all" border="1" id="grdArchivos1"
+                    style="color:Blue;border-collapse:collapse;">
+                    <thead>
+                      <tr style="color:White;background-color:#333333;font-weight:bold;">
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Proyecto Matriz</th>
+                        <th scope="col">Etapa</th>
+                        <th scope="col">acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let archivo of Archivos$ | async; let i = index">
+                        <td>
+                          <a [href]="urlnode + 'adjuntar/' + archivo.nombreArchivo" target=" _blank ">{{archivo.nombreArchivo}}</a>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <button class="text-danger" mat-icon-button (click)="eliminar(archivo)" *ngIf="admin()">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="panel panel-default ">
+          <div class="panel-heading ">
+            <h6 class="panel-title ">
+              <a class="collapsed w80" data-toggle="collapse" data-parent="#accordion" href="#collapseSix" aria-expanded="false"
+                (click)="CargaArchivos('collapseSix',6)">
+                <h5 id="hArchivos6 ">
+                  Registros de Saneamiento MCA PR-12
+                  <i class="fa fa-angle-down pull-xs-right "></i></h5>
+              </a>
+              <a *ngIf="!soloLectura" (click)="verPupUp(6)"><mat-icon class="text-success">add_circle</mat-icon></a>
+            </h6>
+          </div>
+          <div id="collapseSix" class="panel-collapse collapse" aria-expanded="false">
+            <div class="panel-body ">
+              <div id="dvArchivos6 " class="div ">
+                <div>
+                    <table class="table table-bordered table-striped table-hover no-footer" cellspacing="0" rules="all" border="1" id="grdArchivos1"
+                    style="color:Blue;border-collapse:collapse;">
+                    <thead>
+                      <tr style="color:White;background-color:#333333;font-weight:bold;">
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Proyecto Matriz</th>
+                        <th scope="col">Etapa</th>
+                        <th scope="col">acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let archivo of Archivos$ | async; let i = index">
+                        <td>
+                          <!-- href="{{archivo.ruta}}"  -->
+                          <a [href]="urlnode + 'adjuntar/' + archivo.nombreArchivo" target=" _blank ">{{archivo.nombreArchivo}}</a>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <span></span>
+                        </td>
+                        <td>
+                          <button class="text-danger" mat-icon-button (click)="eliminar(archivo)" *ngIf="admin()">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+
+      </fieldset>
+  </div>
+</section>
+
+
+<app-agregar-archivo-estandar *ngIf="archivoEstandar" [archivoEstandar]="archivoEstandar" (cerrar)="cerrarpopUp($event)"></app-agregar-archivo-estandar>
+
+<!-- <div class="panel panel-default">
+  <div class="panel-heading">
+    <h6 class="panel-title ">
+      <a class="collapsed " data-toggle="collapse " data-parent="#accordion " href="#collapsefive " aria-expanded="false ">
+      </a>
+    </h6>
+  </div>
+  <div id="collapsefive" class="panel-collapse collapse" aria-expanded="false">
+    <div class="panel-body ">
+      <div id="dvArchivos5 " class="div ">
+        <div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div> -->

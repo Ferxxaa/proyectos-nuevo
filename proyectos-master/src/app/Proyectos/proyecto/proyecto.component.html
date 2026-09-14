@@ -1,0 +1,362 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <div>
+      <div class="row">
+        <div class="col-lg-12">
+          <!-- FORM CREATION -->
+          <mat-card class="proyecto-card">
+            <mat-card-header class="proyecto-header">
+              <mat-card-title>
+                <mat-icon class="header-icon">business</mat-icon>
+                Creación de Proyectos
+              </mat-card-title>
+            </mat-card-header>
+            <mat-card-content class="proyecto-content">
+              <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
+                <mat-tab-group class="form-tabs" animationDuration="300">
+                  <mat-tab>
+                    <ng-template mat-tab-label><mat-icon>info</mat-icon><span class="tab-label">Información</span></ng-template>
+                    <div class="tab-content">
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Proyecto Matriz(*):</mat-label>
+                          <mat-select [(ngModel)]="Proyecto.idProyectoMatriz" name="drdProyectoMatriz" required>
+                            <mat-option value="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let PM of ProyectosMatriz" [value]="PM.idProyectoMatriz">{{PM.nombreProyectoMatriz}}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Nombre Proyecto(*):</mat-label>
+                          <input matInput type="text" [(ngModel)]="Proyecto.nombreProyecto" name="txtNombre" required>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Centro de Costo:</mat-label>
+                          <input matInput type="text" [(ngModel)]="Proyecto.centroCosto" name="txtCentroCosto">
+                        </mat-form-field>
+                      </div>
+                      <div class="form-row clients-section">
+                        <h4 class="section-title">Clientes</h4>
+                        <div class="clients-grid">
+                          <mat-form-field appearance="outline" *ngFor="let cliente of clientesList; let i = index">
+                            <mat-label>Cliente {{i + 1}}{{i < 1 ? ':' : ''}}</mat-label>
+                            <mat-select [(ngModel)]="clientesList[i]" [name]="'drdCliente' + (i+1)">
+                              <mat-option value="0">--- Seleccione ---</mat-option>
+                              <mat-option *ngFor="let C of Clientes" [value]="C.idUsuario">{{C.nombre + " " + C.paterno}}</mat-option>
+                            </mat-select>
+                          </mat-form-field>
+                          <div *ngFor="let clienteExtra of clientesExtra; let i = index" class="extra-field">
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>Cliente {{i + 3}}:</mat-label>
+                              <mat-select [(ngModel)]="clientesExtra[i]" name="drdClienteExtra{{i}}">
+                                <mat-option value="0">--- Seleccione ---</mat-option>
+                                <mat-option *ngFor="let C of Clientes" [value]="C.idUsuario">{{C.nombre + " " + C.paterno}}</mat-option>
+                              </mat-select>
+                            </mat-form-field>
+                          </div>
+                        </div>
+                        <div class="actions-compact">
+                          <button mat-stroked-button type="button" (click)="AgregarCliente()" class="action-btn"><mat-icon>add</mat-icon> Agregar</button>
+                          <button mat-stroked-button type="button" [disabled]="clientesExtra.length === 0" (click)="QuitarCliente()" class="action-btn"><mat-icon>remove</mat-icon> Quitar</button>
+                        </div>
+                      </div>
+                    </div>
+                  </mat-tab>
+                  <mat-tab>
+                    <ng-template mat-tab-label><mat-icon>location_on</mat-icon><span class="tab-label">Ubicación</span></ng-template>
+                    <div class="tab-content">
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>País(*):</mat-label>
+                          <mat-select [(ngModel)]="drdPais" name="drdPais" (selectionChange)="paisChange()" required>
+                            <mat-option value="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let P of Paises" [value]="P.idPais">{{P.nombrePais}}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Región:</mat-label>
+                          <mat-select [(ngModel)]="Proyecto.idRegion" name="drdRegion">
+                            <mat-option value="0">--- Seleccione ---</mat-option>
+                            <mat-option *ngFor="let R of Regiones" [value]="R.idRegion">{{R.nombreRegion}}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col">
+                          <mat-label>Costo Estimado:</mat-label>
+                          <input matInput type="number" [(ngModel)]="Proyecto.costoEstimado" name="txtCosto">
+                          <mat-hint>Monto en moneda local</mat-hint>
+                        </mat-form-field>
+                      </div>
+                    </div>
+                  </mat-tab>
+                  <mat-tab>
+                    <ng-template mat-tab-label><mat-icon>groups</mat-icon><span class="tab-label">Coordinadores</span></ng-template>
+                    <div class="tab-content">
+                      <div class="form-row coords-section">
+                        <div class="coords-grid">
+                          <mat-form-field appearance="outline" *ngFor="let coord of coordinadoresList; let i = index">
+                            <mat-label>Coordinador {{i + 1}}{{i < 1 ? '(*)' : ''}}</mat-label>
+                            <mat-select [(ngModel)]="coordinadoresList[i]" [name]="'drdCoordinador' + (i+1)" [required]="i < 1">
+                              <mat-option value="0">--- Seleccione ---</mat-option>
+                              <mat-option *ngFor="let Co of Coordinadores" [value]="Co.idUsuario">{{Co.nombre + " " + Co.paterno}}</mat-option>
+                            </mat-select>
+                          </mat-form-field>
+                          <div *ngFor="let coordExtra of coordinadoresExtra; let i = index" class="extra-field">
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>Coordinador {{i + 6}}:</mat-label>
+                              <mat-select [(ngModel)]="coordinadoresExtra[i]" name="drdCoordinadorExtra{{i}}">
+                                <mat-option value="0">--- Seleccione ---</mat-option>
+                                <mat-option *ngFor="let Co of Coordinadores" [value]="Co.idUsuario">{{Co.nombre + " " + Co.paterno}}</mat-option>
+                              </mat-select>
+                            </mat-form-field>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="actions-compact">
+                        <button mat-stroked-button type="button" (click)="AgregarCoordinador()" class="action-btn"><mat-icon>add</mat-icon> Agregar</button>
+                        <button mat-stroked-button type="button" [disabled]="coordinadoresExtra.length === 0" (click)="QuitarCoordinador()" class="action-btn"><mat-icon>remove</mat-icon> Quitar</button>
+                      </div>
+                    </div>
+                  </mat-tab>
+                  <mat-tab>
+                    <ng-template mat-tab-label><mat-icon>calendar_today</mat-icon><span class="tab-label">Fechas</span></ng-template>
+                    <div class="tab-content">
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="form-field-3col date-field">
+                          <mat-label>Fecha de Inicio(*):</mat-label>
+                          <input matInput [matDatepicker]="pickerInicio" [(ngModel)]="fechaInicioInput" name="txtInicio" (dateChange)="onFechaInicioChange($event)" required>
+                          <mat-datepicker-toggle matSuffix [for]="pickerInicio"></mat-datepicker-toggle>
+                          <mat-datepicker #pickerInicio></mat-datepicker>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="form-field-3col date-field">
+                          <mat-label>Fecha de Término:</mat-label>
+                          <input matInput [matDatepicker]="pickerTermino" [(ngModel)]="fechaTerminoInput" name="txtTermino" (dateChange)="onFechaTerminoChange($event)">
+                          <mat-datepicker-toggle matSuffix [for]="pickerTermino"></mat-datepicker-toggle>
+                          <mat-datepicker #pickerTermino></mat-datepicker>
+                        </mat-form-field>
+                      </div>
+                    </div>
+                  </mat-tab>
+                </mat-tab-group>
+
+                <div class="form-actions">
+                  <button mat-raised-button color="primary" type="submit" [disabled]="!CForm.valid">
+                    <mat-icon>save</mat-icon>
+                    Crear Proyecto
+                  </button>
+                </div>
+              </form>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- PROJECTS LIST -->
+          <mat-card class="proyecto-card">
+            <mat-card-header class="proyecto-header">
+              <mat-card-title>
+                <mat-icon class="header-icon">list</mat-icon>
+                Proyectos Registrados
+              </mat-card-title>
+            </mat-card-header>
+            <mat-card-content class="proyecto-content">
+              <div class="projects-table-wrapper">
+                <table class="table table-bordered table-striped table-hover no-footer">
+                  <thead>
+                    <tr>
+                      <th scope="col">ID</th>
+                      <th scope="col">Proyecto Matriz</th>
+                      <th scope="col">Nombre Proyecto</th>
+                      <th scope="col">Costo</th>
+                      <th scope="col">Clientes</th>
+                      <th scope="col">Coordinadores</th>
+                      <th scope="col">Inicio</th>
+                      <th scope="col">Creación</th>
+                      <th scope="col">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let Proyecto of dataSource.data; let i = index">
+                      <td class="center"><strong>{{Proyecto.idProyecto}}</strong></td>
+                      <td>{{Proyecto.nombreProyectoMatriz}}</td>
+                      <td><strong>{{Proyecto.nombreProyecto}}</strong></td>
+                      <td class="center">{{Proyecto.costoEstimado | number:'1.0-0'}}</td>
+                      <td>{{Proyecto.Clientes}}</td>
+                      <td>{{Proyecto.Coordinadores}}</td>
+                      <td class="center">{{Proyecto.fechaInicio | date:'dd/MM/yyyy'}}</td>
+                      <td class="center">{{Proyecto.fechaCreacion | date:'dd/MM/yyyy'}}</td>
+                      <td class="center action-cell">
+                        <button mat-icon-button (click)="Editar(i)" matTooltip="Editar" color="primary">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="Confirmacion(i)" matTooltip="Eliminar" color="warn">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <mat-spinner *ngIf="LoadingTabla" diameter="50" class="spinner-center"></mat-spinner>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-spinner *ngIf="Loading" diameter="100" class="spinner-center"></mat-spinner>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<app-mensaje [mensaje]="texto" [visible]="msg"></app-mensaje>
+
+<!-- Modal Editar -->
+<div class="modal fade" id="exampleModalLong" tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle">
+  <div class="modal-dialog editar" role="document">
+    <div class="modal-content edit-modal-content">
+      <div class="modal-header edit-modal-header">
+        <h4 class="modal-title edit-modal-title" id="exampleModalLongTitle">
+          <mat-icon class="edit-modal-title-icon">edit</mat-icon>
+          Editar Proyecto
+        </h4>
+        <button type="button" class="close edit-modal-close" data-dismiss="modal" aria-label="Close" (click)="OcultarPopUpEditar()">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body edit-modal-body">
+        <form #EForm="ngForm" (ngSubmit)="Actualizar(EForm)">
+          <mat-tab-group class="edit-tabs" animationDuration="300">
+
+            <!-- Tab: Información -->
+            <mat-tab>
+              <ng-template mat-tab-label><mat-icon>info</mat-icon><span class="tab-label">Información</span></ng-template>
+              <div class="edit-tab-content">
+                <div class="edit-form-row">
+                  <mat-form-field appearance="outline" class="edit-field-half">
+                    <mat-label>Proyecto Matriz (*)</mat-label>
+                    <mat-select [(ngModel)]="Proyecto.idProyectoMatriz" name="drdProyectoMatrizEdit" required>
+                      <mat-option value="0">--- Seleccione ---</mat-option>
+                      <mat-option *ngFor="let PM of ProyectosMatriz" [value]="PM.idProyectoMatriz">{{PM.nombreProyectoMatriz}}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="edit-field-half">
+                    <mat-label>Nombre Proyecto (*)</mat-label>
+                    <input matInput type="text" [(ngModel)]="Proyecto.nombreProyecto" name="txtNombreEdit" required>
+                  </mat-form-field>
+                </div>
+                <div class="edit-form-row">
+                  <mat-form-field appearance="outline" class="edit-field-half">
+                    <mat-label>Costo Estimado</mat-label>
+                    <input matInput type="number" [(ngModel)]="Proyecto.costoEstimado" name="txtCostoEdit">
+                    <mat-hint>Monto en moneda local</mat-hint>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="edit-field-half">
+                    <mat-label>Fecha de Inicio (*)</mat-label>
+                    <input matInput [matDatepicker]="pickerInicioEdit" [(ngModel)]="fechaInicioInput" name="txtInicioEdit" (dateChange)="onFechaInicioChange($event)" required>
+                    <mat-datepicker-toggle matSuffix [for]="pickerInicioEdit"></mat-datepicker-toggle>
+                    <mat-datepicker #pickerInicioEdit></mat-datepicker>
+                  </mat-form-field>
+                </div>
+              </div>
+            </mat-tab>
+
+            <!-- Tab: Clientes -->
+            <mat-tab>
+              <ng-template mat-tab-label><mat-icon>people</mat-icon><span class="tab-label">Clientes</span></ng-template>
+              <div class="edit-tab-content">
+                <div class="edit-entity-grid">
+                  <mat-form-field appearance="outline" *ngFor="let cliente of clientesList; let i = index">
+                    <mat-label>Cliente {{i + 1}}</mat-label>
+                    <mat-select [(ngModel)]="clientesList[i]" [name]="'drdClienteEdit' + (i+1)">
+                      <mat-option value="0">--- Seleccione ---</mat-option>
+                      <mat-option *ngFor="let C of Clientes" [value]="C.idUsuario">{{C.nombre + " " + C.paterno}}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <div *ngFor="let clienteExtra of clientesExtra; let i = index" class="edit-extra-row">
+                    <mat-form-field appearance="outline" class="edit-extra-field">
+                      <mat-label>Cliente {{i + 3}}</mat-label>
+                      <mat-select [(ngModel)]="clientesExtra[i]" [name]="'drdClienteExtraEdit' + i">
+                        <mat-option value="0">--- Seleccione ---</mat-option>
+                        <mat-option *ngFor="let C of Clientes" [value]="C.idUsuario">{{C.nombre + " " + C.paterno}}</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <button mat-icon-button type="button" color="warn" (click)="QuitarCliente(i)" class="edit-remove-btn" matTooltip="Quitar cliente">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                </div>
+                <div class="edit-add-actions">
+                  <button mat-stroked-button type="button" (click)="AgregarCliente()" class="edit-add-btn">
+                    <mat-icon>add</mat-icon> Agregar Cliente
+                  </button>
+                </div>
+              </div>
+            </mat-tab>
+
+            <!-- Tab: Coordinadores -->
+            <mat-tab>
+              <ng-template mat-tab-label><mat-icon>groups</mat-icon><span class="tab-label">Coordinadores</span></ng-template>
+              <div class="edit-tab-content">
+                <div class="edit-entity-grid">
+                  <mat-form-field appearance="outline" *ngFor="let coord of coordinadoresList; let i = index">
+                    <mat-label>Coordinador {{i + 1}}{{i < 1 ? ' (*)' : ''}}</mat-label>
+                    <mat-select [(ngModel)]="coordinadoresList[i]" [name]="'drdCoordinadorEdit' + (i+1)" [required]="i < 1">
+                      <mat-option value="0">--- Seleccione ---</mat-option>
+                      <mat-option *ngFor="let Co of Coordinadores" [value]="Co.idUsuario">{{Co.nombre + " " + Co.paterno}}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <div *ngFor="let coordExtra of coordinadoresExtra; let i = index" class="edit-extra-row">
+                    <mat-form-field appearance="outline" class="edit-extra-field">
+                      <mat-label>Coordinador {{i + 6}}</mat-label>
+                      <mat-select [(ngModel)]="coordinadoresExtra[i]" [name]="'drdCoordinadorExtraEdit' + i">
+                        <mat-option value="0">--- Seleccione ---</mat-option>
+                        <mat-option *ngFor="let Co of Coordinadores" [value]="Co.idUsuario">{{Co.nombre + " " + Co.paterno}}</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <button mat-icon-button type="button" color="warn" (click)="QuitarCoordinador(i)" class="edit-remove-btn" matTooltip="Quitar coordinador">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                </div>
+                <div class="edit-add-actions">
+                  <button mat-stroked-button type="button" (click)="AgregarCoordinador()" class="edit-add-btn">
+                    <mat-icon>add</mat-icon> Agregar Coordinador
+                  </button>
+                </div>
+              </div>
+            </mat-tab>
+
+          </mat-tab-group>
+
+          <div class="edit-form-actions">
+            <button mat-stroked-button type="button" data-dismiss="modal" (click)="OcultarPopUpEditar()" class="edit-cancel-btn">
+              <mat-icon>close</mat-icon> Cancelar
+            </button>
+            <button mat-raised-button color="primary" type="submit" [disabled]="!EForm.valid" class="edit-save-btn">
+              <mat-icon>save</mat-icon> Guardar Cambios
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmación Eliminar -->
+<div class="modal fade" id="Confirm" tabindex="-1" role="dialog" aria-labelledby="ConfirmLongTitle" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="ConfirmLongTitle">Confirmación</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="OcultarConfirmacion()">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>¿Está seguro de eliminar este elemento?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal" (click)="OcultarConfirmacion()">Cancelar</button>
+        <button type="button" class="btn btn-danger" data-dismiss="modal" (click)="Eliminar()">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>

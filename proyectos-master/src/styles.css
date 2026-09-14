@@ -1,0 +1,157 @@
+/* You can add global styles to this file, and also import other style files */
+
+@import "~@angular/material/prebuilt-themes/indigo-pink.css";
+
+/* ========== SCROLLBARS ESTANDARIZADOS GLOBALES ========== */
+*::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+    background: #e9ecef;
+    border-radius: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #026AA7;
+    border-radius: 6px;
+    border: 2px solid #e9ecef;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #014f7e;
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #026AA7 #e9ecef;
+}
+
+/* Hover general de filas de tabla: amarillo pastel suave */
+table tbody tr:hover {
+    background-color: #fff9c4 !important;
+    box-shadow: inset 4px 0 0 #ffe082;
+}
+
+.text-center{
+    text-align: center;
+}
+
+.col-md-2 {
+    width: 16.6666666667%; }
+
+.fondo{
+    float: left;
+    height: 627px;
+    width: 100%;
+    background: url("/assets/Images/header.jpg") top left no-repeat;
+    -webkit-background-size: 100% 50%;           /* Safari 3.0 */
+            -moz-background-size: 100% 50%;           /* Gecko 1.9.2 (Firefox 3.6) */
+            -o-background-size: 100% 50%;           /* Opera 9.5 */
+                background-size: 100% 50%;           /* Gecko 2.0 (Firefox 4.0) and other CSS3-compliant browsers */
+}
+    
+.bg2 {
+    background: url(http://trazas-nbi.com//images/bg-prolongado.jpg) top left repeat-x #2894c7;
+}
+
+.sidebar{
+    background-color: #026AA7;
+}
+
+.modal .modal-dialog{
+    top: 100px;
+}
+
+.modal-dialog .widget-icon{
+    font-size:70px;
+    position: absolute;
+    z-index: 9;
+    margin: -35px 0px 0px -30px;
+    color: red;
+    opacity: 1;
+}
+
+.modal-dialog .widget-card{
+    padding-top: 40px
+}
+
+.modal-header{
+    background-color: #1a70b7;
+    margin-left:1px;
+    margin-top:1px;
+    height: 50px;
+    border: 0px;
+    border-radius: 3px 3px 0px 0px;
+    border-bottom: 0px;
+    /*background: url("/assets/Images/header.jpg") top left no-repeat;
+        -webkit-background-size: 100% 100%;*/           /* Safari 3.0 */
+    /*    -moz-background-size: 100% 100%;           /* Gecko 1.9.2 (Firefox 3.6) */
+    /*    -o-background-size: 100% 100%;           /* Opera 9.5 */
+    /*    background-size: 100% 100%;           /* Gecko 2.0 (Firefox 4.0) and other CSS3-compliant browsers */
+        
+  }
+
+legend{
+    border-bottom: 0px !important;
+}
+
+.modal-title,
+.modal-header .form-group .close{
+    font-weight: bold;
+    color:white;
+    opacity: 1;
+}
+
+.modal-header .icon{
+    height: 30px !important;
+    width: 30px !important;
+    padding: 2px;
+    border: 2px solid white;
+    border-radius: 0px !important;
+    margin-top: -5px;
+    margin-right: 10px;
+    color: white;
+}
+
+.error{
+    border-color: red;
+    background-color: #ffcece;
+}
+
+.center{
+    text-align: center;
+}
+
+.fc-event-inner{
+    text-align: center;
+}
+
+.fc-event-title{
+    font-size: 17px;
+}
+
+table#space{border-collapse: separate;border-spacing: 0px 5px;border-color:transparent;}
+table{width:100%;border-collapse: collapse;}
+a {cursor: pointer;}
+
+/* ********************************** Iconos tablas *********************************** */
+
+.drop:hover {
+    color: #CC0000;
+}
+.drop {
+    color: red;
+}
+
+.blue {
+    color: #218BC3;
+}
+.blue:hover {
+    color: blue;
+}
+
+.administracion{
+    background-color: #3d3e43 !important;
+}
