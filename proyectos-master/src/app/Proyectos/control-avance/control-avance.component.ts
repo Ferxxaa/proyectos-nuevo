@@ -2967,7 +2967,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const codigoProyecto = (subProyecto.codigo || subProyecto.codigoProyecto || '').trim() ||
         `Proyecto ${this.getIdProyectoActual()} - Subproyecto ${this.getIdSubProyectoActual()}`;
 
-      const ultimaColumnaEncabezado = COL_FIJAS + totalDias;
+      const ultimaColumnaEncabezado = COL_FIJAS + Math.min(totalDias, 20);
       // FIX "más juntos": la etiqueta ahora ocupa SOLO la columna 2 (antes 2 a COL_FIJAS,
       // es decir 3 columnas), y el valor arranca en la columna 3. Así el valor queda pegado
       // justo después de la etiqueta, sin las columnas 3 y 4 de por medio como espacio muerto.
