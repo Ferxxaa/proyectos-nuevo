@@ -2942,15 +2942,20 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         hoja.column(COL_FIJAS + 1 + i).width(3.3);
       }
 
-      // ---- Encabezado del documento: 5 filas (Mandante, Contacto, Título, Fecha, Código) ----
+      // ---- Encabezado del documento: 5 filas (Mandante, Contacto, Dirección, Fecha, Código) ----
       const subProyecto: any = this.subProyectoActual || {};
       const mandante = subProyecto.nombreMandante || subProyecto.mandante || 'Banco Estado';
       const contacto = subProyecto.contacto || subProyecto.nombreContacto || '-';
-      const tituloSubProyecto = subProyecto.nombreSubProyecto || subProyecto.nombreProyecto || subProyecto.titulo || '-';
+      const direccion = subProyecto.direccion || subProyecto.direccionProyecto || '-';
       const codigoProyecto = (subProyecto.codigo || subProyecto.codigoProyecto || '').trim() ||
         `Proyecto ${this.getIdProyectoActual()} - Subproyecto ${this.getIdSubProyectoActual()}`;
 
       const ultimaColumnaEncabezado = COL_FIJAS + totalDias;
+      // FIX "más juntos": la etiqueta ahora ocupa SOLO la columna 2 (antes 2 a COL_FIJAS,
+      // es decir 3 columnas), y el valor arranca en la columna 3. Así el valor queda pegado
+      // justo después de la etiqueta, sin las columnas 3 y 4 de por medio como espacio muerto.
+      const COL_LABEL_FIN = 2;
+      const COL_VALOR_INICIO = 3;
 
       // Logo: SOLO columna 1 (antes col 1-2), filas 1 a 5.
       hoja.range(1, 1, 5, 1).merged(true);
@@ -2958,32 +2963,61 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const datosEncabezado = [
         ['MANDANTE:', mandante],
         ['CONTACTO:', contacto],
-        ['TÍTULO:', tituloSubProyecto],
+        ['DIRECCIÓN:', direccion],
         ['FECHA:', this.fechaDocumento],
         ['CÓDIGO:', codigoProyecto]
       ];
-      datosEncabezado.forEach((dato, indice) => {
+            datosEncabezado.forEach((dato, indice) => {
         const fila = indice + 1;
-        hoja.range(fila, 2, fila, 5).merged(true);
-        hoja.range(fila, 6, fila, ultimaColumnaEncabezado).merged(true);
+        hoja.range(fila, 2, fila, COL_LABEL_FIN).merged(true);
+        hoja.range(fila, COL_VALOR_INICIO, fila, ultimaColumnaEncabezado).merged(true);
         hoja.cell(fila, 2).value(dato[0]).style({
           bold: true,
           fontSize: 10,
           fontColor: '222222',
           horizontalAlignment: 'left',
-          verticalAlignment: 'center'
+          verticalAlignment: 'top'
         });
-        hoja.cell(fila, 6).value(dato[1]).style({
+        hoja.cell(fila, COL_VALOR_INICIO).value(dato[1]).style({
           bold: dato[0] === 'CÓDIGO:',
           fontSize: 10,
           fontColor: '222222',
           horizontalAlignment: 'left',
-          verticalAlignment: 'center'
+          verticalAlignment: 'top'
         });
       });
-      hoja.range(1, 1, 5, ultimaColumnaEncabezado).style({
-        border: { style: 'thin', color: '111111' }
+
+      // Excel dibuja sus propias líneas de cuadrícula (gris claro) sobre cualquier celda sin
+      // relleno. Con relleno blanco explícito en todo el bloque, esas líneas dejan de verse
+      // y solo queda el borde real que se pinta más abajo.
+      for (let f = 1; f <= 5; f++) {
+        for (let c = 1; c <= ultimaColumnaEncabezado; c++) {
+          hoja.cell(f, c).style('fill', 'FFFFFF');
+        }
+      }
+
+      // Borde exterior real del bloque: se acumula lado por lado por celda (en vez de usar
+      // .range().style('border', ...), que pinta el borde en cada celda del rango, incluida
+      // la línea divisoria interna entre columnas/filas) para que solo quede el contorno.
+      const bordesExterior: { [clave: string]: any } = {};
+      const agregarLadoBorde = (f: number, c: number, lado: 'top' | 'bottom' | 'left' | 'right') => {
+        const clave = `${f}_${c}`;
+        if (!bordesExterior[clave]) { bordesExterior[clave] = {}; }
+        bordesExterior[clave][lado] = { style: 'thin', color: '111111' };
+      };
+      for (let c = 1; c <= ultimaColumnaEncabezado; c++) {
+        agregarLadoBorde(1, c, 'top');
+        agregarLadoBorde(5, c, 'bottom');
+      }
+      for (let f = 1; f <= 5; f++) {
+        agregarLadoBorde(f, 1, 'left');
+        agregarLadoBorde(f, ultimaColumnaEncabezado, 'right');
+      }
+      Object.keys(bordesExterior).forEach(clave => {
+        const [f, c] = clave.split('_').map(Number);
+        hoja.cell(f, c).style('border', bordesExterior[clave]);
       });
+
       hoja.row(1).height(22);
       hoja.row(2).height(22);
       hoja.row(3).height(22);
@@ -3231,8 +3265,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         }
       });
 
-      // ---- Congela columnas fijas y encabezado, como en la vista de pantalla ----
-      hoja.freezePanes(COL_FIJAS, FILA_DIAS);
+      // ---- Congela solo las cabeceras (semanas/días), no las columnas fijas ----
+      // FIX: freezePanes(COL_FIJAS, ...) congelaba también las 4 primeras columnas, y Excel
+      // dibuja la línea divisoria de ese "panel inmovilizado" a lo largo de TODA la altura de
+      // la hoja (incluido el bloque del encabezado), sin importar el relleno o los bordes que
+      // se pinten — es una línea de la interfaz de Excel, no un borde de celda. Al congelar solo
+      // las filas, esa línea desaparece del todo; el costo es que al hacer scroll horizontal en
+      // la Carta Gantt ya no quedan fijas las columnas Ítem/Actividad/Plazo/%Avance.
+      hoja.freezePanes(0, FILA_DIAS);
 
       // ---- Descargar ----
       const nombreProyecto = (this.nombreProyectoVisible || 'Proyecto').replace(/[\\/:*?"<>|]/g, '-');
