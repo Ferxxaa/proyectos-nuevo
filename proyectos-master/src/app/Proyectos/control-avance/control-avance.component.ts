@@ -3301,12 +3301,13 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // combinada del encabezado (columna 1, filas 1-5), sin espacio en blanco
   // sobrante ni importar qué alto de fila uses.
   // =========================================================================
-  private async insertarLogoEnExcel(blob: Blob): Promise<Blob> {
-    const rutaLogo = new URL('app/TimbreN.jpg', document.baseURI).toString();
+    private async insertarLogoEnExcel(blob: Blob): Promise<Blob> {
+    const rutaLogo = new URL('assets/Images/trazas.jpeg', document.baseURI).toString();
     const respuesta = await fetch(rutaLogo);
     if (!respuesta.ok) {
       throw new Error('No se pudo cargar el logo de Trazas.');
     }
+    // ... el resto del método sigue igual
 
     const imagen = await respuesta.arrayBuffer();
     const zip = await (JSZip as any).loadAsync(blob);
