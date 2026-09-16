@@ -83,11 +83,18 @@
           <option [ngValue]="false">Subitem (documento)</option>
         </select>
       </div>
-      <div class="col-md-3 col-sm-6 compact-field">
+            <div class="col-md-3 col-sm-6 compact-field">
         <label>Código del Excel</label>
-        <input type="text" class="form-control" [(ngModel)]="nuevoDoc.codigoExcel"
-               placeholder="Código para encabezado Excel"
-               title="Código exclusivo para el Excel final del subproyecto">
+        <div class="codigo-excel-fila">
+          <input type="text" class="form-control" [(ngModel)]="nuevoDoc.codigoExcel"
+                 placeholder="Código para encabezado Excel"
+                 title="Código exclusivo para el Excel final del subproyecto">
+          <button type="button" class="btn btn-default btn-guardar-codigo-excel"
+                  (click)="guardarCodigoExcel()"
+                  title="Guardar este código ahora, sin necesidad de crear un título o lámina">
+            <i class="fa fa-save"></i>
+          </button>
+        </div>
       </div>
     </div>
 

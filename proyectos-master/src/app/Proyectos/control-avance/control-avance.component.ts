@@ -288,6 +288,22 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  guardarCodigoExcel() {
+    const codigo = (this.nuevoDoc.codigoExcel || '').trim();
+    if (!codigo) {
+      Swal.fire('Falta el código', 'Escribe un código antes de guardar.', 'info');
+      return;
+    }
+    this.guardarCodigoSubProyectoParaExcel(codigo);
+    Swal.fire({
+      icon: 'success',
+      title: 'Código guardado',
+      text: 'Se guardó el código para el Excel, sin crear ningún título ni lámina.',
+      timer: 1500,
+      showConfirmButton: false
+    });
+  }
+
   getFechaActual(): string {
     const hoy = new Date();
     const dia = String(hoy.getDate()).padStart(2, '0');
@@ -2909,6 +2925,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const workbook = await (XlsxPopulate as any).fromBlankAsync();
       const hoja = workbook.sheet(0);
       hoja.name('Carta Gantt');
+      hoja.gridLinesVisible(false); // hoja limpia, sin cuadrícula de Excel
 
       const COL_FIJAS = 4; // Ítem, Actividad, Plazo, % Avance
       const FILA_ENCABEZADO_TABLA = 8;
@@ -3044,6 +3061,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           verticalAlignment: 'center',
           fill: 'F2F2F2',
           border: BORDE_SUAVE
+          
         });
       });
 
@@ -3148,7 +3166,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
         if (esTitulo) {
           for (let d = 0; d < totalDias; d++) {
-            hoja.cell(filaActual, COL_FIJAS + 1 + d).style('fill', colorTitulo);
+            hoja.cell(filaActual, COL_FIJAS + 1 + d).style({ fill: colorTitulo, border: BORDE_SUAVE });
           }
         } else if (barra.esHito) {
           hoja.cell(filaActual, COL_FIJAS + 1 + barra.offsetHito)
@@ -3161,7 +3179,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
               verticalAlignment: 'center',
               fill: '026AA7'
             });
-        } else if (barra.ancho > 0) {
+                } else if (barra.ancho > 0) {
           for (let d = 0; d < barra.ancho; d++) {
             const col = COL_FIJAS + 1 + barra.offset + d;
             const dentroDeRelleno = d < barra.anchoRelleno;
