@@ -1,6 +1,6 @@
 :host {
-    --nav-blue: #0879b2;
-    --nav-blue-light: #2596d6;
+    --nav-blue: #056b9e;
+    --nav-blue-light: #4aace4;
     --nav-green: #169b00;
     --nav-green-light: #57d549;
     --nav-purple: #900090;
@@ -15,7 +15,7 @@
 }
 
 .sidebar-nav-title {
-    color: white !important;
+    color: rgb(3, 3, 3) !important;
 }
 
 .sidebar-nav-title a {
@@ -141,7 +141,7 @@ a.sidebar-section-licitaciones:focus {
 #sidebar-proyectos-accordion .sidebar-nav > li > a:hover,
 #sidebar-proyectos-accordion .sidebar-nav > li > a:focus {
     background-color: var(--nav-blue-light) !important;
-    color: white !important;
+    color: #1a1a1a !important;
     text-decoration: none;
 }
 
@@ -152,7 +152,7 @@ a.sidebar-section-licitaciones:focus {
 #sidebar-tareas-accordion .sidebar-nav > li > a:hover,
 #sidebar-tareas-accordion .sidebar-nav > li > a:focus {
     background-color: var(--nav-purple-light) !important;
-    color: white !important;
+    color: #1a1a1a !important;
     text-decoration: none;
 }
 
@@ -163,7 +163,7 @@ a.sidebar-section-licitaciones:focus {
 #sidebar-licitaciones-accordion .sidebar-nav > li > a:hover,
 #sidebar-licitaciones-accordion .sidebar-nav > li > a:focus {
     background-color: var(--nav-orange-light) !important;
-    color: white !important;
+    color: #1a1a1a !important;
     text-decoration: none;
 }
 
@@ -174,7 +174,7 @@ a.sidebar-section-licitaciones:focus {
 #sidebar-finanzas-accordion .sidebar-nav > li > a:hover,
 #sidebar-finanzas-accordion .sidebar-nav > li > a:focus {
     background-color: var(--nav-green-light) !important;
-    color: white !important;
+    color: #1a1a1a !important;
     text-decoration: none;
 }
 
@@ -217,6 +217,29 @@ a.sidebar-section-grafico:focus {
 .menu-bloqueado ul li a {
     background-color: #807e7e !important;
     color: #ccc !important;
+}
+
+/* ============================================================
+   Sub-ítems del menú: texto e íconos en NEGRO. Solo el título
+   principal de cada sección (Home/Proyectos/Tareas/Licitaciones/
+   Finanzas, con clase .sidebar-section-*) queda en blanco.
+   Se aplica a todo lo que esté dentro de los acordeones y del
+   menú de Home, sin importar el nivel de anidamiento.
+   ============================================================ */
+
+#sidebar-proyectos-accordion a,
+#sidebar-tareas-accordion a,
+#sidebar-licitaciones-accordion a,
+#sidebar-finanzas-accordion a {
+    color: #1a1a1a !important;
+}
+
+
+#sidebar-proyectos-accordion .icon i,
+#sidebar-tareas-accordion .icon i,
+#sidebar-licitaciones-accordion .icon i,
+#sidebar-finanzas-accordion .icon i {
+    color: #1a1a1a !important;
 }
 
 /* Modal de aviso de permisos */
