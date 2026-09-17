@@ -242,6 +242,21 @@ a.sidebar-section-grafico:focus {
     color: #1a1a1a !important;
 }
 
+/* Ítems del submenú anidado (Proyecto Matriz, Proyectos, etc.) en blanco */
+#sidebar-proyectos-accordion .sidebar-nav > li ul li a,
+#sidebar-tareas-accordion .sidebar-nav > li ul li a,
+#sidebar-licitaciones-accordion .sidebar-nav > li ul li a,
+#sidebar-finanzas-accordion .sidebar-nav > li ul li a {
+    color: white !important;
+}
+
+#sidebar-proyectos-accordion .sidebar-nav > li ul li .icon i,
+#sidebar-tareas-accordion .sidebar-nav > li ul li .icon i,
+#sidebar-licitaciones-accordion .sidebar-nav > li ul li .icon i,
+#sidebar-finanzas-accordion .sidebar-nav > li ul li .icon i {
+    color: white !important;
+}
+
 /* Modal de aviso de permisos */
 .permiso-modal-overlay {
     position: fixed;
