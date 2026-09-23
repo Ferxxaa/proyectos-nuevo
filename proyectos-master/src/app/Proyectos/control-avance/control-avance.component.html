@@ -256,6 +256,27 @@
     </div>
 
     <table>
+      <!-- Anchos por columna: solo se aplican en Cartas Gantt (.cartas-gantt-compacto); en el resto no tienen ancho -->
+      <colgroup>
+        <col class="cg-numero">
+        <col class="cg-codigo">
+        <col class="cg-tipo">
+        <col class="cg-descripcion">
+        <col class="cg-revision">
+        <col class="cg-estado">
+        <col class="cg-fecha">
+        <col class="cg-plazo">
+        <col class="cg-fecha">
+        <col class="cg-avance">
+        <col class="cg-fecha">
+        <col class="cg-plazo">
+        <col class="cg-fecha">
+        <col class="cg-avance">
+        <col class="cg-bitacora">
+        <col class="cg-archivos">
+        <col class="cg-validadores">
+        <col class="cg-acciones">
+      </colgroup>
       <thead>
         <tr class="fila-grupos-thead">
           <th class="col-numero" rowspan="2">N°</th>
@@ -294,7 +315,6 @@
         <tr *ngFor="let fila of filasTabla; let i = index; trackBy: trackByFila"
             [class.fila-nueva]="fila.item.idControlAvance === 0"
             [class.fila-edicion]="filaEnEdicion === fila.indexOriginal"
-            [class.fila-titulo]="fila.item.esTitulo"
             [class.fila-titulo]="fila.item.esTitulo"
             [class.fila-titulo-nivel0]="fila.item.esTitulo && fila.nivel === 0"
             [class.fila-titulo-subnivel]="fila.item.esTitulo && fila.nivel > 0"

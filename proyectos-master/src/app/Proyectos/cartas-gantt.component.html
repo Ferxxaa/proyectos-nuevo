@@ -34,45 +34,34 @@
               <span class="grupo-cartas-contador">{{ grupo.cartas.length }} subproyecto{{ grupo.cartas.length === 1 ? '' : 's' }}</span>
             </button>
             <div class="cartas-gantt-lista" *ngIf="grupo.expandido">
-              <div class="carta-gantt-arrastrable"
-                *ngFor="let carta of grupo.cartas; let indice = index"
-                draggable="true"
-                (dragstart)="iniciarArrastre(grupo, indice, $event)"
-                (dragover)="permitirSoltar($event)"
-                (drop)="soltarCarta(grupo, indice, $event)"
-                (dragend)="terminarArrastre()">
-                <div class="carta-gantt-manija" title="Arrastrar carta" aria-label="Arrastrar carta">
-                  <i class="fa fa-arrows"></i>
-                </div>
-                <div class="carta-gantt-contenido">
-                  <button type="button" class="carta-gantt-titulo" (click)="alternarCarta(carta)"
-                    [class.carta-gantt-titulo-abierto]="carta.expandida"
-                    [attr.aria-expanded]="carta.expandida"
-                    [attr.aria-label]="(carta.expandida ? 'Ocultar' : 'Ver') + ' control de avance de ' + carta.subProyecto.nombreSubProyecto">
-                    <span class="carta-gantt-nombre">
-                      <i class="fa" [class.fa-chevron-down]="carta.expandida" [class.fa-chevron-right]="!carta.expandida"></i>
-                      <span class="carta-gantt-etiqueta">CONTROL DE AVANCE</span>
-                      <strong>{{ carta.subProyecto.nombreSubProyecto }}</strong>
-                    </span>
-                    <span class="carta-gantt-accion">
-                      <i class="fa" [class.fa-eye-slash]="carta.expandida" [class.fa-eye]="!carta.expandida"></i>
-                      {{ carta.expandida ? 'Ocultar control' : 'Ver control' }}
-                    </span>
-                  </button>
-                  <app-control-avance
-                    *ngIf="carta.expandida"
-                    [idProyecto]="carta.subProyecto.idProyecto"
-                    [idSubProyecto]="carta.subProyecto.idSubProyecto"
-                    [nombreProyecto]="carta.subProyecto.nombreSubProyecto"
-                    [detalleSeguimiento]="carta.detalleSeguimiento"
-                    [soloLectura]="false"
-                    [ocultarTitulo]="true"
-                    [ocultarFiltros]="true"
-                    [ocultarExportacion]="false"
-                      [vistaInicial]="'gantt'"
-                      class="cartas-gantt-compacto">
-                  </app-control-avance>
-                </div>
+              <div class="carta-gantt-contenido" *ngFor="let carta of grupo.cartas">
+                <button type="button" class="carta-gantt-titulo" (click)="alternarCarta(carta)"
+                  [class.carta-gantt-titulo-abierto]="carta.expandida"
+                  [attr.aria-expanded]="carta.expandida"
+                  [attr.aria-label]="(carta.expandida ? 'Ocultar' : 'Ver') + ' control de avance de ' + carta.subProyecto.nombreSubProyecto">
+                  <span class="carta-gantt-nombre">
+                    <i class="fa" [class.fa-chevron-down]="carta.expandida" [class.fa-chevron-right]="!carta.expandida"></i>
+                    <span class="carta-gantt-etiqueta">CONTROL DE AVANCE</span>
+                    <strong>{{ carta.subProyecto.nombreSubProyecto }}</strong>
+                  </span>
+                  <span class="carta-gantt-accion">
+                    <i class="fa" [class.fa-eye-slash]="carta.expandida" [class.fa-eye]="!carta.expandida"></i>
+                    {{ carta.expandida ? 'Ocultar control' : 'Ver control' }}
+                  </span>
+                </button>
+                <app-control-avance
+                  *ngIf="carta.expandida"
+                  [idProyecto]="carta.subProyecto.idProyecto"
+                  [idSubProyecto]="carta.subProyecto.idSubProyecto"
+                  [nombreProyecto]="carta.subProyecto.nombreSubProyecto"
+                  [detalleSeguimiento]="carta.detalleSeguimiento"
+                  [soloLectura]="false"
+                  [ocultarTitulo]="true"
+                  [ocultarFiltros]="true"
+                  [ocultarExportacion]="false"
+                  [vistaInicial]="'gantt'"
+                  class="cartas-gantt-compacto">
+                </app-control-avance>
               </div>
             </div>
           </section>

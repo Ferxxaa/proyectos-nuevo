@@ -27,9 +27,8 @@ interface GrupoCartasGantt {
 export class CartasGanttComponent implements OnInit {
   cartasGantt: CartaGanttSeleccionada[] = [];
   gruposCartasGantt: GrupoCartasGantt[] = [];
+  nombresProyectos: { [idProyecto: number]: string } = {};
   cargando: boolean = true;
-  indiceCartaArrastrada: number = -1;
-  idGrupoArrastrado: number = -1;
 
   constructor(
     private _sSubProyecto: sSubProyecto,
@@ -80,8 +79,6 @@ export class CartasGanttComponent implements OnInit {
     });
   }
 
-  nombresProyectos: { [idProyecto: number]: string } = {};
-
   private agruparCartas() {
     const grupos: { [idProyecto: string]: GrupoCartasGantt } = {};
 
@@ -110,58 +107,5 @@ export class CartasGanttComponent implements OnInit {
 
   alternarCarta(carta: CartaGanttSeleccionada) {
     carta.expandida = !carta.expandida;
-  }
-
-  iniciarArrastre(grupo: GrupoCartasGantt, indice: number, event: DragEvent) {
-    this.idGrupoArrastrado = grupo.idProyecto;
-    this.indiceCartaArrastrada = indice;
-
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', String(grupo.cartas[indice].subProyecto.idSubProyecto));
-    }
-  }
-
-  permitirSoltar(event: DragEvent) {
-    event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'move';
-    }
-  }
-
-  soltarCarta(grupo: GrupoCartasGantt, indiceDestino: number, event: DragEvent) {
-    event.preventDefault();
-
-    if (this.idGrupoArrastrado !== grupo.idProyecto || this.indiceCartaArrastrada < 0) {
-      this.limpiarArrastre();
-      return;
-    }
-
-    const cartas = grupo.cartas;
-    const carta = cartas.splice(this.indiceCartaArrastrada, 1)[0];
-    const elementoDestino = event.currentTarget as HTMLElement;
-    const rectanguloDestino = elementoDestino.getBoundingClientRect();
-    const soltarDespues = event.clientY > rectanguloDestino.top + rectanguloDestino.height / 2;
-    let nuevoIndice = indiceDestino + (soltarDespues ? 1 : 0);
-
-    if (this.indiceCartaArrastrada < nuevoIndice) {
-      nuevoIndice--;
-    }
-
-    cartas.splice(nuevoIndice, 0, carta);
-    this.cartasGantt = this.gruposCartasGantt.reduce((resultado, grupoActual) => resultado.concat(grupoActual.cartas), []);
-    localStorage.setItem('subProyectosGanttSeleccionados', JSON.stringify(
-      this.cartasGantt.map(cartaActual => cartaActual.subProyecto.idSubProyecto)
-    ));
-    this.limpiarArrastre();
-  }
-
-  terminarArrastre() {
-    this.limpiarArrastre();
-  }
-
-  private limpiarArrastre() {
-    this.indiceCartaArrastrada = -1;
-    this.idGrupoArrastrado = -1;
   }
 }
