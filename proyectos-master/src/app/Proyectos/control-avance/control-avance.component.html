@@ -295,6 +295,9 @@
             [class.fila-nueva]="fila.item.idControlAvance === 0"
             [class.fila-edicion]="filaEnEdicion === fila.indexOriginal"
             [class.fila-titulo]="fila.item.esTitulo"
+            [class.fila-titulo]="fila.item.esTitulo"
+            [class.fila-titulo-nivel0]="fila.item.esTitulo && fila.nivel === 0"
+            [class.fila-titulo-subnivel]="fila.item.esTitulo && fila.nivel > 0"
             [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(fila.item)"
             [class.fila-bitacora-match]="filtroBitacora !== 'todas' && itemCoincideFiltroBitacora(fila.item)"
             [class.fila-drop-target]="filaSobreDrag === fila.item.id"
@@ -514,7 +517,7 @@
       <!-- Exportar a Excel: vive junto a la leyenda de la Carta Gantt, no en el header -->
       <button type="button" class="btn-exportar-excel" *ngIf="!ocultarExportacion && !LoadingTabla && ganttBarras.length > 0"
               (click)="exportarCartaGanttAExcel()" title="Exportar Carta Gantt a Excel">
-        <i class="fa fa-file-excel-o"></i> Exportar Excel
+        <i class="fa fa-file-excel-o"></i> Reporte
       </button>
     </div>
 

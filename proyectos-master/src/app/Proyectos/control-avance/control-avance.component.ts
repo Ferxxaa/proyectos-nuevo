@@ -1967,10 +1967,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   getColorTituloPorNivel(nivel: number): string {
     const tonos = [
-      '#9CCBE8', // raíz / azul base un poco más oscuro y distinguible
-      '#CDE8F8', // hijo directo
-      '#DCECF8', // hijo del hijo
-      '#EDF7FE', // subnivel siguiente
+      '#5B9BD5', // raíz / título principal: azul fuerte, bien diferenciado del resto
+      '#BDD7EE', // hijo directo
+      '#D9E8F5', // hijo del hijo
+      '#EDF4FB', // subnivel siguiente
       '#F7FBFE'  // nivel extra, muy suave
     ];
 
