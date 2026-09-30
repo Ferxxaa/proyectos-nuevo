@@ -81,14 +81,24 @@ export class sBitacora{
             var formData = new FormData();
             var xhr = new XMLHttpRequest();
 
-            formData.append('adjuntar', file, file.name);
+            // Nombre en NFC para que las tildes no queden descompuestas (ej: "Reunio´n")
+            var nombre: any = file.name;
+            if (nombre && nombre.normalize) {
+                nombre = nombre.normalize('NFC');
+            }
+
+            // Los campos van ANTES del archivo: si el servidor decide la carpeta destino
+            // mientras recibe el archivo, necesita tener subProy y Tipo ya disponibles
             formData.append('subProy', subProyecto);
             formData.append('Tipo', tipo);
+            formData.append('adjuntar', file, nombre);
 
             xhr.onreadystatechange = () => {
                 if (xhr.readyState == 4) {
                     if (xhr.status == 200) {
-                        resolve(JSON.parse(xhr.response));
+                        var respuesta = JSON.parse(xhr.response);
+                        console.log('Respuesta adjuntarBitacora:', respuesta);
+                        resolve(respuesta);
                     } else {
                         reject(xhr.response);
                     }

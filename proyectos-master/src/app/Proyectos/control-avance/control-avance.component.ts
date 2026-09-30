@@ -2957,38 +2957,43 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       Swal.fire('Sin datos', 'No hay fechas cargadas para exportar la Carta Gantt.', 'info');
       return;
     }
-
+ 
     try {
       const workbook = await (XlsxPopulate as any).fromBlankAsync();
       const hoja = workbook.sheet(0);
       hoja.name('Carta Gantt');
-      hoja.gridLinesVisible(false); // hoja limpia, sin cuadrícula de Excel
-
-      // ---- Columnas: A = margen, B..E = columnas fijas (Ítem/Actividad/Plazo/%Avance), F+ = días ----
+      hoja.gridLinesVisible(false);
+ 
+      // ---- Columnas: A = margen, B..E = fijas (Ítem/Actividad/Plazo/%Avance), F+ = días ----
       const COL_MARGEN = 1;
-      const COL_FIJAS = 4; // Ítem, Actividad, Plazo, % Avance (columnas B a E)
-      const COL_DIA_INICIO = COL_MARGEN + COL_FIJAS + 1; // primera columna de día (F)
+      const COL_FIJAS = 4;
+      const COL_DIA_INICIO = COL_MARGEN + COL_FIJAS + 1; // F
       const totalDias = this.ganttDiasTotales;
-
-      // El bloque de encabezado usa siempre el mismo ancho fijo y compacto (valor en 16 columnas
-      // + caja REG/VERSIÓN de 6 columnas, pegada justo después con un pequeño espacio) — NO debe
-      // seguir el ancho de la tabla de días de abajo, por eso se calcula aparte de "ultimaColumnaSheet".
-      const COL_VALOR_INICIO_FIJO = COL_MARGEN + 8;  // I
-      const COL_VALOR_FIN_FIJO = COL_MARGEN + 23;    // X (16 columnas de ancho)
+ 
+      const COL_ETIQUETA = COL_MARGEN + 3;       // D
+      const COL_VALOR_INICIO = COL_MARGEN + 8;   // I
+      const COL_VALOR_FIN = COL_MARGEN + 23;     // X
       const ANCHO_CAJA_REG = 6;
-      const GAP_VALOR_REG = 1; // separación chica entre el valor y la caja REG/VERSIÓN
-      const colRegInicioFijo = COL_VALOR_FIN_FIJO + 1 + GAP_VALOR_REG;
-      const colUltimaEncabezado = colRegInicioFijo + ANCHO_CAJA_REG - 1; // ancho total y fijo del bloque
-      const ultimaColumnaSheet = Math.max(COL_DIA_INICIO + totalDias - 1, colUltimaEncabezado);
-
+ 
+      // El encabezado sigue el ancho de la tabla de días, pero con límites:
+      // - mínimo AE: espacio para el valor (I:X) + caja REG/VERSIÓN, aunque el proyecto sea corto.
+      // - máximo BB (~7 semanas de días): si la Carta Gantt es muy larga, el encabezado se corta
+      //   ahí y la caja REG/VERSIÓN queda en BB, en vez de irse cientos de columnas a la derecha.
+      const ultimaColumnaDias = COL_DIA_INICIO + totalDias - 1;
+      const COL_MIN_ENCABEZADO = COL_VALOR_FIN + 1 + ANCHO_CAJA_REG; // AE
+      const COL_MAX_ENCABEZADO = COL_DIA_INICIO + 48;                // BB
+      const colUltimaEncabezado = Math.min(Math.max(ultimaColumnaDias, COL_MIN_ENCABEZADO), COL_MAX_ENCABEZADO);
+      const ultimaColumnaSheet = Math.max(ultimaColumnaDias, colUltimaEncabezado);
+ 
       const FILA_ENCAB_INICIO = 2;
       const FILA_ENCAB_FIN = 6;
+      const FILA_ESPACIADOR = 7;
       const FILA_ENCABEZADO_TABLA = 8; // meses
-      const FILA_SEMANA = FILA_ENCABEZADO_TABLA + 1; // 9: semanas + Ítem/Actividad/Plazo/%Avance
-      const FILA_DIAS = FILA_SEMANA + 1; // 10: días
-      const FILA_PRIMER_DATO = FILA_DIAS + 1; // 11
-
-      // ---- Paleta clara, estilo planilla Excel clásica (según plantilla de referencia) ----
+      const FILA_SEMANA = 9;           // semanas + Ítem/Actividad/Plazo/%Avance
+      const FILA_DIAS = 10;            // días
+      const FILA_PRIMER_DATO = 11;
+ 
+      // ---- Paleta ----
       const BORDE_SUAVE = { style: 'thin', color: 'D0D5DB' };
       const BORDE_BARRA = { style: 'thin', color: 'D7DCE1' };
       const COLOR_PROGRESO: { [clase: string]: string } = {
@@ -2997,66 +3002,71 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         'avance-rojo': 'F4B183',
         'avance-sin-datos': 'D9D9D9'
       };
-      const COLOR_TITULO_NIVEL0 = '6FA8DC';   // título raíz: azul medio
-      const COLOR_TITULO_SUBNIVEL = 'B4C7E7'; // sub-títulos anidados: azul claro
-      const COLOR_HOY = 'F4CCE8';             // franja "hoy": rosa/magenta suave
+      const COLOR_TITULO_NIVEL0 = '6FA8DC';
+      const COLOR_TITULO_SUBNIVEL = 'B4C7E7';
+      const COLOR_HOY = 'F4CCE8';
       const COLOR_HOY_TEXTO = 'C0007D';
-      const COLOR_GRIS_EXPORT = 'D9D9D9';     // gris claro del tramo sin avanzar de la barra (igual que la plantilla)
-      const COLOR_TEXTO_TITULO = '000000';    // negro, en negrita
-      const COLOR_TEXTO_LAMINA = '000000';    // negro
-
-      // ---- Anchos de columna: igual que la plantilla de referencia ----
-      hoja.column(COL_MARGEN).width(7.71);     // A: margen
-      hoja.column(COL_MARGEN + 1).width(14.85); // B: Ítem (y logo)
+      const COLOR_GRIS_EXPORT = 'D9D9D9';
+      const COLOR_ENCAB_TABLA = 'F2F2F2';
+      const COLOR_TEXTO_TITULO = '000000';
+      const COLOR_TEXTO_LAMINA = '000000';
+ 
+      // ---- Anchos de columna ----
+      hoja.column(COL_MARGEN).width(7.71);      // A
+      hoja.column(COL_MARGEN + 1).width(14.85); // B: Ítem / logo
       hoja.column(COL_MARGEN + 2).width(36);    // C: Actividad
-      hoja.column(COL_MARGEN + 3).width(8);     // D: Plazo (y etiquetas del encabezado)
+      hoja.column(COL_MARGEN + 3).width(8);     // D: Plazo / etiquetas encabezado
       hoja.column(COL_MARGEN + 4).width(10);    // E: % Avance
       for (let c = COL_DIA_INICIO; c <= ultimaColumnaSheet; c++) {
         hoja.column(c).width(3.29);
       }
-
-      // ==== BLOQUE DE ENCABEZADO (Mandante/Contacto/Dirección/Fecha/Código + logo + REG/VERSIÓN) ====
+ 
+      // ==== BLOQUE DE ENCABEZADO ====
       const subProyecto: any = this.subProyectoActual || {};
       const mandante = subProyecto.nombreMandante || subProyecto.mandante || 'Banco Estado';
       const contacto = subProyecto.contacto || subProyecto.nombreContacto || '-';
       const direccion = subProyecto.direccion || subProyecto.direccionProyecto || '-';
       const codigoProyecto = (subProyecto.codigo || subProyecto.codigoProyecto || '').trim() ||
         `Proyecto ${this.getIdProyectoActual()} - Subproyecto ${this.getIdSubProyectoActual()}`;
-
+ 
+      const datosEncabezado = [
+        ['MANDANTE:', mandante],
+        ['CONTACTO:', contacto],
+        ['DIRECCIÓN:', direccion],
+        ['FECHA:', this.fechaDocumento],
+        ['CÓDIGO:', codigoProyecto]
+      ];
+ 
       this.dibujarEncabezadoExcel(hoja, {
         filaInicio: FILA_ENCAB_INICIO,
         filaFin: FILA_ENCAB_FIN,
-        colLogo: COL_MARGEN + 1,        // B
-        colEtiqueta: COL_MARGEN + 3,    // D
-        colValorInicio: COL_VALOR_INICIO_FIJO, // I
-        colValorFin: COL_VALOR_FIN_FIJO,       // X (siempre 16 columnas, sin achicarse)
-        colUltima: colUltimaEncabezado, // ancho fijo y compacto, no sigue el largo de la tabla de días
-        datos: [
-          ['MANDANTE:', mandante],
-          ['CONTACTO:', contacto],
-          ['DIRECCIÓN:', direccion],
-          ['FECHA:', this.fechaDocumento],
-          ['CÓDIGO:', codigoProyecto]
-        ],
+        colLogo: COL_MARGEN + 1,
+        colEtiqueta: COL_ETIQUETA,
+        colValorInicio: COL_VALOR_INICIO,
+        colValorFin: COL_VALOR_FIN,
+        colUltima: colUltimaEncabezado, // topado entre AE y BB, no sigue una Carta Gantt gigante
+        anchoCajaReg: ANCHO_CAJA_REG,
+        datos: datosEncabezado,
         registro: this.registro,
         version: this.version
       });
-
-      // El logo se inserta después de generar el libro (ver insertarLogoEnExcel), sobre la
-      // celda combinada de la columna B, filas FILA_ENCAB_INICIO..FILA_ENCAB_FIN.
-
+ 
+      // Fila espaciadora bajita entre el encabezado y la tabla
+      hoja.row(FILA_ESPACIADOR).height(6);
+      hoja.row(FILA_ENCABEZADO_TABLA).height(15);
+      hoja.row(FILA_SEMANA).height(15);
+      hoja.row(FILA_DIAS).height(15);
+ 
+      // ---- Fila de meses sobre las columnas fijas: gris con borde, como el resto del encabezado ----
+      for (let c = COL_MARGEN + 1; c <= COL_MARGEN + 4; c++) {
+        hoja.cell(FILA_ENCABEZADO_TABLA, c).style({ fill: COLOR_ENCAB_TABLA, border: BORDE_SUAVE });
+      }
+ 
       // ---- Encabezado de tabla: columnas fijas combinadas verticalmente (filas 9-10) ----
-      hoja.range(FILA_SEMANA, COL_MARGEN + 1, FILA_DIAS, COL_MARGEN + 1).merged(true);
-      hoja.range(FILA_SEMANA, COL_MARGEN + 2, FILA_DIAS, COL_MARGEN + 2).merged(true);
-      hoja.range(FILA_SEMANA, COL_MARGEN + 3, FILA_DIAS, COL_MARGEN + 3).merged(true);
-      hoja.range(FILA_SEMANA, COL_MARGEN + 4, FILA_DIAS, COL_MARGEN + 4).merged(true);
-      hoja.cell(FILA_SEMANA, COL_MARGEN + 1).value('Ítem');
-      hoja.cell(FILA_SEMANA, COL_MARGEN + 2).value('Actividad');
-      hoja.cell(FILA_SEMANA, COL_MARGEN + 3).value('Plazo');
-      hoja.cell(FILA_SEMANA, COL_MARGEN + 4).value('% Avance');
-      [COL_MARGEN + 1, COL_MARGEN + 2, COL_MARGEN + 3, COL_MARGEN + 4].forEach(c => {
-        // Se combina verticalmente FILA_SEMANA..FILA_DIAS: hay que estilar AMBAS filas de la
-        // celda combinada, si no la mitad de abajo queda en blanco (sin fondo ni borde).
+      const titulosFijos = ['Ítem', 'Actividad', 'Plazo', '% Avance'];
+      titulosFijos.forEach((titulo, i) => {
+        const c = COL_MARGEN + 1 + i;
+        hoja.range(FILA_SEMANA, c, FILA_DIAS, c).merged(true);
         [FILA_SEMANA, FILA_DIAS].forEach(fila => {
           hoja.cell(fila, c).style({
             bold: true,
@@ -3064,13 +3074,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
             fontColor: '1F2937',
             horizontalAlignment: c === COL_MARGEN + 2 ? 'left' : 'center',
             verticalAlignment: 'center',
-            fill: 'F2F2F2',
+            fill: COLOR_ENCAB_TABLA,
             border: BORDE_SUAVE
           });
         });
+        hoja.cell(FILA_SEMANA, c).value(titulo);
       });
-
-      // ---- Encabezado: meses (fila 8), semanas (fila 9) y días (fila 10) ----
+ 
+      // ---- Meses (fila 8) ----
       const meses: Array<{ nombre: string; inicioCol: number; finCol: number }> = [];
       let mesActual = '';
       let inicioMes = COL_DIA_INICIO;
@@ -3093,8 +3104,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         if (mes.finCol > mes.inicioCol) {
           hoja.range(FILA_ENCABEZADO_TABLA, mes.inicioCol, FILA_ENCABEZADO_TABLA, mes.finCol).merged(true);
         }
-        // Estilo en TODAS las celdas del rango combinado, no solo en la primera: si no, el resto
-        // de la fila del mes queda sin fondo/borde (en blanco) en proyectos con meses largos.
         for (let c = mes.inicioCol; c <= mes.finCol; c++) {
           hoja.cell(FILA_ENCABEZADO_TABLA, c).style({
             bold: true,
@@ -3102,18 +3111,20 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
             fontColor: '1F2937',
             horizontalAlignment: 'center',
             verticalAlignment: 'center',
-            fill: 'F2F2F2',
+            fill: COLOR_ENCAB_TABLA,
             border: BORDE_SUAVE
           });
         }
         hoja.cell(FILA_ENCABEZADO_TABLA, mes.inicioCol).value(mes.nombre);
       });
-
+ 
+      // ---- Semanas (fila 9) y días (fila 10) ----
+      const esHoyFilaDias = (col: number) => this.ganttHoyOffset >= 0 && col === COL_DIA_INICIO + this.ganttHoyOffset;
       let colCursor = COL_DIA_INICIO;
       this.ganttSemanas.forEach(semana => {
         const inicioCol = colCursor;
         const finCol = colCursor + semana.dias.length - 1;
-
+ 
         if (finCol > inicioCol) {
           hoja.range(FILA_SEMANA, inicioCol, FILA_SEMANA, finCol).merged(true);
         }
@@ -3124,45 +3135,67 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
             fontColor: '1F2937',
             horizontalAlignment: 'center',
             verticalAlignment: 'center',
-            fill: 'F2F2F2',
+            fill: COLOR_ENCAB_TABLA,
             border: BORDE_SUAVE
           });
         }
         hoja.cell(FILA_SEMANA, inicioCol).value(semana.etiqueta);
-
+ 
         semana.dias.forEach((dia, idx) => {
-          hoja.cell(FILA_DIAS, inicioCol + idx)
+          const col = inicioCol + idx;
+          // La celda del día "hoy" se estila completa aquí (una sola llamada .style()),
+          // con fondo rosado y las líneas laterales magenta.
+          const esHoy = esHoyFilaDias(col);
+          hoja.cell(FILA_DIAS, col)
             .value(dia.numero)
             .style({
-              bold: true,
+              bold: esHoy,
               fontSize: 7,
-              fontColor: '6C757D',
+              fontColor: esHoy ? COLOR_HOY_TEXTO : '595959',
               horizontalAlignment: 'center',
               verticalAlignment: 'center',
-              fill: 'F2F2F2',
-              border: BORDE_SUAVE
+              fill: esHoy ? COLOR_HOY : COLOR_ENCAB_TABLA,
+              border: esHoy
+                ? {
+                    top: BORDE_SUAVE,
+                    bottom: BORDE_SUAVE,
+                    left: { style: 'medium', color: COLOR_HOY_TEXTO },
+                    right: { style: 'medium', color: COLOR_HOY_TEXTO }
+                  }
+                : BORDE_SUAVE
             });
         });
-
+ 
         colCursor = finCol + 1;
       });
-
-      // ---- Filas de datos: una por cada barra, en el mismo orden jerárquico que la vista ----
+ 
+      // ---- Filas de datos ----
+      const colHoy = this.ganttHoyOffset >= 0 ? COL_DIA_INICIO + this.ganttHoyOffset : -1;
+      const bordeHoy = { style: 'medium', color: COLOR_HOY_TEXTO };
+      // Agrega las líneas magenta de "hoy" al borde que ya lleva la celda, sin segunda llamada .style()
+      const conLineaHoy = (col: number, borde: any) => {
+        if (col !== colHoy) { return borde; }
+        const base = (borde && (borde.top || borde.bottom || borde.left || borde.right))
+          ? borde
+          : { top: borde, bottom: borde, left: borde, right: borde };
+        return Object.assign({}, base, { left: bordeHoy, right: bordeHoy });
+      };
+ 
       let filaActual = FILA_PRIMER_DATO;
-
+ 
       this.ganttBarras.forEach((barra, indice) => {
         const item = barra.item;
         const esTitulo = !!item.esTitulo;
         const filaTablaCorrespondiente = this.filasTabla[indice];
         const numeroItem = filaTablaCorrespondiente ? filaTablaCorrespondiente.numero : (item.codigo || '');
-
+ 
         hoja.cell(filaActual, COL_MARGEN + 1).value(numeroItem);
         hoja.cell(filaActual, COL_MARGEN + 2).value('   '.repeat(barra.nivel) + (item.descripcion || ''));
         hoja.cell(filaActual, COL_MARGEN + 3).value(item.plazoProgramado || '');
         hoja.cell(filaActual, COL_MARGEN + 4).value(item.avanceReal != null ? `${item.avanceReal}%` : '');
-
+ 
         const colorTitulo = barra.nivel === 0 ? COLOR_TITULO_NIVEL0 : COLOR_TITULO_SUBNIVEL;
-
+ 
         for (let c = COL_MARGEN + 1; c <= COL_MARGEN + 4; c++) {
           const estilo: any = {
             bold: esTitulo,
@@ -3175,86 +3208,56 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           if (esTitulo) { estilo.fill = colorTitulo; }
           hoja.cell(filaActual, c).style(estilo);
         }
-
-        if (esTitulo) {
-          for (let d = 0; d < totalDias; d++) {
-            hoja.cell(filaActual, COL_DIA_INICIO + d).style({ fill: colorTitulo, border: BORDE_SUAVE });
+ 
+        for (let d = 0; d < totalDias; d++) {
+          const col = COL_DIA_INICIO + d;
+ 
+          if (esTitulo) {
+            hoja.cell(filaActual, col).style({ fill: colorTitulo, border: conLineaHoy(col, BORDE_SUAVE) });
+            continue;
           }
-        } else {
-          // Grilla completa: TODAS las celdas de día de la fila llevan un borde fino, tengan o
-          // no barra encima, igual que la plantilla de referencia (que dibuja el cuadriculado
-          // completo de la Carta Gantt). Una sola llamada .style() por celda (nunca dos sobre
-          // la misma), para no generar estilos corruptos en xlsx-populate.
-          for (let d = 0; d < totalDias; d++) {
-            const col = COL_DIA_INICIO + d;
-            const esHitoAqui = barra.esHito && d === barra.offsetHito;
-            const enBarra = !barra.esHito && barra.ancho > 0 && d >= barra.offset && d < barra.offset + barra.ancho;
-
-            if (esHitoAqui) {
-              hoja.cell(filaActual, col).value('◆').style({
-                bold: true,
-                fontSize: 8,
-                fontColor: 'FFFFFF',
-                horizontalAlignment: 'center',
-                verticalAlignment: 'center',
-                fill: '026AA7',
-                border: BORDE_SUAVE
-              });
-            } else if (enBarra) {
-              const dRelativo = d - barra.offset;
-              const dentroDeRelleno = dRelativo < barra.anchoRelleno;
-              const colorRelleno = dentroDeRelleno ? (COLOR_PROGRESO[barra.clase] || COLOR_GRIS_EXPORT) : COLOR_GRIS_EXPORT;
-              hoja.cell(filaActual, col).style({
-                fill: colorRelleno,
-                border: {
-                  top: BORDE_BARRA,
-                  bottom: BORDE_BARRA,
-                  left: dRelativo === 0 ? BORDE_BARRA : BORDE_SUAVE,
-                  right: dRelativo === barra.ancho - 1 ? BORDE_BARRA : BORDE_SUAVE
-                }
-              });
-            } else {
-              hoja.cell(filaActual, col).style({ border: BORDE_SUAVE });
-            }
+ 
+          const esHitoAqui = barra.esHito && d === barra.offsetHito;
+          const enBarra = !barra.esHito && barra.ancho > 0 && d >= barra.offset && d < barra.offset + barra.ancho;
+ 
+          if (esHitoAqui) {
+            hoja.cell(filaActual, col).value('◆').style({
+              bold: true,
+              fontSize: 8,
+              fontColor: 'FFFFFF',
+              horizontalAlignment: 'center',
+              verticalAlignment: 'center',
+              fill: '026AA7',
+              border: conLineaHoy(col, BORDE_SUAVE)
+            });
+          } else if (enBarra) {
+            const dRelativo = d - barra.offset;
+            const dentroDeRelleno = dRelativo < barra.anchoRelleno;
+            const colorRelleno = dentroDeRelleno ? (COLOR_PROGRESO[barra.clase] || COLOR_GRIS_EXPORT) : COLOR_GRIS_EXPORT;
+            hoja.cell(filaActual, col).style({
+              fill: colorRelleno,
+              border: conLineaHoy(col, {
+                top: BORDE_BARRA,
+                bottom: BORDE_BARRA,
+                left: dRelativo === 0 ? BORDE_BARRA : BORDE_SUAVE,
+                right: dRelativo === barra.ancho - 1 ? BORDE_BARRA : BORDE_SUAVE
+              })
+            });
+          } else {
+            hoja.cell(filaActual, col).style({ border: conLineaHoy(col, BORDE_SUAVE) });
           }
         }
-
+ 
         hoja.row(filaActual).height(16);
         filaActual++;
       });
-
-
-
-      // ---- Franja "Hoy" ----
-      if (this.ganttHoyOffset >= 0) {
-        const colHoy = COL_DIA_INICIO + this.ganttHoyOffset;
-
-        hoja.cell(FILA_DIAS, colHoy).style({ fill: COLOR_HOY, fontColor: COLOR_HOY_TEXTO, bold: true });
-
-        // Cada celda de esta columna puede ya tener fill/borde propio (barra de una lámina,
-        // franja de un título). Se lee su estilo actual y se fusiona con los bordes de la
-        // línea "Hoy" en UNA sola llamada .style(): llamar .style() dos veces sobre la misma
-        // celda genera un estilo corrupto en xlsx-populate (un <fill/> vacío que Excel/Sheets
-        // no reconoce).
-        for (let f = FILA_ENCABEZADO_TABLA; f < filaActual; f++) {
-          const celdaHoy = hoja.cell(f, colHoy);
-          const fillActual = celdaHoy.style('fill');
-          const bordeActual = celdaHoy.style('border') || {};
-          celdaHoy.style({
-            fill: fillActual,
-            border: Object.assign({}, bordeActual, {
-              left: { style: 'medium', color: COLOR_HOY_TEXTO },
-              right: { style: 'medium', color: COLOR_HOY_TEXTO }
-            })
-          });
-        }
-      }
-
-
-      // ---- Hoja adicional con la tabla completa del control de avance ----
+ 
+      // =====================================================================
+      // HOJA "Tabla": tabla completa del control de avance, igual a la plantilla
+      // =====================================================================
       const hojaTabla = workbook.addSheet('Tabla');
       hojaTabla.gridLinesVisible(false);
-
+ 
       const COL_MARGEN_TABLA = 1;
       const encabezadosTabla = [
         'N°', 'Código', 'Tipo', 'Descripción', 'Rev.', 'Estado',
@@ -3263,9 +3266,38 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         'F. Término Real', '% Avance Real'
       ];
       const columnasTablaAncho = [10.71, 16, 20.14, 40.71, 8, 16, 15, 11, 17, 17.42, 15, 11, 17, 15];
-      const FILA_ENCABEZADO_TABLA_HOJA2 = FILA_ENCABEZADO_TABLA; // misma fila que la Carta Gantt
-
+      const IDX_TIPO = 2;
+      const IDX_DESCRIPCION = 3;
+      const IDX_AVANCE_PROG = 9;
+      const FILA_ENCABEZADO_TABLA_HOJA2 = FILA_ENCABEZADO_TABLA; // fila 8, igual que la Carta Gantt
+ 
+      // Colores de Tipo: los mismos de los select de la tabla en la app
+      const COLOR_TIPO: { [prefijo: string]: string } = {
+        'ET': 'E3FBE8', // verde menta
+        'MC': 'FFF8D6', // amarillo crema
+        'P': 'E6F1FF',  // celeste
+        'R': 'F3EEFF',  // lila
+        'L': 'DFF8FA',  // turquesa agua
+        'I': 'FFEEDD',  // durazno
+        'O': 'F2F3F5'   // gris perla
+      };
+      const colorTipo = (tipo: string): string => {
+        if (!tipo) { return ''; }
+        const prefijo = tipo.split(' -')[0].trim();
+        return COLOR_TIPO[prefijo] || '';
+      };
+ 
+      // Semáforo pastel para % Avance Programado (mismo criterio que la tabla de la app)
+      const COLOR_AVANCE_TABLA: { [clase: string]: string } = {
+        'avance-verde': 'E2EFDA',
+        'avance-amarillo': 'FFF2CC',
+        'avance-rojo': 'FCE4D6'
+      };
+ 
       hojaTabla.column(COL_MARGEN_TABLA).width(7.71);
+      hojaTabla.row(FILA_ESPACIADOR).height(6);
+      hojaTabla.row(FILA_ENCABEZADO_TABLA_HOJA2).height(30);
+ 
       encabezadosTabla.forEach((titulo, index) => {
         const col = COL_MARGEN_TABLA + 1 + index;
         hojaTabla.column(col).width(columnasTablaAncho[index]);
@@ -3275,50 +3307,46 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           fontColor: '1F2937',
           horizontalAlignment: 'center',
           verticalAlignment: 'center',
-          fill: 'F2F2F2',
+          wrapText: true,
+          fill: COLOR_ENCAB_TABLA,
           border: BORDE_SUAVE
         });
       });
-
+ 
       const ultimaColumnaTabla = COL_MARGEN_TABLA + encabezadosTabla.length;
       this.dibujarEncabezadoExcel(hojaTabla, {
         filaInicio: FILA_ENCAB_INICIO,
         filaFin: FILA_ENCAB_FIN,
         colLogo: COL_MARGEN_TABLA + 1,
-        colEtiqueta: COL_MARGEN_TABLA + 5,
-        colEtiquetaFin: COL_MARGEN_TABLA + 6,
-        colValorInicio: COL_MARGEN_TABLA + 7,
-        colValorFin: COL_MARGEN_TABLA + 10,
-        colUltima: ultimaColumnaTabla,
-        anchoCajaReg: 2,
-        datos: [
-          ['MANDANTE:', mandante],
-          ['CONTACTO:', contacto],
-          ['DIRECCIÓN:', direccion],
-          ['FECHA:', this.fechaDocumento],
-          ['CÓDIGO:', codigoProyecto]
-        ],
+        colEtiqueta: COL_MARGEN_TABLA + 5,      // F
+        colEtiquetaFin: COL_MARGEN_TABLA + 6,   // G
+        colValorInicio: COL_MARGEN_TABLA + 7,   // H
+        colValorFin: COL_MARGEN_TABLA + 10,     // K
+        colUltima: ultimaColumnaTabla,          // O
+        anchoCajaReg: 2,                        // N:O
+        datos: datosEncabezado,
         registro: this.registro,
         version: this.version
       });
-
+ 
       const formatearFechaExcel = (fecha: string) => {
         if (!fecha) return '';
-        const date = new Date(fecha);
-        if (isNaN(date.getTime())) return fecha;
+        const date = this.parsearFechaLocal(fecha);
+        if (!date) return fecha;
         const y = date.getFullYear();
         const m = String(date.getMonth() + 1).padStart(2, '0');
         const d = String(date.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
       };
-
+ 
       this.filasTabla.forEach((fila, idx) => {
         const filaExcel = FILA_ENCABEZADO_TABLA_HOJA2 + 1 + idx;
         const item = fila.item;
+        const esTitulo = !!item.esTitulo;
         const datos = [
           fila.numero,
           item.codigo || '',
-          item.tipo || '',
+          esTitulo ? '' : (item.tipo || ''),
           item.descripcion || '',
           item.revisionActual != null ? item.revisionActual : '',
           item.estado || '',
@@ -3331,37 +3359,48 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           formatearFechaExcel(item.fechaTermino),
           item.avanceReal != null ? item.avanceReal : ''
         ];
-
+ 
+        const colorTituloFila = fila.nivel === 0 ? COLOR_TITULO_NIVEL0 : COLOR_TITULO_SUBNIVEL;
+        const claseAvance = this.getClaseAvanceReal(item.avanceReal, item.avanceProgramado);
+ 
         datos.forEach((valor, colIdx) => {
-          hojaTabla.cell(filaExcel, COL_MARGEN_TABLA + 1 + colIdx).value(valor);
-        });
-
-        for (let c = COL_MARGEN_TABLA + 1; c <= COL_MARGEN_TABLA + encabezadosTabla.length; c++) {
-          hojaTabla.cell(filaExcel, c).style({
-            fontSize: 8,
-            fontColor: item.esTitulo ? COLOR_TEXTO_TITULO : COLOR_TEXTO_LAMINA,
+          let fill = 'FFFFFF';
+          if (esTitulo) {
+            fill = colorTituloFila;
+          } else if (colIdx === IDX_TIPO) {
+            fill = colorTipo(item.tipo) || 'FFFFFF';
+          } else if (colIdx === IDX_AVANCE_PROG) {
+            fill = COLOR_AVANCE_TABLA[claseAvance] || 'FFFFFF';
+          }
+ 
+          hojaTabla.cell(filaExcel, COL_MARGEN_TABLA + 1 + colIdx).value(valor).style({
+            bold: esTitulo,
+            fontSize: 9,
+            fontColor: esTitulo ? COLOR_TEXTO_TITULO : COLOR_TEXTO_LAMINA,
             verticalAlignment: 'center',
-            horizontalAlignment: c === COL_MARGEN_TABLA + 4 ? 'left' : 'center',
-            fill: item.esTitulo ? COLOR_TITULO_NIVEL0 : 'FFFFFF',
+            horizontalAlignment: colIdx === IDX_DESCRIPCION ? 'left' : 'center',
+            fill: fill,
             border: BORDE_SUAVE
           });
-        }
+        });
+ 
+        hojaTabla.row(filaExcel).height(esTitulo ? 16 : 15);
       });
-
-      // ---- Congela solo las cabeceras (todo el bloque de encabezado + días), no las columnas fijas ----
-      // FIX: freezePanes(0, FILA_PRIMER_DATO - 1) deja fijas todas las filas de encabezado
-      // (Mandante/Contacto/etc. + meses/semanas/días) y libera desde la primera fila de datos,
-      // igual que la plantilla de referencia (que congela justo en la fila 11).
+ 
+      // ---- Congela todo el encabezado ----
       hoja.freezePanes(0, FILA_PRIMER_DATO - 1);
       hojaTabla.freezePanes(0, FILA_ENCABEZADO_TABLA_HOJA2);
-
+ 
       // ---- Descargar ----
       const nombreProyecto = (this.nombreProyectoVisible || 'Proyecto').replace(/[\\/:*?"<>|]/g, '-');
       const fechaArchivo = this.formatearFechaISO(new Date());
       const nombreArchivo = `CartaGantt_${nombreProyecto}_${fechaArchivo}.xlsx`;
-
+ 
       const blob = await workbook.outputAsync();
-      const excelConLogo = await this.insertarLogoEnExcel(blob, FILA_ENCAB_INICIO, COL_MARGEN + 1);
+      const excelConLogo = await this.insertarLogoEnExcel(blob, [
+        { nombreHoja: 'Carta Gantt', fila: FILA_ENCAB_INICIO, col: COL_MARGEN + 1 },
+        { nombreHoja: 'Tabla', fila: FILA_ENCAB_INICIO, col: COL_MARGEN_TABLA + 1 }
+      ]);
       const url = window.URL.createObjectURL(excelConLogo);
       const enlace = document.createElement('a');
       enlace.href = url;
@@ -3374,13 +3413,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       Swal.fire('Error', 'No se pudo generar el Excel: ' + error.message, 'error');
     }
   }
-
+ 
   /**
-   * Dibuja el bloque de encabezado (Mandante/Contacto/Dirección/Fecha/Código + caja de
-   * Registro/Versión arriba a la derecha) sobre la hoja indicada, igual que en la plantilla
-   * Excel de referencia: logo en una columna combinada verticalmente (filaInicio..filaFin),
-   * una etiqueta por fila y su valor en un bloque combinado horizontalmente, con un borde
-   * fino rodeando todo el bloque desde colLogo hasta colUltima.
+   * Bloque de encabezado igual a la plantilla: logo combinado en colLogo (filaInicio..filaFin),
+   * etiquetas en colEtiqueta, valores combinados colValorInicio..colValorFin, fondo gris,
+   * borde exterior gris y caja REG / VERSIÓN en las últimas columnas (pegada al borde derecho).
+   * Una sola llamada .style() por celda para no corromper estilos en xlsx-populate.
    */
   private dibujarEncabezadoExcel(hoja: any, opciones: {
     filaInicio: number; filaFin: number;
@@ -3392,177 +3430,201 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const { filaInicio, filaFin, colLogo, colEtiqueta, colValorInicio, colValorFin, colUltima, datos, registro, version } = opciones;
     const colEtiquetaFin = opciones.colEtiquetaFin || colEtiqueta;
     const anchoCajaReg = opciones.anchoCajaReg || 6;
-
-    // Logo: columna combinada verticalmente, filaInicio..filaFin
+ 
+    const COLOR_BORDE = 'BFBFBF';
+    const COLOR_FONDO = 'F2F2F2';
+    const COLOR_TEXTO = '222222';
+    const lineaBorde = { style: 'thin', color: COLOR_BORDE };
+ 
+    const filaMedia = filaInicio + Math.ceil((filaFin - filaInicio + 1) / 2) - 1;
+    const colRegInicio = Math.max(colValorFin + 2, colUltima - anchoCajaReg + 1);
+    const hayCajaReg = colRegInicio < colUltima;
+ 
+    // ---- Merges ----
     hoja.range(filaInicio, colLogo, filaFin, colLogo).merged(true);
-
     datos.forEach((dato, indice) => {
       const fila = filaInicio + indice;
       if (fila > filaFin) { return; }
-
       if (colEtiquetaFin > colEtiqueta) {
         hoja.range(fila, colEtiqueta, fila, colEtiquetaFin).merged(true);
       }
       hoja.range(fila, colValorInicio, fila, colValorFin).merged(true);
-
-      hoja.cell(fila, colEtiqueta).value(dato[0]).style({
-        bold: true,
-        fontSize: 9,
-        fontColor: '222222',
-        horizontalAlignment: 'left',
-        verticalAlignment: 'center'
-      });
-      hoja.cell(fila, colValorInicio).value(dato[1]).style({
-        bold: dato[0] === 'CÓDIGO:',
-        fontSize: 9,
-        fontColor: '222222',
-        horizontalAlignment: 'left',
-        verticalAlignment: 'center'
-      });
     });
-
-    // Fondo blanco en todo el bloque (para que no se vean las líneas de cuadrícula de Excel
-    // por debajo) + borde exterior real del bloque, acumulado lado por lado por celda (en vez
-    // de usar .range().style('border', ...), que pinta el borde en cada celda del rango,
-    // incluida la línea divisoria interna entre columnas/filas). Todo en una sola llamada
-    // .style() por celda: dos llamadas separadas sobre la misma celda generan un estilo
-    // corrupto en xlsx-populate (un <fill/> vacío que Excel/Sheets no reconoce).
-    const bordesExterior: { [clave: string]: any } = {};
-    const agregarLadoBorde = (f: number, c: number, lado: 'top' | 'bottom' | 'left' | 'right') => {
+    if (hayCajaReg) {
+      hoja.range(filaInicio, colRegInicio, filaMedia, colUltima).merged(true);
+      hoja.range(filaMedia + 1, colRegInicio, filaFin, colUltima).merged(true);
+    }
+ 
+    // ---- Bordes acumulados por celda: contorno del bloque + contorno de la caja REG/VERSIÓN ----
+    const bordes: { [clave: string]: any } = {};
+    const agregarLado = (f: number, c: number, lado: 'top' | 'bottom' | 'left' | 'right') => {
       const clave = `${f}_${c}`;
-      if (!bordesExterior[clave]) { bordesExterior[clave] = {}; }
-      bordesExterior[clave][lado] = { style: 'thin', color: '111111' };
+      if (!bordes[clave]) { bordes[clave] = {}; }
+      bordes[clave][lado] = lineaBorde;
     };
-    for (let c = colLogo; c <= colUltima; c++) {
-      agregarLadoBorde(filaInicio, c, 'top');
-      agregarLadoBorde(filaFin, c, 'bottom');
+    const contornear = (fIni: number, cIni: number, fFin: number, cFin: number) => {
+      for (let c = cIni; c <= cFin; c++) { agregarLado(fIni, c, 'top'); agregarLado(fFin, c, 'bottom'); }
+      for (let f = fIni; f <= fFin; f++) { agregarLado(f, cIni, 'left'); agregarLado(f, cFin, 'right'); }
+    };
+    contornear(filaInicio, colLogo, filaFin, colUltima);
+    if (hayCajaReg) {
+      contornear(filaInicio, colRegInicio, filaMedia, colUltima);
+      contornear(filaMedia + 1, colRegInicio, filaFin, colUltima);
     }
-    for (let f = filaInicio; f <= filaFin; f++) {
-      agregarLadoBorde(f, colLogo, 'left');
-      agregarLadoBorde(f, colUltima, 'right');
+ 
+    // ---- Textos por celda (etiqueta, valor, REG, VERSIÓN) ----
+    const textos: { [clave: string]: { valor: any; estilo: any } } = {};
+    datos.forEach((dato, indice) => {
+      const fila = filaInicio + indice;
+      if (fila > filaFin) { return; }
+      textos[`${fila}_${colEtiqueta}`] = {
+        valor: dato[0],
+        estilo: { bold: true, fontSize: 10, fontColor: COLOR_TEXTO, horizontalAlignment: 'left', verticalAlignment: 'center' }
+      };
+      textos[`${fila}_${colValorInicio}`] = {
+        valor: dato[1],
+        estilo: { bold: dato[0] === 'CÓDIGO:', fontSize: 10, fontColor: COLOR_TEXTO, horizontalAlignment: 'left', verticalAlignment: 'center' }
+      };
+    });
+    if (hayCajaReg) {
+      const estiloCaja = { fontSize: 10, fontColor: COLOR_TEXTO, horizontalAlignment: 'center', verticalAlignment: 'center' };
+      textos[`${filaInicio}_${colRegInicio}`] = { valor: registro || '', estilo: estiloCaja };
+      textos[`${filaMedia + 1}_${colRegInicio}`] = { valor: version || '', estilo: estiloCaja };
     }
+ 
+    // ---- Una sola llamada .style() por celda del bloque ----
     for (let f = filaInicio; f <= filaFin; f++) {
       for (let c = colLogo; c <= colUltima; c++) {
         const clave = `${f}_${c}`;
-        hoja.cell(f, c).style({ fill: 'F2F2F2', border: bordesExterior[clave] || {} });
+        const texto = textos[clave];
+        const estilo: any = Object.assign({ fill: COLOR_FONDO, border: bordes[clave] || {} }, texto ? texto.estilo : {});
+        const celda = hoja.cell(f, c);
+        if (texto) { celda.value(texto.valor); }
+        celda.style(estilo);
       }
-    }
-
-    for (let f = filaInicio; f <= filaFin; f++) {
-      hoja.row(f).height(15);
-    }
-
-    // ---- Caja Registro / Versión: últimas columnas del bloque, pegada al borde derecho ----
-    // El borde de un rango combinado se dibuja celda por celda (no solo en la celda superior
-    // izquierda): si no, el borde inferior y derecho quedan "perdidos" dentro de la fusión y
-    // solo se ve la escuadra superior/izquierda en vez del recuadro completo.
-    const dibujarCajaTextoCombinada = (fIni: number, cIni: number, fFin: number, cFin: number, texto: string) => {
-      hoja.range(fIni, cIni, fFin, cFin).merged(true);
-      const bordes: { [clave: string]: any } = {};
-      const agregarLado = (f: number, c: number, lado: 'top' | 'bottom' | 'left' | 'right') => {
-        const clave = `${f}_${c}`;
-        if (!bordes[clave]) { bordes[clave] = {}; }
-        bordes[clave][lado] = { style: 'thin', color: '111111' };
-      };
-      for (let c = cIni; c <= cFin; c++) { agregarLado(fIni, c, 'top'); agregarLado(fFin, c, 'bottom'); }
-      for (let f = fIni; f <= fFin; f++) { agregarLado(f, cIni, 'left'); agregarLado(f, cFin, 'right'); }
-      for (let f = fIni; f <= fFin; f++) {
-        for (let c = cIni; c <= cFin; c++) {
-          const clave = `${f}_${c}`;
-          const estilo: any = { fill: 'F2F2F2', border: bordes[clave] || {} };
-          if (f === fIni && c === cIni) {
-            estilo.fontSize = 9;
-            estilo.horizontalAlignment = 'center';
-            estilo.verticalAlignment = 'center';
-          }
-          hoja.cell(f, c).style(estilo);
-        }
-      }
-      hoja.cell(fIni, cIni).value(texto || '');
-    };
-
-    const filaMedia = filaInicio + Math.ceil((filaFin - filaInicio + 1) / 2) - 1;
-    const colRegInicio = Math.max(colValorFin + 2, colUltima - anchoCajaReg + 1);
-    if (colRegInicio < colUltima) {
-      dibujarCajaTextoCombinada(filaInicio, colRegInicio, filaMedia, colUltima, registro);
-      dibujarCajaTextoCombinada(filaMedia + 1, colRegInicio, filaFin, colUltima, version);
+      hoja.row(f).height(15.75);
     }
   }
-
-  // =========================================================================
-  // MÉTODO 2: insertarLogoEnExcel — reemplaza el método completo existente
-  // Recibe la fila y columna (1-indexadas) donde quedó combinada la celda del
-  // logo en "Carta Gantt", para anclar la imagen exactamente ahí (antes estaba
-  // fijo en A1; ahora el logo vive en la columna B, filas 2 a 6).
-  // =========================================================================
-  private async insertarLogoEnExcel(blob: Blob, filaLogo: number = 2, colLogo: number = 2): Promise<Blob> {
+ 
+  /** Busca en workbook.xml + sus relaciones la ruta del XML de una hoja por su nombre (ej: 'Tabla' -> 'xl/worksheets/sheet2.xml'). */
+  private resolverRutaHojaExcel(workbookXml: string, workbookRels: string, nombreHoja: string): string {
+    let rId: string = null;
+    (workbookXml.match(/<sheet\b[^>]*>/g) || []).forEach(tag => {
+      const nombre = (tag.match(/\bname="([^"]*)"/) || [])[1];
+      const id = (tag.match(/\br:id="([^"]*)"/) || [])[1];
+      if (nombre === nombreHoja && id) { rId = id; }
+    });
+    if (!rId) { return null; }
+ 
+    let target: string = null;
+    (workbookRels.match(/<Relationship\b[^>]*>/g) || []).forEach(rel => {
+      const id = (rel.match(/\bId="([^"]*)"/) || [])[1];
+      const t = (rel.match(/\bTarget="([^"]*)"/) || [])[1];
+      if (id === rId && t) { target = t; }
+    });
+    if (!target) { return null; }
+ 
+    if (target.charAt(0) === '/') { return target.substring(1); }
+    return 'xl/' + target.replace(/^\.\//, '');
+  }
+ 
+  /**
+   * Inserta el logo en cada hoja indicada, anclado en (fila, col) con tamaño fijo
+   * (el mismo en todas las hojas, para que se vea igual aunque la columna sea más angosta).
+   * Filas/columnas en el XML de drawing son 0-based.
+   */
+  private async insertarLogoEnExcel(blob: Blob, destinos: Array<{ nombreHoja: string; fila: number; col: number }>): Promise<Blob> {
     const rutaLogo = new URL('assets/Images/trazas.jpeg', document.baseURI).toString();
     const respuesta = await fetch(rutaLogo);
     if (!respuesta.ok) {
       throw new Error('No se pudo cargar el logo de Trazas.');
     }
-
+ 
     const imagen = await respuesta.arrayBuffer();
     const zip = await (JSZip as any).loadAsync(blob);
     zip.file('xl/media/image1.jpg', imagen);
-
-    const archivoTipos = zip.file('[Content_Types].xml');
-    if (!archivoTipos) {
+ 
+    const leer = async (ruta: string): Promise<string> => {
+      const archivo = zip.file(ruta);
+      return archivo ? archivo.async('string') : null;
+    };
+ 
+    let tipos = await leer('[Content_Types].xml');
+    const workbookXml = await leer('xl/workbook.xml');
+    const workbookRels = await leer('xl/_rels/workbook.xml.rels');
+    if (!tipos || !workbookXml || !workbookRels) {
       throw new Error('El archivo Excel no tiene una estructura OOXML válida.');
     }
-    const tipos = await archivoTipos.async('string');
-    if (tipos.indexOf('/xl/drawings/drawing1.xml') === -1) {
-      zip.file('[Content_Types].xml', tipos.replace(
-        '</Types>',
-        '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/><Default Extension="jpg" ContentType="image/jpeg"/></Types>'
-      ));
+    if (tipos.indexOf('Extension="jpg"') === -1) {
+      tipos = tipos.replace('</Types>', '<Default Extension="jpg" ContentType="image/jpeg"/></Types>');
     }
-
-    const rutaRelacionesHoja = 'xl/worksheets/_rels/sheet1.xml.rels';
-    const archivoRelacionesHoja = zip.file(rutaRelacionesHoja);
-    const relacionesHoja = archivoRelacionesHoja
-      ? await archivoRelacionesHoja.async('string')
-      : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+ 
+    // Tamaño fijo del logo: ~109 x 105 px (lo que mide la celda B2:B6 de la Carta Gantt)
+    const LOGO_CX = 1038225;
+    const LOGO_CY = 1000125;
+    const NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+ 
+    for (let i = 0; i < destinos.length; i++) {
+      const destino = destinos[i];
+      const rutaHoja = this.resolverRutaHojaExcel(workbookXml, workbookRels, destino.nombreHoja);
+      if (!rutaHoja) { continue; }
+ 
+      let xmlHoja = await leer(rutaHoja);
+      if (!xmlHoja) { continue; }
+ 
+      const numDrawing = i + 1;
+      const carpetaHoja = rutaHoja.substring(0, rutaHoja.lastIndexOf('/'));
+      const archivoHoja = rutaHoja.substring(rutaHoja.lastIndexOf('/') + 1);
+      const rutaRelsHoja = `${carpetaHoja}/_rels/${archivoHoja}.rels`;
+ 
+      // Relación hoja -> drawing
+      let relsHoja = (await leer(rutaRelsHoja)) ||
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
-    zip.file('xl/worksheets/_rels/sheet1.xml.rels', relacionesHoja.replace(
-      '</Relationships>',
-      '<Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>'
-    ));
-
-    const archivoHoja = zip.file('xl/worksheets/sheet1.xml');
-    if (!archivoHoja) {
-      throw new Error('No se encontró la hoja principal del Excel.');
+      relsHoja = relsHoja.replace(/<Relationships([^>]*)\/>/, '<Relationships$1></Relationships>');
+      zip.file(rutaRelsHoja, relsHoja.replace(
+        '</Relationships>',
+        `<Relationship Id="rIdLogo" Type="${NS_REL}/drawing" Target="../drawings/drawing${numDrawing}.xml"/></Relationships>`
+      ));
+ 
+      // Referencia al drawing dentro de la hoja
+      if (xmlHoja.indexOf('xmlns:r=') === -1) {
+        xmlHoja = xmlHoja.replace(/<worksheet\b/, `<worksheet xmlns:r="${NS_REL}"`);
+      }
+      zip.file(rutaHoja, xmlHoja.replace('</worksheet>', '<drawing r:id="rIdLogo"/></worksheet>'));
+ 
+      // Content type del drawing
+      if (tipos.indexOf(`/xl/drawings/drawing${numDrawing}.xml`) === -1) {
+        tipos = tipos.replace(
+          '</Types>',
+          `<Override PartName="/xl/drawings/drawing${numDrawing}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`
+        );
+      }
+ 
+      const colXml = Math.max(destino.col - 1, 0);
+      const filaXml = Math.max(destino.fila - 1, 0);
+ 
+      zip.file(`xl/drawings/drawing${numDrawing}.xml`,
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+        '<xdr:oneCellAnchor>' +
+        `<xdr:from><xdr:col>${colXml}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${filaXml}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>` +
+        `<xdr:ext cx="${LOGO_CX}" cy="${LOGO_CY}"/>` +
+        `<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${numDrawing}" name="LogoTrazas${numDrawing}.jpg"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>` +
+        `<xdr:blipFill><a:blip r:embed="rIdLogoImage" xmlns:r="${NS_REL}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>` +
+        '<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic>' +
+        '<xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>'
+      );
+      zip.file(`xl/drawings/_rels/drawing${numDrawing}.xml.rels`,
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        `<Relationship Id="rIdLogoImage" Type="${NS_REL}/image" Target="../media/image1.jpg"/>` +
+        '</Relationships>'
+      );
     }
-    const hoja = await archivoHoja.async('string');
-    zip.file('xl/worksheets/sheet1.xml', hoja.replace(
-      '</worksheet>',
-      '<drawing r:id="rIdLogo"/></worksheet>'
-    ));
-
-    // oneCellAnchor con tamaño FIJO (no estirado): mantiene la proporción real del logo,
-    // anclado a la celda combinada del logo (columna B, fila 2 en la plantilla de referencia).
-    // Los índices de fila/columna en el XML de drawing son 0-based, por eso se restan 1.
-    const colLogoXml = Math.max(colLogo - 1, 0);
-    const filaLogoXml = Math.max(filaLogo - 1, 0);
-
-    zip.file('xl/drawings/drawing1.xml',
-      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
-      '<xdr:oneCellAnchor>' +
-      `<xdr:from><xdr:col>${colLogoXml}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${filaLogoXml}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>` +
-      '<xdr:ext cx="821727" cy="952500"/>' +
-      '<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name="TimbreN.jpg"/><xdr:cNvPicPr/></xdr:nvPicPr>' +
-      '<xdr:blipFill><a:blip r:embed="rIdLogoImage" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>' +
-      '<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic>' +
-      '<xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>'
-    );
-    zip.file('xl/drawings/_rels/drawing1.xml.rels',
-      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-      '<Relationship Id="rIdLogoImage" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.jpg"/>' +
-      '</Relationships>'
-    );
-
+ 
+    zip.file('[Content_Types].xml', tipos);
     return zip.generateAsync({ type: 'blob' });
   }
 }
+ 

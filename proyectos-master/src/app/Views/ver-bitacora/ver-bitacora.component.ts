@@ -42,6 +42,10 @@ export class VerBitacoraComponent implements OnInit {
   @Input() soloLectura: boolean = false;
   url: string;
 
+  // Base del Node de archivos (mismo servidor que usa AdjuntarArchivo). Hardcodeado a propósito
+  // para no depender de environment.node.
+  private readonly NODE_BASE: string = 'http://trazas-nbi.com:3800/api/';
+
   //Objetos
   SubProyecto: mSubProyecto;
   Bitacora: mBitacora;
@@ -69,42 +73,36 @@ export class VerBitacoraComponent implements OnInit {
     this.Loader = true;
     this.usuario = JSON.parse(localStorage.usuario);
     this.Bitacora = new mBitacora(null, null, 0, null, null, new Date().toString(), true, null, this.usuario.idUsuario, null, null, null, null);
-    this.url = environment.node;
+    this.url = this.NODE_BASE;
     this.loading = false;
   }
 
   ngOnInit() {
-    //console.log("El tipo de bitacora es:", typeof (this.TipoBitacora));
-
-    //this.Proyectos = this.Proyectos.filter(element => { return element.idProyectoMatriz == this.drdProyectoMatriz; })
-
     this._sPrioridad.getPrioridad().subscribe(result => {
-      //console.log(result);
       this.Prioridades = result;
     });
     this.SubProyecto = JSON.parse(localStorage.SubProyecto);
     this.traeBitacora();
-    this.url += this.retUrl(this.TipoBitacora);
+    this.url = this.NODE_BASE + (this.retUrl(this.TipoBitacora) || '');
   }
 
   private traeBitacora() {
     this.Loader = true;
     this._sVis_VerBitacora.getVis_VerBitacorabyidSubProyecto(this.SubProyecto.idSubProyecto).subscribe(result => {
-      console.log("Bitacoras: ", result);
       this.Bitacoras = result.filter(element => { return element.TipoBitacora == this.TipoBitacora; });
-      // this.LoadingTabla = false;
       this.Loader = false;
     });
   }
 
   retUrl(tipo): string {
-    switch (tipo) {
+    const nombre = encodeURIComponent(this.SubProyecto.nombreSubProyecto);
+    switch (Number(tipo)) {
       case 1:
-        return "adjuntarBitacora/Proyectos/" + this.SubProyecto.nombreSubProyecto + "/";
+        return "adjuntarBitacora/Proyectos/" + nombre + "/";
       case 2:
-        return "adjuntarBitacora/SSOMA/" + this.SubProyecto.nombreSubProyecto + "/";
+        return "adjuntarBitacora/SSOMA/" + nombre + "/";
       case 3:
-        return "adjuntarBitacora/Calidad/" + this.SubProyecto.nombreSubProyecto + "/";
+        return "adjuntarBitacora/Calidad/" + nombre + "/";
     }
     return null;
   }
@@ -112,14 +110,12 @@ export class VerBitacoraComponent implements OnInit {
   VerDetalle(i: number) {
     this.IndexUpdate = i;
     this.Bitacora = new mBitacora(null, null, 0, null, null, new Date().toString(), true, null, this.usuario.idUsuario, null, null, null, null);
-    //console.log(this.Bitacoras[i]);
 
     this._sBitacora.getBitacorabyID(this.Bitacoras[i].idBitacora).subscribe(result => {
       this.Bitacora = result;
       this.Bitacora.descripcion = result.descripcion.replace(/<br>/g, "\n");
       $("#NombreArchUpd").html(this.Bitacora.NombreAdjunto);
     });
-
 
     this._PopUps.VerPopUpEditar();
   }
@@ -130,102 +126,201 @@ export class VerBitacoraComponent implements OnInit {
     $("#NombreArchUpd").html("");
   }
 
+  //*************************************************** Descarga ***************************************************
+
   DescargarArchivo(i: number) {
-    let bitacora = this.Bitacoras[i];
+    const bitacora: any = this.Bitacoras[i];
 
     if (!bitacora || !bitacora.NombreAdjunto) {
       return;
     }
 
-    if (bitacora.Adjunto) {
-      // Detectar si es Base64 o una ruta de archivo del servidor
-      const esBase64 = bitacora.Adjunto.startsWith('data:') || /^[A-Za-z0-9+/=]+$/.test(bitacora.Adjunto);
-      
-      if (esBase64) {
-        // Es Base64 (data URI o Base64 puro)
-        let base64Data = bitacora.Adjunto;
-        let mimeType = "application/octet-stream";
-        
-        if (bitacora.Adjunto.includes(',')) {
-          // Formato: data:application/pdf;base64,XXXX
-          const partes = bitacora.Adjunto.split(',');
-          const header = partes[0];
-          base64Data = partes[1];
-          
-          const match = header.match(/data:([^;]+)/);
-          if (match) {
-            mimeType = match[1];
-          }
-        }
-        
-        try {
-          let binary = this.fixBinary(atob(base64Data));
-          let blob = new Blob([binary], { type: mimeType });
-          
-          if (mimeType === 'application/pdf') {
-            let url = window.URL.createObjectURL(blob);
-            window.open(url, '_blank');
-            setTimeout(() => window.URL.revokeObjectURL(url), 100);
-            return;
-          }
+    const adjunto: string = bitacora.Adjunto;
 
-          if (navigator.msSaveBlob) {
-            return navigator.msSaveBlob(blob, bitacora.NombreAdjunto);
-          }
-
-          let link = document.createElement('a');
-          link.href = window.URL.createObjectURL(blob);
-          link.download = bitacora.NombreAdjunto;
-          document.body.appendChild(link);
-          link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-          link.remove();
-          window.URL.revokeObjectURL(link.href);
-          return;
-        } catch (e) {
-          console.error('Error decodificando Base64:', e);
-          Swal.fire('Error', 'El archivo adjunto está corrupto o tiene formato incorrecto', 'error');
-          return;
-        }
-      } else {
-        // Es una ruta de archivo del servidor (ej: /uploads/archivo.pdf o C:\uploads\archivo.pdf)
-        // Construir URL completa si es necesario
-        let urlArchivo = bitacora.Adjunto;
-        
-        // Si no empieza con http, asumir que es ruta relativa del servidor de archivos
-        if (!urlArchivo.match(/^https?:\/\//i)) {
-          // Usar el puerto 3800 donde está el servidor de archivos según el código actual
-          urlArchivo = 'http://trazas-nbi.com:3800' + (urlArchivo.startsWith('/') ? '' : '/') + urlArchivo;
-        }
-        
-        window.open(urlArchivo, '_blank');
-        return;
-      }
-    }
-
-    // Si no hay Adjunto, intentar con la ruta antigua (legacy)
-    let rutaArchivo = this.getRutaDescarga(bitacora);
-
-    if (!rutaArchivo) {
+    // Registros antiguos que guardaron el archivo en Base64 en la BD
+    if (adjunto && this.esBase64(adjunto)) {
+      this.abrirBase64(adjunto, bitacora.NombreAdjunto);
       return;
     }
 
-    window.open(rutaArchivo, '_blank');
+    const candidatas = this.getRutasCandidatas(bitacora);
 
-    setTimeout(() => {
-      this.OcultarPopUpEditar();
-    }, 50);
-  }
-
-  private getRutaDescarga(bitacora: { ruta?: string, NombreAdjunto: string }): string {
-    if (bitacora.ruta) {
-      if (/^(https?:)?\/\//i.test(bitacora.ruta)) {
-        return bitacora.ruta;
-      }
-
-      return environment.node + bitacora.ruta.replace(/^\/+/, '');
+    if (!candidatas.length) {
+      Swal.fire('Error', 'No se pudo determinar la ruta del archivo', 'error');
+      return;
     }
 
-    return this.url ? this.url + bitacora.NombreAdjunto : null;
+    const nombre: string = bitacora.NombreAdjunto;
+    const mime = this.mimeDesdeNombre(nombre);
+    const visualizable = mime === 'application/pdf' || mime.startsWith('image/');
+
+    // La pestaña se abre ahora, dentro del click, para que el navegador no la bloquee
+    const ventana = visualizable ? window.open('', '_blank') : null;
+
+    this.buscarArchivo(candidatas, 0, false).then(res => {
+
+      if (res.blob) {
+        const blob = new Blob([res.blob], { type: mime });
+
+        if (visualizable) {
+          const urlBlob = window.URL.createObjectURL(blob);
+          if (ventana) {
+            ventana.location.href = urlBlob;
+          } else {
+            window.open(urlBlob, '_blank');
+          }
+          setTimeout(() => window.URL.revokeObjectURL(urlBlob), 60000);
+        } else {
+          this.descargarBlob(blob, nombre);
+        }
+        return;
+      }
+
+      // Si todo falló por CORS/red (no por "no existe"), se intenta abrir directo
+      if (res.soloErroresDeRed) {
+        if (ventana) {
+          ventana.location.href = candidatas[0];
+        } else {
+          window.open(candidatas[0], '_blank');
+        }
+        return;
+      }
+
+      if (ventana) {
+        ventana.close();
+      }
+      console.warn('Archivo no encontrado. URLs probadas:', candidatas, 'Adjunto:', adjunto);
+      Swal.fire('Archivo no encontrado', 'El archivo no está disponible en el servidor', 'error');
+    });
+  }
+
+  private buscarArchivo(urls: string[], idx: number, huboRespuesta: boolean): Promise<{ blob: Blob, soloErroresDeRed: boolean }> {
+    if (idx >= urls.length) {
+      return Promise.resolve({ blob: null, soloErroresDeRed: !huboRespuesta });
+    }
+
+    return fetch(urls[idx]).then(r => {
+      const contentType = r.headers.get('content-type') || '';
+      // El Node responde JSON {"messaje":"No se encuentra el elemento"} cuando no existe
+      if (r.ok && contentType.indexOf('application/json') === -1) {
+        return r.blob().then(blob => ({ blob: blob, soloErroresDeRed: false }));
+      }
+      return this.buscarArchivo(urls, idx + 1, true);
+    }).catch(() => this.buscarArchivo(urls, idx + 1, huboRespuesta));
+  }
+
+  private getRutasCandidatas(bitacora: any): string[] {
+    const urls: string[] = [];
+    const adjunto: string = bitacora.Adjunto;
+
+    // URL absoluta guardada
+    if (adjunto && /^https?:\/\//i.test(adjunto)) {
+      urls.push(adjunto);
+    }
+
+    // Campo legacy "ruta" de la vista
+    if (bitacora.ruta) {
+      urls.push(/^(https?:)?\/\//i.test(bitacora.ruta)
+        ? bitacora.ruta
+        : this.NODE_BASE + bitacora.ruta.replace(/^\/+/, ''));
+    }
+
+    const carpeta = this.retUrl(this.TipoBitacora);
+    if (carpeta) {
+      const nombres: string[] = [];
+
+      // 1) Nombre físico real (ruta que devolvió multiparty al subir)
+      if (adjunto && !/^https?:\/\//i.test(adjunto)) {
+        const fisico = adjunto.split(/[\\/]/).pop();
+        if (fisico) {
+          nombres.push(fisico);
+        }
+      }
+
+      // 2) Nombre original, tal cual y con la tilde en ambos formatos Unicode
+      const original: any = bitacora.NombreAdjunto;
+      nombres.push(original);
+      if (original && original.normalize) {
+        nombres.push(original.normalize('NFC'));
+        nombres.push(original.normalize('NFD'));
+      }
+
+      nombres.forEach(n => urls.push(this.NODE_BASE + carpeta + encodeURIComponent(n)));
+    }
+
+    // Sin duplicados
+    return urls.filter((u, idx) => urls.indexOf(u) === idx);
+  }
+
+  private esBase64(valor: string): boolean {
+    if (valor.startsWith('data:')) {
+      return true;
+    }
+    // Un path del servidor es corto; un Base64 de un archivo real es largo
+    return valor.length > 256 && /^[A-Za-z0-9+/=\r\n]+$/.test(valor);
+  }
+
+  private mimeDesdeNombre(nombre: string): string {
+    const ext = (nombre.split('.').pop() || '').toLowerCase();
+    const mapa = {
+      pdf: 'application/pdf',
+      ppt: 'application/vnd.ms-powerpoint',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg'
+    };
+    return mapa[ext] || 'application/octet-stream';
+  }
+
+  private descargarBlob(blob: Blob, nombre: string) {
+    if (navigator.msSaveBlob) {
+      navigator.msSaveBlob(blob, nombre);
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = nombre;
+    document.body.appendChild(link);
+    link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    link.remove();
+    setTimeout(() => window.URL.revokeObjectURL(link.href), 60000);
+  }
+
+  private abrirBase64(adjunto: string, nombre: string) {
+    let base64Data = adjunto;
+    let mimeType = this.mimeDesdeNombre(nombre);
+
+    if (adjunto.indexOf(',') > -1) {
+      const partes = adjunto.split(',');
+      base64Data = partes[1];
+      const match = partes[0].match(/data:([^;]+)/);
+      if (match && match[1] !== 'application/octet-stream') {
+        mimeType = match[1];
+      }
+    }
+
+    try {
+      const binary = this.fixBinary(atob(base64Data.replace(/[\r\n]/g, '')));
+      const blob = new Blob([binary], { type: mimeType });
+
+      if (mimeType === 'application/pdf' || mimeType.startsWith('image/')) {
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+        return;
+      }
+
+      this.descargarBlob(blob, nombre);
+    } catch (e) {
+      console.error('Error decodificando Base64:', e);
+      Swal.fire('Error', 'El archivo adjunto está corrupto o tiene formato incorrecto', 'error');
+    }
   }
 
   fixBinary(bin) {
@@ -244,10 +339,7 @@ export class VerBitacoraComponent implements OnInit {
       this._Comunes.getFileBlob($("#fileuploadUPD")[0].files[0]).then(blob => {
         this.Bitacora.NombreAdjunto = $("#fileuploadUPD")[0].files[0].name;
         this.Bitacora.Adjunto = blob.toString();
-      }).catch(e =>
-        // console.log(e)
-        console.log("Hola mundo")
-      );
+      }).catch(e => console.error('Error leyendo archivo:', e));
     }
   }
 
@@ -262,35 +354,36 @@ export class VerBitacoraComponent implements OnInit {
 
         this.Bitacora.NombreAdjunto = $("#fileuploadUPD")[0].files[0].name;
         this.Bitacora.Adjunto = null;
-        //console.log(this.Bitacora);
 
         this._sBitacora.postUpdDelBitacora(this.Bitacora).success(result => {
-          //console.log(result);
           this.OcultarPopUpEditar();
           this.traeBitacora();
           this.loading = false;
-        })
-          .error(e => {
-            // console.log(e);
-            // console.log("Hola mundo")
-            this.loading = false;
-          });
+        }).error(e => {
+          console.error('Error al actualizar:', e);
+          this.loading = false;
+          Swal.fire('Error', 'No se pudo actualizar la bitácora', 'error');
+        });
 
       }).catch(e => {
-        // console.log(e)
-        // console.log("Hola mundo")
+        console.error('Error al subir archivo:', e);
+        this.loading = false;
+        Swal.fire('Error', 'No se pudo subir el archivo adjunto', 'error');
       });
     } else {
       this._sBitacora.postUpdDelBitacora(this.Bitacora).success(result => {
-        //console.log(result);
         this.OcultarPopUpEditar();
         this.traeBitacora();
+        this.loading = false;
+      }).error(e => {
+        console.error('Error al actualizar:', e);
+        this.loading = false;
+        Swal.fire('Error', 'No se pudo actualizar la bitácora', 'error');
       });
     }
   }
 
   Eliminar() {
-    // Verificar que hay una bitácora seleccionada
     if (!this.Bitacora || !this.Bitacora.idBitacora) {
       Swal.fire('Error', 'No hay ninguna bitácora seleccionada', 'error');
       return;
@@ -300,10 +393,8 @@ export class VerBitacoraComponent implements OnInit {
     this.LoadingTabla = true;
 
     this._sBitacora.postUpdDelBitacora(this.Bitacora).success(result => {
-      // Cerrar el modal de Bootstrap usando jQuery
       $('#exampleModalLong').modal('hide');
-      
-      // Mostrar mensaje y recargar página
+
       Swal.fire({
         type: 'success',
         title: 'Eliminado',
@@ -311,16 +402,14 @@ export class VerBitacoraComponent implements OnInit {
         timer: 1500,
         showConfirmButton: false
       }).then(() => {
-        // Recargar la página después de eliminar
         window.location.reload();
       });
-      
+
     }).error(e => {
       console.error('Error al eliminar:', e);
       this.LoadingTabla = false;
       Swal.fire('Error', 'No se pudo eliminar la bitácora', 'error');
     });
-
   }
 
 }
