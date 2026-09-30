@@ -37,8 +37,17 @@
                 <span class="fileinput-new">Adjuntar</span>
                             <span class="fileinput-exists">Change</span>
                             <input id="fileupload1" type="file" name="fileupload1" (change)="NombreArchivo()" [disabled]="soloLectura">
-                            <!-- ngFileSelect [options]="options" (onUpload)="handleUpload($event)" -->
                             </span>
+                        </div>
+
+                        <!-- Aviso de nombre de archivo -->
+                        <div *ngIf="!soloLectura" style="margin-top: 6px; padding: 6px 10px; background-color: #fff8e1; border-left: 4px solid #F59325; border-radius: 3px; font-size: 12px; color: #6d4c00;">
+                            <i class="fa fa-exclamation-triangle" style="color: #F59325;"></i>
+                            <strong>Importante:</strong> el nombre del archivo debe ir <strong>sin tildes, sin ñ ni caracteres especiales</strong>
+                            (#, &amp;, %, ´, etc.). Solo letras, números, espacios, guion (-), guion bajo (_), puntos y paréntesis.
+                            Tamaño máximo: 25 MB.
+                            <br>
+                            <span style="color: #8a6d3b;">Ej.: <b>PPT Reunion de obra T9.pdf</b> en vez de <b>PPT Reunión de obra T9.pdf</b></span>
                         </div>
                     </div>
                 </div>
@@ -50,15 +59,7 @@
                     </div>
                 </div>
             </div>
-            <!-- {{Bitacora | json}} -->
         </form>
-        <!-- <div class="form-actions">
-      <div class="row">
-        <div class="col-md-offset-4 col-md-8">
-          <a class="btn btn-primary" [routerLink]="['/Ver-Bitacora']">Ver bitacora</a>
-        </div>
-      </div>
-    </div> -->
     </div>
 
     <!-- Loader  -->

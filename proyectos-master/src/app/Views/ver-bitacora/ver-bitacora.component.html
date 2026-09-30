@@ -5,7 +5,6 @@
     </h5>
   </header>
   <br>
-  <!-- <br> -->
   <div class="list-group list-group-lg" *ngIf="!Loader">
     <ng-container *ngFor="let Bitacora of Bitacoras; let i = index">
       <div class="linea">
@@ -29,66 +28,12 @@
     </ng-container>
   </div>
 
-  <!-- <div class="widget-body">
-    <br>
-    <table class="table table-bordered table-striped table-hover no-footer">
-      <thead>
-        <tr>
-          <td>Id Bitacora</td>
-          <td>Descripción</td>
-          <td>Prioridad</td>
-          <td>Creador</td>
-          <td>Adjunto</td>
-          <td>Fecha Creación</td>
-          <td>Acciones</td>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let Bitacora of Bitacoras; let i = index">
-          <td>{{Bitacora.idBitacora}}</td>
-          <td>{{Bitacora.descripcion}}</td>
-          <td>{{Bitacora.nombrePrioridad}}</td>
-          <td>{{Bitacora.nombre + ' ' + Bitacora.paterno}}</td>
-          <td><a href="{{Bitacora.ruta}}" *ngIf="true">{{Bitacora.nombreArchivo}}</a><a href="" *ngIf="false"></a></td>
-          <td class="center">{{Bitacora.fechaCreacion | date:'dd/MM/yyyy'}}</td>
-          <td>
-            <a (click)="Editar(i)" class="blue">
-              <div class="news-list">
-                <span class="icon" data-toggle="tooltip" title="Editar">
-                  <i class="fa fa-pencil icono"></i>
-                </span>
-              </div>
-            </a>
-            <a (click)="Confirmacion(i)" class="drop">
-              <div class="news-list">
-                <span class="icon" data-toggle="tooltip" title="Eliminar">
-                  <i class="fa fa-times-circle icono"></i>
-                </span>
-              </div>
-            </a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="loader animated fadeIn handle" *ngIf="LoadingTabla">
-      <span class="spinner">
-        <i class="fa fa-spinner fa-spin"></i>
-      </span>
-    </div>
-  </div> -->
-
   <div class="loader animated fadeIn handle" *ngIf="Loader">
     <span class="spinner">
       <i class="fa fa-spinner fa-spin"></i>
     </span>
   </div>
 </section>
-
-
-
-
-
-
 
 
 <!-- Editar -->
@@ -129,7 +74,6 @@
             </div>
             <div class="form-group row">
               <div class="col-md-12">
-                <!-- col-md-offset-3 -->
                 <div class="fileinput fileinput-new input-group" data-provides="fileinput">
                   <div class="form-control" data-trigger="fileinput">
                     <i class="glyphicon glyphicon-file fileinput-exists"></i>
@@ -139,8 +83,17 @@
                     <span class="fileinput-new">Adjuntar</span>
                     <span class="fileinput-exists">Change</span>
                     <input id="fileuploadUPD" type="file" name="fileuploadUPD" (change)="NombreArchivo()" [disabled]="soloLectura">
-                    <!-- ngFileSelect [options]="options" (onUpload)="handleUpload($event)" -->
                   </span>
+                </div>
+
+                <!-- Aviso de nombre de archivo -->
+                <div *ngIf="!soloLectura" style="margin-top: 6px; padding: 6px 10px; background-color: #fff8e1; border-left: 4px solid #F59325; border-radius: 3px; font-size: 12px; color: #6d4c00;">
+                  <i class="fa fa-exclamation-triangle" style="color: #F59325;"></i>
+                  <strong>Importante:</strong> el nombre del archivo debe ir <strong>sin tildes, sin ñ ni caracteres especiales</strong>
+                  (#, &amp;, %, ´, etc.). Solo letras, números, espacios, guion (-), guion bajo (_), puntos y paréntesis.
+                  Tamaño máximo: 25 MB.
+                  <br>
+                  <span style="color: #8a6d3b;">Ej.: <b>PPT Reunion de obra T9.pdf</b> en vez de <b>PPT Reunión de obra T9.pdf</b></span>
                 </div>
               </div>
             </div>
@@ -161,112 +114,3 @@
     </div>
   </div>
 </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<!-- 
-<app-main></app-main>
-
-<div class="content-wrap">
-  <main id="content" role="main" class="content">
-    <div class="row">
-      <div class="col-lg-12">
-        <section class="widget">
-          <header style="background-color: #555555">
-            <h2 style="color: white;">
-              <strong>Bitacora</strong>
-            </h2>
-          </header>
-          <div class="widget-body">
-            <br><br>
-            <div class="form-group row">
-              <div class="col-md-offset-10 col-md-2">
-                <a class="btn btn-primary" [routerLink]="['/Proyecto-TableroControl']">Volver</a>
-              </div>
-            </div>
-            <table class="table table-bordered table-striped table-hover no-footer">
-              <thead>
-                <tr>
-                  <td>Id Bitacora</td>
-                  <td>Descripción</td>
-                  <td>Prioridad</td>
-                  <td>Creador</td>
-                  <td>Adjunto</td>
-                  <td>Fecha Creación</td>
-                  <td>Acciones</td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let Bitacora of Bitacoras; let i = index">
-                  <td>{{Bitacora.idBitacora}}</td>
-                  <td>{{Bitacora.descripcion}}</td>
-                  <td>{{Bitacora.nombrePrioridad}}</td>
-                  <td>{{Bitacora.nombre + ' ' + Bitacora.paterno}}</td>
-                  <td><a href="{{Bitacora.ruta}}" *ngIf="true">{{Bitacora.nombreArchivo}}</a><a href="" *ngIf="false"></a></td>
-                  <td class="center">{{Bitacora.fechaCreacion | date:'dd/MM/yyyy'}}</td>
-                  <td>
-                    <a (click)="Editar(i)" class="blue">
-                      <div class="news-list">
-                        <span class="icon" data-toggle="tooltip" title="Editar">
-                          <i class="fa fa-pencil icono"></i>
-                        </span>
-                      </div>
-                    </a>
-                    <a (click)="Confirmacion(i)" class="drop">
-                      <div class="news-list">
-                        <span class="icon" data-toggle="tooltip" title="Eliminar">
-                          <i class="fa fa-times-circle icono"></i>
-                        </span>
-                      </div>
-                    </a>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    </div>
-  </main>
-</div> -->
