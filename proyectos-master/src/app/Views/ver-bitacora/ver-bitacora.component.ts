@@ -42,8 +42,7 @@ export class VerBitacoraComponent implements OnInit {
   @Input() soloLectura: boolean = false;
   url: string;
 
-  // Base del Node de archivos (mismo servidor que usa AdjuntarArchivo). Hardcodeado a propósito
-  // para no depender de environment.node.
+  // Base del Node de archivos antiguo (solo para bitácoras previas a Firebase)
   private readonly NODE_BASE: string = 'http://trazas-nbi.com:3800/api/';
 
   //Objetos
@@ -137,12 +136,20 @@ export class VerBitacoraComponent implements OnInit {
 
     const adjunto: string = bitacora.Adjunto;
 
+    // Nuevos: URL de Firebase Storage (o cualquier URL https absoluta) -> se abre directo.
+    // El PDF se muestra en la pestaña; Excel/PPT se descargan con su nombre (contentDisposition).
+    if (adjunto && /^https:\/\//i.test(adjunto)) {
+      window.open(adjunto, '_blank');
+      return;
+    }
+
     // Registros antiguos que guardaron el archivo en Base64 en la BD
     if (adjunto && this.esBase64(adjunto)) {
       this.abrirBase64(adjunto, bitacora.NombreAdjunto);
       return;
     }
 
+    // Registros antiguos del Node :3800
     const candidatas = this.getRutasCandidatas(bitacora);
 
     if (!candidatas.length) {
@@ -154,7 +161,6 @@ export class VerBitacoraComponent implements OnInit {
     const mime = this.mimeDesdeNombre(nombre);
     const visualizable = mime === 'application/pdf' || mime.startsWith('image/');
 
-    // La pestaña se abre ahora, dentro del click, para que el navegador no la bloquee
     const ventana = visualizable ? window.open('', '_blank') : null;
 
     this.buscarArchivo(candidatas, 0, false).then(res => {
@@ -176,7 +182,6 @@ export class VerBitacoraComponent implements OnInit {
         return;
       }
 
-      // Si todo falló por CORS/red (no por "no existe"), se intenta abrir directo
       if (res.soloErroresDeRed) {
         if (ventana) {
           ventana.location.href = candidatas[0];
@@ -201,7 +206,6 @@ export class VerBitacoraComponent implements OnInit {
 
     return fetch(urls[idx]).then(r => {
       const contentType = r.headers.get('content-type') || '';
-      // El Node responde JSON {"messaje":"No se encuentra el elemento"} cuando no existe
       if (r.ok && contentType.indexOf('application/json') === -1) {
         return r.blob().then(blob => ({ blob: blob, soloErroresDeRed: false }));
       }
@@ -213,12 +217,10 @@ export class VerBitacoraComponent implements OnInit {
     const urls: string[] = [];
     const adjunto: string = bitacora.Adjunto;
 
-    // URL absoluta guardada
     if (adjunto && /^https?:\/\//i.test(adjunto)) {
       urls.push(adjunto);
     }
 
-    // Campo legacy "ruta" de la vista
     if (bitacora.ruta) {
       urls.push(/^(https?:)?\/\//i.test(bitacora.ruta)
         ? bitacora.ruta
@@ -229,7 +231,6 @@ export class VerBitacoraComponent implements OnInit {
     if (carpeta) {
       const nombres: string[] = [];
 
-      // 1) Nombre físico real (ruta que devolvió multiparty al subir)
       if (adjunto && !/^https?:\/\//i.test(adjunto)) {
         const fisico = adjunto.split(/[\\/]/).pop();
         if (fisico) {
@@ -237,7 +238,6 @@ export class VerBitacoraComponent implements OnInit {
         }
       }
 
-      // 2) Nombre original, tal cual y con la tilde en ambos formatos Unicode
       const original: any = bitacora.NombreAdjunto;
       nombres.push(original);
       if (original && original.normalize) {
@@ -248,7 +248,6 @@ export class VerBitacoraComponent implements OnInit {
       nombres.forEach(n => urls.push(this.NODE_BASE + carpeta + encodeURIComponent(n)));
     }
 
-    // Sin duplicados
     return urls.filter((u, idx) => urls.indexOf(u) === idx);
   }
 
@@ -256,7 +255,6 @@ export class VerBitacoraComponent implements OnInit {
     if (valor.startsWith('data:')) {
       return true;
     }
-    // Un path del servidor es corto; un Base64 de un archivo real es largo
     return valor.length > 256 && /^[A-Za-z0-9+/=\r\n]+$/.test(valor);
   }
 
@@ -333,27 +331,67 @@ export class VerBitacoraComponent implements OnInit {
     return buf;
   }
 
+  //*************************************************** Archivo (editar) ***************************************************
+
   NombreArchivo() {
-    $("#NombreArchUpd").html($("#fileuploadUPD")[0].files[0].name);
-    if ($("#fileuploadUPD")[0].files.length > 0) {
-      this._Comunes.getFileBlob($("#fileuploadUPD")[0].files[0]).then(blob => {
-        this.Bitacora.NombreAdjunto = $("#fileuploadUPD")[0].files[0].name;
-        this.Bitacora.Adjunto = blob.toString();
-      }).catch(e => console.error('Error leyendo archivo:', e));
+    const input = $("#fileuploadUPD")[0];
+
+    if (!input.files || input.files.length === 0) {
+      $("#NombreArchUpd").html(this.Bitacora.NombreAdjunto || "");
+      return;
     }
+
+    const archivo = input.files[0];
+    const error = this._sBitacora.validarNombreArchivo(archivo.name);
+
+    if (error) {
+      this.limpiarArchivoUpd();
+      this.avisarNombreInvalido(error);
+      return;
+    }
+
+    $("#NombreArchUpd").html(archivo.name);
+  }
+
+  private limpiarArchivoUpd() {
+    const $input = $("#fileuploadUPD");
+    $input.val('');
+    $input.closest('.fileinput').removeClass('fileinput-exists').addClass('fileinput-new');
+    $("#NombreArchUpd").html(this.Bitacora.NombreAdjunto || "");
+  }
+
+  private avisarNombreInvalido(mensaje: string) {
+    Swal.fire({
+      type: 'warning',
+      title: 'Nombre de archivo no válido',
+      html: mensaje +
+        '<br><br>Renombra el archivo usando solo letras <b>sin tildes ni ñ</b>, números, espacios, ' +
+        'guion (-), guion bajo (_), puntos y paréntesis, y vuelve a adjuntarlo.'
+    });
   }
 
   //*************************************************** CRUD ***************************************************
 
   Actualizar() {
+    const tieneArchivo = $("#fileuploadUPD")[0].files.length > 0;
+
+    if (tieneArchivo) {
+      const error = this._sBitacora.validarNombreArchivo($("#fileuploadUPD")[0].files[0].name);
+      if (error) {
+        this.limpiarArchivoUpd();
+        this.avisarNombreInvalido(error);
+        return;
+      }
+    }
+
     this.loading = true;
     this.Bitacora.descripcion = this.Bitacora.descripcion.replace(/\n/g, "<br>");
 
-    if ($("#fileuploadUPD")[0].files.length > 0) {
-      this._sBitacora.AdjuntarArchivo($("#fileuploadUPD")[0].files[0], this.SubProyecto.nombreSubProyecto, this.TipoBitacora.toString()).then(res => {
+    if (tieneArchivo) {
+      this._sBitacora.SubirArchivo($("#fileuploadUPD")[0].files[0], this.SubProyecto.idSubProyecto, this.TipoBitacora).then(res => {
 
-        this.Bitacora.NombreAdjunto = $("#fileuploadUPD")[0].files[0].name;
-        this.Bitacora.Adjunto = null;
+        this.Bitacora.NombreAdjunto = res.nombre;
+        this.Bitacora.Adjunto = res.url;
 
         this._sBitacora.postUpdDelBitacora(this.Bitacora).success(result => {
           this.OcultarPopUpEditar();
@@ -365,10 +403,17 @@ export class VerBitacoraComponent implements OnInit {
           Swal.fire('Error', 'No se pudo actualizar la bitácora', 'error');
         });
 
-      }).catch(e => {
+      }).catch((e: any) => {
         console.error('Error al subir archivo:', e);
         this.loading = false;
-        Swal.fire('Error', 'No se pudo subir el archivo adjunto', 'error');
+        this.Bitacora.descripcion = this.Bitacora.descripcion.replace(/<br>/g, "\n");
+
+        if (e && e.nombreInvalido) {
+          this.limpiarArchivoUpd();
+          this.avisarNombreInvalido(e.mensaje);
+          return;
+        }
+        Swal.fire('Error', 'No se pudo subir el archivo adjunto' + (e && e.code ? ' (' + e.code + ')' : ''), 'error');
       });
     } else {
       this._sBitacora.postUpdDelBitacora(this.Bitacora).success(result => {

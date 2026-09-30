@@ -5,6 +5,9 @@ import { configuracion } from '../config';
 import { mBitacora } from '../models/mBitacora';
 import { environment } from '../../environments/environment';
 
+import * as firebase from 'firebase/app';
+import 'firebase/storage';
+
 declare var jQuery: any;
 declare var $: any;
 
@@ -12,9 +15,95 @@ declare var $: any;
 
 export class sBitacora{
 
+    // Solo letras sin tilde, números, espacio, guion, guion bajo, punto y paréntesis
+    private readonly CARACTER_PERMITIDO = /[A-Za-z0-9 _\-.()]/;
+
     constructor(
         public _http : Http
     ){}
+
+    //*************************************************** Validación ***************************************************
+
+    /**
+     * Valida el nombre de un archivo a adjuntar.
+     * Devuelve null si es válido, o un mensaje (HTML) con el problema si no lo es.
+     */
+    validarNombreArchivo(nombreOriginal: string): string {
+        if (!nombreOriginal) {
+            return 'El archivo no tiene nombre.';
+        }
+
+        var nombre: any = nombreOriginal;
+        if (nombre.normalize) {
+            nombre = nombre.normalize('NFC');
+        }
+
+        var invalidos = nombre.split('').filter(c => !this.CARACTER_PERMITIDO.test(c));
+        var unicos = invalidos.filter((c, i) => invalidos.indexOf(c) === i);
+
+        if (unicos.length > 0) {
+            return 'El nombre <b>' + this.escapar(nombre) + '</b> tiene caracteres no permitidos: <b>'
+                + unicos.map(c => '"' + this.escapar(c) + '"').join(' ') + '</b>';
+        }
+
+        var puntoExt = nombre.lastIndexOf('.');
+        if (puntoExt <= 0 || puntoExt === nombre.length - 1) {
+            return 'El archivo <b>' + this.escapar(nombre) + '</b> no tiene una extensión válida.';
+        }
+
+        return null;
+    }
+
+    private escapar(texto: string): string {
+        return texto
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    //*************************************************** Firebase Storage ***************************************************
+
+    private getStorage(): any {
+        var app = firebase.apps.length ? firebase.app() : firebase.initializeApp((environment as any).firebase);
+        return (app as any).storage();
+    }
+
+    /**
+     * Sube el archivo a Firebase Storage y devuelve la URL de descarga.
+     */
+    SubirArchivo(file: File, idSubProyecto: number, tipo: any): Promise<{ nombre: string, url: string, ruta: string }> {
+
+        var error = this.validarNombreArchivo(file ? file.name : null);
+        if (error) {
+            return Promise.reject({ nombreInvalido: true, mensaje: error });
+        }
+
+        var carpetas = { '1': 'Proyectos', '2': 'SSOMA', '3': 'Calidad' };
+        var carpeta = carpetas[String(tipo)] || 'Otros';
+        var ruta = 'bitacora/' + carpeta + '/' + idSubProyecto + '/' + Date.now() + '_' + file.name;
+
+        var contentType = file.type || 'application/octet-stream';
+        var verEnNavegador = contentType === 'application/pdf' || contentType.indexOf('image/') === 0;
+        var metadata = {
+            contentType: contentType,
+            contentDisposition: (verEnNavegador ? 'inline' : 'attachment') + '; filename="' + file.name + '"'
+        };
+
+        return new Promise((resolve, reject) => {
+            try {
+                var ref = this.getStorage().ref(ruta);
+                ref.put(file, metadata)
+                    .then(() => ref.getDownloadURL())
+                    .then(url => resolve({ nombre: file.name, url: url, ruta: ruta }))
+                    .catch(e => reject(e));
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    //*************************************************** Consultas ***************************************************
 
     getBitacora(): Observable<any>{
         return this._http.get(configuracion.url+'Bitacora').map((res: Response) => res.json());
@@ -76,29 +165,29 @@ export class sBitacora{
         return this._http.get(configuracion.url+'Bitacora/GetBitacorabyTipoBitacora/TipoBitacora='+_TipoBitacora).map((res: Response) => res.json());
     }
 
+    //*************************************************** Legacy (Node :3800) ***************************************************
+    // Ya no se usa desde la bitácora; se deja por si otro componente lo llama.
+
     AdjuntarArchivo(file, subProyecto: string, tipo) {
         return new Promise((resolve, reject) => {
+
+            var error = this.validarNombreArchivo(file ? file.name : null);
+            if (error) {
+                reject({ nombreInvalido: true, mensaje: error });
+                return;
+            }
+
             var formData = new FormData();
             var xhr = new XMLHttpRequest();
 
-            // Nombre en NFC para que las tildes no queden descompuestas (ej: "Reunio´n")
-            var nombre: any = file.name;
-            if (nombre && nombre.normalize) {
-                nombre = nombre.normalize('NFC');
-            }
-
-            // Los campos van ANTES del archivo: si el servidor decide la carpeta destino
-            // mientras recibe el archivo, necesita tener subProy y Tipo ya disponibles
             formData.append('subProy', subProyecto);
             formData.append('Tipo', tipo);
-            formData.append('adjuntar', file, nombre);
+            formData.append('adjuntar', file, file.name);
 
             xhr.onreadystatechange = () => {
                 if (xhr.readyState == 4) {
                     if (xhr.status == 200) {
-                        var respuesta = JSON.parse(xhr.response);
-                        console.log('Respuesta adjuntarBitacora:', respuesta);
-                        resolve(respuesta);
+                        resolve(JSON.parse(xhr.response));
                     } else {
                         reject(xhr.response);
                     }
@@ -109,6 +198,8 @@ export class sBitacora{
             xhr.send(formData);
         });
     }
+
+    //*************************************************** Escritura ***************************************************
 
     postAddBitacora(_Bitacora:mBitacora):any{
         return $.post( configuracion.url+'Bitacora', _Bitacora )

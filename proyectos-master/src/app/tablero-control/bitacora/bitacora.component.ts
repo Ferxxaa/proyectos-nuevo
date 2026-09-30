@@ -89,43 +89,68 @@ export class BitacoraComponent implements OnInit {
 
     this.Bitacora.TipoBitacora = this.TipoBitacora;
 
-    //console.log(this.TipoBitacora);
-
     this._sDetalleSubProyecto.getDetalleSubProyectobyidSubProyecto(this.SubProyecto.idSubProyecto).subscribe(result => {
       this.EtapaActual = result.filter(element => { return element.vigente == true; })[0];
       this.Bitacora.idDetalleSubProyecto = this.EtapaActual.idDetalleSubProyecto;
     });
   }
 
+  //*************************************************** Archivo ***************************************************
+
   NombreArchivo() {
-    $("#NombreArch").html($("#fileupload1")[0].files[0].name);
-    this.Bitacora.NombreAdjunto = $("#fileupload1")[0].files[0].name;
-    // if ($("#fileupload1")[0].files.length > 0) {
-    //   this._Comunes.getFileBlob($("#fileupload1")[0].files[0]).then(blob => {
-    //     this.Bitacora.NombreAdjunto = $("#fileupload1")[0].files[0].name;
-    //     this.Bitacora.Adjunto = null;
-    //   }).catch(e => console.log(e));
-    // }
+    const input = $("#fileupload1")[0];
+
+    if (!input.files || input.files.length === 0) {
+      $("#NombreArch").html("");
+      this.Bitacora.NombreAdjunto = null;
+      return;
+    }
+
+    const archivo = input.files[0];
+    const error = this._sBitacora.validarNombreArchivo(archivo.name);
+
+    if (error) {
+      this.limpiarArchivo();
+      this.avisarNombreInvalido(error);
+      return;
+    }
+
+    $("#NombreArch").html(archivo.name);
+    this.Bitacora.NombreAdjunto = archivo.name;
+  }
+
+  private limpiarArchivo() {
+    const $input = $("#fileupload1");
+    $input.val('');
+    $input.closest('.fileinput').removeClass('fileinput-exists').addClass('fileinput-new');
+    $("#NombreArch").html("");
+    this.Bitacora.NombreAdjunto = null;
+  }
+
+  private avisarNombreInvalido(mensaje: string) {
+    Swal.fire({
+      type: 'warning',
+      title: 'Nombre de archivo no válido',
+      html: mensaje +
+        '<br><br>Renombra el archivo usando solo letras <b>sin tildes ni ñ</b>, números, espacios, ' +
+        'guion (-), guion bajo (_), puntos y paréntesis, y vuelve a adjuntarlo.'
+    });
   }
 
   //*************************************************** Notificaciones ***************************************************
 
   private async getUsersByRole(roleName: string): Promise<any[]> {
     try {
-      // Primero obtenemos el perfil por nombre
       const perfiles = await this._sPerfil.getPerfilbynombrePerfil(roleName).toPromise();
       if (perfiles && perfiles.length > 0) {
         const idPerfil = perfiles[0].idPerfil;
-        
-        // Luego obtenemos los usuarios con ese perfil
+
         const usuariosPerfiles = await this._sUsuariosPerfiles.getUsuariosPerfilesbyidPerfil(idPerfil).toPromise();
-        
-        // Obtenemos los detalles de cada usuario (aunque no tenemos el servicio sUsuario aquí)
-        // Solo devolvemos los IDs de usuario activos
+
         const usuariosIds = usuariosPerfiles
           .filter(up => up.activo)
           .map(up => ({ idUsuario: up.idUsuario }));
-        
+
         return usuariosIds;
       }
     } catch (error) {
@@ -135,15 +160,14 @@ export class BitacoraComponent implements OnInit {
   }
 
   private async notificarCargaBitacora() {
-    // Notificar a Coordinador, Director y Sub-Gerente sobre la carga de archivos en bitácora
     const roles = ['Coordinador', 'Director', 'Sub-Gerente'];
-    
+
     for (const rol of roles) {
       const usuarios = await this.getUsersByRole(rol);
       for (const usuario of usuarios) {
         const titulo = 'Carga de archivos en bitácora';
         const descripcion = `Se ha cargado un nuevo archivo en la bitácora del SubProyecto "${this.SubProyecto.nombreSubProyecto}".`;
-        
+
         this._notificacionesService.crearNotificacionPersonalizada(
           usuario.idUsuario,
           'bitacora',
@@ -163,37 +187,38 @@ export class BitacoraComponent implements OnInit {
       return;
     }
 
-    // if (!this.Bitacora.idPrioridad){
-    //   console.log("No posee prioridad");
-    //   return false
-    // }
+    const tieneArchivo = $("#fileupload1")[0].files.length > 0;
+
+    // Validar nombre ANTES de tocar nada
+    if (tieneArchivo) {
+      const error = this._sBitacora.validarNombreArchivo($("#fileupload1")[0].files[0].name);
+      if (error) {
+        this.limpiarArchivo();
+        this.avisarNombreInvalido(error);
+        return;
+      }
+    }
+
     this.Loading = true;
 
     this.Bitacora.descripcion = this.Bitacora.descripcion.replace(/\n/g, "<br>");
 
+    if (tieneArchivo) {
+      this._sBitacora.SubirArchivo($("#fileupload1")[0].files[0], this.SubProyecto.idSubProyecto, this.TipoBitacora).then(res => {
+        // Nombre original + URL de descarga de Firebase
+        this.Bitacora.NombreAdjunto = res.nombre;
+        this.Bitacora.Adjunto = res.url;
 
-    // console.log(this.Bitacora);
+        this._sBitacora.postAddBitacora(this.Bitacora).success(async result => {
 
-
-    if ($("#fileupload1")[0].files.length > 0) {
-  this._sBitacora.AdjuntarArchivo($("#fileupload1")[0].files[0], this.SubProyecto.nombreSubProyecto, this.TipoBitacora.toString()).then((res: any) => {
-    // Guardar nombre original y ruta física devuelta por el servidor
-    this.Bitacora.NombreAdjunto = res.files.adjuntar.originalFilename;
-    this.Bitacora.Adjunto = res.files.adjuntar.path;
-
-    this._sBitacora.postAddBitacora(this.Bitacora).success(async result => {
-      
-          // 🔥 DETECTAR CARGA DE BITÁCORA CON ARCHIVO AUTOMÁTICAMENTE
           this._notificacionesService.detectarCargaBitacora(this.Bitacora, this.SubProyecto, this.usuario, true);
-          
-          // Notificar carga de bitácora con archivo (método legacy)
+
           await this.notificarCargaBitacora();
-          
+
           Form.reset();
           this.Bitacora = new mBitacora(null, null, 0, null, null, new Date().toString(), true, null, this.usuario.idUsuario, null, null, null, this.TipoBitacora);
           this.Bitacora.idDetalleSubProyecto = this.EtapaActual.idDetalleSubProyecto;
-          $("#NombreArch").html("");
-          console.clear();
+          this.limpiarArchivo();
           this.Loading = false;
           this.ConseguirBitacoras.emit({ actualizar: true });
           Swal.fire(
@@ -201,23 +226,32 @@ export class BitacoraComponent implements OnInit {
             'Se ha cargado la Bitacora de forma exitosa',
             'success'
           );
+        }).error(e => {
+          console.error('Error al guardar bitácora:', e);
+          this.Loading = false;
+          this.Bitacora.descripcion = this.Bitacora.descripcion.replace(/<br>/g, "\n");
+          Swal.fire('Error', 'El archivo se subió, pero no se pudo guardar la bitácora', 'error');
         });
-      }).catch(error => {
-        console.error('Error al procesar archivo:', error);
+      }).catch((error: any) => {
+        console.error('Error al subir archivo:', error);
         this.Loading = false;
-        Swal.fire('Error', 'No se pudo procesar el archivo adjunto', 'error');
+        this.Bitacora.descripcion = this.Bitacora.descripcion.replace(/<br>/g, "\n");
+
+        if (error && error.nombreInvalido) {
+          this.limpiarArchivo();
+          this.avisarNombreInvalido(error.mensaje);
+          return;
+        }
+        Swal.fire('Error', 'No se pudo subir el archivo adjunto' + (error && error.code ? ' (' + error.code + ')' : ''), 'error');
       });
 
     } else {
       this._sBitacora.postAddBitacora(this.Bitacora).success(async result => {
-        // 🔥 DETECTAR CARGA DE BITÁCORA SIN ARCHIVO AUTOMÁTICAMENTE
         this._notificacionesService.detectarCargaBitacora(this.Bitacora, this.SubProyecto, this.usuario, false);
-        
-        // Notificar carga de bitácora sin archivo (método legacy)
+
         await this.notificarCargaBitacora();
-        
+
         Form.reset();
-        // this.Bitacora = {idBitacora:null,descripcion:null,idPrioridad:0,idArchivoAdjunto:null,idDetalleSubProyecto:null,fechaCreacion:new Date().toString(),activo:true,fechaRemocion:null,idUsuarioCreador:this.usuario.idUsuario,idUsuarioRemovedor:null,Adjunto:null,NombreAdjunto:null,TipoBitacora:this.TipoBitacora};
         this.Bitacora = new mBitacora(null, null, 0, null, null, new Date().toString(), true, null, this.usuario.idUsuario, null, null, null, this.TipoBitacora);
         this.Bitacora.idDetalleSubProyecto = this.EtapaActual.idDetalleSubProyecto;
         this.Loading = false;
@@ -229,10 +263,6 @@ export class BitacoraComponent implements OnInit {
         this.ConseguirBitacoras.emit({ actualizar: true });
       });
     }
-
-
   }
-
-
 
 }
