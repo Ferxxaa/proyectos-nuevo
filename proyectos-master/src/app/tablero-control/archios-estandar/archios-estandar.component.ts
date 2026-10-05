@@ -1,8 +1,5 @@
 import { Component, Input, OnInit } from '@angular/core';
 
-//Share
-import { environment } from "../../../environments/environment";
-
 //Model
 import { mArchivoEstandar } from '../../models/mArchivoEstandar';
 
@@ -11,9 +8,14 @@ import { sArchivoAdjunto } from '../../services/sArchivoAdjunto.service';
 import { sTipoArchivoAdjunto } from '../../services/sTipoArchivoAdjunto.service';
 import { sArchivoEstandar } from '../../services/sArchivoEstandar.service';
 import { Observable } from 'rxjs/Observable';
+import { of } from 'rxjs/observable/of';
+import { catchError, shareReplay } from 'rxjs/operators';
 
 declare var $: any;
 declare var Swal: any;
+
+// Backend Node (Express) donde viven los archivos estándar. NO es el IIS :1234.
+const NODE_URL = 'http://trazas-nbi.com:3800/api/';
 
 @Component({
   selector: 'app-archios-estandar',
@@ -49,17 +51,19 @@ export class ArchiosEstandarComponent implements OnInit {
   }
 
   ngOnInit() {
-    // this._sTipoArchivoAdjunto.getTipoArchivoAdjunto().subscribe(result => {
-    //   console.log(result);
-    //   for (let i = 0; i < result.length; i++) {
-    //     this._sArchivoAdjunto.getArchivoAdjuntobyidTipoArchivoAdjunto(result[i].idTipoArchivoAdjunto).subscribe(result => {
-    //       this.Archivos[i] = result;
-    //       console.log(this.Archivos[i]);
-    //     });
-    //   }
+    this.urlnode = NODE_URL;
+  }
 
-    // });
-    this.urlnode = environment.node;
+  // Un solo request compartido entre todos los async del template.
+  // Si el backend falla se muestra la tabla vacía en vez de reventar.
+  private obtenerArchivos(idTipoArchivoAdjunto: number): Observable<mArchivoEstandar[]> {
+    return this._sArchivoEstandar.getArchivosEstandaresByTipo(idTipoArchivoAdjunto).pipe(
+      catchError(err => {
+        console.error('Error cargando archivos estándar tipo ' + idTipoArchivoAdjunto, err);
+        return of([] as mArchivoEstandar[]);
+      }),
+      shareReplay(1)
+    );
   }
 
   CargaArchivos(dv: string, idTipoArchivoAdjunto: number) {
@@ -68,19 +72,13 @@ export class ArchiosEstandarComponent implements OnInit {
 
     let div = ["collapseOne", "collapseTwo", "collapseThree", "collapseFour", "collapseFive", "collapseSix", "collapseSeven"];
 
-    // console.log(dv);
-
     div.forEach(element => {
       if (element != dv) {
         $("#" + element).attr('class', 'panel-collapse collapse');
       }
     });
 
-    this.Archivos$ = this._sArchivoEstandar.getArchivosEstandaresByTipo(idTipoArchivoAdjunto)
-
-    // this._sArchivoAdjunto.getArchivoAdjuntobyidTipoArchivoAdjunto(idTipoArchivoAdjunto).subscribe(result => {
-    //   this.Archivos = result;
-    // });
+    this.Archivos$ = this.obtenerArchivos(idTipoArchivoAdjunto);
   }
 
   verPupUp(tipo: number) {
@@ -89,11 +87,10 @@ export class ArchiosEstandarComponent implements OnInit {
 
   cerrarpopUp(e) {
     this.archivoEstandar = e
-    this.Archivos$ = this._sArchivoEstandar.getArchivosEstandaresByTipo(this.open);
+    this.Archivos$ = this.obtenerArchivos(this.open);
   }
 
   eliminar(archivo: mArchivoEstandar) {
-    // console.log(archivo);
     Swal.fire({
       title: 'Eliminar archivo estandar',
       text: "¿Esta seguro de eliminar el archivo estandar " + archivo.nombreArchivo + "?",
@@ -110,28 +107,28 @@ export class ArchiosEstandarComponent implements OnInit {
   }
 
   eliminando(archivo: mArchivoEstandar) {
-    // Swal.fire(
-    //   'Deleted!',
-    //   'Your file has been deleted.',
-    //   'success'
-    // )
     this._sArchivoEstandar.deleteArchivosEstandares(archivo).subscribe(eliminado => {
       Swal.fire(
         'Archivo estandar',
         'Se ha eliminado el archivo seleccionado.',
         'success'
       )
+      this.Archivos$ = this.obtenerArchivos(this.open);
+    }, err => {
+      Swal.fire(
+        'Archivo estandar',
+        'No se pudo eliminar el archivo.',
+        'error'
+      )
     });
-
   }
 
   admin(): boolean {
-    if (this.perfiles.length > 0) {
+    if (this.perfiles && this.perfiles.length > 0) {
       const perfiles = this.perfiles.map(el => el.idPerfil)
       return perfiles.includes(1) || perfiles.includes(4)
-    } else 
+    } else
       return false
-    
   }
 
 }
