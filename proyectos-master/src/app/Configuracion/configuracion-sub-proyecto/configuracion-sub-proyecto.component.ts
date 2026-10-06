@@ -98,7 +98,6 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
     this.ResetDrd();
     this.usuario = JSON.parse(localStorage.usuario);
 
-
     this.ResetForm();
 
     //Update
@@ -108,7 +107,6 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
   }
 
   ngOnInit() {
-
     this._sVis_ProyectosMatrizCoordinador.getVis_ProyectosMatrizCoordinadorbyidUsuarioCoordinador(this.usuario.idUsuario).subscribe(
       result => {
         this.ProyectosMatriz = result;
@@ -126,16 +124,27 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
         }
       );
     }
-
   }
 
+  CargaSubProyectos() {
+    this.ResetForm();
+    this.drdSubProyecto = 0;
+    if (this.drdProyecto > 0) {
+      this._sSubProyecto.getSubProyectobyidProyecto(this.drdProyecto).subscribe(
+        result => {
+          // Solo subproyectos en estado 3 o 4 (pendiente de validación)
+          this.SubProyectos = result.filter(el => el.idEstadoProyecto == 3 || el.idEstadoProyecto == 4);
+        }
+      );
+    }
+  }
 
   CargaDatosSubProyecto() {
     this.ResetForm();
     if (this.drdSubProyecto > 0) {
       this._sSubProyecto.getSubProyectobyID(this.drdSubProyecto).subscribe(result => {
-        // console.log(result);
-        this.SubProyecto = result; this.CargaFecha();
+        this.SubProyecto = result;
+        this.CargaFecha();
       });
       this.CargaDatosSP();
     }
@@ -148,40 +157,40 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
     this._sDetalleSubProyecto.getDetalleSubProyectobyidSubProyecto(this.drdSubProyecto).subscribe(
       result => {
         if (result.length > 0) {
-          this.lastUpdate = [];
-          // this.lastUpdate = [...result];
-          result.forEach(element => {
-            this.lastUpdate.push({ ...element })
-          });
-          // console.log(this.lastUpdate);
+          // ✅ Ordenar por idEtapa: el orden de inserción en BD NO es confiable
+          const ordenado: mDetalleSubProyecto[] = [...result].sort((a, b) => Number(a.idEtapa) - Number(b.idEtapa));
 
-          console.log("Configuracion SubProyecto", this.lastUpdate);
+          this.lastUpdate = ordenado.map(element => ({ ...element }));
 
-          this.Requerimiento = result[0];
-          this.NBI1 = result[1];
-          this.Factibilidad = result[2];
-          this.NBI2 = result[3];
-          this.Layout = result[4];
-          this.NBI3 = result[5];
-          this.Proyecto = result[6];
-          this.NBI4 = result[7];
-          this.Regularizacion = result[8];
-          this.NBI5 = result[9];
-          this.LicitacionAdjudicacion = result[10];
-          this.NBI6 = result[11];
-          this.Construccion = result[12];
-          this.Habilitacion = result[13];
-          this.NBI7 = result[14];
-          this.Contratista = result[15];
-          this.Cliente = result[16];
-          this.Mantencion = result[17];
+          this.Requerimiento = this.porEtapa(ordenado, 1) || this.Requerimiento;
+          this.NBI1 = this.porEtapa(ordenado, 2) || this.NBI1;
+          this.Factibilidad = this.porEtapa(ordenado, 3) || this.Factibilidad;
+          this.NBI2 = this.porEtapa(ordenado, 4) || this.NBI2;
+          this.Layout = this.porEtapa(ordenado, 5) || this.Layout;
+          this.NBI3 = this.porEtapa(ordenado, 6) || this.NBI3;
+          this.Proyecto = this.porEtapa(ordenado, 7) || this.Proyecto;
+          this.NBI4 = this.porEtapa(ordenado, 8) || this.NBI4;
+          this.Regularizacion = this.porEtapa(ordenado, 9) || this.Regularizacion;
+          this.NBI5 = this.porEtapa(ordenado, 10) || this.NBI5;
+          this.LicitacionAdjudicacion = this.porEtapa(ordenado, 11) || this.LicitacionAdjudicacion;
+          this.NBI6 = this.porEtapa(ordenado, 12) || this.NBI6;
+          this.Construccion = this.porEtapa(ordenado, 13) || this.Construccion;
+          this.Habilitacion = this.porEtapa(ordenado, 14) || this.Habilitacion;
+          this.NBI7 = this.porEtapa(ordenado, 15) || this.NBI7;
+          this.Contratista = this.porEtapa(ordenado, 16) || this.Contratista;
+          this.Cliente = this.porEtapa(ordenado, 17) || this.Cliente;
+          this.Mantencion = this.porEtapa(ordenado, 18) || this.Mantencion;
 
           this.CargaFecha();
           this.SumaPonderado();
-          this.Loading = false;
         }
+        this.Loading = false;
       }
     );
+  }
+
+  private porEtapa(lista: mDetalleSubProyecto[], idEtapa: number): mDetalleSubProyecto {
+    return lista.find(d => Number(d.idEtapa) === idEtapa);
   }
 
   private ResetForm() {
@@ -216,93 +225,42 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
     this.drdSubProyecto = 0;
   }
 
+  // ✅ Suma días sin mutar la fecha base y forzando número (evita "4" string concatenado)
+  private sumarDias(base: Date, dias: any): Date {
+    const d = new Date(base.getTime());
+    d.setDate(d.getDate() + (Number(dias) || 0));
+    return d;
+  }
+
   CargaFecha() {
-    for (let i = 0; i < 12; i++) {
-      this.Inicios[i] = new Date(this.SubProyecto.fechaInicio);
-      this.Terminos[i] = new Date(this.SubProyecto.fechaInicio);
+    if (!this.SubProyecto || !this.SubProyecto.fechaInicio) {
+      return;
     }
-    //Requerimiento
-    this.Terminos[0].setDate(this.Terminos[0].getDate() + this.Requerimiento.duracion);
-    //Factibilidad
-    this.Inicios[1].setFullYear(this.Terminos[0].getFullYear());
-    this.Inicios[1].setMonth(this.Terminos[0].getMonth());
-    this.Inicios[1].setDate(this.Terminos[0].getDate() + this.NBI1.duracion);
 
-    this.Terminos[1].setFullYear(this.Inicios[1].getFullYear());
-    this.Terminos[1].setMonth(this.Inicios[1].getMonth());
-    this.Terminos[1].setDate(this.Inicios[1].getDate() + this.Factibilidad.duracion);
-    //LayOut
-    this.Inicios[2].setFullYear(this.Terminos[1].getFullYear());
-    this.Inicios[2].setMonth(this.Terminos[1].getMonth());
-    this.Inicios[2].setDate(this.Terminos[1].getDate() + this.NBI2.duracion);
+    // Cada tramo: NBI previo (espera) + etapa. Índice = columna de fechas en la tabla.
+    const tramos: Array<{ nbi: mDetalleSubProyecto, etapa: mDetalleSubProyecto }> = [
+      { nbi: null, etapa: this.Requerimiento },               // 0
+      { nbi: this.NBI1, etapa: this.Factibilidad },           // 1
+      { nbi: this.NBI2, etapa: this.Layout },                 // 2
+      { nbi: this.NBI3, etapa: this.Proyecto },               // 3
+      { nbi: this.NBI4, etapa: this.Regularizacion },         // 4
+      { nbi: this.NBI5, etapa: this.LicitacionAdjudicacion }, // 5
+      { nbi: this.NBI6, etapa: this.Construccion },           // 6
+      { nbi: null, etapa: this.Habilitacion },                // 7
+      { nbi: this.NBI7, etapa: this.Contratista },            // 8
+      { nbi: null, etapa: this.Cliente },                     // 9
+      { nbi: null, etapa: this.Mantencion }                   // 10
+    ];
 
-    this.Terminos[2].setFullYear(this.Inicios[2].getFullYear());
-    this.Terminos[2].setMonth(this.Inicios[2].getMonth());
-    this.Terminos[2].setDate(this.Inicios[2].getDate() + this.Layout.duracion);
-    //Proyecto
-    this.Inicios[3].setFullYear(this.Terminos[2].getFullYear());
-    this.Inicios[3].setMonth(this.Terminos[2].getMonth());
-    this.Inicios[3].setDate(this.Terminos[2].getDate() + this.NBI3.duracion);
+    let cursor = new Date(this.SubProyecto.fechaInicio);
 
-    this.Terminos[3].setFullYear(this.Inicios[3].getFullYear());
-    this.Terminos[3].setMonth(this.Inicios[3].getMonth());
-    this.Terminos[3].setDate(this.Inicios[3].getDate() + this.Proyecto.duracion);
-    //Regularizacion
-    this.Inicios[4].setFullYear(this.Terminos[3].getFullYear());
-    this.Inicios[4].setMonth(this.Terminos[3].getMonth());
-    this.Inicios[4].setDate(this.Terminos[3].getDate() + this.NBI4.duracion);
-
-    this.Terminos[4].setFullYear(this.Inicios[4].getFullYear());
-    this.Terminos[4].setMonth(this.Inicios[4].getMonth());
-    this.Terminos[4].setDate(this.Inicios[4].getDate() + this.Regularizacion.duracion);
-    //Licitación Adjudicación
-    this.Inicios[5].setFullYear(this.Terminos[4].getFullYear());
-    this.Inicios[5].setMonth(this.Terminos[4].getMonth());
-    this.Inicios[5].setDate(this.Terminos[4].getDate() + this.NBI5.duracion);
-
-    this.Terminos[5].setFullYear(this.Inicios[5].getFullYear());
-    this.Terminos[5].setMonth(this.Inicios[5].getMonth());
-    this.Terminos[5].setDate(this.Inicios[5].getDate() + this.LicitacionAdjudicacion.duracion);
-    //Construcción
-    this.Inicios[6].setFullYear(this.Terminos[5].getFullYear());
-    this.Inicios[6].setMonth(this.Terminos[5].getMonth());
-    this.Inicios[6].setDate(this.Terminos[5].getDate() + this.NBI6.duracion);
-
-    this.Terminos[6].setFullYear(this.Inicios[6].getFullYear());
-    this.Terminos[6].setMonth(this.Inicios[6].getMonth());
-    this.Terminos[6].setDate(this.Inicios[6].getDate() + this.Construccion.duracion);
-    //Habilitación
-    this.Inicios[7].setFullYear(this.Terminos[6].getFullYear());
-    this.Inicios[7].setMonth(this.Terminos[6].getMonth());
-    this.Inicios[7].setDate(this.Terminos[6].getDate());
-
-    this.Terminos[7].setFullYear(this.Inicios[7].getFullYear());
-    this.Terminos[7].setMonth(this.Inicios[7].getMonth());
-    this.Terminos[7].setDate(this.Inicios[7].getDate() + this.Habilitacion.duracion);
-    //Cierre Contratista
-    this.Inicios[8].setFullYear(this.Terminos[7].getFullYear());
-    this.Inicios[8].setMonth(this.Terminos[7].getMonth());
-    this.Inicios[8].setDate(this.Terminos[7].getDate() + this.NBI7.duracion);
-
-    this.Terminos[8].setFullYear(this.Inicios[8].getFullYear());
-    this.Terminos[8].setMonth(this.Inicios[8].getMonth());
-    this.Terminos[8].setDate(this.Inicios[8].getDate() + this.Contratista.duracion);
-    //Cierre Cliente
-    this.Inicios[9].setFullYear(this.Terminos[8].getFullYear());
-    this.Inicios[9].setMonth(this.Terminos[8].getMonth());
-    this.Inicios[9].setDate(this.Terminos[8].getDate());
-
-    this.Terminos[9].setFullYear(this.Inicios[9].getFullYear());
-    this.Terminos[9].setMonth(this.Inicios[9].getMonth());
-    this.Terminos[9].setDate(this.Inicios[9].getDate() + this.Cliente.duracion);
-    //Cierre Mantención
-    this.Inicios[10].setFullYear(this.Terminos[9].getFullYear());
-    this.Inicios[10].setMonth(this.Terminos[9].getMonth());
-    this.Inicios[10].setDate(this.Terminos[9].getDate());
-
-    this.Terminos[10].setFullYear(this.Inicios[10].getFullYear());
-    this.Terminos[10].setMonth(this.Inicios[10].getMonth());
-    this.Terminos[10].setDate(this.Inicios[10].getDate() + this.Mantencion.duracion);
+    tramos.forEach((t, i) => {
+      const inicio = this.sumarDias(cursor, t.nbi ? t.nbi.duracion : 0);
+      const termino = this.sumarDias(inicio, t.etapa.duracion);
+      this.Inicios[i] = inicio;
+      this.Terminos[i] = termino;
+      cursor = termino;
+    });
   }
 
   SumaPonderado() {
@@ -310,155 +268,69 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
   }
 
   AsignaSPaDetalle() {
-    this.Requerimiento.idSubProyecto = this.drdSubProyecto;
-    this.NBI1.idSubProyecto = this.drdSubProyecto;
-    this.Factibilidad.idSubProyecto = this.drdSubProyecto;
-    this.NBI2.idSubProyecto = this.drdSubProyecto;
-    this.Layout.idSubProyecto = this.drdSubProyecto;
-    this.NBI3.idSubProyecto = this.drdSubProyecto;
-    this.Proyecto.idSubProyecto = this.drdSubProyecto;
-    this.NBI4.idSubProyecto = this.drdSubProyecto;
-    this.Regularizacion.idSubProyecto = this.drdSubProyecto;
-    this.NBI5.idSubProyecto = this.drdSubProyecto;
-    this.LicitacionAdjudicacion.idSubProyecto = this.drdSubProyecto;
-    this.NBI6.idSubProyecto = this.drdSubProyecto;
-    this.Construccion.idSubProyecto = this.drdSubProyecto;
-    this.Habilitacion.idSubProyecto = this.drdSubProyecto;
-    this.NBI7.idSubProyecto = this.drdSubProyecto;
-    this.Contratista.idSubProyecto = this.drdSubProyecto;
-    this.Cliente.idSubProyecto = this.drdSubProyecto;
-    this.Mantencion.idSubProyecto = this.drdSubProyecto;
+    this.detalleToArray().forEach(d => d.idSubProyecto = this.drdSubProyecto);
   }
 
   //*************************************************** CRUD ***************************************************
 
+  // ✅ Guarda uno tras otro (en orden de etapa), no los 18 en paralelo
+  private guardarSecuencial(detalles: mDetalleSubProyecto[], esNuevo: boolean): Promise<any> {
+    return detalles.reduce((p: Promise<any>, d) => p.then(() => esNuevo
+      ? this._sDetalleSubProyecto.postAddDetalleSubProyecto(d)
+      : this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(d)
+    ), Promise.resolve());
+  }
+
   Agregar(Form) {
     this.texto = "";
     this.msg = false;
-
     this.Loading = true;
-    // console.log(this.SubProyecto);
 
-    if (this.Requerimiento.idDetalleSubProyecto === null) {
-      this.sendMailCreacion(this.detalleToArray());
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Requerimiento).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.NBI1).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Factibilidad).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.NBI2).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Layout).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.NBI3).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Proyecto).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.NBI4).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Regularizacion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.NBI5).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.LicitacionAdjudicacion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.NBI6).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Construccion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Habilitacion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.NBI7).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Contratista).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Cliente).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postAddDetalleSubProyecto(this.Mantencion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this.texto = "Configuración creada de forma exitosa";
-      this.msg = true;
+    const detalles = this.detalleToArray();
+    const esNuevo = this.Requerimiento.idDetalleSubProyecto === null;
+
+    if (esNuevo) {
+      this.sendMailCreacion(detalles);
     } else {
       this.actualizaSubProyecto(this.SubProyecto);
-      this.sendMailEditar(this.lastUpdate, this.detalleToArray());
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Requerimiento).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.NBI1).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Factibilidad).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.NBI2).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Layout).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.NBI3).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Proyecto).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.NBI4).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Regularizacion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.NBI5).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.LicitacionAdjudicacion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.NBI6).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Construccion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Habilitacion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.NBI7).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Contratista).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Cliente).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.Mantencion).success(result => { this.ResetDrd(); this.ResetForm(); this.Loading = false; });
-      this.texto = "Configuracion actualizada de forma exitosa";
-      this.msg = true;
+      this.sendMailEditar(this.lastUpdate, detalles);
     }
+
+    this.guardarSecuencial(detalles, esNuevo)
+      .then(() => {
+        this.texto = esNuevo ? "Configuración creada de forma exitosa" : "Configuracion actualizada de forma exitosa";
+        this.msg = true;
+        this.ResetDrd();
+        this.ResetForm();
+        this.Loading = false;
+      })
+      .catch(err => {
+        console.error('Error guardando detalle subproyecto', err);
+        this.texto = "Ocurrió un error al guardar la configuración";
+        this.msg = true;
+        this.Loading = false;
+      });
   }
 
   actualizaSubProyecto(subProyecto) {
-  subProyecto.ponderadoValidado = false;
-  subProyecto.presupuestoValidado = false;
-  subProyecto.ritmoValidado = false;
-  subProyecto.idEstadoProyecto = 4; // ✅ Pasa a "pendiente de validación"
+    subProyecto.ponderadoValidado = false;
+    subProyecto.presupuestoValidado = false;
+    subProyecto.ritmoValidado = false;
+    subProyecto.idEstadoProyecto = 4; // Pasa a "pendiente de validación"
 
-  this._sSubProyecto.postUpdDelSubProyecto(subProyecto)
-    .then(arg => console.log(subProyecto));
-}
+    this._sSubProyecto.postUpdDelSubProyecto(subProyecto)
+      .then(arg => console.log(subProyecto));
+  }
 
   detalleToArray(): mDetalleSubProyecto[] {
-    let detalle: mDetalleSubProyecto[];
-    detalle = [];
-    detalle.push(this.Requerimiento, this.NBI1, this.Factibilidad, this.NBI2, this.Layout, this.NBI3, this.Proyecto, this.NBI4, this.Regularizacion,
-      this.NBI5, this.LicitacionAdjudicacion, this.NBI6, this.Construccion, this.Habilitacion, this.NBI7, this.Contratista, this.Cliente, this.Mantencion);
-    return detalle;
+    return [
+      this.Requerimiento, this.NBI1, this.Factibilidad, this.NBI2, this.Layout, this.NBI3, this.Proyecto, this.NBI4, this.Regularizacion,
+      this.NBI5, this.LicitacionAdjudicacion, this.NBI6, this.Construccion, this.Habilitacion, this.NBI7, this.Contratista, this.Cliente, this.Mantencion
+    ];
   }
 
-  sendMailEditar(last, nuevo) {
-    const linkValidacion = `http://proyectos.trazas-nbi.com/Configuracion-ValidacionSubProyecto?subproyecto=${this.drdSubProyecto}&autoselect=true`;
-    let msj: string = null;
-    msj = `<html>
-    <head>
-      <style>
-      th{
-        vertical-align: middle !important;
-        text-align: center;
-        padding: 0.25rem;
-        font-weight: 500 !important;
-      }
-      th,td{
-        border: 1px solid #ddd;
-      }
-      .caja{
-        border: 1px solid #ccc;
-        margin-bottom: 10px;
-        padding: 10px;
-      }
-      h3 {
-        margin-top: 0px;
-      }
-      </style>
-    </head>
-    <body>`
-
-    //////////////////////////////////////////////////// Cuerpo del mensaje
-    msj += `
-    Estimado Usuario,
-      Informamos a ud que se ha realizado una modificación a la configuracion de los ritmos del subproyecto: <b>${this.SubProyecto.nombreSubProyecto}</b> con el siguiente formato:
-      
-      <div class='caja'>
-      <h3>Registro antiguo</h3>`
-    msj += this.retTabla(last);
-    msj += `</div>
-      <div class='caja'>
-      <h3>Registro nuevo</h3>`
-    msj += this.retTabla(nuevo);
-    msj += `</div>
-    <a href="${linkValidacion}" target="_blank">Validación de configuración</a>
-    </body></html>`
-    // console.log(msj);
-    let correoEnviar: mCorreo = new mCorreo("jolivares@trazas.cl", 'Cambio en la configuración', msj)
-
-    this._sCorreo.postCorreo(correoEnviar).subscribe(res => {
-      // console.log(res);
-    });
-  }
-
-  sendMailCreacion(nuevo) {
-    const linkValidacion = `http://proyectos.trazas-nbi.com/Configuracion-ValidacionSubProyecto?subproyecto=${this.drdSubProyecto}&autoselect=true`;
-    let msj: string = null;
-    msj = `<html>
+  private estiloCorreo(): string {
+    return `<html>
     <head>
       <style>
       th{
@@ -481,11 +353,39 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
       </style>
     </head>
     <body>`;
+  }
+
+  sendMailEditar(last, nuevo) {
+    const linkValidacion = `http://proyectos.trazas-nbi.com/Configuracion-ValidacionSubProyecto?subproyecto=${this.drdSubProyecto}&autoselect=true`;
+    let msj: string = this.estiloCorreo();
+
+    msj += `
+    Estimado Usuario,
+      Informamos a ud que se ha realizado una modificación a la configuracion de los ritmos del subproyecto: <b>${this.SubProyecto.nombreSubProyecto}</b> con el siguiente formato:
+
+      <div class='caja'>
+      <h3>Registro antiguo</h3>`;
+    msj += this.retTabla(last);
+    msj += `</div>
+      <div class='caja'>
+      <h3>Registro nuevo</h3>`;
+    msj += this.retTabla(nuevo);
+    msj += `</div>
+    <a href="${linkValidacion}" target="_blank">Validación de configuración</a>
+    </body></html>`;
+
+    let correoEnviar: mCorreo = new mCorreo("jolivares@trazas.cl", 'Cambio en la configuración', msj);
+    this._sCorreo.postCorreo(correoEnviar).subscribe(res => { });
+  }
+
+  sendMailCreacion(nuevo) {
+    const linkValidacion = `http://proyectos.trazas-nbi.com/Configuracion-ValidacionSubProyecto?subproyecto=${this.drdSubProyecto}&autoselect=true`;
+    let msj: string = this.estiloCorreo();
 
     msj += `
     Estimado Usuario,
       Informamos a ud que se ha creado la configuracion de ritmos del subproyecto: <b>${this.SubProyecto.nombreSubProyecto}</b> con el siguiente formato:
-      
+
       <div class='caja'>
       <h3>Configuración registrada</h3>`;
     msj += this.retTabla(nuevo);
@@ -494,15 +394,12 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
     </body></html>`;
 
     let correoEnviar: mCorreo = new mCorreo("jolivares@trazas.cl", 'Creación de configuración', msj);
-
-    this._sCorreo.postCorreo(correoEnviar).subscribe(res => {
-      // console.log(res);
-    });
+    this._sCorreo.postCorreo(correoEnviar).subscribe(res => { });
   }
 
+  // ✅ Mismo orden que detalleToArray() (idEtapa 1..18)
   retHeader(): string {
-    let msj: string;
-    msj = `
+    return `
     <tr>
       <th style="background-color:transparent;border-top-style: hidden; border-left-style:hidden"></th>
       <th style="background: #A7C69F; color: #fff;">Requerimiento</th>
@@ -513,80 +410,42 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
       <th style="background: #ccc; color: #000; width: 50px;">NBI 3</th>
       <th style="background: #006699; color: #fff;">Proyecto</th>
       <th style="background: #ccc; color: #000; width: 50px;">NBI 4</th>
-      <th style="background: #003366; color: #fff;">Licitación</th>
-      <th style="background: #003366; color: #fff;">Adjudicación</th>
+      <th style="background: #003366; color: #fff;">Regularización</th>
       <th style="background: #ccc; color: #000; width: 50px;">NBI 5</th>
+      <th style="background: #4a5a6a; color: #fff;">Licitación Adjudicación</th>
+      <th style="background: #ccc; color: #000; width: 50px;">NBI 6</th>
       <th style="background: #FFCC00; color: #fff;">Construcción</th>
       <th style="background: #FF9900; color: #fff;">Habilitación</th>
-      <th style="background: #ccc; color: #000; width: 50px;">NBI 6</th>
+      <th style="background: #ccc; color: #000; width: 50px;">NBI 7</th>
       <th style="background: #FF3300; color: #fff;">Cierre contratista</th>
       <th style="background: #FF3300; color: #fff;">Cierre cliente</th>
       <th style="background: #FF3300; color: #fff;">Cierre mantención</th>
-      <th style="background: #ccc; color: #000; width: 50px;">NBI 7</th>
     </tr>
-    `
-    return msj
+    `;
   }
 
   retTabla(tabla): string {
-    let msj: string;
-    msj = "<table style='border-collapse: collapse; border-spacing: 0'>"
+    const lista: mDetalleSubProyecto[] = [...(tabla || [])].sort((a, b) => Number(a.idEtapa) - Number(b.idEtapa));
+    let msj = "<table style='border-collapse: collapse; border-spacing: 0'>";
     msj += this.retHeader();
+
     //Dias
-    msj += `<tr>
-      <td>Dias</td>`
-    tabla.forEach(element => {
-      msj += `
-      <td>${element.duracion}</td>`
-    });
-    msj += `
-    </tr>`
+    msj += `<tr><td>Dias</td>`;
+    lista.forEach(element => { msj += `<td>${element.duracion}</td>`; });
+    msj += `</tr>`;
 
     //Ponderado
-    msj += `
-    <tr>
-      <td>Ponderación</td>`
-    tabla.forEach(element => {
-      msj += `
-      <td>${element.ponderado ? element.ponderado : ''}</td>`
-    });
-    msj += `
-    </tr>`
+    msj += `<tr><td>Ponderación</td>`;
+    lista.forEach(element => { msj += `<td>${element.ponderado ? element.ponderado : ''}</td>`; });
+    msj += `</tr>`;
 
     //Montos
-    msj += `
-    <tr>
-      <td>Presupuesto</td>`
-    tabla.forEach(element => {
-      msj += `
-      <td>${element.presupuesto ? element.presupuesto : ''}</td>`
-    });
-    msj += `
-    </tr>`
+    msj += `<tr><td>Presupuesto</td>`;
+    lista.forEach(element => { msj += `<td>${element.presupuesto ? element.presupuesto : ''}</td>`; });
+    msj += `</tr>`;
 
-    msj += "</table>"
-
-    return msj
+    msj += "</table>";
+    return msj;
   }
 
-  CargaSubProyectos() {
-  this.ResetForm();
-  this.drdSubProyecto = 0;
-  if (this.drdProyectoMatriz > 0) {
-    this._sSubProyecto.getSubProyectobyidProyecto(this.drdProyecto).subscribe(
-      result => {
-        // ✅ TEMPORAL: Ver todos los estados disponibles
-        console.log('📋 Todos los subproyectos y sus estados:');
-        result.forEach(sp => {
-          console.log(`  - "${sp.nombreSubProyecto}" → idEstadoProyecto: ${sp.idEstadoProyecto}`);
-        });
-
-        // En el CargaSubProyectos() duplicado que está al final del archivo (el que tiene el console.log temporal)
-this.SubProyectos = result.filter(el => el.idEstadoProyecto == 3 || el.idEstadoProyecto == 4);
-      }
-    )
-  }
 }
-
-}
-

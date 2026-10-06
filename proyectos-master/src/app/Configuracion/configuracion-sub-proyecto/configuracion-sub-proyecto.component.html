@@ -229,11 +229,12 @@
                           <input type="number" min="0" max="100" id="txtPLicitacion" class="form-control" [(ngModel)]="Regularizacion.ponderado"
                             name="txtPLicitacion" placeholder="Regularización" pattern="[0-9]+" (change)="SumaPonderado()">
                         </td>
-                          <td class="nbi-cell"></td>
+                        <td class="nbi-cell"></td>
                         <td>
                           <input type="number" min="0" max="100" id="txtPAdjudicacion" class="form-control" [(ngModel)]="LicitacionAdjudicacion.ponderado"
                             name="txtPAdjudicacion" placeholder="Licitación Adjudicación" pattern="[0-9]+" (change)="SumaPonderado()">
                         </td>
+                        <td class="nbi-cell"></td>
                         <td>
                           <input type="number" min="0" max="100" id="txtPConstruccion" class="form-control" [(ngModel)]="Construccion.ponderado"
                             name="txtPConstruccion" placeholder="Construcción" pattern="[0-9]+" (change)="SumaPonderado()">
@@ -255,7 +256,6 @@
                           <input type="number" min="0" max="100" id="txtPMantencion" class="form-control" [(ngModel)]="Mantencion.ponderado"
                             name="txtPMantencion" placeholder="Mantención" pattern="[0-9]+" (change)="SumaPonderado()">
                         </td>
-                        <td class="nbi-cell"></td>
                         <td class="cell-total">{{ sumPonderado }}</td>
                       </tr>
                       <tr>
@@ -284,11 +284,12 @@
                           <input type="number" id="txtMLicitacion" class="form-control" [(ngModel)]="Regularizacion.presupuesto"
                             name="txtMLicitacion" placeholder="Regularización">
                         </td>
-                          <td class="nbi-cell"></td>
+                        <td class="nbi-cell"></td>
                         <td>
                           <input type="number" id="txtMAdjudicacion" class="form-control" [(ngModel)]="LicitacionAdjudicacion.presupuesto"
                             name="txtMAdjudicacion" placeholder="Licitación Adjudicación">
                         </td>
+                        <td class="nbi-cell"></td>
                         <td>
                           <input type="number" id="txtMConstruccion" class="form-control" [(ngModel)]="Construccion.presupuesto"
                             name="txtMConstruccion" placeholder="Construcción">
@@ -310,7 +311,6 @@
                           <input type="number" id="txtMMantencion" class="form-control" [(ngModel)]="Mantencion.presupuesto"
                             name="txtMMantencion" placeholder="Mantención">
                         </td>
-                        <td class="nbi-cell"></td>
                         <td class="cell-total">{{ Requerimiento.presupuesto + Factibilidad.presupuesto + Layout.presupuesto +
                           Proyecto.presupuesto
                           + Regularizacion.presupuesto + LicitacionAdjudicacion.presupuesto + Construccion.presupuesto +
@@ -329,24 +329,6 @@
                 </div>
 
               </form>
-              <!-- <u>Requerimiento:</u> {{Requerimiento | json}}
-              <br> <u>NBI1:</u> {{NBI1 | json}}
-              <br> <u>Factibilidad:</u> {{Factibilidad | json}}
-              <br> <u>NBI2:</u> {{NBI2 | json}}
-              <br> <u>Layout:</u> {{Layout | json}}
-              <br> <u>NBI3:</u> {{NBI3 | json}}
-              <br> <u>Proyecto:</u> {{Proyecto | json}}
-              <br> <u>NBI4:</u> {{NBI4 | json}}
-              <br> <u>Regularizacion:</u> {{Regularizacion | json}}
-              <br> <u>NBI5:</u> {{NBI5 | json}}
-              <br> <u>LicitacionAdjudicacion:</u> {{LicitacionAdjudicacion | json}}
-              <br> <u>NBI6:</u> {{NBI6 | json}}
-              <br> <u>Construccion:</u> {{Construccion | json}}
-              <br> <u>Habilitacion:</u> {{Habilitacion | json}}
-              <br> <u>NBI7:</u> {{NBI7 | json}}
-              <br> <u>Contratista:</u> {{Contratista | json}}
-              <br> <u>Cliente:</u> {{Cliente | json}}
-              <br> <u>Mantencion:</u> {{Mantencion | json}} -->
             </div>
           </section>
         </div>
