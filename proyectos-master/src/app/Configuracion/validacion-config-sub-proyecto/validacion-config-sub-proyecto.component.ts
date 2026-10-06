@@ -697,6 +697,27 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
   //*************************************************** Validacion ***************************************************
 
   Validar() {
+    Swal.fire({
+      title: 'Validar configuración',
+      text: '¿Está seguro que desea validar la configuración de este SubProyecto?',
+      icon: 'question',
+      showCloseButton: true,
+      showCancelButton: true,
+      confirmButtonColor: '#28a745',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Validar',
+      cancelButtonText: 'Cancelar',
+      allowOutsideClick: true,
+      allowEscapeKey: true
+    }).then((decision: any) => {
+      // Solo valida si apretó "Validar". X, ESC, Cancelar o click afuera → no hace nada
+      if (decision.value) {
+        this.ejecutarValidacion();
+      }
+    });
+  }
+
+  private ejecutarValidacion() {
     this.validando = false;
     this.texto = "";
     this.msg = false;
@@ -768,20 +789,22 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
       title: 'Rechazar configuración',
       text: 'Ambas opciones rechazan la configuración. Seleccione si además desea abrir el correo.',
       icon: 'warning',
-      showCloseButton: false,
+      showCloseButton: true,
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#6c757d',
       confirmButtonText: 'Rechazar con correo',
       cancelButtonText: 'Rechazar sin correo',
-      allowOutsideClick: false
+      allowOutsideClick: false,
+      allowEscapeKey: true
     }).then((decision: any) => {
       if (decision.value) {
         this.ejecutarRechazo(true);
         return;
       }
 
-      if (decision.dismiss) {
+      // Solo el botón "Rechazar sin correo" rechaza. X o ESC → cancela sin hacer nada
+      if (decision.dismiss === 'cancel') {
         this.ejecutarRechazo(false);
       }
     });
