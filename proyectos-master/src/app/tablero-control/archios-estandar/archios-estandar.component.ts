@@ -36,6 +36,17 @@ export class ArchiosEstandarComponent implements OnInit {
   archivoEstandar: mArchivoEstandar
   open: number;
 
+  // Orden en que se muestran los paneles
+  paneles = [
+    { id: 'collapseTwo',   tipo: 2, titulo: 'Registros de seguridad y salud ocupacional PR-06' },
+    { id: 'collapseThree', tipo: 3, titulo: 'Registros de medio ambiente PR-07' },
+    { id: 'collapseFour',  tipo: 4, titulo: 'Registros de investigación de incidente PR-08' },
+    { id: 'collapseFive',  tipo: 5, titulo: 'Registros de arquitectura PR 10-A' },
+    { id: 'collapseOne',   tipo: 1, titulo: 'Registros de construcción PR 10-B' },
+    { id: 'collapseSeven', tipo: 7, titulo: 'Registros de inspección PR 10-C' },
+    { id: 'collapseSix',   tipo: 6, titulo: 'Registros de Saneamiento MCA PR-12' }
+  ];
+
   @Input() perfiles: any;
   @Input() soloLectura: boolean = false;
 
@@ -46,7 +57,7 @@ export class ArchiosEstandarComponent implements OnInit {
     private _sArchivoEstandar: sArchivoEstandar
   ) {
     this.archivoEstandar = null;
-    this.open = 1;
+    this.open = null;
     this.urlnode = null;
   }
 
@@ -54,8 +65,6 @@ export class ArchiosEstandarComponent implements OnInit {
     this.urlnode = NODE_URL;
   }
 
-  // Un solo request compartido entre todos los async del template.
-  // Si el backend falla se muestra la tabla vacía en vez de reventar.
   private obtenerArchivos(idTipoArchivoAdjunto: number): Observable<mArchivoEstandar[]> {
     return this._sArchivoEstandar.getArchivosEstandaresByTipo(idTipoArchivoAdjunto).pipe(
       catchError(err => {
@@ -66,15 +75,21 @@ export class ArchiosEstandarComponent implements OnInit {
     );
   }
 
+  // Firebase si tiene respaldo; si no, el Node
+  linkDescarga(archivo: mArchivoEstandar): string {
+    if (archivo.urlFirebase) {
+      return archivo.urlFirebase;
+    }
+    return this.urlnode + 'adjuntar/' + encodeURIComponent(archivo.nombreArchivo);
+  }
+
   CargaArchivos(dv: string, idTipoArchivoAdjunto: number) {
     this.open = idTipoArchivoAdjunto;
     this.Archivos = [];
 
-    let div = ["collapseOne", "collapseTwo", "collapseThree", "collapseFour", "collapseFive", "collapseSix", "collapseSeven"];
-
-    div.forEach(element => {
-      if (element != dv) {
-        $("#" + element).attr('class', 'panel-collapse collapse');
+    this.paneles.forEach(panel => {
+      if (panel.id != dv) {
+        $("#" + panel.id).attr('class', 'panel-collapse collapse');
       }
     });
 
@@ -87,7 +102,9 @@ export class ArchiosEstandarComponent implements OnInit {
 
   cerrarpopUp(e) {
     this.archivoEstandar = e
-    this.Archivos$ = this.obtenerArchivos(this.open);
+    if (this.open) {
+      this.Archivos$ = this.obtenerArchivos(this.open);
+    }
   }
 
   eliminar(archivo: mArchivoEstandar) {

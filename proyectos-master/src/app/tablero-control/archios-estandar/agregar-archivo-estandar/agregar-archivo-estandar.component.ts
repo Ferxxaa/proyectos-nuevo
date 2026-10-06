@@ -27,29 +27,83 @@ export class AgregarArchivoEstandarComponent implements OnInit {
   }
 
   ngOnInit() {
-    // console.log(this.archivoEstandar);
+  }
+
+  private archivoSeleccionado(): File {
+    var input = $("#fileupload1")[0];
+    return input && input.files && input.files.length ? input.files[0] : null;
   }
 
   NombreArchivo() {
-    $("#NombreArch").html($("#fileupload1")[0].files[0].name);
-    // console.log($("#fileupload1")[0].files[0]);
-    this.archivoEstandar.nombreArchivo = $("#fileupload1")[0].files[0].name;
+    var file = this.archivoSeleccionado();
+    if (!file) {
+      return;
+    }
+
+    $("#NombreArch").html(file.name);
+    this.archivoEstandar.nombreArchivo = file.name;
+
+    var error = this._sArchivoEstandar.validarNombreArchivo(file.name);
+    if (error) {
+      Swal.fire({
+        title: 'Nombre de archivo no válido',
+        html: error + '<br><br>Renombra el archivo sin tildes ni caracteres especiales y vuelve a adjuntarlo.',
+        icon: 'error'
+      });
+    }
   }
 
   guardar(archivoEstandar: mArchivoEstandar) {
-    // console.log(archivoEstandar);
-    if (this.archivoEstandar.nombreArchivo){
-      this.disable = true;
-      this._sArchivoEstandar.postArchivosEstandares($("#fileupload1")[0].files[0], archivoEstandar).subscribe(archivoEstandar => {
-        this.cerrarEvent()
-      });
-    } else{
+    var file = this.archivoSeleccionado();
+
+    if (!file) {
       Swal.fire(
         'Archivos',
         'Debe seleccionar un archivo',
         'error'
       )
+      return;
     }
+
+    var error = this._sArchivoEstandar.validarNombreArchivo(file.name);
+    if (error) {
+      Swal.fire({
+        title: 'Nombre de archivo no válido',
+        html: error + '<br><br>Renombra el archivo sin tildes ni caracteres especiales y vuelve a adjuntarlo.',
+        icon: 'error'
+      });
+      return;
+    }
+
+    this.disable = true;
+
+    this._sArchivoEstandar.postArchivosEstandares(file, archivoEstandar).subscribe(resultado => {
+      this.disable = false;
+      if (resultado && !resultado.firebaseOk) {
+        Swal.fire(
+          'Archivo estandar',
+          'El archivo se guardó en el servidor, pero no se pudo respaldar en Firebase.',
+          'warning'
+        )
+      }
+      this.cerrarEvent();
+    }, err => {
+      this.disable = false;
+      if (err && err.nombreInvalido) {
+        Swal.fire({
+          title: 'Nombre de archivo no válido',
+          html: err.mensaje,
+          icon: 'error'
+        });
+      } else {
+        console.error(err);
+        Swal.fire(
+          'Archivo estandar',
+          'No se pudo subir el archivo. Intenta nuevamente.',
+          'error'
+        )
+      }
+    });
   }
 
   cerrarEvent() {
