@@ -20,6 +20,14 @@ import { mCorreo } from '../../models/mCorreo';
 declare var jQuery: any;
 declare var $: any;
 
+/*
+ * ✅ MODELO DE ETAPAS = CATÁLOGO DE LA BD (tabla Etapa). NO CAMBIAR LOS idEtapa.
+ *  1 Requerimiento | 2 NBI1 | 3 Factibilidad | 4 NBI2 | 5 Layout | 6 NBI3 | 7 Proyecto | 8 NBI4
+ *  9 Regularización (prop: Licitacion) | 10 Licitación Adjudicación (prop: Adjudicacion) | 11 NBI5
+ * 12 Construcción | 13 Habilitación | 14 NBI6 | 15 Cierre contratista | 16 Cierre cliente
+ * 17 Cierre mantención | 18 NBI7
+ */
+
 @Component({
   selector: 'app-configuracion-sub-proyecto',
   templateUrl: './configuracion-sub-proyecto.component.html',
@@ -50,24 +58,24 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
   //Objetos
   usuario: any;
   SubProyecto: mSubProyecto;
-  Requerimiento: mDetalleSubProyecto;
-  NBI1: mDetalleSubProyecto;
-  Factibilidad: mDetalleSubProyecto;
-  NBI2: mDetalleSubProyecto;
-  Layout: mDetalleSubProyecto;
-  NBI3: mDetalleSubProyecto;
-  Proyecto: mDetalleSubProyecto;
-  NBI4: mDetalleSubProyecto;
-  Regularizacion: mDetalleSubProyecto;
-  NBI5: mDetalleSubProyecto;
-  LicitacionAdjudicacion: mDetalleSubProyecto;
-  NBI6: mDetalleSubProyecto;
-  Construccion: mDetalleSubProyecto;
-  Habilitacion: mDetalleSubProyecto;
-  NBI7: mDetalleSubProyecto;
-  Contratista: mDetalleSubProyecto;
-  Cliente: mDetalleSubProyecto;
-  Mantencion: mDetalleSubProyecto;
+  Requerimiento: mDetalleSubProyecto;  // 1
+  NBI1: mDetalleSubProyecto;           // 2
+  Factibilidad: mDetalleSubProyecto;   // 3
+  NBI2: mDetalleSubProyecto;           // 4
+  Layout: mDetalleSubProyecto;         // 5
+  NBI3: mDetalleSubProyecto;           // 6
+  Proyecto: mDetalleSubProyecto;       // 7
+  NBI4: mDetalleSubProyecto;           // 8
+  Licitacion: mDetalleSubProyecto;     // 9  → se muestra como "Regularización"
+  Adjudicacion: mDetalleSubProyecto;   // 10 → se muestra como "Licitación Adjudicación"
+  NBI5: mDetalleSubProyecto;           // 11
+  Construccion: mDetalleSubProyecto;   // 12
+  Habilitacion: mDetalleSubProyecto;   // 13
+  NBI6: mDetalleSubProyecto;           // 14
+  Contratista: mDetalleSubProyecto;    // 15
+  Cliente: mDetalleSubProyecto;        // 16
+  Mantencion: mDetalleSubProyecto;     // 17
+  NBI7: mDetalleSubProyecto;           // 18
 
   //TablaFechas
   Inicios: Array<any>;
@@ -157,11 +165,10 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
     this._sDetalleSubProyecto.getDetalleSubProyectobyidSubProyecto(this.drdSubProyecto).subscribe(
       result => {
         if (result.length > 0) {
-          // ✅ Ordenar por idEtapa: el orden de inserción en BD NO es confiable
           const ordenado: mDetalleSubProyecto[] = [...result].sort((a, b) => Number(a.idEtapa) - Number(b.idEtapa));
-
           this.lastUpdate = ordenado.map(element => ({ ...element }));
 
+          // ✅ Asignar por idEtapa, nunca por posición
           this.Requerimiento = this.porEtapa(ordenado, 1) || this.Requerimiento;
           this.NBI1 = this.porEtapa(ordenado, 2) || this.NBI1;
           this.Factibilidad = this.porEtapa(ordenado, 3) || this.Factibilidad;
@@ -170,16 +177,16 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
           this.NBI3 = this.porEtapa(ordenado, 6) || this.NBI3;
           this.Proyecto = this.porEtapa(ordenado, 7) || this.Proyecto;
           this.NBI4 = this.porEtapa(ordenado, 8) || this.NBI4;
-          this.Regularizacion = this.porEtapa(ordenado, 9) || this.Regularizacion;
-          this.NBI5 = this.porEtapa(ordenado, 10) || this.NBI5;
-          this.LicitacionAdjudicacion = this.porEtapa(ordenado, 11) || this.LicitacionAdjudicacion;
-          this.NBI6 = this.porEtapa(ordenado, 12) || this.NBI6;
-          this.Construccion = this.porEtapa(ordenado, 13) || this.Construccion;
-          this.Habilitacion = this.porEtapa(ordenado, 14) || this.Habilitacion;
-          this.NBI7 = this.porEtapa(ordenado, 15) || this.NBI7;
-          this.Contratista = this.porEtapa(ordenado, 16) || this.Contratista;
-          this.Cliente = this.porEtapa(ordenado, 17) || this.Cliente;
-          this.Mantencion = this.porEtapa(ordenado, 18) || this.Mantencion;
+          this.Licitacion = this.porEtapa(ordenado, 9) || this.Licitacion;
+          this.Adjudicacion = this.porEtapa(ordenado, 10) || this.Adjudicacion;
+          this.NBI5 = this.porEtapa(ordenado, 11) || this.NBI5;
+          this.Construccion = this.porEtapa(ordenado, 12) || this.Construccion;
+          this.Habilitacion = this.porEtapa(ordenado, 13) || this.Habilitacion;
+          this.NBI6 = this.porEtapa(ordenado, 14) || this.NBI6;
+          this.Contratista = this.porEtapa(ordenado, 15) || this.Contratista;
+          this.Cliente = this.porEtapa(ordenado, 16) || this.Cliente;
+          this.Mantencion = this.porEtapa(ordenado, 17) || this.Mantencion;
+          this.NBI7 = this.porEtapa(ordenado, 18) || this.NBI7;
 
           this.CargaFecha();
           this.SumaPonderado();
@@ -195,28 +202,29 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
 
   private ResetForm() {
     this.sumPonderado = 0;
+    const u = this.usuario.idUsuario;
 
-    this.Requerimiento = new mDetalleSubProyecto(null, null, 1, 0, 0, 0, true, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI1 = new mDetalleSubProyecto(null, null, 2, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Factibilidad = new mDetalleSubProyecto(null, null, 3, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI2 = new mDetalleSubProyecto(null, null, 4, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Layout = new mDetalleSubProyecto(null, null, 5, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI3 = new mDetalleSubProyecto(null, null, 6, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Proyecto = new mDetalleSubProyecto(null, null, 7, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI4 = new mDetalleSubProyecto(null, null, 8, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Regularizacion = new mDetalleSubProyecto(null, null, 9, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI5 = new mDetalleSubProyecto(null, null, 10, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.LicitacionAdjudicacion = new mDetalleSubProyecto(null, null, 11, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI6 = new mDetalleSubProyecto(null, null, 12, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Construccion = new mDetalleSubProyecto(null, null, 13, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Habilitacion = new mDetalleSubProyecto(null, null, 14, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI7 = new mDetalleSubProyecto(null, null, 15, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Contratista = new mDetalleSubProyecto(null, null, 16, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Cliente = new mDetalleSubProyecto(null, null, 17, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Mantencion = new mDetalleSubProyecto(null, null, 18, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
+    this.Requerimiento = new mDetalleSubProyecto(null, null, 1, 0, 0, 0, true, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI1 = new mDetalleSubProyecto(null, null, 2, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Factibilidad = new mDetalleSubProyecto(null, null, 3, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI2 = new mDetalleSubProyecto(null, null, 4, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Layout = new mDetalleSubProyecto(null, null, 5, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI3 = new mDetalleSubProyecto(null, null, 6, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Proyecto = new mDetalleSubProyecto(null, null, 7, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI4 = new mDetalleSubProyecto(null, null, 8, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Licitacion = new mDetalleSubProyecto(null, null, 9, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Adjudicacion = new mDetalleSubProyecto(null, null, 10, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI5 = new mDetalleSubProyecto(null, null, 11, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Construccion = new mDetalleSubProyecto(null, null, 12, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Habilitacion = new mDetalleSubProyecto(null, null, 13, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI6 = new mDetalleSubProyecto(null, null, 14, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Contratista = new mDetalleSubProyecto(null, null, 15, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Cliente = new mDetalleSubProyecto(null, null, 16, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Mantencion = new mDetalleSubProyecto(null, null, 17, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI7 = new mDetalleSubProyecto(null, null, 18, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
 
-    this.Inicios = [null, null, null, null, null, null, null, null, null, null, null, null];
-    this.Terminos = [null, null, null, null, null, null, null, null, null, null, null, null];
+    this.Inicios = [null, null, null, null, null, null, null, null, null, null, null];
+    this.Terminos = [null, null, null, null, null, null, null, null, null, null, null];
   }
 
   private ResetDrd() {
@@ -225,7 +233,7 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
     this.drdSubProyecto = 0;
   }
 
-  // ✅ Suma días sin mutar la fecha base y forzando número (evita "4" string concatenado)
+  // Suma días sin mutar la fecha base y forzando número
   private sumarDias(base: Date, dias: any): Date {
     const d = new Date(base.getTime());
     d.setDate(d.getDate() + (Number(dias) || 0));
@@ -237,23 +245,22 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
       return;
     }
 
-    // Cada tramo: NBI previo (espera) + etapa. Índice = columna de fechas en la tabla.
+    // Cada tramo: NBI previo + etapa. Índice = columna de fechas.
     const tramos: Array<{ nbi: mDetalleSubProyecto, etapa: mDetalleSubProyecto }> = [
-      { nbi: null, etapa: this.Requerimiento },               // 0
-      { nbi: this.NBI1, etapa: this.Factibilidad },           // 1
-      { nbi: this.NBI2, etapa: this.Layout },                 // 2
-      { nbi: this.NBI3, etapa: this.Proyecto },               // 3
-      { nbi: this.NBI4, etapa: this.Regularizacion },         // 4
-      { nbi: this.NBI5, etapa: this.LicitacionAdjudicacion }, // 5
-      { nbi: this.NBI6, etapa: this.Construccion },           // 6
-      { nbi: null, etapa: this.Habilitacion },                // 7
-      { nbi: this.NBI7, etapa: this.Contratista },            // 8
-      { nbi: null, etapa: this.Cliente },                     // 9
-      { nbi: null, etapa: this.Mantencion }                   // 10
+      { nbi: null, etapa: this.Requerimiento },      // 0
+      { nbi: this.NBI1, etapa: this.Factibilidad },  // 1
+      { nbi: this.NBI2, etapa: this.Layout },        // 2
+      { nbi: this.NBI3, etapa: this.Proyecto },      // 3
+      { nbi: this.NBI4, etapa: this.Licitacion },    // 4 Regularización
+      { nbi: null, etapa: this.Adjudicacion },       // 5 Licitación Adjudicación
+      { nbi: this.NBI5, etapa: this.Construccion },  // 6
+      { nbi: null, etapa: this.Habilitacion },       // 7
+      { nbi: this.NBI6, etapa: this.Contratista },   // 8
+      { nbi: null, etapa: this.Cliente },            // 9
+      { nbi: null, etapa: this.Mantencion }          // 10
     ];
 
     let cursor = new Date(this.SubProyecto.fechaInicio);
-
     tramos.forEach((t, i) => {
       const inicio = this.sumarDias(cursor, t.nbi ? t.nbi.duracion : 0);
       const termino = this.sumarDias(inicio, t.etapa.duracion);
@@ -264,7 +271,7 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
   }
 
   SumaPonderado() {
-    this.sumPonderado = this.Requerimiento.ponderado + this.Factibilidad.ponderado + this.Layout.ponderado + this.Proyecto.ponderado + this.Regularizacion.ponderado + this.LicitacionAdjudicacion.ponderado + this.Construccion.ponderado + this.Habilitacion.ponderado + this.Contratista.ponderado + this.Cliente.ponderado + this.Mantencion.ponderado;
+    this.sumPonderado = this.Requerimiento.ponderado + this.Factibilidad.ponderado + this.Layout.ponderado + this.Proyecto.ponderado + this.Licitacion.ponderado + this.Adjudicacion.ponderado + this.Construccion.ponderado + this.Habilitacion.ponderado + this.Contratista.ponderado + this.Cliente.ponderado + this.Mantencion.ponderado;
   }
 
   AsignaSPaDetalle() {
@@ -273,7 +280,7 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
 
   //*************************************************** CRUD ***************************************************
 
-  // ✅ Guarda uno tras otro (en orden de etapa), no los 18 en paralelo
+  // Guarda uno tras otro (en orden de etapa), no los 18 en paralelo
   private guardarSecuencial(detalles: mDetalleSubProyecto[], esNuevo: boolean): Promise<any> {
     return detalles.reduce((p: Promise<any>, d) => p.then(() => esNuevo
       ? this._sDetalleSubProyecto.postAddDetalleSubProyecto(d)
@@ -322,10 +329,12 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
       .then(arg => console.log(subProyecto));
   }
 
+  // Orden = idEtapa 1..18
   detalleToArray(): mDetalleSubProyecto[] {
     return [
-      this.Requerimiento, this.NBI1, this.Factibilidad, this.NBI2, this.Layout, this.NBI3, this.Proyecto, this.NBI4, this.Regularizacion,
-      this.NBI5, this.LicitacionAdjudicacion, this.NBI6, this.Construccion, this.Habilitacion, this.NBI7, this.Contratista, this.Cliente, this.Mantencion
+      this.Requerimiento, this.NBI1, this.Factibilidad, this.NBI2, this.Layout, this.NBI3, this.Proyecto, this.NBI4,
+      this.Licitacion, this.Adjudicacion, this.NBI5, this.Construccion, this.Habilitacion, this.NBI6,
+      this.Contratista, this.Cliente, this.Mantencion, this.NBI7
     ];
   }
 
@@ -333,23 +342,10 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
     return `<html>
     <head>
       <style>
-      th{
-        vertical-align: middle !important;
-        text-align: center;
-        padding: 0.25rem;
-        font-weight: 500 !important;
-      }
-      th,td{
-        border: 1px solid #ddd;
-      }
-      .caja{
-        border: 1px solid #ccc;
-        margin-bottom: 10px;
-        padding: 10px;
-      }
-      h3 {
-        margin-top: 0px;
-      }
+      th{ vertical-align: middle !important; text-align: center; padding: 0.25rem; font-weight: 500 !important; }
+      th,td{ border: 1px solid #ddd; }
+      .caja{ border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; }
+      h3 { margin-top: 0px; }
       </style>
     </head>
     <body>`;
@@ -397,7 +393,7 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
     this._sCorreo.postCorreo(correoEnviar).subscribe(res => { });
   }
 
-  // ✅ Mismo orden que detalleToArray() (idEtapa 1..18)
+  // Orden = idEtapa 1..18 (catálogo BD)
   retHeader(): string {
     return `
     <tr>
@@ -411,15 +407,15 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
       <th style="background: #006699; color: #fff;">Proyecto</th>
       <th style="background: #ccc; color: #000; width: 50px;">NBI 4</th>
       <th style="background: #003366; color: #fff;">Regularización</th>
-      <th style="background: #ccc; color: #000; width: 50px;">NBI 5</th>
       <th style="background: #4a5a6a; color: #fff;">Licitación Adjudicación</th>
-      <th style="background: #ccc; color: #000; width: 50px;">NBI 6</th>
+      <th style="background: #ccc; color: #000; width: 50px;">NBI 5</th>
       <th style="background: #FFCC00; color: #fff;">Construcción</th>
       <th style="background: #FF9900; color: #fff;">Habilitación</th>
-      <th style="background: #ccc; color: #000; width: 50px;">NBI 7</th>
+      <th style="background: #ccc; color: #000; width: 50px;">NBI 6</th>
       <th style="background: #FF3300; color: #fff;">Cierre contratista</th>
       <th style="background: #FF3300; color: #fff;">Cierre cliente</th>
       <th style="background: #FF3300; color: #fff;">Cierre mantención</th>
+      <th style="background: #ccc; color: #000; width: 50px;">NBI 7</th>
     </tr>
     `;
   }
@@ -429,17 +425,14 @@ export class ConfiguracionSubProyectoComponent implements OnInit {
     let msj = "<table style='border-collapse: collapse; border-spacing: 0'>";
     msj += this.retHeader();
 
-    //Dias
     msj += `<tr><td>Dias</td>`;
     lista.forEach(element => { msj += `<td>${element.duracion}</td>`; });
     msj += `</tr>`;
 
-    //Ponderado
     msj += `<tr><td>Ponderación</td>`;
     lista.forEach(element => { msj += `<td>${element.ponderado ? element.ponderado : ''}</td>`; });
     msj += `</tr>`;
 
-    //Montos
     msj += `<tr><td>Presupuesto</td>`;
     lista.forEach(element => { msj += `<td>${element.presupuesto ? element.presupuesto : ''}</td>`; });
     msj += `</tr>`;

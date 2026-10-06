@@ -26,6 +26,15 @@ import { firestoreDB } from '../../firebase-init';
 declare var $: any;
 declare var Swal: any;
 
+/*
+ * ✅ MODELO DE ETAPAS = CATÁLOGO DE LA BD (tabla Etapa). NO CAMBIAR.
+ *  1 Requerimiento | 2 NBI1 | 3 Factibilidad | 4 NBI2 | 5 Layout | 6 NBI3 | 7 Proyecto | 8 NBI4
+ *  9 Regularización | 10 Licitación Adjudicación | 11 NBI5 | 12 Construcción | 13 Habilitación
+ * 14 NBI6 | 15 Cierre contratista | 16 Cierre cliente | 17 Cierre mantención | 18 NBI7
+ */
+const ETAPAS_NBI: number[] = [2, 4, 6, 8, 11, 14, 18];
+const ULTIMA_ETAPA: number = 17;
+
 @Component({
   selector: 'app-seguimiento',
   templateUrl: './seguimiento.component.html',
@@ -108,7 +117,12 @@ export class SeguimientoComponent implements OnInit, OnChanges {
 
       this.DetalleSubProyecto = result;
 
-      this.EtapaActual = result.find(element => { return element.vigente == true; });
+      const vigente = result.find(element => { return element.vigente == true; });
+      if (!vigente) {
+        console.warn('No hay etapa vigente para este subproyecto');
+        return;
+      }
+      this.EtapaActual = vigente;
       this.EtapasPrevias = result.filter(element => { return element.idEtapa < this.EtapaActual.idEtapa; });
       //Retorna nombre de Etapa
       this._sEtapa.getEtapabyID(this.EtapaActual.idEtapa).subscribe(result => {
@@ -123,7 +137,7 @@ export class SeguimientoComponent implements OnInit, OnChanges {
       //Calcula dias previos
       let dias: number = 0;
       this.EtapasPrevias.forEach(element => {
-        dias += element.duracion;
+        dias += Number(element.duracion) || 0;
       });
 
       this.asignaFechasProgramadas(dias);
@@ -147,13 +161,18 @@ export class SeguimientoComponent implements OnInit, OnChanges {
   }
 
   private asignaFechasProgramadas(dias: number) {
+    const duracion = Number(this.EtapaActual.duracion) || 0;
     this.fechaInicio = new Date(this.SubProyecto.fechaInicio);
     this.fechaTermino = new Date(this.SubProyecto.fechaInicio);
     this.fechaInicio.setDate(this.fechaInicio.getDate() + dias);
-    this.fechaTermino.setDate(this.fechaTermino.getDate() + dias + this.EtapaActual.duracion);
+    this.fechaTermino.setDate(this.fechaTermino.getDate() + dias + duracion);
     let DiasDiferencia: number;
     DiasDiferencia = Math.round((Date.parse(new Date().toString()) - Date.parse(this.fechaInicio.toString())) / 1000 / 60 / 60 / 24);
-    this.AvanceProgramado = DiasDiferencia > this.EtapaActual.duracion ? 100 : DiasDiferencia < 0 ? 0 : DiasDiferencia * 100 / this.EtapaActual.duracion;
+    if (duracion <= 0) {
+      this.AvanceProgramado = DiasDiferencia >= 0 ? 100 : 0;
+    } else {
+      this.AvanceProgramado = DiasDiferencia > duracion ? 100 : DiasDiferencia < 0 ? 0 : Math.round(DiasDiferencia * 100 / duracion);
+    }
   }
 
   ngOnChanges(cambio: SimpleChanges) {
@@ -171,15 +190,16 @@ export class SeguimientoComponent implements OnInit, OnChanges {
     this.texto = "";
     this.msg = false;
 
-    let idEtapa: number;
     const etapaFinalizada = this.EtapaActual.vistoBuenoEtapa || this.EtapaActual.avanceReal >= 100;
+    const idEtapaActual = Number(this.EtapaActual.idEtapa);
 
-    idEtapa = this.EtapaActual.idEtapa
     if (etapaFinalizada) {
       this.EtapaActual.avanceReal = 100;
       this.EtapaActual.vigente = false;
     }
-    if (this.EtapaActual.idEtapa == 17 && etapaFinalizada) {
+
+    // El proyecto termina al cerrar Cierre mantención (17)
+    if (idEtapaActual == ULTIMA_ETAPA && etapaFinalizada) {
       this.SubProyecto.idEstadoProyecto = 5;
       this._sSubProyecto.postUpdDelSubProyecto(this.SubProyecto);
     }
@@ -187,18 +207,20 @@ export class SeguimientoComponent implements OnInit, OnChanges {
     this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.EtapaActual).success(result => {
       if (!this.EtapaActual.vigente) {
 
-        do {
-          idEtapa = idEtapa + 1
-        } while (idEtapa == 2 || idEtapa == 4 || idEtapa == 6 || idEtapa == 8 || idEtapa == 11 || idEtapa == 14);
+        const idSiguiente = this.retEtapa(idEtapaActual);
+        const siguiente = idSiguiente <= ULTIMA_ETAPA
+          ? this.DetalleSubProyecto.find(element => Number(element.idEtapa) == idSiguiente)
+          : null;
 
-        this.EtapaActual = this.DetalleSubProyecto.find(element => element.idEtapa == idEtapa);
-        let vigente = this.DetalleSubProyecto.find(el => el.vigente && this.EtapaActual.idEtapa != el.idEtapa)
-        if (!vigente)
-          this.EtapaActual.vigente = true;
-        this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.EtapaActual).success(result => {
-          this.ngOnInit();
-
-        });
+        if (siguiente) {
+          this.EtapaActual = siguiente;
+          let vigente = this.DetalleSubProyecto.find(el => el.vigente && this.EtapaActual.idEtapa != el.idEtapa)
+          if (!vigente)
+            this.EtapaActual.vigente = true;
+          this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.EtapaActual).success(result => {
+            this.ngOnInit();
+          });
+        }
 
       }
       this.ActualizarSubProy.emit({ actualizar: true });
@@ -394,16 +416,21 @@ export class SeguimientoComponent implements OnInit, OnChanges {
     return correos.filter((correo, index, self) => self.indexOf(correo) === index);
   }
 
+  // Siguiente etapa real, saltando los NBI del catálogo de la BD
   retEtapa(idEtapa: number) {
     do {
       idEtapa = idEtapa + 1
-    } while (idEtapa == 2 || idEtapa == 4 || idEtapa == 6 || idEtapa == 8 || idEtapa == 11 || idEtapa == 14);
+    } while (ETAPAS_NBI.indexOf(idEtapa) !== -1);
     return idEtapa;
   }
 
   findEtapaAnterior(idEtapa) {
     this._sDetalleSubProyecto.getDetalleSubProyectobyidSubProyecto(this.SubProyecto.idSubProyecto).subscribe(result => {
-      this.EtapaActual = result.find(element => element.idEtapa == idEtapa);
+      const etapa = result.find(element => element.idEtapa == idEtapa);
+      if (!etapa) {
+        return;
+      }
+      this.EtapaActual = etapa;
       this.Comunes.DespliegaFecha('#txtInicioReal', this.EtapaActual.fechaInicioReal);
       this.Comunes.DespliegaFecha('#txtTerminoReal', this.EtapaActual.fechaTerminoReal);
       this.DiasDiferenciaReal = this.Comunes.calDuracionProy(this.EtapaActual.fechaInicioReal, this.EtapaActual.fechaTerminoReal)
@@ -416,7 +443,7 @@ export class SeguimientoComponent implements OnInit, OnChanges {
 
       let dias: number = 0;
       this.EtapasPrevias.forEach(element => {
-        dias += element.duracion;
+        dias += Number(element.duracion) || 0;
       });
 
       this.asignaFechasProgramadas(dias);

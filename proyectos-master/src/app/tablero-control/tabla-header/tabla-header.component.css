@@ -1,4 +1,5 @@
 /* *********************************** Tabla *********************************** */
+/* Colores por CLASE de etapa (et-*), no por posición: no se descuadran si cambian columnas. */
 
 #Etapas {
     border-collapse: separate;
@@ -26,12 +27,6 @@ table{
     font-size: 10px;
     vertical-align: middle;
     text-align: center;
-    
-}
-
-.nbi{
-    background: #ccc;
-    color: #000;
 }
 
 .fa-circle{
@@ -39,146 +34,55 @@ table{
     margin-left: 10px;
 }
 
-.tnbi th:nth-child(1){
-    background-color:transparent;
-    border-top-style: hidden;
-    border-left-style:hidden;
-}
-
-/* Requerimiento */
-.tnbi th:nth-child(2){
-    background: #A7C69F;
-    color: #fff;
-}
-
-/* Factibilidad */
-.tnbi th:nth-child(4){
-    background: #669933;
-    color: #fff;
-}
-
-/* Layout */
-.tnbi th:nth-child(6){
-    background: #0099CC;
-    color: #fff;
-}
-
-/* Proyecto */
-.tnbi th:nth-child(8){
-    background: #006699;
-    color: #fff;
-}
-
-/* Regularización */
-.tnbi th:nth-child(10){
-    background: #004d80;
-    color: #fff;
-}
-
-/* Licitación Adjudicación */
-.tnbi th:nth-child(12){
-    background: #003366;
-    color: #fff;
-}
-
-/* Construcción */
-.tnbi th:nth-child(14){
-    background: #FFCC00;
-    color: #fff;
-}
-
-/* Habilitación */
-.tnbi th:nth-child(15){
-    background: #FF9900;
-    color: #fff;
-}
-
-/* Cierre contratista */
-.tnbi th:nth-child(17){
-    background: #FF3300;
-    color: #fff;
-}
-
-/* Cierre cliente */
-.tnbi th:nth-child(18){
-    background: #FF3300;
-    color: #fff;
-}
-
-/* Cierre mantención */
-.tnbi th:nth-child(19){
-    background: #FF3300;
-    color: #fff;
-}
-
-/* Total */
-.tnbi th:nth-child(20){
-    background: #ccc;
-    color: #000;
-}
-
-
-
 tbody tr{
     color: black;
-}
-
-#Etapas tbody tr td:nth-child(1){
-    font-weight: bold;
-}
-
-#Etapas tbody tr td:nth-child(2){
-    background-color: #ebf2e9;
-}
-
-#Etapas tbody tr td:nth-child(4){
-    background-color: #DCE7D0;
-}
-
-#Etapas tbody tr td:nth-child(6){
-    background-color: #c4e7f3;
-}
-
-#Etapas tbody tr td:nth-child(8){
-    background-color: #c4dce7;
-}
-
-#Etapas tbody tr td:nth-child(10){
-    background-color: #b8cfdf;
-}
-
-#Etapas tbody tr td:nth-child(12){
-    background-color: #c4d0dc;
-}
-
-#Etapas tbody tr td:nth-child(14){
-    background-color: #fff3c4;
-}
-
-#Etapas tbody tr td:nth-child(15){
-    background-color: #FFE7C4;
-}
-
-#Etapas tbody tr td:nth-child(17),
-#Etapas tbody tr td:nth-child(18),
-#Etapas tbody tr td:nth-child(19){
-    background-color: #ffd0c4;
-}
-
-#Etapas tbody tr td:nth-child(3), 
-#Etapas tbody tr td:nth-child(5), 
-#Etapas tbody tr td:nth-child(7), 
-#Etapas tbody tr td:nth-child(9), 
-#Etapas tbody tr td:nth-child(11), 
-#Etapas tbody tr td:nth-child(13), 
-#Etapas tbody tr td:nth-child(16), 
-#Etapas tbody tr td:nth-child(20){
-    background-color: #cccccc;
 }
 
 .content-tabla{
     font-size: 12px;
 }
+
+/* ---------------- Encabezados ---------------- */
+
+#Etapas .tnbi th.et-label{
+    background-color: transparent;
+    border-top-style: hidden;
+    border-left-style: hidden;
+}
+
+#Etapas .tnbi th.et-requerimiento { background: #A7C69F; color: #fff; }
+#Etapas .tnbi th.et-factibilidad  { background: #669933; color: #fff; }
+#Etapas .tnbi th.et-layout        { background: #0099CC; color: #fff; }
+#Etapas .tnbi th.et-proyecto      { background: #006699; color: #fff; }
+#Etapas .tnbi th.et-regularizacion{ background: #004d80; color: #fff; }
+#Etapas .tnbi th.et-licitacion    { background: #003366; color: #fff; }
+#Etapas .tnbi th.et-construccion  { background: #FFCC00; color: #fff; }
+#Etapas .tnbi th.et-habilitacion  { background: #FF9900; color: #fff; }
+#Etapas .tnbi th.et-cierre        { background: #FF3300; color: #fff; }
+#Etapas .tnbi th.et-nbi,
+#Etapas .tnbi th.et-total         { background: #ccc;    color: #000; }
+
+/* ---------------- Celdas ---------------- */
+
+#Etapas tbody tr td.et-label{
+    font-weight: bold;
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+#Etapas tbody tr td.et-requerimiento { background-color: #ebf2e9; }
+#Etapas tbody tr td.et-factibilidad  { background-color: #DCE7D0; }
+#Etapas tbody tr td.et-layout        { background-color: #c4e7f3; }
+#Etapas tbody tr td.et-proyecto      { background-color: #c4dce7; }
+#Etapas tbody tr td.et-regularizacion{ background-color: #b8cfdf; }
+#Etapas tbody tr td.et-licitacion    { background-color: #c4d0dc; }
+#Etapas tbody tr td.et-construccion  { background-color: #fff3c4; }
+#Etapas tbody tr td.et-habilitacion  { background-color: #FFE7C4; }
+#Etapas tbody tr td.et-cierre        { background-color: #ffd0c4; }
+#Etapas tbody tr td.et-nbi,
+#Etapas tbody tr td.et-total         { background-color: #cccccc; }
+
+/* ---------------- Etapa activa ---------------- */
 
 .activo{
     border-left: 0;
@@ -194,8 +98,4 @@ tbody tr{
 .bottom{
     border-bottom: 0;
     box-shadow: inset 2px 0 0 white, inset -2px 0 0 white, inset 0 -2px 0 white;
-}
-
-tbody tr td:nth-child(1){
-    font-size: 0.9rem;
 }

@@ -24,6 +24,12 @@ import { sPerfil } from '../../services/sPerfil.service';
 
 declare var Swal: any;
 
+/*
+ * ✅ MODELO DE ETAPAS = CATÁLOGO DE LA BD (tabla Etapa). NO CAMBIAR LOS idEtapa.
+ *  9 Regularización (prop: Licitacion) | 10 Licitación Adjudicación (prop: Adjudicacion) | 11 NBI5
+ * 12 Construcción | 13 Habilitación | 14 NBI6 | 15-17 Cierres | 18 NBI7
+ */
+
 @Component({
   selector: 'app-validacion-config-sub-proyecto',
   templateUrl: './validacion-config-sub-proyecto.component.html',
@@ -56,31 +62,27 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
   //Ponderado
   sumPonderado;
 
-  //Objetos (✅ mismo modelo e idEtapa que Configuracion-SubProyecto)
+  //Objetos
   usuario: any;
   SubProyecto: mSubProyecto;
-  Requerimiento: mDetalleSubProyecto;          // 1
-  NBI1: mDetalleSubProyecto;                   // 2
-  Factibilidad: mDetalleSubProyecto;           // 3
-  NBI2: mDetalleSubProyecto;                   // 4
-  Layout: mDetalleSubProyecto;                 // 5
-  NBI3: mDetalleSubProyecto;                   // 6
-  Proyecto: mDetalleSubProyecto;               // 7
-  NBI4: mDetalleSubProyecto;                   // 8
-  Regularizacion: mDetalleSubProyecto;         // 9
-  NBI5: mDetalleSubProyecto;                   // 10
-  LicitacionAdjudicacion: mDetalleSubProyecto; // 11
-  NBI6: mDetalleSubProyecto;                   // 12
-  Construccion: mDetalleSubProyecto;           // 13
-  Habilitacion: mDetalleSubProyecto;           // 14
-  NBI7: mDetalleSubProyecto;                   // 15
-  Contratista: mDetalleSubProyecto;            // 16
-  Cliente: mDetalleSubProyecto;                // 17
-  Mantencion: mDetalleSubProyecto;             // 18
-
-  // Compatibilidad con el HTML antiguo (si aún usa Licitacion / Adjudicacion)
-  get Licitacion(): mDetalleSubProyecto { return this.Regularizacion; }
-  get Adjudicacion(): mDetalleSubProyecto { return this.LicitacionAdjudicacion; }
+  Requerimiento: mDetalleSubProyecto;  // 1
+  NBI1: mDetalleSubProyecto;           // 2
+  Factibilidad: mDetalleSubProyecto;   // 3
+  NBI2: mDetalleSubProyecto;           // 4
+  Layout: mDetalleSubProyecto;         // 5
+  NBI3: mDetalleSubProyecto;           // 6
+  Proyecto: mDetalleSubProyecto;       // 7
+  NBI4: mDetalleSubProyecto;           // 8
+  Licitacion: mDetalleSubProyecto;     // 9  "Regularización"
+  Adjudicacion: mDetalleSubProyecto;   // 10 "Licitación Adjudicación"
+  NBI5: mDetalleSubProyecto;           // 11
+  Construccion: mDetalleSubProyecto;   // 12
+  Habilitacion: mDetalleSubProyecto;   // 13
+  NBI6: mDetalleSubProyecto;           // 14
+  Contratista: mDetalleSubProyecto;    // 15
+  Cliente: mDetalleSubProyecto;        // 16
+  Mantencion: mDetalleSubProyecto;     // 17
+  NBI7: mDetalleSubProyecto;           // 18
 
   //TablaFechas
   Inicios: Array<any>;
@@ -202,16 +204,16 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
           this.NBI3 = this.porEtapa(result, 6) || this.NBI3;
           this.Proyecto = this.porEtapa(result, 7) || this.Proyecto;
           this.NBI4 = this.porEtapa(result, 8) || this.NBI4;
-          this.Regularizacion = this.porEtapa(result, 9) || this.Regularizacion;
-          this.NBI5 = this.porEtapa(result, 10) || this.NBI5;
-          this.LicitacionAdjudicacion = this.porEtapa(result, 11) || this.LicitacionAdjudicacion;
-          this.NBI6 = this.porEtapa(result, 12) || this.NBI6;
-          this.Construccion = this.porEtapa(result, 13) || this.Construccion;
-          this.Habilitacion = this.porEtapa(result, 14) || this.Habilitacion;
-          this.NBI7 = this.porEtapa(result, 15) || this.NBI7;
-          this.Contratista = this.porEtapa(result, 16) || this.Contratista;
-          this.Cliente = this.porEtapa(result, 17) || this.Cliente;
-          this.Mantencion = this.porEtapa(result, 18) || this.Mantencion;
+          this.Licitacion = this.porEtapa(result, 9) || this.Licitacion;
+          this.Adjudicacion = this.porEtapa(result, 10) || this.Adjudicacion;
+          this.NBI5 = this.porEtapa(result, 11) || this.NBI5;
+          this.Construccion = this.porEtapa(result, 12) || this.Construccion;
+          this.Habilitacion = this.porEtapa(result, 13) || this.Habilitacion;
+          this.NBI6 = this.porEtapa(result, 14) || this.NBI6;
+          this.Contratista = this.porEtapa(result, 15) || this.Contratista;
+          this.Cliente = this.porEtapa(result, 16) || this.Cliente;
+          this.Mantencion = this.porEtapa(result, 17) || this.Mantencion;
+          this.NBI7 = this.porEtapa(result, 18) || this.NBI7;
 
           this.CargaFecha();
           this.SumaPonderado();
@@ -227,25 +229,26 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
 
   private ResetForm() {
     this.sumPonderado = 0;
+    const u = this.usuario.idUsuario;
 
-    this.Requerimiento = new mDetalleSubProyecto(null, null, 1, 0, 0, 0, true, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI1 = new mDetalleSubProyecto(null, null, 2, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Factibilidad = new mDetalleSubProyecto(null, null, 3, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI2 = new mDetalleSubProyecto(null, null, 4, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Layout = new mDetalleSubProyecto(null, null, 5, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI3 = new mDetalleSubProyecto(null, null, 6, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Proyecto = new mDetalleSubProyecto(null, null, 7, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI4 = new mDetalleSubProyecto(null, null, 8, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Regularizacion = new mDetalleSubProyecto(null, null, 9, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI5 = new mDetalleSubProyecto(null, null, 10, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.LicitacionAdjudicacion = new mDetalleSubProyecto(null, null, 11, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI6 = new mDetalleSubProyecto(null, null, 12, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Construccion = new mDetalleSubProyecto(null, null, 13, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Habilitacion = new mDetalleSubProyecto(null, null, 14, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.NBI7 = new mDetalleSubProyecto(null, null, 15, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Contratista = new mDetalleSubProyecto(null, null, 16, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Cliente = new mDetalleSubProyecto(null, null, 17, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
-    this.Mantencion = new mDetalleSubProyecto(null, null, 18, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, this.usuario.idUsuario, null);
+    this.Requerimiento = new mDetalleSubProyecto(null, null, 1, 0, 0, 0, true, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI1 = new mDetalleSubProyecto(null, null, 2, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Factibilidad = new mDetalleSubProyecto(null, null, 3, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI2 = new mDetalleSubProyecto(null, null, 4, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Layout = new mDetalleSubProyecto(null, null, 5, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI3 = new mDetalleSubProyecto(null, null, 6, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Proyecto = new mDetalleSubProyecto(null, null, 7, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI4 = new mDetalleSubProyecto(null, null, 8, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Licitacion = new mDetalleSubProyecto(null, null, 9, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Adjudicacion = new mDetalleSubProyecto(null, null, 10, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI5 = new mDetalleSubProyecto(null, null, 11, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Construccion = new mDetalleSubProyecto(null, null, 12, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Habilitacion = new mDetalleSubProyecto(null, null, 13, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI6 = new mDetalleSubProyecto(null, null, 14, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Contratista = new mDetalleSubProyecto(null, null, 15, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Cliente = new mDetalleSubProyecto(null, null, 16, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.Mantencion = new mDetalleSubProyecto(null, null, 17, 0, 0, 0, false, null, null, null, null, null, false, false, null, true, null, u, null);
+    this.NBI7 = new mDetalleSubProyecto(null, null, 18, 0, null, null, false, null, null, null, null, null, false, false, null, true, null, u, null);
 
     this.Inicios = [null, null, null, null, null, null, null, null, null, null, null];
     this.Terminos = [null, null, null, null, null, null, null, null, null, null, null];
@@ -264,7 +267,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
     this.ResetForm();
   }
 
-  // Suma días sin mutar la fecha base y forzando número
   private sumarDias(base: Date, dias: any): Date {
     const d = new Date(base.getTime());
     d.setDate(d.getDate() + (Number(dias) || 0));
@@ -278,21 +280,20 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
     }
 
     const tramos: Array<{ nbi: mDetalleSubProyecto, etapa: mDetalleSubProyecto }> = [
-      { nbi: null, etapa: this.Requerimiento },               // 0
-      { nbi: this.NBI1, etapa: this.Factibilidad },           // 1
-      { nbi: this.NBI2, etapa: this.Layout },                 // 2
-      { nbi: this.NBI3, etapa: this.Proyecto },               // 3
-      { nbi: this.NBI4, etapa: this.Regularizacion },         // 4
-      { nbi: this.NBI5, etapa: this.LicitacionAdjudicacion }, // 5
-      { nbi: this.NBI6, etapa: this.Construccion },           // 6
-      { nbi: null, etapa: this.Habilitacion },                // 7
-      { nbi: this.NBI7, etapa: this.Contratista },            // 8
-      { nbi: null, etapa: this.Cliente },                     // 9
-      { nbi: null, etapa: this.Mantencion }                   // 10
+      { nbi: null, etapa: this.Requerimiento },      // 0
+      { nbi: this.NBI1, etapa: this.Factibilidad },  // 1
+      { nbi: this.NBI2, etapa: this.Layout },        // 2
+      { nbi: this.NBI3, etapa: this.Proyecto },      // 3
+      { nbi: this.NBI4, etapa: this.Licitacion },    // 4 Regularización
+      { nbi: null, etapa: this.Adjudicacion },       // 5 Licitación Adjudicación
+      { nbi: this.NBI5, etapa: this.Construccion },  // 6
+      { nbi: null, etapa: this.Habilitacion },       // 7
+      { nbi: this.NBI6, etapa: this.Contratista },   // 8
+      { nbi: null, etapa: this.Cliente },            // 9
+      { nbi: null, etapa: this.Mantencion }          // 10
     ];
 
     let cursor = new Date(this.SubProyecto.fechaInicio);
-
     tramos.forEach((t, i) => {
       const inicio = this.sumarDias(cursor, t.nbi ? t.nbi.duracion : 0);
       const termino = this.sumarDias(inicio, t.etapa.duracion);
@@ -303,13 +304,14 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
   }
 
   SumaPonderado() {
-    this.sumPonderado = this.Requerimiento.ponderado + this.Factibilidad.ponderado + this.Layout.ponderado + this.Proyecto.ponderado + this.Regularizacion.ponderado + this.LicitacionAdjudicacion.ponderado + this.Construccion.ponderado + this.Habilitacion.ponderado + this.Contratista.ponderado + this.Cliente.ponderado + this.Mantencion.ponderado;
+    this.sumPonderado = this.Requerimiento.ponderado + this.Factibilidad.ponderado + this.Layout.ponderado + this.Proyecto.ponderado + this.Licitacion.ponderado + this.Adjudicacion.ponderado + this.Construccion.ponderado + this.Habilitacion.ponderado + this.Contratista.ponderado + this.Cliente.ponderado + this.Mantencion.ponderado;
   }
 
   AsignaSPaDetalle() {
     [
-      this.Requerimiento, this.NBI1, this.Factibilidad, this.NBI2, this.Layout, this.NBI3, this.Proyecto, this.NBI4, this.Regularizacion,
-      this.NBI5, this.LicitacionAdjudicacion, this.NBI6, this.Construccion, this.Habilitacion, this.NBI7, this.Contratista, this.Cliente, this.Mantencion
+      this.Requerimiento, this.NBI1, this.Factibilidad, this.NBI2, this.Layout, this.NBI3, this.Proyecto, this.NBI4,
+      this.Licitacion, this.Adjudicacion, this.NBI5, this.Construccion, this.Habilitacion, this.NBI6,
+      this.Contratista, this.Cliente, this.Mantencion, this.NBI7
     ].forEach(d => d.idSubProyecto = this.drdSubProyecto);
   }
 
@@ -325,14 +327,12 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
     try {
       console.log('🔍 Buscando datos del subproyecto:', idSubProyecto);
 
-      // Obtener datos del subproyecto
       const subproyecto = await this._sSubProyecto.getSubProyectobyID(idSubProyecto).toPromise();
       if (!subproyecto) {
         console.error('❌ Subproyecto no encontrado');
         return;
       }
 
-      // Obtener proyecto
       const proyecto = await this._sProyecto.getProyectobyID(subproyecto.idProyecto).toPromise();
       if (!proyecto) {
         console.error('❌ Proyecto no encontrado');
@@ -341,22 +341,18 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
 
       console.log('📋 Configurando dropdowns automáticamente...');
 
-      // Configurar los dropdowns en orden
       this.drdProyectoMatriz = proyecto.idProyectoMatriz;
 
-      // Cargar proyectos de esa matriz
       await this._sProyecto.getProyectobyidProyectoMatriz(proyecto.idProyectoMatriz).toPromise().then(proyectos => {
         this.Proyectos = proyectos;
         this.drdProyecto = proyecto.idProyecto;
       });
 
-      // Cargar subproyectos de ese proyecto
       await this._sSubProyecto.getSubProyectobyidProyecto(proyecto.idProyecto).toPromise().then(subproyectos => {
         this.SubProyectos = subproyectos.filter(el => el.idEstadoProyecto == 4);
         this.drdSubProyecto = idSubProyecto;
       });
 
-      // Cargar datos del subproyecto
       this.SubProyecto = subproyecto;
       this.CargaDatosSP();
 
@@ -369,35 +365,21 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
 
   //*************************************************** Notificaciones ***************************************************
 
-  /**
-   * 📋 CONFIGURACIÓN DE NOTIFICACIONES POR ROLES
-   *
-   * 🎯 cambio de ritmo por validar     → Director
-   * 🎯 ritmo validado o rechazado      → Coordinador
-   * 🎯 validación matriz               → Sub-Gerente
-   * 🎯 validación proyecto             → Sub-Gerente
-   * 🎯 resultado validación matriz/proyecto → Coordinador
-   * 🎯 carga de archivos bitácora      → Coordinador + Director + Sub-Gerente
-   */
-
   private async getUsersByRole(roleName: string): Promise<any[]> {
     try {
       console.log(`🔍 Buscando usuarios con rol: ${roleName}`);
 
-      // Mapeo de roles alternativos en caso de que el rol principal no exista
       const roleAlternatives = {
         'Sub-Gerente': ['Gerente', 'Director', 'Administrador'],
         'Director': ['Gerente', 'Administrador'],
         'Coordinador': ['Director', 'Gerente']
       };
 
-      // Intentar con el rol principal primero
       const usuarios = await this.buscarUsuariosPorRol(roleName);
       if (usuarios.length > 0) {
         return usuarios;
       }
 
-      // Si no se encuentra el rol principal, intentar con alternativas
       if (roleAlternatives[roleName]) {
         console.log(`⚠️ Rol "${roleName}" no encontrado, probando roles alternativos...`);
 
@@ -421,7 +403,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
 
   private async buscarUsuariosPorRol(roleName: string): Promise<any[]> {
     try {
-      // Primero obtenemos el perfil por nombre
       const perfiles = await this._sPerfil.getPerfilbynombrePerfil(roleName)
         .toPromise()
         .catch(error => {
@@ -437,7 +418,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
         const idPerfil = perfiles[0].idPerfil;
         console.log(`✅ Perfil "${roleName}" encontrado con ID: ${idPerfil}`);
 
-        // Luego obtenemos los usuarios con ese perfil
         const usuariosPerfiles = await this._sUsuariosPerfiles.getUsuariosPerfilesbyidPerfil(idPerfil)
           .toPromise()
           .catch(error => {
@@ -445,7 +425,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
             return [];
           });
 
-        // Obtenemos los detalles de cada usuario
         const usuarios = [];
         for (const usuarioPerfil of usuariosPerfiles || []) {
           if (usuarioPerfil.activo) {
@@ -488,7 +467,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
   }
 
   private async notificarCambioRitmoParaValidar() {
-    // Notificar a Directores cuando hay un cambio de ritmo por validar
     const directores = await this.getUsersByRole('Director');
     if (directores.length > 0) {
       const titulo = 'Cambio de ritmo por validar';
@@ -498,7 +476,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
   }
 
   private async notificarValidacionMatriz() {
-    // Notificar a Sub-Gerentes cuando se requiere validación de matriz
     const subGerentes = await this.getUsersByRole('Sub-Gerente');
     if (subGerentes.length > 0) {
       const titulo = 'Validación de matriz requerida';
@@ -508,7 +485,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
   }
 
   private async notificarValidacionProyecto() {
-    // Notificar a Sub-Gerentes cuando se requiere validación de proyecto
     const subGerentes = await this.getUsersByRole('Sub-Gerente');
     if (subGerentes.length > 0) {
       const titulo = 'Validación de proyecto requerida';
@@ -518,7 +494,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
   }
 
   private async notificarResultadoValidacion(tipo: 'matriz' | 'proyecto', aprobado: boolean) {
-    // Notificar a Coordinadores sobre el resultado de la validación
     const coordinadores = await this.getUsersByRole('Coordinador');
     if (coordinadores.length > 0) {
       const estado = aprobado ? 'aprobada' : 'rechazada';
@@ -528,22 +503,16 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
     }
   }
 
-  /**
-   * Notifica a múltiples roles cuando se cargan archivos en bitácora
-   * Roles notificados: Coordinador + Director + Sub-Gerente
-   */
   private async notificarCargaArchivosBitacora(nombreArchivo?: string, observaciones?: string) {
     console.log('🔔 Notificando carga de archivos en bitácora...');
 
     try {
-      // Obtener usuarios de los tres roles simultáneamente
       const [coordinadores, directores, subGerentes] = await Promise.all([
         this.getUsersByRole('Coordinador'),
         this.getUsersByRole('Director'),
         this.getUsersByRole('Sub-Gerente')
       ]);
 
-      // Combinar todos los usuarios únicos
       const todosLosUsuarios = [...coordinadores, ...directores, ...subGerentes];
       const usuariosUnicos = todosLosUsuarios.filter((usuario, index, self) =>
         index === self.findIndex(u => u.idUsuario === usuario.idUsuario)
@@ -566,10 +535,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
     }
   }
 
-  /**
-   * 🔧 MÉTODO PÚBLICO PARA ACTIVAR NOTIFICACIONES ESPECÍFICAS
-   * Permite activar notificaciones desde componentes externos o eventos específicos
-   */
   public async activarNotificacion(tipo: 'cambio-ritmo' | 'ritmo-validado' | 'ritmo-rechazado' | 'validacion-matriz' | 'validacion-proyecto' | 'resultado-matriz' | 'resultado-proyecto' | 'carga-bitacora', datos?: any) {
     console.log(`🔔 Activando notificación: ${tipo}`, datos);
 
@@ -649,7 +614,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
       allowOutsideClick: true,
       allowEscapeKey: true
     }).then((decision: any) => {
-      // Solo valida si apretó "Validar". X, ESC, Cancelar o click afuera → no hace nada
       if (decision.value) {
         this.ejecutarValidacion();
       }
@@ -665,7 +629,7 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
 
     this._sSubProyecto.getSubProyectobyID(this.drdSubProyecto).subscribe(result => {
 
-      let SubProyectoAnterior = { ...result }; // Guardar estado anterior
+      let SubProyectoAnterior = { ...result };
       let SubProyecto;
       SubProyecto = result;
 
@@ -687,14 +651,10 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
       this._sSubProyecto.postUpdDelSubProyecto(SubProyecto).success(async result => {
         console.log('✅ Subproyecto validado exitosamente:', result);
 
-        // 🔥 DETECTAR Y NOTIFICAR CAMBIOS DE RITMO AUTOMÁTICAMENTE
         this._notificacionesService.detectarCambiosRitmoValidacion(SubProyectoAnterior, SubProyecto, this.usuario);
-
-        // 🔥 NOTIFICAR VALIDACIÓN DE MATRIZ Y PROYECTO AUTOMÁTICAMENTE
         this._notificacionesService.detectarValidacionMatrizProyecto(SubProyecto, this.usuario, 'matriz');
         this._notificacionesService.detectarValidacionMatrizProyecto(SubProyecto, this.usuario, 'proyecto');
 
-        // Notificar a coordinadores que el ritmo fue validado (método legacy)
         const coordinadores = await this.getUsersByRole('Coordinador');
         if (coordinadores.length > 0) {
           const titulo = 'Ritmo validado';
@@ -702,7 +662,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
           await this.enviarNotificacionesAUsuarios(coordinadores, 'ritmo', titulo, descripcion, '/Proyectos-MisProyectos');
         }
 
-        // Notificar también sobre validaciones de matriz y proyecto aprobadas (método legacy)
         await this.notificarResultadoValidacion('matriz', true);
         await this.notificarResultadoValidacion('proyecto', true);
 
@@ -740,7 +699,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
         return;
       }
 
-      // Solo el botón "Rechazar sin correo" rechaza. X o ESC → cancela sin hacer nada
       if (decision.dismiss === 'cancel') {
         this.ejecutarRechazo(false);
       }
@@ -787,12 +745,10 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
 
   private async finalizarRechazo(nomProy: string, enviarCorreo: boolean) {
 
-    // Cambiar estado del subproyecto a "en configuración" (3) para que salga de pendientes
     this._sSubProyecto.getSubProyectobyID(this.drdSubProyecto).subscribe(subProyecto => {
 
-      subProyecto.idEstadoProyecto = 3; // Vuelve a "en configuración" → sale del filtro == 4
+      subProyecto.idEstadoProyecto = 3; // Vuelve a "en configuración"
 
-      // Limpiar validaciones para que el usuario pueda rehacerlas
       subProyecto.ritmoValidado = false;
       subProyecto.fechaRitmoValidado = null;
       subProyecto.idUsuarioRitmoValidado = null;
@@ -807,7 +763,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
 
       this._sSubProyecto.postUpdDelSubProyecto(subProyecto).success(async () => {
 
-        // Notificar a coordinadores
         const coordinadores = await this.getUsersByRole('Coordinador');
         if (coordinadores.length > 0) {
           const titulo = 'Ritmo rechazado';
@@ -832,28 +787,21 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
 
   //*************************************************** Notificaciones Automáticas ***************************************************
 
-  /**
-   * Genera notificaciones automáticas para todos los subproyectos pendientes de validación
-   */
   async generarNotificacionesSubproyectosPendientes() {
     console.log('🔔 Generando notificaciones para subproyectos pendientes de validación...');
 
     try {
-      // Obtener todos los proyectos matriz del coordinador actual
       for (const proyectoMatriz of this.ProyectosMatriz) {
 
-        // Obtener proyectos del proyecto matriz
         const proyectos = await this._sProyecto.getProyectobyidProyectoMatriz(proyectoMatriz.idProyectoMatriz).toPromise();
 
         for (const proyecto of proyectos) {
 
-          // Obtener subproyectos del proyecto que están en estado pendiente (idEstadoProyecto == 4)
           const subproyectos = await this._sSubProyecto.getSubProyectobyidProyecto(proyecto.idProyecto).toPromise();
           const subproyectosPendientes = subproyectos.filter(sp => sp.idEstadoProyecto == 4);
 
           console.log(`📋 Proyecto "${proyecto.nombreProyecto}": ${subproyectosPendientes.length} subproyectos pendientes`);
 
-          // También crear datos para configuraciones pendientes reales si existen
           if (subproyectosPendientes.length > 0) {
             const configPendientesReales = subproyectosPendientes.map((sp, index) => ({
               id: 100 + index,
@@ -867,7 +815,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
             console.log('💾 Configuraciones reales pendientes guardadas en localStorage:', configPendientesReales.length);
           }
 
-          // Generar notificaciones para cada subproyecto pendiente
           for (const subproyecto of subproyectosPendientes) {
             await this.crearNotificacionSubproyectoPendiente(subproyecto, proyecto.nombreProyecto);
           }
@@ -881,12 +828,8 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
     }
   }
 
-  /**
-   * Crea una notificación específica para un subproyecto pendiente de validación
-   */
   private async crearNotificacionSubproyectoPendiente(subproyecto: any, nombreProyecto: string) {
     try {
-      // Obtener usuarios con permisos para validar (Directores, Sub-Gerentes)
       const directores = await this.getUsersByRole('Director');
       const subGerentes = await this.getUsersByRole('Sub-Gerente');
 
@@ -895,7 +838,6 @@ export class ValidacionConfigSubProyectoComponent implements OnInit {
       if (todosLosUsuarios.length > 0) {
         console.log(`📨 Creando notificación para "${subproyecto.nombreSubProyecto}" para ${todosLosUsuarios.length} usuarios`);
 
-        // Usar el método específico del servicio de notificaciones
         for (const usuario of todosLosUsuarios) {
           this._notificacionesService.crearNotificacionSubproyectoPendiente(
             usuario.idUsuario,

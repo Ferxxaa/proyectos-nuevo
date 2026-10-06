@@ -52,148 +52,143 @@
 
                 <app-lista-conf-pendientes (selectSubProyecto)="cargaSubProyecto($event)" *ngIf="validando"></app-lista-conf-pendientes>
 
+                <!-- Columnas en orden idEtapa 1..18 (catálogo de la BD). No reordenar. -->
                 <div class="table-container">
                 <table class="table corporate-table">
                   <thead>
                     <tr>
-                      <th class="th-label"></th>
-                      <th class="th-etapa-1">Requerimiento</th>
-                      <th class="th-nbi">NBI 1</th>
-                      <th class="th-etapa-2">Factibilidad</th>
-                      <th class="th-nbi">NBI 2</th>
-                      <th class="th-etapa-3">Layout</th>
-                      <th class="th-nbi">NBI 3</th>
-                      <th class="th-etapa-4">Proyecto</th>
-                      <th class="th-nbi">NBI 4</th>
-                      <th class="th-etapa-5">Regularización</th>
-                      <th class="th-nbi">NBI 5</th>
-                      <th class="th-etapa-5b">Licitación Adjudicación</th>
-                      <th class="th-nbi">NBI 6</th>
-                      <th class="th-etapa-6">Construcción</th>
-                      <th class="th-etapa-7">Habilitación</th>
-                      <th class="th-nbi">NBI 7</th>
-                      <th class="th-etapa-8">Cierre contratista</th>
-                      <th class="th-etapa-8b">Cierre cliente</th>
-                      <th class="th-etapa-8c">Cierre mantención</th>
-                      <th class="th-total">Total</th>
+                        <th class="th-label"></th>
+                        <th class="th-etapa-1">Requerimiento</th>
+                        <th class="th-nbi">NBI 1</th>
+                        <th class="th-etapa-2">Factibilidad</th>
+                        <th class="th-nbi">NBI 2</th>
+                        <th class="th-etapa-3">Layout</th>
+                        <th class="th-nbi">NBI 3</th>
+                        <th class="th-etapa-4">Proyecto</th>
+                        <th class="th-nbi">NBI 4</th>
+                        <th class="th-etapa-5">Regularización</th>
+                        <th class="th-etapa-5b">Licitación Adjudicación</th>
+                        <th class="th-nbi">NBI 5</th>
+                        <th class="th-etapa-6">Construcción</th>
+                        <th class="th-etapa-7">Habilitación</th>
+                        <th class="th-nbi">NBI 6</th>
+                        <th class="th-etapa-8">Cierre contratista</th>
+                        <th class="th-etapa-8b">Cierre cliente</th>
+                        <th class="th-etapa-8c">Cierre mantención</th>
+                        <th class="th-nbi">NBI 7</th>
+                        <th class="th-total">Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td>Dias</td>
-                      <td>{{Requerimiento.duracion}}</td>
-                      <td>{{NBI1.duracion}}</td>
-                      <td>{{Factibilidad.duracion}}</td>
-                      <td>{{NBI2.duracion}}</td>
-                      <td>{{Layout.duracion}}</td>
-                      <td>{{NBI3.duracion}}</td>
-                      <td>{{Proyecto.duracion}}</td>
-                      <td>{{NBI4.duracion}}</td>
-                      <td>{{Regularizacion.duracion}}</td>
-                      <td>{{NBI5.duracion}}</td>
-                      <td>{{LicitacionAdjudicacion.duracion}}</td>
-                      <td>{{NBI6.duracion}}</td>
-                      <td>{{Construccion.duracion}}</td>
-                      <td>{{Habilitacion.duracion}}</td>
-                      <td>{{NBI7.duracion}}</td>
-                      <td>{{Contratista.duracion}}</td>
-                      <td>{{Cliente.duracion}}</td>
-                      <td>{{Mantencion.duracion}}</td>
-                      <td class="cell-total">{{Requerimiento.duracion + NBI1.duracion + Factibilidad.duracion + NBI2.duracion +
-                        Layout.duracion + NBI3.duracion + Proyecto.duracion + NBI4.duracion + Regularizacion.duracion +
-                        NBI5.duracion + LicitacionAdjudicacion.duracion + NBI6.duracion + Construccion.duracion +
-                        Habilitacion.duracion + NBI7.duracion + Contratista.duracion + Cliente.duracion + Mantencion.duracion}}</td>
+                        <td>Dias</td>
+                        <td>{{Requerimiento.duracion}}</td>
+                        <td>{{NBI1.duracion}}</td>
+                        <td>{{Factibilidad.duracion}}</td>
+                        <td>{{NBI2.duracion}}</td>
+                        <td>{{Layout.duracion}}</td>
+                        <td>{{NBI3.duracion}}</td>
+                        <td>{{Proyecto.duracion}}</td>
+                        <td>{{NBI4.duracion}}</td>
+                        <td>{{Licitacion.duracion}}</td>
+                        <td>{{Adjudicacion.duracion}}</td>
+                        <td>{{NBI5.duracion}}</td>
+                        <td>{{Construccion.duracion}}</td>
+                        <td>{{Habilitacion.duracion}}</td>
+                        <td>{{NBI6.duracion}}</td>
+                        <td>{{Contratista.duracion}}</td>
+                        <td>{{Cliente.duracion}}</td>
+                        <td>{{Mantencion.duracion}}</td>
+                        <td>{{NBI7.duracion}}</td>
+                        <td class="cell-total">{{ Requerimiento.duracion + NBI1.duracion + Factibilidad.duracion + NBI2.duracion + Layout.duracion + NBI3.duracion + Proyecto.duracion + NBI4.duracion + Licitacion.duracion + Adjudicacion.duracion + NBI5.duracion + Construccion.duracion + Habilitacion.duracion + NBI6.duracion + Contratista.duracion + Cliente.duracion + Mantencion.duracion + NBI7.duracion }}</td>
                     </tr>
                     <tr>
-                      <td>F. Inicio</td>
-                      <td>{{Inicios[0] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Inicios[1] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Inicios[2] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Inicios[3] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Inicios[4] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Inicios[5] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Inicios[6] | date:"dd/MM/yyyy"}}</td>
-                      <td>{{Inicios[7] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Inicios[8] | date:"dd/MM/yyyy"}}</td>
-                      <td>{{Inicios[9] | date:"dd/MM/yyyy"}}</td>
-                      <td>{{Inicios[10] | date:"dd/MM/yyyy"}}</td>
-                      <td class="cell-total"></td>
+                        <td>F. Inicio</td>
+                        <td>{{Inicios[0] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Inicios[1] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Inicios[2] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Inicios[3] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Inicios[4] | date:"dd/MM/yyyy"}}</td>
+                        <td>{{Inicios[5] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Inicios[6] | date:"dd/MM/yyyy"}}</td>
+                        <td>{{Inicios[7] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Inicios[8] | date:"dd/MM/yyyy"}}</td>
+                        <td>{{Inicios[9] | date:"dd/MM/yyyy"}}</td>
+                        <td>{{Inicios[10] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td class="cell-total"></td>
                     </tr>
                     <tr>
-                      <td>F. Termino</td>
-                      <td>{{Terminos[0] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Terminos[1] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Terminos[2] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Terminos[3] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Terminos[4] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Terminos[5] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Terminos[6] | date:"dd/MM/yyyy"}}</td>
-                      <td>{{Terminos[7] | date:"dd/MM/yyyy"}}</td>
-                      <td></td>
-                      <td>{{Terminos[8] | date:"dd/MM/yyyy"}}</td>
-                      <td>{{Terminos[9] | date:"dd/MM/yyyy"}}</td>
-                      <td>{{Terminos[10] | date:"dd/MM/yyyy"}}</td>
-                      <td class="cell-total"></td>
+                        <td>F. Termino</td>
+                        <td>{{Terminos[0] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Terminos[1] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Terminos[2] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Terminos[3] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Terminos[4] | date:"dd/MM/yyyy"}}</td>
+                        <td>{{Terminos[5] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Terminos[6] | date:"dd/MM/yyyy"}}</td>
+                        <td>{{Terminos[7] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td>{{Terminos[8] | date:"dd/MM/yyyy"}}</td>
+                        <td>{{Terminos[9] | date:"dd/MM/yyyy"}}</td>
+                        <td>{{Terminos[10] | date:"dd/MM/yyyy"}}</td>
+                        <td></td>
+                        <td class="cell-total"></td>
                     </tr>
                     <tr>
-                      <td>Ponderado (Porcentaje)</td>
-                      <td>{{Requerimiento.ponderado}}</td>
-                      <td></td>
-                      <td>{{Factibilidad.ponderado}}</td>
-                      <td></td>
-                      <td>{{Layout.ponderado}}</td>
-                      <td></td>
-                      <td>{{Proyecto.ponderado}}</td>
-                      <td></td>
-                      <td>{{Regularizacion.ponderado}}</td>
-                      <td></td>
-                      <td>{{LicitacionAdjudicacion.ponderado}}</td>
-                      <td></td>
-                      <td>{{Construccion.ponderado}}</td>
-                      <td>{{Habilitacion.ponderado}}</td>
-                      <td></td>
-                      <td>{{Contratista.ponderado}}</td>
-                      <td>{{Cliente.ponderado}}</td>
-                      <td>{{Mantencion.ponderado}}</td>
-                      <td class="cell-total">{{ sumPonderado }}</td>
+                        <td>Ponderado (Porcentaje)</td>
+                        <td>{{Requerimiento.ponderado}}</td>
+                        <td></td>
+                        <td>{{Factibilidad.ponderado}}</td>
+                        <td></td>
+                        <td>{{Layout.ponderado}}</td>
+                        <td></td>
+                        <td>{{Proyecto.ponderado}}</td>
+                        <td></td>
+                        <td>{{Licitacion.ponderado}}</td>
+                        <td>{{Adjudicacion.ponderado}}</td>
+                        <td></td>
+                        <td>{{Construccion.ponderado}}</td>
+                        <td>{{Habilitacion.ponderado}}</td>
+                        <td></td>
+                        <td>{{Contratista.ponderado}}</td>
+                        <td>{{Cliente.ponderado}}</td>
+                        <td>{{Mantencion.ponderado}}</td>
+                        <td></td>
+                        <td class="cell-total">{{ sumPonderado }}</td>
                     </tr>
                     <tr>
-                      <td>Presupuesto (MM$)</td>
-                      <td>{{Requerimiento.presupuesto}}</td>
-                      <td></td>
-                      <td>{{Factibilidad.presupuesto}}</td>
-                      <td></td>
-                      <td>{{Layout.presupuesto}}</td>
-                      <td></td>
-                      <td>{{Proyecto.presupuesto}}</td>
-                      <td></td>
-                      <td>{{Regularizacion.presupuesto}}</td>
-                      <td></td>
-                      <td>{{LicitacionAdjudicacion.presupuesto}}</td>
-                      <td></td>
-                      <td>{{Construccion.presupuesto}}</td>
-                      <td>{{Habilitacion.presupuesto}}</td>
-                      <td></td>
-                      <td>{{Contratista.presupuesto}}</td>
-                      <td>{{Cliente.presupuesto}}</td>
-                      <td>{{Mantencion.presupuesto}}</td>
-                      <td class="cell-total">{{ Requerimiento.presupuesto + Factibilidad.presupuesto + Layout.presupuesto +
-                        Proyecto.presupuesto + Regularizacion.presupuesto + LicitacionAdjudicacion.presupuesto +
-                        Construccion.presupuesto + Habilitacion.presupuesto + Contratista.presupuesto +
-                        Cliente.presupuesto + Mantencion.presupuesto}}</td>
+                        <td>Presupuesto (MM$)</td>
+                        <td>{{Requerimiento.presupuesto}}</td>
+                        <td></td>
+                        <td>{{Factibilidad.presupuesto}}</td>
+                        <td></td>
+                        <td>{{Layout.presupuesto}}</td>
+                        <td></td>
+                        <td>{{Proyecto.presupuesto}}</td>
+                        <td></td>
+                        <td>{{Licitacion.presupuesto}}</td>
+                        <td>{{Adjudicacion.presupuesto}}</td>
+                        <td></td>
+                        <td>{{Construccion.presupuesto}}</td>
+                        <td>{{Habilitacion.presupuesto}}</td>
+                        <td></td>
+                        <td>{{Contratista.presupuesto}}</td>
+                        <td>{{Cliente.presupuesto}}</td>
+                        <td>{{Mantencion.presupuesto}}</td>
+                        <td></td>
+                        <td class="cell-total">{{ Requerimiento.presupuesto + Factibilidad.presupuesto + Layout.presupuesto + Proyecto.presupuesto + Licitacion.presupuesto + Adjudicacion.presupuesto + Construccion.presupuesto + Habilitacion.presupuesto + Contratista.presupuesto + Cliente.presupuesto + Mantencion.presupuesto }}</td>
                     </tr>
                   </tbody>
                 </table>
