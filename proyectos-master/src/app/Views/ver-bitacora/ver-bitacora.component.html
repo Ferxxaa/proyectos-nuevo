@@ -1,5 +1,9 @@
 <section class="widget">
   <header style="background-color: #555555">
+    <a *ngIf="hayOrden && !soloLectura" (click)="RestablecerOrden()" title="Volver al orden original"
+      style="float: right; color: #ddd; cursor: pointer; font-size: 12px; margin-top: 3px;">
+      <i class="fa fa-undo"></i> Restablecer orden
+    </a>
     <h5 style="color: white;">
       <strong>Bitacora</strong>
     </h5>
@@ -7,7 +11,21 @@
   <br>
   <div class="list-group list-group-lg" *ngIf="!Loader">
     <ng-container *ngFor="let Bitacora of Bitacoras; let i = index">
-      <div class="linea">
+      <div class="linea"
+        [attr.draggable]="!soloLectura"
+        [attr.title]="!soloLectura ? 'Arrastra para cambiar el orden' : null"
+        (dragstart)="onDragStart(i, $event)"
+        (dragover)="onDragOver(i, $event)"
+        (drop)="onDrop(i, $event)"
+        (dragend)="onDragEnd()"
+        [ngStyle]="{
+          'cursor': soloLectura ? null : (dragIndex !== null ? 'grabbing' : 'grab'),
+          'opacity': dragIndex === i ? 0.4 : 1,
+          'transition': 'opacity .15s',
+          'box-shadow': (dragOverIndex === i && dragIndex !== null && dragIndex !== i)
+            ? (dragIndex > i ? 'inset 0 3px 0 #F59325' : 'inset 0 -3px 0 #F59325')
+            : null
+        }">
         <a class="list-goup-item"  (click)="!soloLectura && VerDetalle(i)">
           <i class="fa fa-circle pull-xs-right mt-sm" style="font-size: 40px;" [ngClass]="{
             'text-success':Bitacora.nombrePrioridad === 'Baja',
@@ -24,6 +42,7 @@
           <i class="glyphicon glyphicon-glyph-paperclip pull-xs-right mt-sm" style="font-size: 20px; margin-right: 20px; margin-top: 20px">
           </i>
         </a>
+        <div style="clear: both;"></div>
       </div>
     </ng-container>
   </div>
@@ -54,7 +73,7 @@
         </div>
       </div>
       <div class="modal-body">
-        <form #EForm="ngForm" (ngSubmit)="Actualizar(EForm)">
+        <form #EForm="ngForm" (ngSubmit)="$event && null">
           <fieldset>
             <legend></legend>
             <div class="form-group row">
@@ -101,8 +120,8 @@
           <div class="form-actions">
             <div class="row">
               <div class="col-md-offset-4 col-md-8">
-                <button ID="btnEditarBitacora" class="btn btn-success" (click)="Actualizar()" [disabled]="loading || soloLectura" *ngIf="!soloLectura">Editar</button>
-                <button ID="btnEliminarBitacora" class="btn btn-danger" (click)="Eliminar()" [disabled]="loading || soloLectura" *ngIf="!soloLectura">Eliminar</button>
+                <button type="button" ID="btnEditarBitacora" class="btn btn-success" (click)="Actualizar()" [disabled]="loading || soloLectura" *ngIf="!soloLectura">Editar</button>
+                <button type="button" ID="btnEliminarBitacora" class="btn btn-danger" (click)="Eliminar()" [disabled]="loading || soloLectura" *ngIf="!soloLectura">Eliminar</button>
               </div>
             </div>
           </div>

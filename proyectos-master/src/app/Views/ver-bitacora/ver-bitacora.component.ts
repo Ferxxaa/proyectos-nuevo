@@ -17,6 +17,7 @@ import { sSubProyecto } from '../../services/sSubProyecto.service';
 import { sPrioridad } from '../../services/sPrioridad.service';
 import { sBitacora } from '../../services/sBitacora.service';
 import { sCorreo } from '../../services/Personalizados/sCorreo.service';
+import { sOrdenBitacora } from '../../services/Personalizados/sOrdenBitacora.service';
 import { environment } from '../../../environments/environment';
 
 declare var jQuery: any;
@@ -33,7 +34,8 @@ declare var Swal: any;
     sVis_VerBitacora,
     sPrioridad,
     sBitacora,
-    sCorreo
+    sCorreo,
+    sOrdenBitacora
   ]
 })
 export class VerBitacoraComponent implements OnInit {
@@ -62,12 +64,18 @@ export class VerBitacoraComponent implements OnInit {
   //Indices
   IndexUpdate: number;
 
+  //Orden (compartido en Firestore)
+  dragIndex: number = null;
+  dragOverIndex: number = null;
+  hayOrden: boolean = false;
+
   constructor(
     private _PopUps: PopUps,
     private _Comunes: Comunes,
     private _sVis_VerBitacora: sVis_VerBitacora,
     private _sPrioridad: sPrioridad,
-    private _sBitacora: sBitacora
+    private _sBitacora: sBitacora,
+    private _sOrdenBitacora: sOrdenBitacora
   ) {
     this.Loader = true;
     this.usuario = JSON.parse(localStorage.usuario);
@@ -87,9 +95,23 @@ export class VerBitacoraComponent implements OnInit {
 
   private traeBitacora() {
     this.Loader = true;
+
+    // El orden se pide en paralelo con las bitácoras
+    const ordenPromise = this._sOrdenBitacora.getOrden(this.SubProyecto.idSubProyecto, this.TipoBitacora);
+
     this._sVis_VerBitacora.getVis_VerBitacorabyidSubProyecto(this.SubProyecto.idSubProyecto).subscribe(result => {
-      this.Bitacoras = result.filter(element => { return element.TipoBitacora == this.TipoBitacora; });
-      this.Loader = false;
+      const filtradas = result.filter(element => { return element.TipoBitacora == this.TipoBitacora; });
+
+      ordenPromise.then(orden => {
+        console.log('[ordenBitacora] orden leído al cargar', orden);
+        this.Bitacoras = this.aplicarOrden(filtradas, orden);
+        this.hayOrden = orden.length > 0;
+        this.Loader = false;
+      }).catch(() => {
+        this.Bitacoras = filtradas;
+        this.hayOrden = false;
+        this.Loader = false;
+      });
     });
   }
 
@@ -123,6 +145,90 @@ export class VerBitacoraComponent implements OnInit {
     this.IndexUpdate = 0;
     this._PopUps.OcultarPopUpEditar();
     $("#NombreArchUpd").html("");
+  }
+
+  //*************************************************** Orden ***************************************************
+
+  // Las bitácoras nuevas (que no están en el orden guardado) quedan arriba, en el orden que manda el backend
+  private aplicarOrden(lista: any[], orden: any[]): any[] {
+    if (!orden || !orden.length) {
+      return lista;
+    }
+
+    const pos: { [id: string]: number } = {};
+    orden.forEach((id, idx) => pos[String(id)] = idx);
+
+    const nuevas = lista.filter(b => pos[String(b.idBitacora)] === undefined);
+    const conocidas = lista
+      .filter(b => pos[String(b.idBitacora)] !== undefined)
+      .sort((a, b) => pos[String(a.idBitacora)] - pos[String(b.idBitacora)]);
+
+    return nuevas.concat(conocidas);
+  }
+
+  // Se guarda apenas se suelta la bitácora
+  private guardarOrden() {
+    this.hayOrden = true;
+    const ids = this.Bitacoras.map((b: any) => b.idBitacora);
+    this._sOrdenBitacora.guardarOrden(this.SubProyecto.idSubProyecto, this.TipoBitacora, ids, this.usuario.idUsuario)
+      .then(() => console.log('[ordenBitacora] guardado en Firebase', ids))
+      .catch(e => {
+        console.error('Error al guardar orden en Firebase:', e);
+        Swal.fire('Error', 'No se pudo guardar el orden para todos los usuarios', 'error');
+      });
+  }
+
+  private moverBitacora(desde: number, hasta: number) {
+    if (desde === hasta || desde < 0 || hasta < 0 || desde >= this.Bitacoras.length || hasta >= this.Bitacoras.length) {
+      return;
+    }
+    const item = this.Bitacoras.splice(desde, 1)[0];
+    this.Bitacoras.splice(hasta, 0, item);
+    this.guardarOrden();
+  }
+
+  RestablecerOrden() {
+    this._sOrdenBitacora.borrarOrden(this.SubProyecto.idSubProyecto, this.TipoBitacora)
+      .catch(e => console.error('Error al borrar orden en Firebase:', e))
+      .then(() => {
+        this.hayOrden = false;
+        this.traeBitacora();
+      });
+  }
+
+  onDragStart(i: number, ev: any) {
+    if (this.soloLectura) {
+      return;
+    }
+    this.dragIndex = i;
+    try {
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text', String(i)); // Firefox necesita setData para arrastrar
+    } catch (e) { }
+  }
+
+  onDragOver(i: number, ev: any) {
+    if (this.dragIndex === null) {
+      return;
+    }
+    ev.preventDefault();
+    try {
+      ev.dataTransfer.dropEffect = 'move';
+    } catch (e) { }
+    this.dragOverIndex = i;
+  }
+
+  onDrop(i: number, ev: any) {
+    ev.preventDefault();
+    if (this.dragIndex !== null && this.dragIndex !== i) {
+      this.moverBitacora(this.dragIndex, i);
+    }
+    this.onDragEnd();
+  }
+
+  onDragEnd() {
+    this.dragIndex = null;
+    this.dragOverIndex = null;
   }
 
   //*************************************************** Descarga ***************************************************
