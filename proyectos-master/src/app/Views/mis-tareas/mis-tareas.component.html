@@ -2,470 +2,732 @@
 
 <div class="content-wrap">
   <main id="content" role="main" class="content">
-    <div class="row">
-      <div class="col-lg-12">
-        <section class="widget">
-          <header class="widget-header">
-            <div class="header-content">
-              <h2 class="header-title">
-                <i class="fa fa-tasks"></i>
-                <strong>Mis Tareas</strong>
-                <span class="task-counter" *ngIf="Tareas && Tareas.length > 0">({{Tareas.length}})</span>
-              </h2>
-              <div class="header-actions">
-                <a class="btn btn-success btn-modern" [routerLink]="['/Crear-Tareas']">
-                  <i class="fa fa-plus"></i> Crear Tarea
-                </a>
-                <a class="btn btn-secondary btn-modern" [routerLink]="['/Proyectos-MisProyectos']">
-                  <i class="fa fa-arrow-left"></i> Volver
-                </a>
+    <div class="cu-page">
+
+      <!-- ================= TOP BAR ================= -->
+      <header class="cu-topbar">
+        <div class="cu-breadcrumb">
+          <span class="cu-space-icon"><i class="fa fa-tasks"></i></span>
+          <span class="cu-title">Mis Tareas</span>
+          <span class="cu-count" *ngIf="Tareas && Tareas.length > 0">{{Tareas.length}}</span>
+        </div>
+        <div class="cu-topbar-actions">
+          <a class="cu-btn cu-btn-ghost" [routerLink]="['/Proyectos-MisProyectos']">
+            <i class="fa fa-arrow-left"></i> Volver
+          </a>
+          <button type="button" class="cu-btn cu-btn-primary" (click)="abrirModalNuevaTarea(1)">
+            <i class="fa fa-plus"></i> Tarea
+          </button>
+        </div>
+      </header>
+
+      <!-- ================= VISTAS ================= -->
+      <nav class="cu-views">
+        <button type="button" class="cu-view-tab" [class.active]="vistaActual === 'lista'" (click)="cambiarVista('lista')">
+          <i class="fa fa-list-ul"></i> Lista
+        </button>
+        <button type="button" class="cu-view-tab" [class.active]="vistaActual === 'tablero'" (click)="cambiarVista('tablero')">
+          <i class="fa fa-columns"></i> Tablero
+        </button>
+      </nav>
+
+      <!-- ================= TOOLBAR ================= -->
+      <div class="cu-toolbar">
+        <div class="cu-search">
+          <i class="fa fa-search"></i>
+          <input type="text" placeholder="Buscar por responsable o creador..." [(ngModel)]="responsableFiltro" (input)="filtrarPorResponsable()">
+        </div>
+
+        <div class="cu-segmented">
+          <button type="button" *ngFor="let t of tiposTarea" [class.active]="tipoTareaFiltro === t.value" (click)="seleccionarTipoTarea(t.value)">
+            {{t.label}}
+          </button>
+        </div>
+
+        <button type="button" class="cu-btn cu-btn-ghost cu-btn-sm" (click)="limpiarFiltroResponsable()">
+          <i class="fa fa-times"></i> Limpiar filtros
+        </button>
+      </div>
+
+      <!-- ================= CHIPS (estado / prioridad) ================= -->
+      <div class="cu-chips" *ngIf="!LoadingTabla">
+        <button type="button" class="cu-chip" [class.active]="esFiltroEstadoActivo(1)" (click)="mostrarPendientes()">
+          <span class="cu-dot" style="background:#87909e"></span> Pendientes <b>{{getTaskCountByStatus(1)}}</b>
+        </button>
+        <button type="button" class="cu-chip" [class.active]="esFiltroEstadoActivo(2)" (click)="mostrarEnProceso()">
+          <span class="cu-dot" style="background:#4466ff"></span> En Proceso <b>{{getTaskCountByStatus(2)}}</b>
+        </button>
+        <button type="button" class="cu-chip" [class.active]="esFiltroVencidasActivo()" (click)="mostrarVencidas()">
+          <i class="fa fa-exclamation-circle" style="color:#d33d44"></i> Vencidas <b>{{getOverdueTasks()}}</b>
+        </button>
+        <button type="button" class="cu-chip" [class.active]="esFiltroEstadoActivo(5)" (click)="mostrarTerminadas()">
+          <span class="cu-dot" style="background:#008844"></span> Terminadas <b>{{getCantidadTerminadas()}}</b>
+        </button>
+        <button type="button" class="cu-chip" [class.active]="esFiltroEstadoActivo(3)" (click)="mostrarCanceladas()">
+          <span class="cu-dot" style="background:#d33d44"></span> Canceladas <b>{{getCantidadCanceladas()}}</b>
+        </button>
+
+        <span class="cu-chip-sep"></span>
+
+        <button type="button" class="cu-chip" [class.active]="prioridadFiltro === 'Alta'" (click)="filtrarPorPrioridad('Alta')">
+          <i class="fa fa-flag" [style.color]="getColorPrioridad('Alta')"></i> Alta <b>{{getTaskCountByPrioridad('Alta')}}</b>
+        </button>
+        <button type="button" class="cu-chip" [class.active]="prioridadFiltro === 'Media'" (click)="filtrarPorPrioridad('Media')">
+          <i class="fa fa-flag" [style.color]="getColorPrioridad('Media')"></i> Media <b>{{getTaskCountByPrioridad('Media')}}</b>
+        </button>
+        <button type="button" class="cu-chip" [class.active]="prioridadFiltro === 'Baja'" (click)="filtrarPorPrioridad('Baja')">
+          <i class="fa fa-flag" [style.color]="getColorPrioridad('Baja')"></i> Baja <b>{{getTaskCountByPrioridad('Baja')}}</b>
+        </button>
+      </div>
+
+      <!-- ================= LOADING ================= -->
+      <div class="cu-loading" *ngIf="LoadingTabla">
+        <i class="fa fa-spinner fa-spin"></i> Cargando tareas...
+      </div>
+
+      <!-- ================= VISTA LISTA ================= -->
+      <div class="cu-list" *ngIf="!LoadingTabla && vistaActual === 'lista'">
+        <div class="cu-table">
+
+          <!-- Header único (sticky) -->
+          <div class="cu-row cu-row-head">
+            <div class="cu-col cu-col-name sortable" (click)="sortBy('descripcionTarea')">Nombre <i class="fa fa-sort"></i></div>
+            <div class="cu-col sortable" (click)="sortBy('UsuarioResponsable')">Responsable <i class="fa fa-sort"></i></div>
+            <div class="cu-col sortable" (click)="sortBy('fechaTerminoProgramado')">Compromiso <i class="fa fa-sort"></i></div>
+            <div class="cu-col sortable" (click)="sortBy('prioridad')">Prioridad <i class="fa fa-sort"></i></div>
+            <div class="cu-col sortable" (click)="sortBy('area')">Área <i class="fa fa-sort"></i></div>
+            <div class="cu-col sortable" (click)="sortBy('nombreSubProyecto')">Sub Proyecto <i class="fa fa-sort"></i></div>
+            <div class="cu-col"></div>
+          </div>
+
+          <ng-container *ngFor="let grupo of gruposEstado">
+            <section class="cu-group" [ngClass]="'cu-group-' + grupo.id" [class.cu-group-collapsed]="gruposColapsados[grupo.id]" *ngIf="tareasPorEstado(grupo.id).length > 0 || puedeCrearEnGrupo(grupo.id)">
+
+              <div class="cu-group-header" (click)="toggleGrupo(grupo.id)">
+                <i class="fa cu-caret" [ngClass]="gruposColapsados[grupo.id] ? 'fa-caret-right' : 'fa-caret-down'"></i>
+                <span class="cu-status-pill" [style.background]="grupo.color">
+                  <i class="fa" [ngClass]="grupo.icono"></i> {{grupo.nombre}}
+                </span>
+                <span class="cu-group-count">{{tareasPorEstado(grupo.id).length}} {{tareasPorEstado(grupo.id).length === 1 ? 'tarea' : 'tareas'}}</span>
+                <span class="cu-group-alert" *ngIf="contarVencidasGrupo(grupo.id) > 0">
+                  <i class="fa fa-exclamation-circle"></i> {{contarVencidasGrupo(grupo.id)}} {{contarVencidasGrupo(grupo.id) === 1 ? 'vencida' : 'vencidas'}}
+                </span>
               </div>
-            </div>
-          </header>
-          <div class="widget-body">
-            <!-- Quick Stats -->
-            <div class="task-stats" *ngIf="!LoadingTabla">
-                          <div class="stat-card stat-pending stat-card-clickable" (click)="mostrarPendientes()">
-                <div class="stat-icon"><i class="fa fa-clock-o"></i></div>
-                <div class="stat-info">
-                  <div class="stat-number">{{getTaskCountByStatus(1)}}</div>
-                  <div class="stat-label">Pendientes</div>
+
+              <div class="cu-group-body" *ngIf="!gruposColapsados[grupo.id]">
+                <div class="cu-row"
+                     *ngFor="let Tarea of tareasPorEstado(grupo.id); trackBy: trackByTarea"
+                     [id]="'tarea-local-' + Tarea.idTarea"
+                     [class.cu-row-highlight]="esTareaDestacadaLocal(Tarea)"
+                     (click)="seleccionarTareaLocal(Tarea)">
+
+                  <!-- Nombre -->
+                  <div class="cu-col cu-col-name">
+                    <span class="cu-status-circle"
+                          [style.border-color]="grupo.color"
+                          [style.background]="grupo.id == 5 ? grupo.color : 'transparent'"
+                          [title]="Tarea.nombreEstadoTarea">
+                      <i class="fa fa-check" *ngIf="grupo.id == 5"></i>
+                    </span>
+                    <div class="cu-name-wrap">
+                      <div class="cu-task-name" (click)="editarTarea(Tarea); $event.stopPropagation()" [title]="limpiarDescripcion(Tarea.descripcionTarea)">
+                        {{ limpiarDescripcion(Tarea.descripcionTarea) }}
+                      </div>
+                      <div class="cu-task-meta">
+                        <span class="cu-id">#{{Tarea.idTarea}}</span>
+                        <span class="cu-sep">·</span>
+                        <span class="cu-type-txt" [ngClass]="'cu-type-txt-' + getTipoTarea(Tarea)">{{getTipoTareaLabel(Tarea)}}</span>
+                        <span class="cu-sep">·</span>
+                        <span class="cu-meta-creador" [title]="'Creada por ' + Tarea.UsuarioCreador">de {{Tarea.UsuarioCreador}}</span>
+                        <span class="cu-sep">·</span>
+                        <span [title]="'Creada el ' + (Tarea.fechaCreacion | date:'dd/MM/yyyy')">{{Tarea.fechaCreacion | date:'dd/MM/yy'}}</span>
+                      </div>
+                    </div>
+                    <span class="cu-history" (click)="TraeHistorial(Tarea.idTarea); $event.stopPropagation()" title="Ver historial">
+                      <i class="fa fa-comment-o"></i> {{Tarea.Hiteraciones || 0}}
+                    </span>
+                  </div>
+
+                  <!-- Responsable -->
+                  <div class="cu-col">
+                    <span class="cu-user" [title]="Tarea.UsuarioResponsable">
+                      <span class="cu-avatar" [style.background]="getColorAvatar(Tarea.UsuarioResponsable)">{{getIniciales(Tarea.UsuarioResponsable)}}</span>
+                      <span class="cu-user-name">{{Tarea.UsuarioResponsable}}</span>
+                    </span>
+                  </div>
+
+                  <!-- Compromiso -->
+                  <div class="cu-col">
+                    <span class="cu-date" *ngIf="Tarea.fechaTerminoProgramado"
+                          [class.overdue]="esVencida(Tarea)"
+                          [class.due-soon]="!esVencida(Tarea) && isDueSoon(Tarea.fechaTerminoProgramado)"
+                          [title]="Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy'">
+                      <i class="fa" [ngClass]="esVencida(Tarea) ? 'fa-exclamation-circle' : 'fa-calendar-o'"></i>
+                      {{formatoFechaCorta(Tarea.fechaTerminoProgramado)}}
+                    </span>
+                    <span class="cu-dash" *ngIf="!Tarea.fechaTerminoProgramado">—</span>
+                  </div>
+
+                  <!-- Prioridad -->
+                  <div class="cu-col">
+                    <span class="cu-flag cu-prio-pill" [ngClass]="'cu-prio-' + Tarea.prioridad" *ngIf="Tarea.prioridad">
+                      <i class="fa fa-flag" [style.color]="getColorPrioridad(Tarea.prioridad)"></i> {{Tarea.prioridad}}
+                    </span>
+                    <span class="cu-dash" *ngIf="!Tarea.prioridad">—</span>
+                  </div>
+
+                  <!-- Área -->
+                  <div class="cu-col">
+                    <span class="cu-tag" *ngIf="Tarea.area"
+                          [style.background]="getColorArea(Tarea.area).bg"
+                          [style.color]="getColorArea(Tarea.area).fg"
+                          [title]="Tarea.area"><i class="cu-tag-dot" [style.background]="getColorArea(Tarea.area).fg"></i>{{Tarea.area}}</span>
+                    <span class="cu-dash" *ngIf="!Tarea.area">—</span>
+                  </div>
+
+                  <!-- Sub Proyecto -->
+                  <div class="cu-col">
+                    <span class="cu-list-link" [class.cu-list-general]="!Tarea.nombreSubProyecto || Tarea.nombreSubProyecto === 'General'"
+                          (click)="navegarATareaEnProyecto(Tarea); $event.stopPropagation()"
+                          [title]="Tarea.nombreSubProyecto || 'General'">
+                      <i class="fa fa-folder-o"></i><span>{{Tarea.nombreSubProyecto || 'General'}}</span>
+                    </span>
+                  </div>
+
+                  <!-- Acciones -->
+                  <div class="cu-col">
+                    <div class="cu-actions">
+                      <button type="button" class="cu-icon-btn" title="Editar tarea" (click)="editarTarea(Tarea); $event.stopPropagation()">
+                        <i class="fa fa-pencil"></i>
+                      </button>
+                      <button type="button" class="cu-icon-btn" title="Enviar recordatorio" [disabled]="sendingEmail" (click)="ReenviarCorreo(Tarea); $event.stopPropagation()">
+                        <i class="fa fa-bell-o" *ngIf="!sendingEmail"></i>
+                        <i class="fa fa-spinner fa-spin" *ngIf="sendingEmail"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Agregar tarea inline -->
+                <div class="cu-quickadd" *ngIf="puedeCrearEnGrupo(grupo.id)">
+                  <div class="cu-quickadd-trigger" *ngIf="quickAddGrupo !== grupo.id" (click)="abrirQuickAdd(grupo.id)">
+                    <i class="fa fa-plus"></i> Agregar tarea
+                  </div>
+
+                  <div class="cu-quickadd-form" *ngIf="quickAddGrupo === grupo.id">
+                    <span class="cu-status-circle" [style.border-color]="grupo.color"></span>
+                    <input type="text" class="cu-quickadd-input"
+                           [id]="'quickadd-input-' + grupo.id"
+                           placeholder="Describe la tarea y presiona Enter"
+                           [(ngModel)]="quickAdd.descripcion"
+                           [disabled]="creandoTarea"
+                           (keydown.enter)="guardarQuickAdd(grupo.id)"
+                           (keydown.escape)="cancelarQuickAdd()">
+
+                    <select class="cu-quickadd-select" [(ngModel)]="quickAdd.idResponsable" title="Responsable" [disabled]="creandoTarea">
+                      <option [ngValue]="0">Responsable</option>
+                      <option *ngFor="let R of Responsables" [ngValue]="R.idUsuario">{{R.nombre + ' ' + R.paterno}}</option>
+                    </select>
+
+                    <select class="cu-quickadd-select cu-quickadd-select-sm" [(ngModel)]="quickAdd.area" title="Área" [disabled]="creandoTarea">
+                      <option value="0">Área</option>
+                      <option *ngFor="let Area of Areas" [value]="Area.idArea">{{Area.nombre}}</option>
+                    </select>
+
+                    <select class="cu-quickadd-select cu-quickadd-select-sm" [(ngModel)]="quickAdd.prioridad" title="Prioridad" [disabled]="creandoTarea">
+                      <option value="Alta">⚑ Alta</option>
+                      <option value="Media">⚑ Media</option>
+                      <option value="Baja">⚑ Baja</option>
+                    </select>
+
+                    <button type="button" class="cu-icon-btn" title="Más opciones (CC, fecha...)" (click)="abrirModalNuevaTarea(grupo.id, true)" [disabled]="creandoTarea">
+                      <i class="fa fa-expand"></i>
+                    </button>
+                    <button type="button" class="cu-btn cu-btn-ghost cu-btn-sm" (click)="cancelarQuickAdd()" [disabled]="creandoTarea">Cancelar</button>
+                    <button type="button" class="cu-btn cu-btn-primary cu-btn-sm" (click)="guardarQuickAdd(grupo.id)" [disabled]="creandoTarea">
+                      <i class="fa fa-spinner fa-spin" *ngIf="creandoTarea"></i> Guardar
+                    </button>
+                  </div>
                 </div>
               </div>
-                          <div class="stat-card stat-progress stat-card-clickable" (click)="mostrarEnProceso()">
-                <div class="stat-icon"><i class="fa fa-spinner"></i></div>
-                <div class="stat-info">
-                  <div class="stat-number">{{getTaskCountByStatus(2)}}</div>
-                  <div class="stat-label">En Proceso</div>
-                </div>
+            </section>
+          </ng-container>
+        </div>
+
+        <!-- Empty state -->
+        <div class="cu-empty" *ngIf="!Tareas || Tareas.length === 0">
+          <div class="cu-empty-ico"><i class="fa fa-check-square-o"></i></div>
+          <div class="cu-empty-title">No hay tareas</div>
+          <div class="cu-empty-sub">Prueba cambiando los filtros o crea una nueva tarea.</div>
+        </div>
+      </div>
+
+      <!-- ================= VISTA TABLERO ================= -->
+      <div class="cu-board" *ngIf="!LoadingTabla && vistaActual === 'tablero'">
+        <div class="cu-board-col" *ngFor="let grupo of gruposEstado"
+             [class.cu-drop-over]="esColumnaDestino(grupo.id)"
+             (dragover)="onDragOver($event, grupo.id)"
+             (dragleave)="onDragLeave($event, grupo.id)"
+             (drop)="onDrop($event, grupo.id)">
+          <div class="cu-board-col-header">
+            <span class="cu-status-pill" [style.background]="grupo.color">
+              <i class="fa" [ngClass]="grupo.icono"></i> {{grupo.nombre}}
+            </span>
+            <span class="cu-group-count">{{tareasPorEstado(grupo.id).length}}</span>
+          </div>
+
+          <div class="cu-board-cards">
+            <div class="cu-card"
+                 *ngFor="let Tarea of tareasPorEstado(grupo.id); trackBy: trackByTarea"
+                 [id]="'tarea-local-' + Tarea.idTarea"
+                 [class.cu-row-highlight]="esTareaDestacadaLocal(Tarea)"
+                 [class.cu-card-dragging]="tareaArrastrada === Tarea"
+                 [class.cu-card-saving]="actualizandoEstadoId === Tarea.idTarea"
+                 draggable="true"
+                 (dragstart)="onDragStart($event, Tarea)"
+                 (dragend)="onDragEnd()"
+                 (click)="editarTarea(Tarea)">
+
+              <div class="cu-card-saving-overlay" *ngIf="actualizandoEstadoId === Tarea.idTarea">
+                <i class="fa fa-spinner fa-spin"></i> Guardando...
               </div>
-                          <div class="stat-card stat-overdue stat-card-clickable" (click)="mostrarVencidas()">
-                <div class="stat-icon"><i class="fa fa-exclamation-triangle"></i></div>
-                <div class="stat-info">
-                  <div class="stat-number">{{getOverdueTasks()}}</div>
-                  <div class="stat-label">Vencidas</div>
-                </div>
+
+              <div class="cu-card-list">
+                <span class="cu-list-link" (click)="navegarATareaEnProyecto(Tarea); $event.stopPropagation()">
+                  <i class="fa fa-folder-o"></i><span>{{Tarea.nombreSubProyecto || 'General'}}</span>
+                </span>
               </div>
-                          <div class="stat-card stat-cancelled stat-card-clickable" (click)="mostrarCanceladas()" style="background: #ffffff; border-radius: 8px; border: 1px solid #5a5a5a28; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                <div class="stat-icon" style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #fff; border-radius: 6px; border: 1px solid #ffffff; margin: 8px auto; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                  <span style="font-size:2em;color:#dc3545;">✖</span>
-                </div>
-                <div class="stat-info">
-                  <div class="stat-number">{{ getCantidadCanceladas() }}</div>
-                  <div class="stat-label">Canceladas</div>
-                </div>
+
+              <div class="cu-card-title">{{ limpiarDescripcion(Tarea.descripcionTarea) }}</div>
+
+              <div class="cu-card-tags">
+                <span class="cu-type" [ngClass]="'cu-type-' + getTipoTarea(Tarea)">{{getTipoTareaLabel(Tarea)}}</span>
+                <span class="cu-tag" *ngIf="Tarea.area">{{Tarea.area}}</span>
               </div>
-            
-              
-              <div class="stat-card stat-priority-high stat-card-clickable" style="background: #e3e2e2; border-radius: 8px; border: 1px solid #5a5a5a28; box-shadow: 0 2px 6px rgba(0,0,0,0.08);" (click)="filtrarPorPrioridad('Alta')">
-                <div class="stat-icon" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: #dc3545; border-radius: 50%; border: 1px solid #ffffff; margin: 16px auto; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                </div>
-                <div class="stat-info">
-                  <div class="stat-number">{{getTaskCountByPrioridad('Alta')}}</div>
-                  <div class="stat-label">Prioridad Alta</div>
-                </div>
-              </div>
-                          <div class="stat-card stat-priority-medium stat-card-clickable" style="background: #e3e2e2; border-radius: 8px; border: 1px solid #5a5a5a28; box-shadow: 0 2px 6px rgba(0,0,0,0.08);" (click)="filtrarPorPrioridad('Media')">
-                <div class="stat-icon" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: #ffc107; border-radius: 50%; border: 1px solid #a9a7a7; margin: 16px auto; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                </div>
-                <div class="stat-info">
-                  <div class="stat-number">{{getTaskCountByPrioridad('Media')}}</div>
-                  <div class="stat-label">Prioridad Media</div>
-                </div>
-              </div>
-                          <div class="stat-card stat-priority-low stat-card-clickable" style="background: #e3e2e2; border-radius: 8px; border: 1px solid #5a5a5a28; box-shadow: 0 2px 6px rgba(0,0,0,0.08);" (click)="filtrarPorPrioridad('Baja')">
-                <div class="stat-icon" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: #28a745; border-radius: 50%; border: 1px solid #ffffff; margin: 16px auto; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                </div>
-                <div class="stat-info">
-                  <div class="stat-number">{{getTaskCountByPrioridad('Baja')}}</div>
-                  <div class="stat-label">Prioridad Baja</div>
+
+              <div class="cu-card-footer">
+                <span class="cu-avatar" [style.background]="getColorAvatar(Tarea.UsuarioResponsable)" [title]="'Para: ' + Tarea.UsuarioResponsable">
+                  {{getIniciales(Tarea.UsuarioResponsable)}}
+                </span>
+                <span class="cu-date" *ngIf="Tarea.fechaTerminoProgramado"
+                      [class.overdue]="esVencida(Tarea)"
+                      [class.due-soon]="!esVencida(Tarea) && isDueSoon(Tarea.fechaTerminoProgramado)">
+                  <i class="fa fa-calendar-o"></i> {{formatoFechaCorta(Tarea.fechaTerminoProgramado)}}
+                </span>
+                <i class="fa fa-flag" *ngIf="Tarea.prioridad" [style.color]="getColorPrioridad(Tarea.prioridad)" [title]="'Prioridad ' + Tarea.prioridad"></i>
+                <span class="cu-history" (click)="TraeHistorial(Tarea.idTarea); $event.stopPropagation()" title="Ver historial">
+                  <i class="fa fa-comment-o"></i> {{Tarea.Hiteraciones || 0}}
+                </span>
+                <div class="cu-actions">
+                  <button type="button" class="cu-icon-btn" title="Enviar recordatorio" [disabled]="sendingEmail" (click)="ReenviarCorreo(Tarea); $event.stopPropagation()">
+                    <i class="fa fa-bell-o" *ngIf="!sendingEmail"></i>
+                    <i class="fa fa-spinner fa-spin" *ngIf="sendingEmail"></i>
+                  </button>
                 </div>
               </div>
             </div>
 
-            <style>
-            .stat-card-clickable {
-              cursor: pointer;
-              transition: transform 0.1s, box-shadow 0.1s;
-            }
-            .stat-card-clickable:active {
-              transform: scale(0.97);
-              box-shadow: 0 4px 12px rgba(0,0,0,0.18);
-            }
-            .stat-card-clickable:hover {
-              box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-              filter: brightness(0.98);
-            }
-            </style>
-            <!-- Buscador por responsable debajo de task-stats y antes de la tabla -->
-            <div class="row" style="margin-bottom: 16px;">
-              <div class="col-md-3">
-                <input type="text" class="form-control" placeholder="Buscar por responsable" [(ngModel)]="responsableFiltro" (input)="filtrarPorResponsable()">
+            <div class="cu-board-empty" *ngIf="tareasPorEstado(grupo.id).length === 0 && !esColumnaDestino(grupo.id)">Sin tareas</div>
+            <div class="cu-drop-hint" *ngIf="esColumnaDestino(grupo.id)">
+              <i class="fa fa-arrow-down"></i> Soltar para mover a {{grupo.nombre}}
+            </div>
+
+            <!-- Agregar tarea inline (tablero) -->
+            <ng-container *ngIf="puedeCrearEnGrupo(grupo.id) && !tareaArrastrada">
+              <div class="cu-board-add" *ngIf="quickAddGrupo !== grupo.id" (click)="abrirQuickAdd(grupo.id)">
+                <i class="fa fa-plus"></i> Agregar tarea
               </div>
-              <div class="col-md-3">
-                <select class="form-control" [(ngModel)]="tipoTareaFiltro" (change)="aplicarFiltros()">
-                  <option value="0">Todos los tipos</option>
-                  <option value="Propia">Propias</option>
-                  <option value="Asignada">Asignadas</option>
-                  <option value="Creada">Creadas</option>
-                  <option value="VistaGlobal">Vista Global</option>
+
+              <div class="cu-card cu-card-form" *ngIf="quickAddGrupo === grupo.id">
+                <textarea class="cu-quickadd-input cu-quickadd-textarea" rows="2"
+                          [id]="'quickadd-input-' + grupo.id"
+                          placeholder="Describe la tarea..."
+                          [(ngModel)]="quickAdd.descripcion"
+                          [disabled]="creandoTarea"
+                          (keydown.enter)="$event.preventDefault(); guardarQuickAdd(grupo.id)"
+                          (keydown.escape)="cancelarQuickAdd()"></textarea>
+
+                <select class="cu-quickadd-select cu-block" [(ngModel)]="quickAdd.idResponsable" title="Responsable" [disabled]="creandoTarea">
+                  <option [ngValue]="0">Responsable</option>
+                  <option *ngFor="let R of Responsables" [ngValue]="R.idUsuario">{{R.nombre + ' ' + R.paterno}}</option>
                 </select>
-              </div>
-              <div class="col-md-2">
-                <button type="button" class="btn btn-secondary btn-block" (click)="limpiarFiltroResponsable()">Limpiar filtros</button>
-              </div>
-            </div>
-            
-            
-            <!-- Enhanced Table with Responsive Design -->
-            <div class="table-responsive">
-              <table class="table table-modern">
-                <thead>
-                  <tr style="background-color: #89658f; color: #fff; height:32px; font-size:13px;">
-                    <th class="sortable text-center" (click)="sortBy('idTarea')" style="width: 50px; padding: 6px 4px; vertical-align: middle;">
-                      ID <i class="fa fa-sort sort-icon"></i>
-                    </th>
-                    <th class="text-center" style="width: 85px; padding: 6px 4px; vertical-align: middle;">Tipo</th>
-                    <th class="sortable" (click)="sortBy('descripcionTarea')" style="width: 28%; padding: 6px 8px; vertical-align: middle;">
-                      Descripción <i class="fa fa-sort sort-icon"></i>
-                    </th>
-                    <th class="sortable text-center" (click)="sortBy('area')" style="width: 89px; padding: 6px 12px 6px 4px; vertical-align: middle;">
-                      Área <i class="fa fa-sort sort-icon"></i>
-                    </th>
-                    <th class="sortable" (click)="sortBy('nombreSubProyecto')" style="width: 110px; padding: 6px 6px; vertical-align: middle;">
-                      Sub Proyecto <i class="fa fa-sort sort-icon"></i>
-                    </th>
-                    <th class="sortable" (click)="sortBy('UsuarioCreador')" style="width: 95px; padding: 6px 4px; vertical-align: middle;">
-                      Creador <i class="fa fa-sort sort-icon"></i>
-                    </th>
-                    <th class="sortable" (click)="sortBy('UsuarioResponsable')" style="width: 95px; padding: 6px 4px; vertical-align: middle;">
-                      Para Quién <i class="fa fa-sort sort-icon"></i>
-                    </th>
-                    <th class="text-center" style="width: 45px; padding: 6px 2px; vertical-align: middle;">Prior.</th>
-                    <th class="sortable text-center" (click)="sortBy('fechaTerminoProgramado')" style="width: 95px; padding: 6px 4px; vertical-align: middle;">
-                      F. Compromiso <i class="fa fa-sort sort-icon"></i>
-                    </th>
-                    <th class="text-center" style="width: 85px; padding: 6px 4px; vertical-align: middle;">Estado</th>
-                    <th class="text-center" style="width: 45px; padding: 6px 2px; vertical-align: middle;">Hist.</th>
-                    <th class="text-center" style="width: 80px; padding: 6px 4px; vertical-align: middle;">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                    <tr *ngFor="let Tarea of Tareas; let i = index" 
-                      [class.overdue]="isOverdue(Tarea.fechaTerminoProgramado)"
-                      [class.high-priority]="Tarea.prioridad == 'Alta'"
-                      [class.tarea-destacada-local]="esTareaDestacadaLocal(Tarea)"
-                      [id]="'tarea-local-' + Tarea.idTarea"
-                      (click)="seleccionarTareaLocal(Tarea)"
-                      style="height:26px; font-size:13px; cursor: pointer;">
-                    <td class="task-id text-center" style="vertical-align: middle; width: 50px; padding: 6px 4px;">
-                      <span class="badge badge-light">#{{Tarea.idTarea}}</span>
-                    </td>
-                    <td class="text-center task-type" style="vertical-align: middle; width: 85px; padding: 6px 4px;">
-                      <span class="badge badge-primary task-type-badge" 
-                            *ngIf="Tarea.idUsuarioResponsable == usuario.idUsuario && Tarea.idUsuarioCreador != usuario.idUsuario"
-                            title="Tarea asignada a mí">
-                        <i class="fa fa-user"></i> Asignada
-                      </span>
-                      <span class="badge badge-success task-type-badge" 
-                            *ngIf="Tarea.idUsuarioCreador == usuario.idUsuario && Tarea.idUsuarioResponsable != usuario.idUsuario"
-                            title="Tarea creada por mí">
-                        <i class="fa fa-plus"></i> Creada
-                      </span>
-                      <span class="badge badge-warning task-type-badge" 
-                            *ngIf="Tarea.idUsuarioResponsable == usuario.idUsuario && Tarea.idUsuarioCreador == usuario.idUsuario"
-                            title="Tarea propia">
-                        <i class="fa fa-user-circle"></i> Propia
-                      </span>
-                      <span class="badge badge-info task-type-badge" 
-                            *ngIf="Tarea.idUsuarioResponsable != usuario.idUsuario && Tarea.idUsuarioCreador != usuario.idUsuario"
-                            title="Vista de gerencia - Tarea de otro usuario">
-                        <i class="fa fa-eye"></i> Vista Global
-                      </span>
-                    </td>
-                    <td class="task-description"
-                        style="vertical-align: middle; width: 28%; padding: 6px 8px;">
-                      <div class="description-wrapper" style="font-family: inherit; font-size: 13px; color: #333;">
-                        <div class="user-info">
-                          {{ limpiarDescripcion(Tarea.descripcionTarea) }}
-                        </div>
-                        <div class="task-meta">
-                          <small class="text-muted">
-                            <i class="fa fa-calendar"></i> {{Tarea.fechaCreacion | date:'dd/MM/yyyy'}}
-                          </small>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="task-area text-center" style="vertical-align: middle; width: 89px; padding: 6px 12px 6px 4px;">
-                      <span class="area-badge">{{Tarea.area}}</span>
-                    </td>
-                    <td class="task-project" style="vertical-align: middle; width: 110px; padding: 6px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      <div class="user-info">
-                        <i class="fa fa-folder-open"></i>
-                        <span (click)="navegarATareaEnProyecto(Tarea); $event.stopPropagation()" 
-                              style="cursor: pointer; color: #007bff; text-decoration: underline; display:inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                          {{Tarea.nombreSubProyecto}}
-                        </span>
-                      </div>
-                    </td>
-                    <td class="task-creator" style="vertical-align: middle; width: 95px; padding: 6px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      <div class="user-info">
-                        <i class="fa fa-user-plus"></i>
-                        {{Tarea.UsuarioCreador}}
-                      </div>
-                    </td>
-                    <td class="task-responsible" style="vertical-align: middle; width: 95px; padding: 6px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      <div class="user-info">
-                        <i class="fa fa-user-circle"></i>
-                        {{Tarea.UsuarioResponsable}}
-                      </div>
-                    </td>
-                    <td class="text-center task-priority" style="vertical-align: middle; width: 45px; padding: 6px 2px;">
-                      <div class="priority-circle" [ngClass]="{
-                        'priority-high': Tarea.prioridad == 'Alta',
-                        'priority-medium': Tarea.prioridad == 'Media',
-                        'priority-low': Tarea.prioridad == 'Baja'
-                      }" [title]="Tarea.prioridad">
-                      </div>
-                    </td>
-                    <td class="text-center task-due-date" style="vertical-align: middle; width: 95px; padding: 6px 4px;">
-                      <div class="due-date" [ngClass]="{
-                        'overdue': isOverdue(Tarea.fechaTerminoProgramado),
-                        'due-soon': isDueSoon(Tarea.fechaTerminoProgramado)
-                      }">
-                        <i class="fa fa-calendar-check-o"></i>
-                        {{Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy'}}
-                        <div class="due-indicator" *ngIf="isOverdue(Tarea.fechaTerminoProgramado)">
-                          <i class="fa fa-exclamation-triangle"></i>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="text-center task-status" style="vertical-align: middle; width: 85px; padding: 6px 4px;">
-                      <span class="status-badge" [ngClass]="{
-                        'status-pending': Tarea.idEstadoTarea == 1,
-                        'status-progress': Tarea.idEstadoTarea == 2,
-                        'status-completed': Tarea.idEstadoTarea == 5,
-                        'status-cancelled': Tarea.idEstadoTarea == 3
-                      }">
-                        <i class="fa" [ngClass]="{
-                          'fa-clock-o': Tarea.idEstadoTarea == 1,
-                          'fa-spinner': Tarea.idEstadoTarea == 2,
-                          'fa-check-circle': Tarea.idEstadoTarea == 5,
-                          'fa-times-circle': Tarea.idEstadoTarea == 3
-                        }"></i>
-                        {{Tarea.nombreEstadoTarea}}
-                      </span>
-                    </td>
-                    <td class="text-center task-history" style="vertical-align: middle; width: 45px; padding: 6px 2px;">
-                      <div class="history-icon-container" (click)="TraeHistorial(Tarea.idTarea); $event.stopPropagation()" style="cursor: pointer;">
-                        <span class="icon" data-toggle="tooltip" title="Ver Historial">
-                          <i class="fa fa-book icono">
-                            <span class="circle bg-inverse fw-bold globo">
-                              <span class="ContGlovo">{{Tarea.Hiteraciones}}</span>
-                            </span>
-                          </i>
-                        </span>
-                      </div>
-                    </td>
-                    <td class="text-center task-actions" style="vertical-align: middle; width: 80px; padding: 6px 4px;">
-                      <div class="action-buttons">
-                        <button class="btn btn-sm btn-outline-primary action-btn" 
-                                (click)="Editar(i); $event.stopPropagation()" 
-                                data-toggle="tooltip" 
-                                title="Editar Tarea">
-                          <i class="fa fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-warning action-btn" 
-                                (click)="ReenviarCorreo(Tarea); $event.stopPropagation()" 
-                                data-toggle="tooltip" 
-                                title="Enviar Recordatorio"
-                                [disabled]="sendingEmail">
-                          <i class="fa fa-envelope" *ngIf="!sendingEmail"></i>
-                          <i class="fa fa-spinner fa-spin" *ngIf="sendingEmail"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              
-              <!-- Empty State -->
-              <div class="empty-state" *ngIf="!LoadingTabla && (!Tareas || Tareas.length === 0)">
-                <div class="empty-icon">
-                  <i class="fa fa-tasks"></i>
+
+                <div class="cu-card-form-row">
+                  <select class="cu-quickadd-select" [(ngModel)]="quickAdd.area" title="Área" [disabled]="creandoTarea">
+                    <option value="0">Área</option>
+                    <option *ngFor="let Area of Areas" [value]="Area.idArea">{{Area.nombre}}</option>
+                  </select>
+                  <select class="cu-quickadd-select" [(ngModel)]="quickAdd.prioridad" title="Prioridad" [disabled]="creandoTarea">
+                    <option value="Alta">⚑ Alta</option>
+                    <option value="Media">⚑ Media</option>
+                    <option value="Baja">⚑ Baja</option>
+                  </select>
                 </div>
-                <div>No hay tareas</div>
+
+                <div class="cu-card-form-actions">
+                  <button type="button" class="cu-icon-btn" title="Más opciones (CC, fecha...)" (click)="abrirModalNuevaTarea(grupo.id, true)" [disabled]="creandoTarea">
+                    <i class="fa fa-expand"></i>
+                  </button>
+                  <span class="cu-spacer"></span>
+                  <button type="button" class="cu-btn cu-btn-ghost cu-btn-sm" (click)="cancelarQuickAdd()" [disabled]="creandoTarea">Cancelar</button>
+                  <button type="button" class="cu-btn cu-btn-primary cu-btn-sm" (click)="guardarQuickAdd(grupo.id)" [disabled]="creandoTarea">
+                    <i class="fa fa-spinner fa-spin" *ngIf="creandoTarea"></i> Guardar
+                  </button>
+                </div>
               </div>
-            </div>
+            </ng-container>
           </div>
-        </section>
+        </div>
       </div>
+
     </div>
   </main>
 
   <app-mensaje [mensaje]="texto" [visible]="msg"></app-mensaje>
 
-  <!-- Editar -->
+  <!-- ================= MODAL NUEVA TAREA ================= -->
+  <div class="cu-overlay" *ngIf="modalNuevaTarea">
+    <div class="cu-create-modal" role="dialog" aria-labelledby="tituloNuevaTarea">
+
+      <!-- Header -->
+      <div class="cu-create-header">
+        <div class="cu-create-header-main">
+          <span class="cu-create-icon"><i class="fa fa-check-square-o"></i></span>
+          <div>
+            <div class="cu-create-crumb">
+              <i class="fa fa-tasks"></i> Mis Tareas <i class="fa fa-angle-right"></i> Nueva tarea
+            </div>
+            <h3 class="cu-create-heading" id="tituloNuevaTarea">Crear tarea</h3>
+          </div>
+        </div>
+        <button type="button" class="cu-create-close" aria-label="Cerrar" (click)="cerrarModalNuevaTarea()" [disabled]="creandoTarea">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+
+      <div class="cu-create-body">
+
+        <!-- Descripción -->
+        <div class="cu-desc-box">
+          <label class="cu-desc-label" for="txtNuevaDescripcion">
+            Descripción <span class="cu-req">*</span>
+          </label>
+          <textarea id="txtNuevaDescripcion" class="cu-desc-input" rows="4"
+                    placeholder="¿Qué hay que hacer? Describe la tarea con el detalle necesario..."
+                    [(ngModel)]="nuevaTarea.descripcion"
+                    [disabled]="creandoTarea"></textarea>
+          <div class="cu-desc-footer">
+            <span><i class="fa fa-info-circle"></i> Los saltos de línea se mantienen en el correo</span>
+            <span class="cu-desc-count">{{(nuevaTarea.descripcion || '').length}} caracteres</span>
+          </div>
+        </div>
+
+        <div class="cu-prop-grid">
+
+          <!-- Estado -->
+          <div class="cu-prop-card">
+            <div class="cu-prop-head">
+              <span class="cu-prop-ico cu-ico-estado"><i class="fa fa-circle-o-notch"></i></span>
+              Estado inicial
+            </div>
+            <div class="cu-pill-group">
+              <button type="button" class="cu-pill cu-pill-pendiente" [class.active]="nuevaTarea.idEstado == 1" (click)="nuevaTarea.idEstado = 1" [disabled]="creandoTarea">
+                <span class="cu-dot"></span> Pendiente
+              </button>
+              <button type="button" class="cu-pill cu-pill-proceso" [class.active]="nuevaTarea.idEstado == 2" (click)="nuevaTarea.idEstado = 2" [disabled]="creandoTarea">
+                <span class="cu-dot"></span> En Proceso
+              </button>
+            </div>
+          </div>
+
+          <!-- Prioridad -->
+          <div class="cu-prop-card">
+            <div class="cu-prop-head">
+              <span class="cu-prop-ico cu-ico-prioridad"><i class="fa fa-flag"></i></span>
+              Prioridad <span class="cu-req">*</span>
+            </div>
+            <div class="cu-pill-group">
+              <button type="button" class="cu-pill cu-pill-alta" [class.active]="nuevaTarea.prioridad === 'Alta'" (click)="nuevaTarea.prioridad = 'Alta'" [disabled]="creandoTarea">
+                <i class="fa fa-flag"></i> Alta
+              </button>
+              <button type="button" class="cu-pill cu-pill-media" [class.active]="nuevaTarea.prioridad === 'Media'" (click)="nuevaTarea.prioridad = 'Media'" [disabled]="creandoTarea">
+                <i class="fa fa-flag"></i> Media
+              </button>
+              <button type="button" class="cu-pill cu-pill-baja" [class.active]="nuevaTarea.prioridad === 'Baja'" (click)="nuevaTarea.prioridad = 'Baja'" [disabled]="creandoTarea">
+                <i class="fa fa-flag"></i> Baja
+              </button>
+            </div>
+          </div>
+
+          <!-- Responsable -->
+          <div class="cu-prop-card cu-span-2">
+            <div class="cu-prop-head">
+              <span class="cu-prop-ico cu-ico-responsable"><i class="fa fa-user"></i></span>
+              Responsable <span class="cu-req">*</span>
+              <button type="button" class="cu-link-btn cu-head-action" *ngIf="!(nuevaTarea.idResponsable > 0)" (click)="asignarmeNueva()" [disabled]="creandoTarea">
+                <i class="fa fa-hand-pointer-o"></i> Asignarme
+              </button>
+            </div>
+            <div class="cu-picker">
+              <div class="cu-picker-box" [class.cu-picker-selected]="nuevaTarea.idResponsable > 0">
+                <span class="cu-avatar" *ngIf="nuevaTarea.idResponsable > 0" [style.background]="getColorAvatar(nuevaRespBusqueda)">{{getIniciales(nuevaRespBusqueda)}}</span>
+                <i class="fa fa-search cu-picker-search" *ngIf="!(nuevaTarea.idResponsable > 0)"></i>
+                <input type="text" class="cu-picker-input"
+                       placeholder="Busca a quién asignar la tarea..."
+                       [ngModel]="nuevaRespBusqueda"
+                       (ngModelChange)="onRespNuevaChange($event)"
+                       (focus)="abrirDropdownRespNueva()"
+                       (blur)="cerrarDropdownRespNueva()"
+                       [disabled]="creandoTarea">
+                <i class="fa fa-check-circle cu-picker-ok" *ngIf="nuevaTarea.idResponsable > 0"></i>
+              </div>
+              <div class="cu-picker-dropdown" *ngIf="nuevaRespDropdown">
+                <div class="cu-picker-option" *ngFor="let R of getResponsablesFiltradosNueva()" (mousedown)="seleccionarRespNueva(R)">
+                  <span class="cu-avatar" [style.background]="getColorAvatar(R.nombre + ' ' + R.paterno)">{{getIniciales(R.nombre + ' ' + R.paterno)}}</span>
+                  <span>{{R.nombre + ' ' + R.paterno}}</span>
+                  <span class="cu-picker-me" *ngIf="esYo(R.idUsuario)">Tú</span>
+                </div>
+                <div class="cu-picker-empty" *ngIf="getResponsablesFiltradosNueva().length === 0">Sin resultados</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CC -->
+          <div class="cu-prop-card cu-span-2">
+            <div class="cu-prop-head">
+              <span class="cu-prop-ico cu-ico-cc"><i class="fa fa-users"></i></span>
+              En copia
+              <span class="cu-prop-hint">{{nuevaCC.length}} / {{maxUsuariosCC}}</span>
+            </div>
+            <div class="cu-picker">
+              <div class="cu-picker-box cu-picker-chips">
+                <span class="cu-chip-user" *ngFor="let idCC of nuevaCC">
+                  <span class="cu-avatar cu-avatar-xs" [style.background]="getColorAvatar(getNombreResponsable(idCC))">{{getIniciales(getNombreResponsable(idCC))}}</span>
+                  {{getNombreResponsable(idCC)}}
+                  <button type="button" class="cu-chip-remove" (click)="removerCCNueva(idCC); $event.stopPropagation()">×</button>
+                </span>
+                <input type="text" class="cu-picker-input"
+                       [placeholder]="nuevaCC.length >= maxUsuariosCC ? 'Máximo alcanzado' : 'Agregar personas que recibirán copia...'"
+                       [(ngModel)]="nuevaCCBusqueda"
+                       (focus)="abrirDropdownCCNueva()"
+                       (blur)="cerrarDropdownCCNueva()"
+                       [disabled]="creandoTarea || nuevaCC.length >= maxUsuariosCC">
+              </div>
+              <div class="cu-picker-dropdown" *ngIf="nuevaCCDropdown && nuevaCC.length < maxUsuariosCC">
+                <div class="cu-picker-option" *ngFor="let U of getUsuariosCCFiltradosNueva()" (mousedown)="agregarCCNueva(U.idUsuario)">
+                  <span class="cu-avatar" [style.background]="getColorAvatar(U.nombre + ' ' + U.paterno)">{{getIniciales(U.nombre + ' ' + U.paterno)}}</span>
+                  <span>{{U.nombre + ' ' + U.paterno}}</span>
+                </div>
+                <div class="cu-picker-empty" *ngIf="getUsuariosCCFiltradosNueva().length === 0">Sin resultados</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fecha compromiso -->
+          <div class="cu-prop-card cu-span-2">
+            <div class="cu-prop-head">
+              <span class="cu-prop-ico cu-ico-fecha"><i class="fa fa-calendar"></i></span>
+              Fecha compromiso
+              <span class="cu-prop-hint">Opcional</span>
+            </div>
+            <div class="cu-fecha-row">
+              <div id="dtpNuevaTarea" class="input-group cu-date-group cu-date-inline">
+                <input id="txtCompromisoNueva" type="text" class="form-control cu-input" placeholder="dd/mm/aaaa"
+                       (focus)="fechaRapidaNueva = null" [disabled]="creandoTarea" />
+                <span class="input-group-addon"><span class="fa fa-calendar"></span></span>
+              </div>
+              <div class="cu-quick-dates">
+                <button type="button" class="cu-quick-date" [class.active]="fechaRapidaNueva === 0" (click)="setFechaRapidaNueva(0)" [disabled]="creandoTarea">Hoy</button>
+                <button type="button" class="cu-quick-date" [class.active]="fechaRapidaNueva === 1" (click)="setFechaRapidaNueva(1)" [disabled]="creandoTarea">Mañana</button>
+                <button type="button" class="cu-quick-date" [class.active]="fechaRapidaNueva === 7" (click)="setFechaRapidaNueva(7)" [disabled]="creandoTarea">En 1 semana</button>
+                <button type="button" class="cu-quick-date cu-quick-clear" (click)="limpiarFechaNueva()" [disabled]="creandoTarea" title="Quitar fecha">
+                  <i class="fa fa-times"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Área -->
+          <div class="cu-prop-card cu-span-2">
+            <div class="cu-prop-head">
+              <span class="cu-prop-ico cu-ico-area"><i class="fa fa-tag"></i></span>
+              Área <span class="cu-req">*</span>
+            </div>
+            <div class="cu-area-grid">
+              <button type="button" class="cu-area-chip" *ngFor="let Area of Areas"
+                      [class.active]="nuevaTarea.area === Area.idArea"
+                      [style.background]="nuevaTarea.area === Area.idArea ? getColorArea(Area.idArea).bg : '#fff'"
+                      [style.color]="getColorArea(Area.idArea).fg"
+                      [style.border-color]="nuevaTarea.area === Area.idArea ? getColorArea(Area.idArea).fg : '#e2e4e9'"
+                      (click)="nuevaTarea.area = Area.idArea"
+                      [disabled]="creandoTarea">
+                <i class="fa" [ngClass]="nuevaTarea.area === Area.idArea ? 'fa-check-circle' : 'fa-circle-thin'"></i>
+                {{Area.nombre}}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="cu-create-footer">
+        <div class="cu-create-status" *ngIf="getFaltantesNueva().length > 0">
+          <i class="fa fa-exclamation-circle"></i>
+          <span>Falta: <b>{{getFaltantesNueva().join(', ')}}</b></span>
+        </div>
+        <div class="cu-create-status cu-create-ok" *ngIf="getFaltantesNueva().length === 0">
+          <i class="fa fa-check-circle"></i>
+          <span>Lista para crear · se notificará a <b>{{getNombreResponsable(nuevaTarea.idResponsable)}}</b><span *ngIf="nuevaCC.length > 0"> y {{nuevaCC.length}} en copia</span></span>
+        </div>
+
+        <div class="cu-create-actions">
+          <button type="button" class="cu-btn cu-btn-ghost" (click)="cerrarModalNuevaTarea()" [disabled]="creandoTarea">Cancelar</button>
+          <button type="button" class="cu-btn cu-btn-primary cu-btn-lg" (click)="guardarNuevaTarea()" [disabled]="!nuevaTareaValida() || creandoTarea">
+            <i class="fa fa-spinner fa-spin" *ngIf="creandoTarea"></i>
+            <i class="fa fa-paper-plane" *ngIf="!creandoTarea"></i>
+            {{creandoTarea ? 'Creando...' : 'Crear tarea'}}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL EDITAR ================= -->
   <div class="modal fade in" id="exampleModalLong" tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle"
     aria-hidden="true" *ngIf="Edit">
-    <div class="modal-dialog editar" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <div class="form-group row">
-            <div class="col-md-11">
-              <h4 class="modal-title" id="exampleModalLongTitle">Editar</h4>
+    <div class="modal-dialog editar cu-modal-dialog" role="document">
+      <div class="modal-content cu-modal-content">
+
+        <div class="cu-modal-header">
+          <div class="cu-modal-breadcrumb">
+            <i class="fa fa-tasks"></i> Mis Tareas <i class="fa fa-angle-right"></i>
+            <span *ngIf="Tarea.idTarea">#{{Tarea.idTarea}}</span>
+          </div>
+          <button type="button" class="cu-icon-btn" aria-label="Close" (click)="OcultarPopUpEditar()">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+
+        <form #EForm="ngForm" (ngSubmit)="Actualizar(EForm)">
+          <div class="modal-body cu-modal-body">
+            <h3 class="cu-modal-title" id="exampleModalLongTitle">{{limpiarDescripcion(Tarea.descripcionTarea)}}</h3>
+
+            <div class="cu-fields">
+              <div class="cu-field">
+                <label><i class="fa fa-circle-o"></i> Estado</label>
+                <select name="drdEstado" id="drdEstado" class="form-control cu-input" [(ngModel)]="Tarea.idEstadoTarea">
+                  <option value="0" selected>--- Seleccione una opción ---</option>
+                  <option *ngFor="let Estado of Estados" value={{Estado.idEstadoTarea}}>{{Estado.nombreEstadoTarea}}</option>
+                </select>
+              </div>
+
+              <div class="cu-field">
+                <label><i class="fa fa-flag-o"></i> Prioridad</label>
+                <select name="drdPrioridad" id="drdPrioridad" class="form-control cu-input" [(ngModel)]="Tarea.prioridad">
+                  <option value="" selected>--- Seleccione una opción ---</option>
+                  <option value="Alta">Alta</option>
+                  <option value="Media">Media</option>
+                  <option value="Baja">Baja</option>
+                </select>
+              </div>
+
+              <div class="cu-field">
+                <label><i class="fa fa-calendar-check-o"></i> Fecha compromiso</label>
+                <div id="datetimepicker1" class="input-group date cu-date-group">
+                  <input id="txtCompromiso" name="txtCompromiso" type="text" (focusout)="asignaFechaInicio()" class="form-control cu-input" />
+                  <span class="input-group-addon">
+                    <span class="fa fa-calendar"></span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="cu-field">
+                <label><i class="fa fa-clock-o"></i> Fecha creación</label>
+                <div class="cu-field-value">{{Tarea.fechaCreacion | date:'dd/MM/yyyy'}}</div>
+              </div>
             </div>
-            <div class="col-md-1">
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close"
-                (click)="OcultarPopUpEditar()">
-                <span aria-hidden="true">&times;</span>
-              </button>
+
+            <div class="cu-field">
+              <label><i class="fa fa-comment-o"></i> Comentarios</label>
+              <textarea name="txtComentarios" id="txtComentarios" rows="4"
+                class="form-control cu-input"
+                [(ngModel)]="Tarea.observacionTarea"
+                placeholder="Escribe un comentario sobre la tarea..."></textarea>
             </div>
           </div>
-        </div>
-        <div class="modal-body">
-          <form #EForm="ngForm" (ngSubmit)="Actualizar(EForm)">
-            <fieldset>
-              <legend></legend>
-              <div class="form-group row">
-                <label for="normal-field" class="col-md-offset-1 col-md-3 form-control-label h5">Tarea:</label>
-                <div class="col-md-8">
-                  {{limpiarDescripcion(Tarea.descripcionTarea)}}
-                </div>
-              </div>
-              <div class="form-group row">
-                <label for="normal-field" class="col-md-offset-1 col-md-3 form-control-label h5">Fecha Creación:</label>
-                <div class="col-md-6">
-                  {{Tarea.fechaCreacion | date:'dd/MM/yyyy'}}
-                </div>
-              </div>
-              <div class="form-group row">
-                <label for="normal-field" class="col-md-offset-1  col-md-3 form-control-label h5">Fecha
-                  Compromiso:</label>
-                <div class="col-md-6">
-                  <div id="datetimepicker1" class="input-group date">
-                    <input id="txtCompromiso" name="txtCompromiso" type="text" (focusout)="asignaFechaInicio()"
-                      class="form-control" />
-                    <span class="input-group-addon">
-                      <span class="fa fa-calendar"></span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div class="form-group row">
-                <label for="normal-field" class="col-md-offset-1 col-md-3 form-control-label h5">Estado:</label>
-                <div class="col-md-6">
-                  <select name="drdEstado" id="drdEstado"
-                    class="dropdown-toggle select2-chosen-2 form-control"
-                    [(ngModel)]="Tarea.idEstadoTarea">
-                    <option value="0" selected>--- Seleccione una opcion ---</option>
-                    <option *ngFor="let Estado of Estados" value={{Estado.idEstadoTarea}}>{{Estado.nombreEstadoTarea}}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-group row">
-                <label for="normal-field" class="col-md-offset-1 col-md-3 form-control-label h5">Prioridad:</label>
-                <div class="col-md-6">
-                  <select name="drdPrioridad" id="drdPrioridad"
-                    class="dropdown-toggle select2-chosen-2 form-control"
-                    [(ngModel)]="Tarea.prioridad">
-                    <option value="" selected>--- Seleccione una opcion ---</option>
-                    <option value="Alta">Alta</option>
-                    <option value="Media">Media</option>
-                    <option value="Baja">Baja</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-group row">
-                <label for="normal-field" class="col-md-offset-1 col-md-3 form-control-label h5">Comentarios:</label>
-                <div class="col-md-8">
-                  <textarea name="txtComentarios" id="txtComentarios" rows="3" 
-                    class="form-control" 
-                    [(ngModel)]="Tarea.observacionTarea"
-                    placeholder="Agregue comentarios sobre la tarea..."></textarea>
-                </div>
-              </div>
-            </fieldset>
-            <div class="form-actions">
-              <div class="row">
-                <div class="col-md-offset-4 col-md-8">
-                  <button ID="btnEditarLicitacion" class="btn btn-success" [disabled]="!EForm.valid">Aceptar</button>
-                </div>
-              </div>
-            </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal"
-            (click)="OcultarPopUpEditar()">Close</button>
-        </div>
+
+          <div class="cu-modal-footer">
+            <button type="button" class="cu-btn cu-btn-ghost" (click)="OcultarPopUpEditar()">Cancelar</button>
+            <button ID="btnEditarLicitacion" type="submit" class="cu-btn cu-btn-primary" [disabled]="!EForm.valid">Guardar</button>
+          </div>
+        </form>
+
       </div>
     </div>
   </div>
 
-  <!-- Historial -->
+  <!-- ================= MODAL HISTORIAL ================= -->
   <div class="modal fade in" id="Historial" tabindex="-1" role="dialog" aria-labelledby="HistorialTitle"
-    aria-hidden="true" *ngIf="history" style="display: block;background-color:rgba(0, 0, 0, 0.5);overflow-y: scroll;">
-    <div class="modal-dialog editar" style="width: 1400px;" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <div class="form-group row">
-            <div class="col-md-11">
-              <h4 class="modal-title" id="HistorialTitle">Cuaderno de Tareas</h4>
-            </div>
-            <div class="col-md-1">
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close"
-                (click)="OcultarPopUpHistorial()">
-                <span aria-hidden="true">&times;</span>
-              </button>
+    aria-hidden="true" *ngIf="history" style="display: block;background-color:rgba(15, 18, 24, 0.45);overflow-y: auto;">
+    <div class="modal-dialog editar cu-modal-dialog cu-modal-wide" role="document">
+      <div class="modal-content cu-modal-content">
+
+        <div class="cu-modal-header">
+          <div class="cu-modal-breadcrumb" id="HistorialTitle">
+            <i class="fa fa-history"></i> Actividad de la tarea
+          </div>
+          <button type="button" class="cu-icon-btn" aria-label="Close" (click)="OcultarPopUpHistorial()">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+
+        <div class="modal-body cu-modal-body">
+          <div class="cu-loading" *ngIf="!LogTarea">
+            <i class="fa fa-spinner fa-spin"></i> Cargando historial...
+          </div>
+
+          <div class="cu-empty" *ngIf="LogTarea && LogTarea.length === 0">
+            <div class="cu-empty-sub">Esta tarea no tiene actividad registrada.</div>
+          </div>
+
+          <div class="cu-activity" *ngIf="LogTarea && LogTarea.length > 0">
+            <div class="cu-activity-item" *ngFor="let Log of LogTarea; let i = index">
+              <span class="cu-avatar cu-avatar-lg" [style.background]="getColorAvatar(getNombreUsuario(Log.idUsuarioCreador))">
+                {{getIniciales(getNombreUsuario(Log.idUsuarioCreador))}}
+              </span>
+              <div class="cu-activity-body">
+                <div class="cu-activity-head">
+                  <b>{{getNombreUsuario(Log.idUsuarioCreador)}}</b>
+                  <span class="cu-muted">{{Log.fechaCreacion | date:'dd/MM/yyyy'}}</span>
+                </div>
+
+                <div class="cu-activity-changes">
+                  <span class="cu-change cu-change-status" *ngIf="i > 0 && Log.idEstadoTarea !== LogTarea[i-1]?.idEstadoTarea" title="Cambio de estado">
+                    <i class="fa fa-refresh"></i> Estado → {{getEstado(Log.idEstadoTarea)}}
+                  </span>
+                  <span class="cu-change" *ngIf="!(i > 0 && Log.idEstadoTarea !== LogTarea[i-1]?.idEstadoTarea)">
+                    Estado: {{getEstado(Log.idEstadoTarea)}}
+                  </span>
+
+                  <span class="cu-change cu-change-date" *ngIf="i > 0 && Log.fechaTerminoProgramado !== LogTarea[i-1]?.fechaTerminoProgramado" title="Cambio de fecha de compromiso">
+                    <i class="fa fa-exclamation-triangle"></i> Compromiso → {{Log.fechaTerminoProgramado | date:'dd/MM/yyyy'}}
+                  </span>
+                  <span class="cu-change" *ngIf="!(i > 0 && Log.fechaTerminoProgramado !== LogTarea[i-1]?.fechaTerminoProgramado) && Log.fechaTerminoProgramado">
+                    Compromiso: {{Log.fechaTerminoProgramado | date:'dd/MM/yyyy'}}
+                  </span>
+                </div>
+
+                <div class="cu-activity-text" *ngIf="Log.descripcionTarea" [innerHTML]="Log.descripcionTarea"></div>
+              </div>
             </div>
           </div>
         </div>
-        <div class="modal-body">
-          <table class="table table-bordered table-striped table-hover no-footer">
-            <thead>
-              <tr>
-                <td>Descripción</td>
-                <td>Fecha Compromiso</td>
-                <td>Estado</td>
-                <td>Usuario</td>
-                <td>Fecha Creación</td>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let Tarea of LogTarea; let i = index">
-                <td>
-                  <div [innerHTML]="Tarea.descripcionTarea"></div>
-                </td>
-                <td>
-                  <span *ngIf="i > 0 && Tarea.fechaTerminoProgramado !== LogTarea[i-1]?.fechaTerminoProgramado" class="badge badge-warning" title="Cambio de fecha de compromiso">{{Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy'}} <i class="fa fa-exclamation-triangle"></i></span>
-                  <span *ngIf="!(i > 0 && Tarea.fechaTerminoProgramado !== LogTarea[i-1]?.fechaTerminoProgramado)">{{Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy'}}</span>
-                </td>
-                <td>
-                  <span *ngIf="i > 0 && Tarea.idEstadoTarea !== LogTarea[i-1]?.idEstadoTarea" class="badge badge-info" title="Cambio de estado">
-                    {{getEstado(Tarea.idEstadoTarea)}} <i class="fa fa-refresh"></i>
-                  </span>
-                  <span *ngIf="!(i > 0 && Tarea.idEstadoTarea !== LogTarea[i-1]?.idEstadoTarea)">{{getEstado(Tarea.idEstadoTarea)}}</span>
-                </td>
-                <td>
-                  <span class="badge badge-primary" title="Usuario que realizó el cambio">
-                    <i class="fa fa-user"></i> {{getNombreUsuario(Tarea.idUsuarioCreador)}}
-                  </span>
-                </td>
-                <td class="center">{{Tarea.fechaCreacion | date:'dd/MM/yyyy'}}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal"
-            (click)="OcultarPopUpHistorial()">Close</button>
+
+        <div class="cu-modal-footer">
+          <button type="button" class="cu-btn cu-btn-ghost" (click)="OcultarPopUpHistorial()">Cerrar</button>
         </div>
       </div>
     </div>
   </div>
-
-
 
 </div>
