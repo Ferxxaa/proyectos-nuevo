@@ -539,7 +539,7 @@
 .col-origen       { min-width: 130px; }
 .col-bitacora     { min-width: 52px; }
 .col-adjuntos     { min-width: 76px; }
-.col-acciones     { width: 195px; }
+.col-acciones     { width: 225px; }
 
 /* ================================ */
 /* Inputs inline                     */
@@ -1598,6 +1598,88 @@ select.tipo-leccion {
 .btn-bitacora-icon:hover {
   background: #e8f0f7;
   border-color: #afbcc8;
+}
+
+/* ================================ */
+/* Candado de gerencia               */
+/* ================================ */
+.tabla-control-hallazgos tbody tr.fila-bloqueada {
+  background-color: #f6f6f9;
+  box-shadow: inset 4px 0 0 #6c5ce7;
+}
+
+.tabla-control-hallazgos tbody tr.fila-bloqueada:hover {
+  background-color: #efeff7;
+}
+
+.icono-candado-fila {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #6c5ce7;
+}
+
+.btn-candado {
+  color: #6c757d;
+  border-color: #ced4da;
+  background: #f8f9fa;
+  margin-left: 2px;
+}
+
+.btn-candado:hover {
+  color: #4b3fc4;
+  border-color: #6c5ce7;
+  background: #efedff;
+}
+
+.btn-candado.activo {
+  color: #fff;
+  border-color: #6c5ce7;
+  background: #6c5ce7;
+}
+
+.btn-candado.activo:hover {
+  background: #5546d6;
+}
+
+.btn-accion:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.bitacora-aviso-bloqueo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 7px 10px;
+  border: 1px solid #d5d0fb;
+  border-radius: 6px;
+  background: #f4f2ff;
+  color: #3d3290;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bitacora-aviso-bloqueo span {
+  flex: 1;
+}
+
+.bitacora-aviso-bloqueo-btn {
+  border: 1px solid #6c5ce7;
+  background: #fff;
+  color: #4b3fc4;
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bitacora-aviso-bloqueo-btn:hover {
+  background: #6c5ce7;
+  color: #fff;
 }
 
 @media (max-width: 768px) {

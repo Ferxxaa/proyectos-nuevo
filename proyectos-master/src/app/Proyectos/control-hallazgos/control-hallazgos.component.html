@@ -45,6 +45,15 @@
       </button>
 
       <button
+        *ngIf="!soloLectura && esSubGerente"
+        type="button"
+        class="hallazgos-header-permission"
+        (click)="cambiarClaveGerencia()"
+        title="Definir o cambiar la clave de los hallazgos bloqueados">
+        <i class="fa fa-key"></i> Cambiar clave
+      </button>
+
+      <button
         *ngIf="!soloLectura"
         type="button"
         class="hallazgos-header-toggle"
@@ -176,8 +185,11 @@
             </td>
           </tr>
           <ng-container *ngFor="let item of hallazgosFiltrados; let i = index">
-            <tr>
-              <td class="numero-fila">{{item.numero}}</td>
+            <tr [class.fila-bloqueada]="item.bloqueado && esSubGerente">
+              <td class="numero-fila">
+                {{item.numero}}
+                <i class="fa fa-lock icono-candado-fila" *ngIf="item.bloqueado && esSubGerente" [title]="getTituloBloqueo(item)"></i>
+              </td>
               <td>
                 <input type="date" [(ngModel)]="item.fecha"
                     [disabled]="soloLectura || hallazgoEnEdicionId !== item.id"
@@ -283,16 +295,25 @@
                 <ng-container *ngIf="hallazgoEnEdicionId !== item.id; else accionesEdicion">
                   <button class="btn-accion btn-editar"
                         (click)="editarHallazgo(item)"
-                        [disabled]="soloLectura || !item.id"
-                        title="Editar hallazgo">
-                    <i class="fa fa-pencil"></i>
+                        [disabled]="soloLectura || !item.id || (item.bloqueado && !esSubGerente)"
+                        [title]="item.bloqueado && !esSubGerente ? 'Sin permiso para editar este hallazgo' : 'Editar hallazgo'">
+                    <i class="fa" [ngClass]="item.bloqueado && esSubGerente ? 'fa-lock' : 'fa-pencil'"></i>
                     Editar
                   </button>
                   <button class="btn-accion btn-eliminar"
                         (click)="eliminarHallazgo(item)"
-                        [disabled]="soloLectura"
+                        [disabled]="soloLectura || (item.bloqueado && !esSubGerente)"
                         title="Eliminar">
                     <i class="fa fa-trash"></i>
+                  </button>
+                  <button class="btn-accion btn-candado"
+                        *ngIf="!soloLectura && esSubGerente"
+                        type="button"
+                        [class.activo]="item.bloqueado"
+                        [disabled]="!item.id"
+                        (click)="toggleBloqueoHallazgo(item)"
+                        [title]="getTituloBloqueo(item)">
+                    <i class="fa" [ngClass]="item.bloqueado ? 'fa-lock' : 'fa-unlock'"></i>
                   </button>
                 </ng-container>
                 <ng-template #accionesEdicion>
@@ -328,8 +349,20 @@
           </button>
         </div>
         <div class="bitacora-modal-body">
+          <div class="bitacora-aviso-bloqueo" *ngIf="item.bloqueado && esSubGerente">
+            <i class="fa" [ngClass]="estaBloqueadoParaMi(item) ? 'fa-lock' : 'fa-unlock-alt'"></i>
+            <span *ngIf="estaBloqueadoParaMi(item)">
+              Hallazgo bloqueado{{item.bloqueadoPorNombre ? ' por ' + item.bloqueadoPorNombre : ''}}. Solo lectura.
+            </span>
+            <span *ngIf="!estaBloqueadoParaMi(item)">Desbloqueado temporalmente con la clave.</span>
+            <button type="button" class="bitacora-aviso-bloqueo-btn"
+                    *ngIf="!soloLectura && estaBloqueadoParaMi(item)"
+                    (click)="pedirAccesoHallazgoBloqueado(item)">
+              <i class="fa fa-key"></i> Desbloquear con clave
+            </button>
+          </div>
           <div class="bitacora-detalle">
-            <div class="bitacora-carga" *ngIf="!soloLectura">
+            <div class="bitacora-carga" *ngIf="!bitacoraSoloLectura(item)">
               <div class="row row-compact">
                 <div class="col-md-12 col-sm-12 compact-field">
                   <label>Semáforo de prioridad</label>
@@ -462,13 +495,13 @@
                     <i class="fa" [ngClass]="estaBitacoraGuardadaExpandida(item, registro, ri) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                   </button>
                   <button type="button" class="btn-accion btn-editar"
-                          *ngIf="!soloLectura"
+                          *ngIf="!bitacoraSoloLectura(item)"
                           (click)="editarRegistroBitacora(registro)"
                           title="Editar registro">
                     <i class="fa fa-pencil"></i>
                   </button>
                   <button type="button" class="btn-accion btn-eliminar"
-                          *ngIf="!soloLectura"
+                          *ngIf="!bitacoraSoloLectura(item)"
                           (click)="eliminarRegistroBitacora(item, registro)"
                           title="Eliminar registro">
                     <i class="fa fa-trash"></i>
@@ -502,7 +535,7 @@
                         <i class="fa" [ngClass]="getIconoArchivoClass(archivo.nombre)"></i>
                         <a [href]="archivo.url" target="_blank" rel="noopener" class="archivo-chip-nombre" [title]="archivo.nombre">{{archivo.nombre}}</a>
                         <button type="button" class="archivo-chip-quitar"
-                                *ngIf="!soloLectura"
+                                *ngIf="!bitacoraSoloLectura(item)"
                                 (click)="eliminarArchivoDeBitacora(item, registro, archivo)"
                                 title="Eliminar archivo">
                           <i class="fa fa-times"></i>
