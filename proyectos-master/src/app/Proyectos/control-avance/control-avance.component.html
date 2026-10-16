@@ -156,7 +156,18 @@
       <div class="row row-compact mt-10">
         <div class="col-md-3 col-sm-6 compact-field">
           <label>Fecha Inicio Programada</label>
-          <input type="date" class="form-control" [(ngModel)]="nuevoDoc.fechaInicioProgramada">
+          <div class="celda-fecha">
+            <input type="text" class="form-control" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
+                   [value]="fechaVista(nuevoDoc.fechaInicioProgramada)"
+                   (input)="onInputFechaTabla($event.target, nuevoDoc, 'fechaInicioProgramada', -1)"
+                   (blur)="restaurarFechaTabla($event.target, nuevoDoc, 'fechaInicioProgramada')">
+            <span class="btn-calendario-tabla btn-calendario-form" title="Elegir en el calendario">
+              <i class="fa fa-calendar"></i>
+              <input type="date" class="picker-fecha-oculto" tabindex="-1"
+                     [value]="nuevoDoc.fechaInicioProgramada || ''"
+                     (change)="onPickerFechaTabla($event.target.value, nuevoDoc, 'fechaInicioProgramada', -1)">
+            </span>
+          </div>
         </div>
         <div class="col-md-2 col-sm-6 compact-field">
           <label>Plazo Contrato (días)</label>
@@ -392,10 +403,21 @@
             </select>
           </td>
           <td>
-            <input type="date" [(ngModel)]="fila.item.fechaInicioProgramada"
-                   (ngModelChange)="onCambioFechaInicioProgramada(fila.item, fila.indexOriginal)"
-                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
-                   class="input-fecha input-compact" title="Por defecto usa el término de la lámina anterior; también puede editarse libremente">
+            <div class="celda-fecha">
+              <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
+                     class="input-fecha input-compact"
+                     [value]="fechaVista(fila.item.fechaInicioProgramada)"
+                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                     (input)="onInputFechaTabla($event.target, fila.item, 'fechaInicioProgramada', fila.indexOriginal)"
+                     (blur)="restaurarFechaTabla($event.target, fila.item, 'fechaInicioProgramada')"
+                     title="Por defecto usa el término de la lámina anterior; también puede editarse libremente">
+              <span class="btn-calendario-tabla" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
+                <i class="fa fa-calendar"></i>
+                <input type="date" class="picker-fecha-oculto" tabindex="-1"
+                       [value]="fila.item.fechaInicioProgramada || ''"
+                       (change)="onPickerFechaTabla($event.target.value, fila.item, 'fechaInicioProgramada', fila.indexOriginal)">
+              </span>
+            </div>
           </td>
           <td>
             <input type="number" [(ngModel)]="fila.item.plazoProgramado"
@@ -405,10 +427,21 @@
                    min="0" class="input-numero input-small" placeholder="días">
           </td>
           <td>
-            <input type="date" [(ngModel)]="fila.item.fechaTerminoProgramada"
-                   (ngModelChange)="onCambioFechaTerminoProgramada(fila.item, fila.indexOriginal)"
-                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
-                   class="input-fecha input-compact" title="Por defecto usa el inicio de la siguiente actividad; también puede editarse">
+            <div class="celda-fecha">
+              <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
+                     class="input-fecha input-compact"
+                     [value]="fechaVista(fila.item.fechaTerminoProgramada)"
+                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                     (input)="onInputFechaTabla($event.target, fila.item, 'fechaTerminoProgramada', fila.indexOriginal)"
+                     (blur)="restaurarFechaTabla($event.target, fila.item, 'fechaTerminoProgramada')"
+                     title="Por defecto usa el inicio de la siguiente actividad; también puede editarse">
+              <span class="btn-calendario-tabla" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
+                <i class="fa fa-calendar"></i>
+                <input type="date" class="picker-fecha-oculto" tabindex="-1"
+                       [value]="fila.item.fechaTerminoProgramada || ''"
+                       (change)="onPickerFechaTabla($event.target.value, fila.item, 'fechaTerminoProgramada', fila.indexOriginal)">
+              </span>
+            </div>
           </td>
           <td>
             <div class="celda-porcentaje">
@@ -418,10 +451,20 @@
             </div>
           </td>
           <td>
-            <input type="date" [(ngModel)]="fila.item.fechaInicio"
-                   (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
-                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
-                   class="input-fecha input-compact">
+            <div class="celda-fecha">
+              <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
+                     class="input-fecha input-compact"
+                     [value]="fechaVista(fila.item.fechaInicio)"
+                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                     (input)="onInputFechaTabla($event.target, fila.item, 'fechaInicio', fila.indexOriginal)"
+                     (blur)="restaurarFechaTabla($event.target, fila.item, 'fechaInicio')">
+              <span class="btn-calendario-tabla" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
+                <i class="fa fa-calendar"></i>
+                <input type="date" class="picker-fecha-oculto" tabindex="-1"
+                       [value]="fila.item.fechaInicio || ''"
+                       (change)="onPickerFechaTabla($event.target.value, fila.item, 'fechaInicio', fila.indexOriginal)">
+              </span>
+            </div>
           </td>
           <td>
             <input type="number" [(ngModel)]="fila.item.plazoReal"
@@ -431,7 +474,7 @@
                    min="0" class="input-numero input-small" placeholder="días">
           </td>
           <td>
-            <input type="text" [ngModel]="fila.item.fechaTermino" [disabled]="true"
+            <input type="text" [value]="fechaVista(fila.item.fechaTermino)" [disabled]="true"
                    class="input-fecha input-compact input-calculado" title="Calculado: fecha inicio real + plazo real">
           </td>
           <td>
@@ -529,10 +572,17 @@
     <div class="gantt-leyenda">
       <div class="gantt-escala" role="group" aria-label="Escala de tiempo">
         <span class="gantt-escala-label">Ver por</span>
-        <button type="button" [class.activo]="ganttEscala === 'dia'" (click)="cambiarEscalaGantt('normal')">Día</button>
+        <button type="button" [class.activo]="ganttEscala === 'normal'" (click)="cambiarEscalaGantt('normal')">Día</button>
         <button type="button" [class.activo]="ganttEscala === 'semana'" (click)="cambiarEscalaGantt('semana')">Semana</button>
         <button type="button" [class.activo]="ganttEscala === 'mes'" (click)="cambiarEscalaGantt('mes')">Mes</button>
       </div>
+
+      <!-- Ayuda rápida de la edición directa en la Carta Gantt -->
+      <span class="gantt-ayuda-edicion" *ngIf="!soloLectura && ganttBarras.length > 0"
+            title="Arrastra una barra para mover sus fechas (si llegas al borde, el gráfico se desplaza solo) · Arrastra su borde derecho para cambiar el plazo · Doble clic en la barra para escribir la fecha de inicio y los días exactos · Doble clic en la descripción para renombrar · Clic en una fila sin fecha para asignarle inicio">
+        <i class="fa fa-hand-pointer-o"></i>
+        Arrastra para mover · Estira el borde para el plazo · Doble clic en la barra para escribir fecha y días · Doble clic en el nombre para renombrar
+      </span>
 
       <!-- Exportar a Excel: vive junto a la leyenda de la Carta Gantt, no en el header -->
       <button type="button" class="btn-exportar-excel" *ngIf="!ocultarExportacion && !LoadingTabla && ganttBarras.length > 0"
@@ -544,6 +594,10 @@
     <div class="mensaje-vacio gantt-vacio" *ngIf="ganttBarras.length === 0">
       <strong>Sin fechas registradas todavía</strong>
       <p>Ingrese fechas + plazo (días) en la tabla para visualizar la Carta Gantt</p>
+      <button type="button" class="btn btn-primary btn-sm gantt-vacio-agregar" *ngIf="!soloLectura"
+              (click)="abrirFormularioAgregar(null, 'Raíz', true)">
+        <i class="fa fa-plus"></i> Agregar título
+      </button>
     </div>
 
     <div class="gantt-scroll" *ngIf="ganttBarras.length > 0">
@@ -557,7 +611,8 @@
             <span class="gantt-col-avance">% Avance</span>
             <span class="gantt-col-bitacora">Última<br>bitácora</span>
           </div>
-          <div class="gantt-fila-nombre" *ngFor="let barra of ganttBarras; trackBy: trackByBarra"
+          <ng-container *ngFor="let barra of ganttBarras; trackBy: trackByBarra">
+          <div class="gantt-fila-nombre"
                [class.gantt-fila-titulo]="barra.item.esTitulo"
                [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(barra.item)"
                [class.fila-bitacora-match]="filtroBitacora !== 'todas' && itemCoincideFiltroBitacora(barra.item)">
@@ -567,11 +622,48 @@
               </button>
               <strong class="gantt-codigo">{{barra.item.codigo || 'Sin código'}}</strong>
             </span>
-            <span class="gantt-col-desc" [style.paddingLeft.px]="10 + barra.nivel * 14" [title]="barra.item.descripcion">
-              <span class="gantt-descripcion">{{barra.item.descripcion}}</span>
+            <span class="gantt-col-desc" [class.gantt-col-desc-editable]="!soloLectura"
+                  [style.paddingLeft.px]="10 + barra.nivel * 14"
+                  [title]="soloLectura ? barra.item.descripcion : (barra.item.descripcion + ' — doble clic para editar')"
+                  (dblclick)="iniciarEdicionNombreGantt(barra)">
+              <input *ngIf="editandoNombreGanttId === barra.item.id"
+                     id="gantt-input-nombre"
+                     type="text"
+                     class="gantt-input-nombre"
+                     [(ngModel)]="barra.item.descripcion"
+                     (keydown.enter)="confirmarNombreGantt(barra)"
+                     (keydown.escape)="cancelarNombreGantt(barra)"
+                     (blur)="confirmarNombreGantt(barra)"
+                     (click)="$event.stopPropagation()"
+                     (dblclick)="$event.stopPropagation()">
+              <span class="gantt-descripcion" *ngIf="editandoNombreGanttId !== barra.item.id">{{barra.item.descripcion}}</span>
+
+              <!-- Acciones rápidas al pasar el mouse: agregar / insertar / eliminar -->
+              <span class="gantt-acciones-fila" *ngIf="!soloLectura && editandoNombreGanttId !== barra.item.id"
+                    (dblclick)="$event.stopPropagation()">
+                <button type="button" class="gantt-btn-accion" *ngIf="barra.item.esTitulo"
+                        (click)="$event.stopPropagation(); abrirNuevaFilaDentroGantt(barra)"
+                        title="Agregar lámina dentro de este título">
+                  <i class="fa fa-plus"></i>
+                </button>
+                <button type="button" class="gantt-btn-accion" *ngIf="!barra.item.esTitulo"
+                        (click)="$event.stopPropagation(); abrirNuevaFilaDespuesGantt(barra)"
+                        title="Insertar lámina debajo de esta">
+                  <i class="fa fa-level-down"></i>
+                </button>
+                <button type="button" class="gantt-btn-accion gantt-btn-eliminar" *ngIf="puedeEliminarControlAvance()"
+                        (click)="$event.stopPropagation(); PrepararEliminar(barra.indexOriginal)"
+                        [title]="barra.item.esTitulo ? 'Eliminar título y todas sus láminas' : 'Eliminar lámina'">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </span>
             </span>
             <span class="gantt-col-plazo">
-              <ng-container *ngIf="!barra.puedeElegirFranja">{{barra.item.plazoProgramado ? (barra.item.plazoProgramado + 'd') : ''}}</ng-container>
+              <ng-container *ngIf="!barra.puedeElegirFranja">
+                <!-- Mientras se estira la barra, el plazo se actualiza en vivo -->
+                <span *ngIf="dragGanttId === barra.item.id && !barra.esHito" class="gantt-plazo-vivo">{{barra.ancho}}d</span>
+                <ng-container *ngIf="!(dragGanttId === barra.item.id && !barra.esHito)">{{barra.item.plazoProgramado ? (barra.item.plazoProgramado + 'd') : ''}}</ng-container>
+              </ng-container>
               <label class="check-franja" *ngIf="barra.puedeElegirFranja" title="Marca esto para pintar la franja oscura completa en el gráfico (tiene prioridad sobre su fecha/plazo)">
                 <input type="checkbox" [checked]="barra.item.mostrarFranjaCompleta" (change)="toggleFranjaCompleta(barra.item, barra.indexOriginal)">
                 <span>Franja</span>
@@ -590,7 +682,55 @@
                     <span class="gantt-sin-bitacora" *ngIf="!getPrioridadMasReciente(barra.item)">-</span>
             </span>
           </div>
+
+          <!-- Input inline para crear una fila justo debajo de esta -->
+          <div class="gantt-fila-nombre gantt-fila-nueva" *ngIf="nuevaFilaGantt && nuevaFilaGantt.despuesDeId === barra.item.id">
+            <ng-container *ngTemplateOutlet="tplNuevaFilaGantt"></ng-container>
+          </div>
+          </ng-container>
+
+          <!-- Input inline al final (nuevo título en la raíz) -->
+          <div class="gantt-fila-nombre gantt-fila-nueva" *ngIf="nuevaFilaGantt && nuevaFilaGantt.despuesDeId === '__final__'">
+            <ng-container *ngTemplateOutlet="tplNuevaFilaGantt"></ng-container>
+          </div>
+
+          <!-- "+ Nuevo título", siempre al final de la lista -->
+          <div class="gantt-fila-nombre gantt-fila-agregar" *ngIf="!soloLectura" (click)="abrirNuevoTituloRaizGantt()">
+            <i class="fa fa-plus"></i> Nuevo título
+          </div>
         </div>
+
+        <!-- Contenido de la fila de creación inline (se usa en cualquier posición) -->
+        <ng-template #tplNuevaFilaGantt>
+          <span class="gantt-col-item" [style.paddingLeft.px]="6 + nuevaFilaGantt.nivel * 14">
+            <select class="gantt-select-tipo-nueva" [(ngModel)]="nuevaFilaGantt.esTitulo"
+                    (blur)="onBlurNuevaFilaGantt()" title="Tipo de fila a crear">
+              <option [ngValue]="false">Lámina</option>
+              <option [ngValue]="true">Título</option>
+            </select>
+          </span>
+          <span class="gantt-col-desc gantt-col-desc-nueva" [style.paddingLeft.px]="10 + nuevaFilaGantt.nivel * 14">
+            <input id="gantt-input-nueva"
+                   type="text"
+                   class="gantt-input-nombre"
+                   autocomplete="off"
+                   [(ngModel)]="nuevaFilaGantt.descripcion"
+                   [placeholder]="(nuevaFilaGantt.esTitulo ? 'Nombre del título' : 'Nombre de la lámina') + ' en ' + nuevaFilaGantt.nombrePadre + ' · Enter para crear'"
+                   (keydown.enter)="crearFilaDesdeGantt(true)"
+                   (keydown.escape)="cancelarNuevaFilaGantt()"
+                   (blur)="onBlurNuevaFilaGantt()">
+          </span>
+          <span class="gantt-nueva-acciones">
+            <button type="button" class="gantt-btn-accion gantt-btn-confirmar-nueva"
+                    (mousedown)="$event.preventDefault()" (click)="crearFilaDesdeGantt(false)" title="Crear">
+              <i class="fa fa-check"></i>
+            </button>
+            <button type="button" class="gantt-btn-accion"
+                    (mousedown)="$event.preventDefault()" (click)="cancelarNuevaFilaGantt()" title="Cancelar (Esc)">
+              <i class="fa fa-times"></i>
+            </button>
+          </span>
+        </ng-template>
 
         <!-- Timeline con barras horizontales, como cualquier Carta Gantt -->
         <div class="gantt-timeline" [class.gantt-escala-mensual]="ganttEscala === 'mes'" [style.width.px]="ganttAnchoTotalPx">
@@ -626,23 +766,43 @@
             <span class="gantt-linea-hoy-etiqueta">Hoy</span>
           </div>
 
-          <div class="gantt-fila" *ngFor="let barra of ganttBarras; trackBy: trackByBarra" [style.width.px]="ganttAnchoTotalPx"
+          <!-- Guías mientras se arrastra/estira: la fecha va apareciendo arriba, sobre el calendario -->
+          <div class="gantt-linea-drag gantt-linea-drag-inicio" *ngIf="dragGuiaInicioPx !== null" [style.left.px]="dragGuiaInicioPx">
+            <span class="gantt-linea-drag-etiqueta">{{dragGuiaInicioTxt}}</span>
+          </div>
+          <div class="gantt-linea-drag gantt-linea-drag-fin" *ngIf="dragGuiaFinPx !== null" [style.left.px]="dragGuiaFinPx">
+            <span class="gantt-linea-drag-etiqueta">{{dragGuiaFinTxt}}</span>
+          </div>
+
+          <ng-container *ngFor="let barra of ganttBarras; trackBy: trackByBarra">
+          <div class="gantt-fila" [style.width.px]="ganttAnchoTotalPx"
             [class.gantt-fila-titulo]="barra.esGrupo || barra.esFranjaCompleta"
-               [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(barra.item)">
+               [class.gantt-fila-asignable]="barra.asignable"
+               [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(barra.item)"
+               [title]="barra.asignable ? 'Clic para asignar la fecha de inicio en este día' : ''"
+               (click)="onClickFilaGantt($event, barra)">
 
             <!-- Hito: fecha puntual sin plazo definido (ej. trámites tipo DOM/CONS del Excel) -->
             <div class="gantt-hito" *ngIf="barra.esHito"
-                [style.left.px]="ganttDiaAPixel(barra.offsetHito)"
-                 [title]="barra.item.descripcion + ' — fecha sin plazo definido'">
+                 [class.gantt-hito-editable]="barra.editable"
+                 [class.gantt-barra-arrastrando]="dragGanttId === barra.item.id"
+                 [style.left.px]="ganttDiaAPixel(barra.offsetHito)"
+                 [title]="barra.item.descripcion + ' — fecha sin plazo definido' + (barra.editable ? ' (arrastra para mover · doble clic para escribir la fecha)' : '')"
+                 (mousedown)="iniciarArrastreGantt($event, barra, 'mover')"
+                 (dblclick)="abrirEditorFechasGantt($event, barra)">
             </div>
 
             <div class="gantt-barra"
                  *ngIf="!barra.esHito && barra.ancho > 0"
                  [class.gantt-barra-grupo]="barra.esGrupo || barra.esFranjaCompleta"
                  [class.gantt-barra-heredada]="barra.esHeredado"
+                 [class.gantt-barra-editable]="barra.editable"
+                 [class.gantt-barra-arrastrando]="dragGanttId === barra.item.id"
                  [style.left.px]="ganttDiaAPixel(barra.offset)"
                  [style.width.px]="ganttDiasAPixel(barra.offset, barra.ancho)"
-                 [title]="barra.esFranjaCompleta ? barra.item.descripcion : (barra.esHeredado ? 'Tramo estimado dentro del plazo del título (sin fecha propia)' : (barra.item.fechaInicioProgramada + ' → ' + barra.item.fechaTerminoProgramada))">
+                 [title]="(barra.esFranjaCompleta ? barra.item.descripcion : (barra.esHeredado ? 'Tramo estimado dentro del plazo del título (sin fecha propia)' : (barra.item.fechaInicioProgramada + ' → ' + barra.item.fechaTerminoProgramada))) + (barra.editable ? ' · doble clic para escribir fecha y días' : '')"
+                 (mousedown)="iniciarArrastreGantt($event, barra, 'mover')"
+                 (dblclick)="abrirEditorFechasGantt($event, barra)">
               <div class="gantt-barra-relleno"
                    [ngClass]="barra.clase"
                    [style.width.px]="ganttDiasAPixel(barra.offset, barra.anchoRelleno)">
@@ -650,11 +810,80 @@
               <span class="gantt-barra-texto" *ngIf="!barra.esFranjaCompleta && ganttDiasAPixel(barra.offset, barra.ancho) > 30">
                 {{barra.item.avanceReal}}%
               </span>
+              <!-- Asa del borde derecho: arrastrar para cambiar el plazo -->
+              <div class="gantt-barra-asa" *ngIf="barra.editable"
+                   title="Arrastra para cambiar el plazo"
+                   (mousedown)="iniciarArrastreGantt($event, barra, 'estirar')">
+              </div>
+            </div>
+
+            <!-- Tooltip con las fechas mientras se arrastra -->
+            <div class="gantt-drag-tooltip" *ngIf="dragGanttId === barra.item.id && dragGanttEtiqueta"
+                 [style.left.px]="barra.esHito
+                   ? ganttDiaAPixel(barra.offsetHito) + 12
+                   : ganttDiaAPixel(barra.offset) + ganttDiasAPixel(barra.offset, barra.ancho) + 6">
+              {{dragGanttEtiqueta}}
             </div>
           </div>
+
+          <!-- Fila vacía en el timeline, alineada con el input inline de la columna de nombres -->
+          <div class="gantt-fila gantt-fila-nueva" *ngIf="nuevaFilaGantt && nuevaFilaGantt.despuesDeId === barra.item.id"
+               [style.width.px]="ganttAnchoTotalPx"></div>
+          </ng-container>
+
+          <div class="gantt-fila gantt-fila-nueva" *ngIf="nuevaFilaGantt && nuevaFilaGantt.despuesDeId === '__final__'"
+               [style.width.px]="ganttAnchoTotalPx"></div>
+          <div class="gantt-fila gantt-fila-agregar-spacer" *ngIf="!soloLectura" [style.width.px]="ganttAnchoTotalPx"></div>
         </div>
       </div>
     </div>
+
+    <!-- Editor rápido de fechas (doble clic en una barra): fecha de inicio y plazo exactos -->
+    <ng-container *ngIf="editorFechasGantt">
+      <div class="gantt-editor-fondo" (mousedown)="cerrarEditorFechasGantt()"></div>
+      <div class="gantt-editor-fechas"
+           [style.left.px]="editorFechasGantt.x"
+           [style.top.px]="editorFechasGantt.y"
+           (keydown.escape)="cerrarEditorFechasGantt()"
+           (keydown.enter)="guardarEditorFechasGantt()">
+        <div class="gantt-editor-titulo" [title]="editorFechasGantt.barra.item.descripcion">
+          <strong>{{editorFechasGantt.barra.item.codigo || 'Sin código'}}</strong>
+          {{editorFechasGantt.barra.item.descripcion}}
+        </div>
+        <div class="gantt-editor-campos">
+          <label class="gantt-editor-campo">
+            <span>Fecha inicio</span>
+            <span class="gantt-editor-fecha-wrap">
+              <input id="gantt-editor-inicio" type="text" inputmode="numeric" maxlength="10"
+                     placeholder="dd/mm/aaaa" autocomplete="off"
+                     [value]="editorFechasGantt.inicioTexto"
+                     (input)="onInputFechaEditorGantt($event.target)">
+              <!-- Botón calendario: el input date invisible queda encima, así el clic abre el selector nativo -->
+              <span class="gantt-editor-btn-calendario" title="Elegir en el calendario">
+                <i class="fa fa-calendar"></i>
+                <input type="date" class="gantt-editor-picker" tabindex="-1"
+                       [value]="editorFechasGantt.inicio"
+                       (change)="onPickerFechaEditorGantt($event.target.value)">
+              </span>
+            </span>
+          </label>
+          <label class="gantt-editor-campo gantt-editor-campo-plazo">
+            <span>Plazo (días)</span>
+            <input type="number" min="0" [(ngModel)]="editorFechasGantt.plazo">
+          </label>
+        </div>
+        <div class="gantt-editor-termino">
+          <i class="fa fa-flag-checkered"></i>
+          Término: <strong>{{terminoEditorFechasGantt || (editorFechasGantt.plazo > 0 ? '-' : 'hito (sin plazo)')}}</strong>
+        </div>
+        <div class="gantt-editor-acciones">
+          <button type="button" class="btn btn-default btn-sm" (click)="cerrarEditorFechasGantt()">Cancelar</button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="guardarEditorFechasGantt()">
+            <i class="fa fa-check"></i> Guardar
+          </button>
+        </div>
+      </div>
+    </ng-container>
   </div>
 </div>
 

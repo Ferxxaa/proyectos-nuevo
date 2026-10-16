@@ -93,6 +93,8 @@ interface BarraGantt {
   ancho: number;         // duración total de la barra, en días
   anchoRelleno: number;  // parte ya completada de la barra, según % avance real
   clase: string;         // color de estado (verde/amarillo/rojo/sin datos)
+  editable: boolean;     // se puede arrastrar/estirar desde la Carta Gantt (no es título con hijos ni franja)
+  asignable: boolean;    // no tiene fecha programada propia: un clic en la fila le asigna fecha de inicio
 }
 
 interface PeriodoGantt {
@@ -100,6 +102,20 @@ interface PeriodoGantt {
   detalle: string;
   inicioDia: number;
   dias: number;
+}
+
+/** Estado interno del arrastre de una barra en la Carta Gantt (mover o estirar). */
+interface ArrastreGantt {
+  modo: 'mover' | 'estirar';
+  barra: BarraGantt;
+  filaEl: HTMLElement;     // fila del timeline (su posición se relee en cada movimiento, por si hay scroll)
+  scrollEl: HTMLElement | null;  // contenedor con scroll horizontal, para el auto-scroll al llegar al borde
+  nombresAncho: number;    // ancho de la columna fija de nombres (zona izquierda del auto-scroll)
+  diaInicioMouse: number;  // día (fraccional) bajo el mouse al hacer mousedown
+  offsetOriginal: number;
+  anchoOriginal: number;
+  delta: number;           // días desplazados respecto al inicio del arrastre
+  movido: boolean;
 }
 
 /** Plantilla creada por el propio usuario desde el modal de Plantillas, con ícono a elección y guardada en Firestore. */
@@ -256,6 +272,44 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   ganttBarras: BarraGantt[] = [];
   ganttHoyOffset: number = -1;
 
+  // ---- Edición directa en la Carta Gantt (estilo ClickUp) ----
+  /** Plazo por defecto (días) al asignar fecha con un clic en una fila sin fecha. */
+  readonly PLAZO_DEFECTO_GANTT: number = 7;
+  /** Días vacíos que se agregan al final de la Carta Gantt para poder mover/estirar barras más allá de la última fecha. */
+  readonly GANTT_DIAS_RELLENO: number = 42;
+  /** Relleno aplicado en el último cálculo (0 en solo lectura). El Excel lo descuenta. */
+  ganttDiasRelleno: number = 0;
+  /** Editor rápido de fechas (doble clic en una barra): fecha de inicio y plazo exactos. */
+  editorFechasGantt: { barra: BarraGantt; inicio: string; inicioTexto: string; plazo: number; x: number; y: number } | null = null;
+  /** Id del item cuya descripción se está editando inline en la columna de nombres del Gantt. */
+  editandoNombreGanttId: string | null = null;
+  private nombreGanttOriginal: string = '';
+  /** Id del item cuya barra se está arrastrando (para resaltarla y mostrar el tooltip de fechas). */
+  dragGanttId: string | null = null;
+  dragGanttEtiqueta: string = '';
+  /** Guías verticales que siguen al inicio/fin de la barra mientras se arrastra, con la fecha arriba en el calendario. */
+  dragGuiaInicioPx: number | null = null;
+  dragGuiaFinPx: number | null = null;
+  dragGuiaInicioTxt: string = '';
+  dragGuiaFinTxt: string = '';
+  private dragGantt: ArrastreGantt | null = null;
+  private listenerMouseMoveGantt: any = null;
+  private listenerMouseUpGantt: any = null;
+  private ignorarClickGantt: boolean = false;
+
+  /** Fila inline para crear un título/lámina directo desde la Carta Gantt (estilo "+ Agregar tarea" de ClickUp). */
+  nuevaFilaGantt: {
+    despuesDeId: string;           // id de la fila tras la cual se muestra el input ('__final__' = al final de todo)
+    idPadre: string | null;        // título donde se crea (null = raíz)
+    ordenDespuesDe: number | null; // null = se agrega al final de sus hermanos; número = se inserta justo después
+    nivel: number;                 // indentación visual del input
+    esTitulo: boolean;
+    descripcion: string;
+    nombrePadre: string;
+  } | null = null;
+  private creandoFilaGantt: boolean = false;
+  private reenfocandoNuevaFilaGantt: boolean = false;
+
   private unsubscribeControles: (() => void) | null = null;
   private unsubscribeValidadoresConfig: (() => void) | null = null;
   private unsubscribePlantillasPersonalizadas: (() => void) | null = null;
@@ -404,6 +458,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (this.tiempoRecalculo) {
       clearTimeout(this.tiempoRecalculo);
     }
+    this.quitarListenersArrastreGantt();
   }
 
   calcularAvancesYValidaciones() {
@@ -2736,38 +2791,23 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const inicioRango = new Date(fechaMin);
     inicioRango.setDate(inicioRango.getDate() - diaSemana);
 
-    const totalDias = this.diasEntreFechas(inicioRango, fechaMax) + 1;
+    // Espacio extra al final (solo en pantalla, si se puede editar) para poder arrastrar o estirar
+    // una barra más allá de la última fecha. El Excel exportado no incluye este relleno.
+    const diasRelleno = this.soloLectura ? 0 : this.GANTT_DIAS_RELLENO;
+    const fechaFinVisual = new Date(fechaMax);
+    fechaFinVisual.setDate(fechaFinVisual.getDate() + diasRelleno);
+
+    const totalDias = this.diasEntreFechas(inicioRango, fechaFinVisual) + 1;
     this.ganttFechaInicioRango = inicioRango;
     this.ganttDiasTotales = totalDias;
+    this.ganttDiasRelleno = diasRelleno;
 
-    // Cabeceras: agrupa los días en semanas
-    const semanas: Array<{ etiqueta: string; dias: Array<{ numero: number; fecha: Date }> }> = [];
-    for (let i = 0; i < totalDias; i++) {
-      const fecha = new Date(inicioRango);
-      fecha.setDate(fecha.getDate() + i);
-      const numeroSemana = Math.floor(i / 7);
-      if (!semanas[numeroSemana]) {
-        semanas[numeroSemana] = { etiqueta: `Semana ${numeroSemana + 1} - ${this.nombreMes(fecha.getMonth())}`, dias: [] };
-      }
-      semanas[numeroSemana].dias.push({ numero: fecha.getDate(), fecha });
-    }
-    this.ganttSemanas = semanas;
-    this.recalcularPeriodosGantt(inicioRango, totalDias);
-
-    // Offsets de sábados/domingos, para sombrear esas columnas como guía visual
-    const findesDeSemana: number[] = [];
-    for (let i = 0; i < totalDias; i++) {
-      const fecha = new Date(inicioRango);
-      fecha.setDate(fecha.getDate() + i);
-      if (fecha.getDay() === 0 || fecha.getDay() === 6) {
-        findesDeSemana.push(i);
-      }
-    }
-    this.ganttFinesDeSemanaOffsets = findesDeSemana;
+    // Cabeceras (semanas/días/periodos) y sombreado de fines de semana
+    this.construirEscalaGantt(inicioRango, totalDias);
 
     const hoy = new Date();
     const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-    this.ganttHoyOffset = (hoySinHora >= inicioRango && hoySinHora <= fechaMax)
+    this.ganttHoyOffset = (hoySinHora >= inicioRango && hoySinHora <= fechaFinVisual)
       ? this.diasEntreFechas(inicioRango, hoySinHora)
       : -1;
 
@@ -2806,6 +2846,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       }
     });
 
+    // Títulos con hijos activos: sus fechas se calculan desde las láminas, no se pueden arrastrar.
+    const idsConHijos: { [id: string]: boolean } = {};
+    this.ControlesAvance.forEach(it => {
+      if (it.activo !== false && it.idPadre) { idsConHijos[it.idPadre] = true; }
+    });
+
     this.ganttBarras = this.filasTabla.map(f => {
       const item = f.item;
       const esGrupo = !!item.esTitulo;
@@ -2830,7 +2876,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         // El usuario eligió la franja completa: tiene prioridad, aunque el título también tenga fecha propia.
         esFranjaCompleta = true;
         offset = 0;
-        ancho = totalDias;
+        ancho = totalDias - diasRelleno; // la franja cubre el proyecto, no el espacio extra de arrastre
       } else if (heredado) {
         // Sin fecha propia, pero su padre tiene plazo: hereda un tramo (efecto "escalera").
         esHeredado = true;
@@ -2851,6 +2897,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         anchoRelleno = Math.round(ancho * avanceReal / 100);
       }
 
+      const editable = !this.soloLectura
+        && !!item.id
+        && !esFranjaCompleta
+        && !(esGrupo && idsConHijos[item.id]);
+      const asignable = editable && !item.fechaInicioProgramada && !esHito;
+
       return {
         item,
         indexOriginal: f.indexOriginal,
@@ -2865,9 +2917,49 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         offset,
         ancho,
         anchoRelleno,
-        clase: this.getClaseAvanceReal(item.avanceReal, item.avanceProgramado) || 'avance-sin-datos'
+        clase: this.getClaseAvanceReal(item.avanceReal, item.avanceProgramado) || 'avance-sin-datos',
+        editable,
+        asignable
       } as BarraGantt;
     });
+  }
+
+  /** Arma las cabeceras de semanas/días, los periodos de la escala activa y los fines de semana del rango. */
+  private construirEscalaGantt(inicioRango: Date, totalDias: number) {
+    const semanas: Array<{ etiqueta: string; dias: Array<{ numero: number; fecha: Date }> }> = [];
+    for (let i = 0; i < totalDias; i++) {
+      const fecha = new Date(inicioRango);
+      fecha.setDate(fecha.getDate() + i);
+      const numeroSemana = Math.floor(i / 7);
+      if (!semanas[numeroSemana]) {
+        semanas[numeroSemana] = { etiqueta: `Semana ${numeroSemana + 1} - ${this.nombreMes(fecha.getMonth())}`, dias: [] };
+      }
+      semanas[numeroSemana].dias.push({ numero: fecha.getDate(), fecha });
+    }
+    this.ganttSemanas = semanas;
+    this.recalcularPeriodosGantt(inicioRango, totalDias);
+
+    const findesDeSemana: number[] = [];
+    for (let i = 0; i < totalDias; i++) {
+      const fecha = new Date(inicioRango);
+      fecha.setDate(fecha.getDate() + i);
+      if (fecha.getDay() === 0 || fecha.getDay() === 6) {
+        findesDeSemana.push(i);
+      }
+    }
+    this.ganttFinesDeSemanaOffsets = findesDeSemana;
+  }
+
+  /**
+   * Mientras se arrastra/estira una barra hacia la derecha, agranda el rango visible para que no se corte.
+   * Las barras no se recalculan: sus offsets siguen siendo relativos al mismo inicio de rango.
+   */
+  private asegurarRangoGantt(diaFinNecesario: number) {
+    if (!this.ganttFechaInicioRango || diaFinNecesario < this.ganttDiasTotales - 7) { return; }
+    const extra = Math.max(7, diaFinNecesario - this.ganttDiasTotales + 7);
+    this.ganttDiasTotales += extra;
+    this.ganttDiasRelleno += extra;
+    this.construirEscalaGantt(this.ganttFechaInicioRango, this.ganttDiasTotales);
   }
 
   get ganttAnchoTotalPx(): number {
@@ -2936,6 +3028,747 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return pixel;
   }
 
+  /** Inverso de ganttDiaAPixel: convierte una posición X (px desde el inicio del timeline) a día fraccional del rango. */
+  ganttPixelADia(px: number): number {
+    if (!this.ganttPeriodos.length) { return 0; }
+    const unidad = this.ganttPxPorUnidad;
+    const anchoTotal = this.ganttPeriodos.length * unidad;
+
+    // Fuera del rango dibujado se extrapola, para que al arrastrar más allá del borde la barra siga avanzando.
+    if (px >= anchoTotal) {
+      const ultimo = this.ganttPeriodos[this.ganttPeriodos.length - 1];
+      return ultimo.inicioDia + ultimo.dias + ((px - anchoTotal) / unidad) * ultimo.dias;
+    }
+    if (px < 0) {
+      return (px / unidad) * this.ganttPeriodos[0].dias;
+    }
+
+    let indice = Math.floor(px / unidad);
+    indice = Math.min(Math.max(indice, 0), this.ganttPeriodos.length - 1);
+    const periodo = this.ganttPeriodos[indice];
+    const fraccion = Math.min(Math.max((px - indice * unidad) / unidad, 0), 1);
+    return periodo.inicioDia + fraccion * periodo.dias;
+  }
+
+  // =========================================================================
+  // EDICIÓN DIRECTA EN LA CARTA GANTT (estilo ClickUp)
+  // - Doble clic en la descripción: editar el nombre inline.
+  // - Arrastrar una barra: mover su fecha de inicio (mantiene el plazo).
+  // - Arrastrar el borde derecho: cambiar el plazo (fecha de término).
+  // - Clic en una fila sin fecha: asignar inicio en ese día con plazo por defecto.
+  // Solo se guarda en Firestore al soltar el mouse, para que el onSnapshot no
+  // reconstruya las barras a mitad del arrastre.
+  // =========================================================================
+
+  private fechaDesdeOffsetGantt(offset: number): Date {
+    const fecha = new Date(this.ganttFechaInicioRango as Date);
+    fecha.setDate(fecha.getDate() + offset);
+    return fecha;
+  }
+
+  private etiquetaDiaGantt(offset: number): string {
+    const fecha = this.fechaDesdeOffsetGantt(offset);
+    return `${fecha.getDate()} ${this.nombreMes(fecha.getMonth())}`;
+  }
+
+  /** Igual que etiquetaDiaGantt, pero con el día de la semana y el año (para las guías del calendario). */
+  private etiquetaDiaLargaGantt(offset: number): string {
+    const fecha = this.fechaDesdeOffsetGantt(offset);
+    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return `${dias[fecha.getDay()]} ${String(fecha.getDate()).padStart(2, '0')} ${this.nombreMes(fecha.getMonth())} ${fecha.getFullYear()}`;
+  }
+
+  private limpiarGuiasArrastreGantt() {
+    this.dragGuiaInicioPx = null;
+    this.dragGuiaFinPx = null;
+    this.dragGuiaInicioTxt = '';
+    this.dragGuiaFinTxt = '';
+  }
+
+  /** Guarda un cambio hecho desde la Carta Gantt (sin exigir Código/Tipo como GuardarFila). */
+  private guardarCambioGantt(item: ControlAvanceItem) {
+    if (!item || !item.id) { return; }
+    firestoreDB.collection('controlAvance').doc(item.id).update(this.limpiarParaGuardar(item))
+      .then(() => this.guardarAncestros(item))
+      .catch((error: any) => {
+        Swal.fire('Error', 'No se pudo guardar el cambio: ' + error.message, 'error');
+      });
+  }
+
+  private refrescarTrasCambioGantt() {
+    this.recalcularJerarquiaYAgregados();
+    this.actualizarDatosGantt();
+    this.calcularTotalesDocumentos();
+  }
+
+  /** Huella de los campos programados de cada fila, para detectar qué cambió tras recalcular. */
+  private capturarFechasProgramadas(): { [id: string]: string } {
+    const huellas: { [id: string]: string } = {};
+    this.ControlesAvance.forEach(it => {
+      if (!it.id) { return; }
+      huellas[it.id] = [
+        it.fechaInicioProgramada || '',
+        it.fechaTerminoProgramada || '',
+        it.plazoProgramado || 0,
+        it.avanceProgramado || 0
+      ].join('|');
+    });
+    return huellas;
+  }
+
+  /**
+   * Aplica un cambio de fechas hecho desde la Carta Gantt y lo deja reflejado en la tabla y en Firestore:
+   * recalcula la jerarquía (láminas encadenadas que se corren + títulos que las agrupan) y guarda en un
+   * solo batch TODAS las filas cuyas fechas/plazo/avance programado cambiaron, no solo la que se movió.
+   * Así, al volver a la tabla, recargar o exportar el Excel, se ven exactamente las mismas fechas.
+   */
+  private aplicarCambioFechasGantt(item: ControlAvanceItem, aplicar: () => void) {
+    const antes = this.capturarFechasProgramadas();
+    aplicar();
+    this.refrescarTrasCambioGantt();
+    const despues = this.capturarFechasProgramadas();
+
+    const batch = firestoreDB.batch();
+    let hayCambios = false;
+
+    this.ControlesAvance.forEach(it => {
+      if (!it.id) { return; }
+      const esMovida = it.id === item.id;
+      if (!esMovida && antes[it.id] === despues[it.id]) { return; }
+
+      const datos: any = {
+        fechaInicioProgramada: it.fechaInicioProgramada || '',
+        fechaTerminoProgramada: it.fechaTerminoProgramada || '',
+        plazoProgramado: Number(it.plazoProgramado) || 0,
+        avanceProgramado: Number(it.avanceProgramado) || 0
+      };
+      if (esMovida) {
+        datos.fechaInicioProgramadaManual = !!it.fechaInicioProgramadaManual;
+        datos.fechaTerminoProgramadaManual = !!it.fechaTerminoProgramadaManual;
+      }
+      batch.update(firestoreDB.collection('controlAvance').doc(it.id), datos);
+      hayCambios = true;
+    });
+
+    if (!hayCambios) { return; }
+    batch.commit().catch((error: any) => {
+      Swal.fire('Error', 'No se pudo guardar el cambio de fechas: ' + error.message, 'error');
+    });
+  }
+
+  // ---- 1) Nombre inline ----
+
+  iniciarEdicionNombreGantt(barra: BarraGantt) {
+    if (this.soloLectura || !barra || !barra.item.id) { return; }
+    this.editandoNombreGanttId = barra.item.id;
+    this.nombreGanttOriginal = barra.item.descripcion || '';
+    setTimeout(() => {
+      const input = document.getElementById('gantt-input-nombre') as HTMLInputElement;
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }, 0);
+  }
+
+  confirmarNombreGantt(barra: BarraGantt) {
+    // Enter dispara confirmar y luego el blur al desaparecer el input: el segundo llamado se ignora.
+    if (this.editandoNombreGanttId !== barra.item.id) { return; }
+    const item = barra.item;
+    this.editandoNombreGanttId = null;
+
+    item.descripcion = (item.descripcion || '').trim();
+    if (!item.descripcion) {
+      item.descripcion = this.nombreGanttOriginal;
+      return;
+    }
+    if (item.descripcion === this.nombreGanttOriginal) { return; }
+    if (!this.validarTituloHijoUnico(item)) {
+      item.descripcion = this.nombreGanttOriginal;
+      return;
+    }
+    this.guardarCambioGantt(item);
+  }
+
+  cancelarNombreGantt(barra: BarraGantt) {
+    if (this.editandoNombreGanttId !== barra.item.id) { return; }
+    barra.item.descripcion = this.nombreGanttOriginal;
+    this.editandoNombreGanttId = null;
+  }
+
+  // ---- 2) y 3) Arrastrar barra (mover) o su borde derecho (estirar) ----
+
+  iniciarArrastreGantt(event: MouseEvent, barra: BarraGantt, modo: 'mover' | 'estirar') {
+    if (!barra || !barra.editable || event.button !== 0 || !this.ganttFechaInicioRango) { return; }
+    if (modo === 'estirar' && barra.esHito) { return; }
+    if (this.filaEnEdicion === barra.indexOriginal) { return; }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const objetivo: any = event.target;
+    const fila: HTMLElement = objetivo && objetivo.closest ? objetivo.closest('.gantt-fila') : null;
+    if (!fila) { return; }
+
+    const filaLeft = fila.getBoundingClientRect().left;
+    const scrollEl: HTMLElement = (fila as any).closest ? (fila as any).closest('.gantt-scroll') : null;
+    const nombresEl: HTMLElement = scrollEl ? scrollEl.querySelector('.gantt-nombres') as HTMLElement : null;
+    this.dragGantt = {
+      modo,
+      barra,
+      filaEl: fila,
+      scrollEl: scrollEl,
+      nombresAncho: nombresEl ? nombresEl.offsetWidth : 0,
+      diaInicioMouse: this.ganttPixelADia(event.clientX - filaLeft),
+      offsetOriginal: barra.esHito ? barra.offsetHito : barra.offset,
+      anchoOriginal: barra.esHito ? 0 : barra.ancho,
+      delta: 0,
+      movido: false
+    };
+    this.dragGanttId = barra.item.id;
+    this.dragGanttEtiqueta = '';
+    this.aplicarPreviewArrastreGantt(); // las guías con la fecha aparecen apenas se presiona
+    document.body.classList.add(modo === 'mover' ? 'gantt-arrastrando-mover' : 'gantt-arrastrando-estirar');
+
+    // Los mousemove se escuchan fuera de Angular; solo se entra a la zona cuando cambia el día.
+    this._ngZone.runOutsideAngular(() => {
+      this.listenerMouseMoveGantt = (e: MouseEvent) => this.onMouseMoveGantt(e);
+      this.listenerMouseUpGantt = (e: MouseEvent) => this.onMouseUpGantt(e);
+      document.addEventListener('mousemove', this.listenerMouseMoveGantt);
+      document.addEventListener('mouseup', this.listenerMouseUpGantt);
+    });
+  }
+
+  private onMouseMoveGantt(event: MouseEvent) {
+    const drag = this.dragGantt;
+    if (!drag) { return; }
+
+    // Auto-scroll: al acercarse al borde derecho (o al borde de la columna de nombres) el gráfico se desplaza.
+    if (drag.scrollEl) {
+      const rect = drag.scrollEl.getBoundingClientRect();
+      const margen = 48;
+      if (event.clientX > rect.right - margen) {
+        drag.scrollEl.scrollLeft += 28;
+      } else if (event.clientX < rect.left + drag.nombresAncho + margen) {
+        drag.scrollEl.scrollLeft -= 28;
+      }
+    }
+
+    // La posición de la fila se relee siempre: con el scroll se corre respecto de la pantalla.
+    const filaLeft = drag.filaEl.getBoundingClientRect().left;
+    const diaActual = this.ganttPixelADia(event.clientX - filaLeft);
+    const delta = Math.round(diaActual - drag.diaInicioMouse);
+    if (delta === drag.delta) { return; }
+
+    this._ngZone.run(() => {
+      drag.delta = delta;
+      if (delta !== 0) { drag.movido = true; }
+      this.aplicarPreviewArrastreGantt();
+    });
+  }
+
+  private aplicarPreviewArrastreGantt() {
+    const drag = this.dragGantt;
+    if (!drag) { return; }
+    const barra = drag.barra;
+
+    if (drag.modo === 'mover') {
+      const nuevoOffset = Math.max(0, drag.offsetOriginal + drag.delta);
+      if (barra.esHito) {
+        barra.offsetHito = nuevoOffset;
+      } else {
+        barra.offset = nuevoOffset;
+      }
+    } else {
+      barra.ancho = Math.max(1, drag.anchoOriginal + drag.delta);
+    }
+
+    // Si la barra llega al final de lo visible, el rango crece para seguir arrastrando.
+    this.asegurarRangoGantt(barra.esHito ? barra.offsetHito + 1 : barra.offset + barra.ancho);
+
+    if (barra.esHito) {
+      this.dragGanttEtiqueta = this.etiquetaDiaGantt(barra.offsetHito);
+      this.dragGuiaInicioPx = this.ganttDiaAPixel(barra.offsetHito);
+      this.dragGuiaInicioTxt = this.etiquetaDiaLargaGantt(barra.offsetHito);
+      this.dragGuiaFinPx = null;
+      this.dragGuiaFinTxt = '';
+    } else {
+      const avanceReal = Math.min(Math.max(Number(barra.item.avanceReal) || 0, 0), 100);
+      barra.anchoRelleno = Math.round(barra.ancho * avanceReal / 100);
+      this.dragGanttEtiqueta = `${this.etiquetaDiaGantt(barra.offset)} → ${this.etiquetaDiaGantt(barra.offset + barra.ancho - 1)} · ${barra.ancho} día${barra.ancho === 1 ? '' : 's'}`;
+
+      // La fecha va apareciendo en el calendario a medida que la barra se mueve o se alarga.
+      this.dragGuiaFinPx = this.ganttDiaAPixel(barra.offset) + this.ganttDiasAPixel(barra.offset, barra.ancho);
+      this.dragGuiaFinTxt = `Término: ${this.etiquetaDiaLargaGantt(barra.offset + barra.ancho - 1)}`;
+      if (drag.modo === 'mover') {
+        this.dragGuiaInicioPx = this.ganttDiaAPixel(barra.offset);
+        this.dragGuiaInicioTxt = `Inicio: ${this.etiquetaDiaLargaGantt(barra.offset)}`;
+      } else {
+        this.dragGuiaInicioPx = null;
+        this.dragGuiaInicioTxt = '';
+      }
+    }
+  }
+
+  private onMouseUpGantt(event: MouseEvent) {
+    this.quitarListenersArrastreGantt();
+    this._ngZone.run(() => {
+      const drag = this.dragGantt;
+      this.dragGantt = null;
+      this.dragGanttId = null;
+      this.dragGanttEtiqueta = '';
+      this.limpiarGuiasArrastreGantt();
+      if (!drag || !drag.movido) { return; }
+
+      // Evita que el click que dispara el navegador al soltar se interprete como "asignar fecha".
+      this.ignorarClickGantt = true;
+      setTimeout(() => { this.ignorarClickGantt = false; }, 50);
+
+      const barra = drag.barra;
+      const item = barra.item;
+      const offsetFinal = barra.esHito ? barra.offsetHito : barra.offset;
+      const esHito = barra.esHito;
+      const anchoFinal = barra.ancho;
+
+      this.aplicarCambioFechasGantt(item, () => {
+        item.fechaInicioProgramada = this.formatearFechaISO(this.fechaDesdeOffsetGantt(offsetFinal));
+        item.fechaInicioProgramadaManual = true; // si no, el encadenamiento la devuelve al término de la anterior
+
+        if (!esHito) {
+          item.plazoProgramado = anchoFinal;
+          item.fechaTerminoProgramadaManual = false;
+          item.fechaTerminoProgramada = this.calcularFechaTerminoDesdePlazo(item.fechaInicioProgramada, anchoFinal);
+        }
+      });
+    });
+  }
+
+  private quitarListenersArrastreGantt() {
+    if (this.listenerMouseMoveGantt) {
+      document.removeEventListener('mousemove', this.listenerMouseMoveGantt);
+      this.listenerMouseMoveGantt = null;
+    }
+    if (this.listenerMouseUpGantt) {
+      document.removeEventListener('mouseup', this.listenerMouseUpGantt);
+      this.listenerMouseUpGantt = null;
+    }
+    document.body.classList.remove('gantt-arrastrando-mover', 'gantt-arrastrando-estirar');
+  }
+
+  // ---- 4) Clic en una fila sin fecha: asigna inicio en ese día ----
+
+  onClickFilaGantt(event: MouseEvent, barra: BarraGantt) {
+    if (this.ignorarClickGantt || !barra || !barra.asignable || !this.ganttFechaInicioRango) { return; }
+    if (this.filaEnEdicion === barra.indexOriginal) { return; }
+
+    const objetivo: any = event.target;
+    if (objetivo && objetivo.closest && objetivo.closest('.gantt-barra, .gantt-hito')) { return; }
+
+    const fila = event.currentTarget as HTMLElement;
+    const dia = Math.floor(this.ganttPixelADia(event.clientX - fila.getBoundingClientRect().left));
+    const item = barra.item;
+
+    this.aplicarCambioFechasGantt(item, () => {
+      item.fechaInicioProgramada = this.formatearFechaISO(this.fechaDesdeOffsetGantt(dia));
+      item.fechaInicioProgramadaManual = true;
+      if (!item.plazoProgramado || item.plazoProgramado <= 0) {
+        item.plazoProgramado = this.PLAZO_DEFECTO_GANTT;
+      }
+      item.fechaTerminoProgramadaManual = false;
+      item.fechaTerminoProgramada = this.calcularFechaTerminoDesdePlazo(item.fechaInicioProgramada, Number(item.plazoProgramado));
+    });
+  }
+
+  // ---- 4b) Doble clic en una barra: escribir fecha de inicio y plazo exactos ----
+
+  abrirEditorFechasGantt(event: MouseEvent, barra: BarraGantt) {
+    if (!barra || !barra.editable || this.filaEnEdicion === barra.indexOriginal) { return; }
+    event.preventDefault();
+    event.stopPropagation();
+
+    const item = barra.item;
+    let inicio = item.fechaInicioProgramada || '';
+    let plazo = Number(item.plazoProgramado) || 0;
+
+    // Barra "escalera" (sin fecha propia): se proponen las fechas del tramo que está mostrando.
+    if (!inicio && this.ganttFechaInicioRango) {
+      inicio = this.formatearFechaISO(this.fechaDesdeOffsetGantt(barra.esHito ? barra.offsetHito : barra.offset));
+      if (!plazo && !barra.esHito) { plazo = barra.ancho; }
+    }
+
+    const anchoEditor = 270;
+    const altoEditor = 210;
+    this.editorFechasGantt = {
+      barra,
+      inicio,
+      inicioTexto: this.isoADdmmaaaa(inicio),
+      plazo,
+      x: Math.max(8, Math.min(event.clientX + 10, window.innerWidth - anchoEditor - 8)),
+      y: Math.max(8, Math.min(event.clientY + 12, window.innerHeight - altoEditor - 8))
+    };
+
+    setTimeout(() => {
+      const input = document.getElementById('gantt-editor-inicio') as HTMLInputElement;
+      if (input) { input.focus(); }
+    }, 0);
+  }
+
+  /** Fecha de término que resultará con la fecha de inicio y el plazo escritos en el editor. */
+  get terminoEditorFechasGantt(): string {
+    const editor = this.editorFechasGantt;
+    if (!editor || !editor.inicio || !(Number(editor.plazo) > 0)) { return ''; }
+    const termino = this.parsearFechaISO(this.calcularFechaTerminoDesdePlazo(editor.inicio, Number(editor.plazo)));
+    if (!termino) { return ''; }
+    return `${String(termino.getDate()).padStart(2, '0')}/${String(termino.getMonth() + 1).padStart(2, '0')}/${termino.getFullYear()}`;
+  }
+
+  cerrarEditorFechasGantt() {
+    this.editorFechasGantt = null;
+  }
+
+  // ---- Fechas de la tabla en formato dd/mm/aaaa (el input date nativo las muestra según el idioma del navegador) ----
+
+  /** Texto dd/mm/aaaa que se muestra en la tabla para una fecha guardada como 'YYYY-MM-DD'. */
+  fechaVista(iso: string): string {
+    return this.isoADdmmaaaa(iso);
+  }
+
+  /** Avisa el cambio de fecha con el mismo flujo que usaba el input date de cada columna. */
+  private notificarCambioFechaTabla(item: ControlAvanceItem, campo: string, index: number) {
+    if (index < 0) { return; } // formulario de creación: solo se asigna el valor, no hay fila que recalcular
+    if (campo === 'fechaInicioProgramada') {
+      this.onCambioFechaInicioProgramada(item, index);
+    } else if (campo === 'fechaTerminoProgramada') {
+      this.onCambioFechaTerminoProgramada(item, index);
+    } else {
+      this.OnCambio(item, index);
+    }
+  }
+
+  /**
+   * Mientras se escribe una fecha en la tabla: deja solo números y agrega las "/" (dd/mm/aaaa).
+   * Solo actualiza el dato cuando la fecha está completa y es válida (o cuando se borra entera).
+   */
+  onInputFechaTabla(input: HTMLInputElement, item: ControlAvanceItem, campo: string, index: number) {
+    if (!input || !item) { return; }
+    const digitos = (input.value || '').replace(/\D/g, '').substring(0, 8);
+    let texto = digitos;
+    if (digitos.length > 4) {
+      texto = `${digitos.substring(0, 2)}/${digitos.substring(2, 4)}/${digitos.substring(4)}`;
+    } else if (digitos.length > 2) {
+      texto = `${digitos.substring(0, 2)}/${digitos.substring(2)}`;
+    }
+    input.value = texto;
+
+    if (!texto) {
+      if ((item as any)[campo]) {
+        (item as any)[campo] = '';
+        this.notificarCambioFechaTabla(item, campo, index);
+      }
+      return;
+    }
+
+    const iso = this.ddmmaaaaAIso(texto);
+    if (iso && iso !== (item as any)[campo]) {
+      (item as any)[campo] = iso;
+      this.notificarCambioFechaTabla(item, campo, index);
+    }
+  }
+
+  /** Al salir del campo: si quedó una fecha a medio escribir o inválida, vuelve a mostrar la guardada. */
+  restaurarFechaTabla(input: HTMLInputElement, item: ControlAvanceItem, campo: string) {
+    if (!input || !item) { return; }
+    input.value = this.isoADdmmaaaa((item as any)[campo]);
+  }
+
+  /** Fecha elegida con el botón de calendario de la tabla (llega como 'YYYY-MM-DD'). */
+  onPickerFechaTabla(valorIso: string, item: ControlAvanceItem, campo: string, index: number) {
+    if (!item || !valorIso || valorIso === (item as any)[campo]) { return; }
+    (item as any)[campo] = valorIso;
+    this.notificarCambioFechaTabla(item, campo, index);
+  }
+
+  /** 'YYYY-MM-DD' -> 'DD/MM/YYYY' (formato chileno que se muestra en el editor). */
+  private isoADdmmaaaa(iso: string): string {
+    const fecha = this.parsearFechaISO(iso);
+    if (!fecha) { return ''; }
+    return `${String(fecha.getDate()).padStart(2, '0')}/${String(fecha.getMonth() + 1).padStart(2, '0')}/${fecha.getFullYear()}`;
+  }
+
+  /** 'DD/MM/YYYY' -> 'YYYY-MM-DD'. Devuelve '' si está incompleta o no es una fecha real (ej: 31/02/2026). */
+  private ddmmaaaaAIso(texto: string): string {
+    const partes = (texto || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!partes) { return ''; }
+    const dia = Number(partes[1]);
+    const mes = Number(partes[2]);
+    const anio = Number(partes[3]);
+    const fecha = new Date(anio, mes - 1, dia);
+    if (fecha.getFullYear() !== anio || fecha.getMonth() !== mes - 1 || fecha.getDate() !== dia) { return ''; }
+    return this.formatearFechaISO(fecha);
+  }
+
+  /** Mientras se escribe la fecha en el editor: deja solo números y agrega las "/" solas (dd/mm/aaaa). */
+  onInputFechaEditorGantt(input: HTMLInputElement) {
+    if (!this.editorFechasGantt || !input) { return; }
+    const digitos = (input.value || '').replace(/\D/g, '').substring(0, 8);
+    let texto = digitos;
+    if (digitos.length > 4) {
+      texto = `${digitos.substring(0, 2)}/${digitos.substring(2, 4)}/${digitos.substring(4)}`;
+    } else if (digitos.length > 2) {
+      texto = `${digitos.substring(0, 2)}/${digitos.substring(2)}`;
+    }
+    input.value = texto;
+    this.editorFechasGantt.inicioTexto = texto;
+    this.editorFechasGantt.inicio = this.ddmmaaaaAIso(texto);
+  }
+
+  /** Fecha elegida con el botón de calendario (llega como 'YYYY-MM-DD'). */
+  onPickerFechaEditorGantt(valorIso: string) {
+    if (!this.editorFechasGantt || !valorIso) { return; }
+    this.editorFechasGantt.inicio = valorIso;
+    this.editorFechasGantt.inicioTexto = this.isoADdmmaaaa(valorIso);
+  }
+
+  guardarEditorFechasGantt() {
+    const editor = this.editorFechasGantt;
+    if (!editor) { return; }
+    if (!editor.inicio) {
+      if (editor.inicioTexto) {
+        Swal.fire('Fecha inválida', 'Escribe la fecha como dd/mm/aaaa (ej: 28/09/2026).', 'info');
+      } else {
+        Swal.fire('Falta la fecha', 'Ingresa la fecha de inicio.', 'info');
+      }
+      return;
+    }
+    const plazo = Math.max(0, Math.round(Number(editor.plazo) || 0));
+    const item = editor.barra.item;
+    const inicio = editor.inicio;
+    this.editorFechasGantt = null;
+
+    this.aplicarCambioFechasGantt(item, () => {
+      item.fechaInicioProgramada = inicio;
+      item.fechaInicioProgramadaManual = true;
+      item.plazoProgramado = plazo;
+      item.fechaTerminoProgramadaManual = false;
+      // Plazo 0 = hito (fecha puntual sin duración), igual que en la tabla.
+      item.fechaTerminoProgramada = plazo > 0 ? this.calcularFechaTerminoDesdePlazo(inicio, plazo) : '';
+    });
+  }
+
+  // ---- 5) Crear títulos / láminas directo desde la Carta Gantt ----
+
+  /** Id de la última fila visible que cuelga de un título (para mostrar el input justo debajo de su bloque). */
+  private ultimoDescendienteVisibleGantt(idTitulo: string): string {
+    const indice = this.ganttBarras.findIndex(b => b.item.id === idTitulo);
+    if (indice === -1) { return idTitulo; }
+    const nivelBase = this.ganttBarras[indice].nivel;
+    let ultimo = idTitulo;
+    for (let i = indice + 1; i < this.ganttBarras.length; i++) {
+      if (this.ganttBarras[i].nivel <= nivelBase) { break; }
+      ultimo = this.ganttBarras[i].item.id;
+    }
+    return ultimo;
+  }
+
+  /** Enfoca el input de la fila nueva; reintenta un rato porque la fila puede aparecer recién con el snapshot. */
+  private enfocarInputNuevaFilaGantt(intento: number = 0) {
+    setTimeout(() => {
+      const input = document.getElementById('gantt-input-nueva') as HTMLInputElement;
+      if (input) {
+        input.focus();
+        this.reenfocandoNuevaFilaGantt = false;
+        return;
+      }
+      if (intento < 15 && this.nuevaFilaGantt) {
+        this.enfocarInputNuevaFilaGantt(intento + 1);
+      } else {
+        this.reenfocandoNuevaFilaGantt = false;
+      }
+    }, intento === 0 ? 0 : 60);
+  }
+
+  /** "+" en un título: agrega una lámina al final de ese título (si estaba plegado, lo despliega). */
+  abrirNuevaFilaDentroGantt(barra: BarraGantt) {
+    if (this.soloLectura || !barra || !barra.item.id) { return; }
+    if (this.titulosColapsados[barra.item.id]) {
+      this.titulosColapsados[barra.item.id] = false;
+      this.recalcularJerarquiaYAgregados();
+      this.actualizarDatosGantt();
+    }
+    this.nuevaFilaGantt = {
+      despuesDeId: this.ultimoDescendienteVisibleGantt(barra.item.id),
+      idPadre: barra.item.id,
+      ordenDespuesDe: null,
+      nivel: barra.nivel + 1,
+      esTitulo: false,
+      descripcion: '',
+      nombrePadre: barra.item.descripcion || ''
+    };
+    this.enfocarInputNuevaFilaGantt();
+  }
+
+  /** "+" en una lámina: inserta otra justo debajo, dentro del mismo título. */
+  abrirNuevaFilaDespuesGantt(barra: BarraGantt) {
+    if (this.soloLectura || !barra || !barra.item.id) { return; }
+    const idPadre = barra.item.idPadre || null;
+    const padre = idPadre ? this.ControlesAvance.find(it => it.id === idPadre) : null;
+    this.nuevaFilaGantt = {
+      despuesDeId: barra.item.id,
+      idPadre: idPadre,
+      ordenDespuesDe: barra.item.orden || 0,
+      nivel: barra.nivel,
+      esTitulo: false,
+      descripcion: '',
+      nombrePadre: padre ? (padre.descripcion || '') : 'Raíz'
+    };
+    this.enfocarInputNuevaFilaGantt();
+  }
+
+  /** Fila "+ Nuevo título" del final: crea un título en la raíz. */
+  abrirNuevoTituloRaizGantt() {
+    if (this.soloLectura) { return; }
+    this.nuevaFilaGantt = {
+      despuesDeId: '__final__',
+      idPadre: null,
+      ordenDespuesDe: null,
+      nivel: 0,
+      esTitulo: true,
+      descripcion: '',
+      nombrePadre: 'Raíz'
+    };
+    this.enfocarInputNuevaFilaGantt();
+  }
+
+  cancelarNuevaFilaGantt() {
+    this.nuevaFilaGantt = null;
+    this.reenfocandoNuevaFilaGantt = false;
+  }
+
+  /** Al salir del input: si quedó texto se crea, si está vacío se cierra (salvo que el foco pase al selector de tipo). */
+  onBlurNuevaFilaGantt() {
+    setTimeout(() => {
+      if (!this.nuevaFilaGantt || this.creandoFilaGantt || this.reenfocandoNuevaFilaGantt) { return; }
+      const activo: any = document.activeElement;
+      if (activo && activo.closest && activo.closest('.gantt-fila-nueva')) { return; }
+      if ((this.nuevaFilaGantt.descripcion || '').trim()) {
+        this.crearFilaDesdeGantt(false);
+      } else {
+        this.nuevaFilaGantt = null;
+      }
+    }, 150);
+  }
+
+  private construirTituloNuevo(descripcion: string, idPadre: string | null, orden: number): any {
+    return {
+      idControlAvance: 1,
+      idProyecto: this.getIdProyectoActual(),
+      idSubProyecto: this.getIdSubProyectoActual(),
+      esTitulo: true,
+      idPadre: idPadre,
+      orden: orden,
+      codigo: '',
+      tipo: '',
+      descripcion: descripcion,
+      revisionActual: 0,
+      estado: 'P',
+      activo: true,
+      fechaInicioProgramada: '',
+      plazoProgramado: 0,
+      fechaTerminoProgramada: '',
+      avanceProgramado: 0,
+      fechaInicio: '',
+      plazoReal: 0,
+      fechaTermino: '',
+      avanceReal: 0,
+      bitacora: [],
+      validadoresEstado: {},
+      idUsuarioCreador: this.usuario.idUsuario,
+      fechaCreacion: new Date().toISOString(),
+      prefijoCodigo: (this.sugerirPrefijoDesdeDescripcion(descripcion) || 'DOC').toUpperCase()
+    };
+  }
+
+  /** Código PREFIJO-TRZ-NN que le corresponde a una lámina nueva según su posición dentro del título. */
+  private codigoParaNuevaLaminaGantt(idPadre: string | null, ordenDespuesDe: number | null): string {
+    if (!idPadre) { return ''; }
+    const ordenPrevio = this.ordenInsercionDespuesDe;
+    this.ordenInsercionDespuesDe = ordenDespuesDe;
+    const codigo = this.sugerirCodigoSubitem(idPadre);
+    this.ordenInsercionDespuesDe = ordenPrevio;
+    return codigo;
+  }
+
+  /**
+   * Crea la fila escrita en el input inline. Con Enter (seguirAgregando = true) el input queda
+   * abierto justo debajo de la fila recién creada, para cargar varias seguidas como en ClickUp.
+   */
+  async crearFilaDesdeGantt(seguirAgregando: boolean) {
+    const nueva = this.nuevaFilaGantt;
+    if (!nueva || this.creandoFilaGantt || this.soloLectura) { return; }
+
+    const descripcion = (nueva.descripcion || '').trim();
+    if (!descripcion) {
+      if (!seguirAgregando) { this.nuevaFilaGantt = null; }
+      return;
+    }
+
+    const esTitulo = !!nueva.esTitulo;
+    const idPadre = nueva.idPadre;
+
+    if (esTitulo && !this.validarTituloHijoUnico({ esTitulo: true, idPadre: idPadre, descripcion: descripcion } as ControlAvanceItem)) {
+      return;
+    }
+
+    this.creandoFilaGantt = true;
+    try {
+      const insertandoEntremedio = nueva.ordenDespuesDe !== null;
+      if (insertandoEntremedio) {
+        await this.insertarConOrdenIntermedio(idPadre, nueva.ordenDespuesDe as number);
+      }
+      const orden = insertandoEntremedio ? (nueva.ordenDespuesDe as number) + 1 : this.siguienteOrden(idPadre);
+
+      let datos: any;
+      if (esTitulo) {
+        datos = this.construirTituloNuevo(descripcion, idPadre, orden);
+      } else {
+        datos = this.construirSubitemDesdePlantilla(
+          { codigo: '', descripcion: descripcion, tema: '', tipoSugerido: '' } as PlantillaDocumento,
+          idPadre,
+          orden
+        );
+        datos.codigo = this.codigoParaNuevaLaminaGantt(idPadre, nueva.ordenDespuesDe);
+      }
+
+      const ref = firestoreDB.collection('controlAvance').doc();
+
+      if (seguirAgregando) {
+        // El input se mueve debajo de la fila recién creada y queda listo para la siguiente.
+        this.reenfocandoNuevaFilaGantt = true;
+        nueva.descripcion = '';
+        nueva.despuesDeId = ref.id;
+        if (insertandoEntremedio) { nueva.ordenDespuesDe = orden; }
+      } else {
+        this.nuevaFilaGantt = null;
+      }
+
+      ref.set(datos).catch((error: any) => {
+        Swal.fire('Error', 'No se pudo crear la fila: ' + error.message, 'error');
+      });
+
+      if (!esTitulo && idPadre) {
+        setTimeout(() => this.renumerarLaminasDeTitulo(idPadre), 400);
+      }
+      if (seguirAgregando) {
+        this.enfocarInputNuevaFilaGantt();
+      }
+    } catch (error) {
+      this.reenfocandoNuevaFilaGantt = false;
+      Swal.fire('Error', 'No se pudo crear la fila: ' + error.message, 'error');
+    } finally {
+      this.creandoFilaGantt = false;
+    }
+  }
+
   // =========================================================================
   // EXPORTAR CARTA GANTT A EXCEL (dibuja la carta Gantt visual: semanas, días y barras)
   // Usa xlsx-populate porque corre 100% en el navegador (sin módulos de Node),
@@ -2968,7 +3801,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const COL_MARGEN = 1;
       const COL_FIJAS = 4;
       const COL_DIA_INICIO = COL_MARGEN + COL_FIJAS + 1; // F
-      const totalDias = this.ganttDiasTotales;
+      // El espacio extra de arrastre (relleno al final) no va al Excel: se exportan solo los días del proyecto.
+      const totalDias = Math.max(this.ganttDiasTotales - (this.ganttDiasRelleno || 0), 1);
+      const semanasExport: Array<{ etiqueta: string; dias: Array<{ numero: number; fecha: Date }> }> = [];
+      let diasRestantesExport = totalDias;
+      this.ganttSemanas.forEach(semana => {
+        if (diasRestantesExport <= 0) { return; }
+        const dias = semana.dias.slice(0, diasRestantesExport);
+        semanasExport.push({ etiqueta: semana.etiqueta, dias });
+        diasRestantesExport -= dias.length;
+      });
  
       const COL_ETIQUETA = COL_MARGEN + 3;       // D
       const COL_VALOR_INICIO = COL_MARGEN + 8;   // I
@@ -3086,7 +3928,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       let mesActual = '';
       let inicioMes = COL_DIA_INICIO;
       let columnaMes = COL_DIA_INICIO;
-      this.ganttSemanas.forEach(semana => {
+      semanasExport.forEach(semana => {
         semana.dias.forEach(dia => {
           const nombreMes = `${this.nombreMes(dia.fecha.getMonth())} ${dia.fecha.getFullYear()}`;
           if (mesActual && nombreMes !== mesActual) {
@@ -3121,7 +3963,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       // ---- Semanas (fila 9) y días (fila 10) ----
       const esHoyFilaDias = (col: number) => this.ganttHoyOffset >= 0 && col === COL_DIA_INICIO + this.ganttHoyOffset;
       let colCursor = COL_DIA_INICIO;
-      this.ganttSemanas.forEach(semana => {
+      semanasExport.forEach(semana => {
         const inicioCol = colCursor;
         const finCol = colCursor + semana.dias.length - 1;
  
@@ -3627,4 +4469,3 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return zip.generateAsync({ type: 'blob' });
   }
 }
- 
