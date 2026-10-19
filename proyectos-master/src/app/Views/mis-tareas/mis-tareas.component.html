@@ -306,8 +306,16 @@
               </div>
 
               <div class="cu-card-footer">
-                <span class="cu-avatar" [style.background]="getColorAvatar(Tarea.UsuarioResponsable)" [title]="'Para: ' + Tarea.UsuarioResponsable">
-                  {{getIniciales(Tarea.UsuarioResponsable)}}
+                <!-- Responsable: avatar + nombre (igual que en la lista) -->
+                <span class="cu-user" [title]="'Para: ' + Tarea.UsuarioResponsable"
+                      style="display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:150px;">
+                  <span class="cu-avatar" [style.background]="getColorAvatar(Tarea.UsuarioResponsable)">
+                    {{getIniciales(Tarea.UsuarioResponsable)}}
+                  </span>
+                  <span class="cu-user-name"
+                        style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;min-width:0;">
+                    {{Tarea.UsuarioResponsable}}
+                  </span>
                 </span>
                 <span class="cu-date" *ngIf="Tarea.fechaTerminoProgramado"
                       [class.overdue]="esVencida(Tarea)"
