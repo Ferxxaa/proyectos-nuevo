@@ -81,10 +81,34 @@
         </div>
         <div class="col-md-3 col-sm-6 compact-field">
           <label>Tipo de acción</label>
-          <select class="form-control" [(ngModel)]="nuevoHallazgo.tipoAccion">
+          <select class="form-control" [(ngModel)]="nuevoHallazgo.tipoAccion"
+                  [ngClass]="getTipoClass(nuevoHallazgo.tipoAccion)">
             <option value="">Seleccione</option>
             <option *ngFor="let tipo of tiposAccion" [value]="tipo">{{tipo}}</option>
           </select>
+        </div>
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Prioridad</label>
+          <div class="prioridad-hallazgo-selector">
+            <button type="button" class="opcion-semaforo opcion-alta"
+                    [class.activo]="(nuevoHallazgo.prioridad || 'MEDIA').toUpperCase() === 'ALTA'"
+                    title="Prioridad alta" aria-label="Prioridad alta"
+                    (click)="setPrioridadNuevoHallazgo('alta')">
+              <i class="fa fa-circle"></i>
+            </button>
+            <button type="button" class="opcion-semaforo opcion-media"
+                    [class.activo]="(nuevoHallazgo.prioridad || 'MEDIA').toUpperCase() === 'MEDIA'"
+                    title="Prioridad media" aria-label="Prioridad media"
+                    (click)="setPrioridadNuevoHallazgo('media')">
+              <i class="fa fa-circle"></i>
+            </button>
+            <button type="button" class="opcion-semaforo opcion-baja"
+                    [class.activo]="(nuevoHallazgo.prioridad || 'MEDIA').toUpperCase() === 'BAJA'"
+                    title="Prioridad baja" aria-label="Prioridad baja"
+                    (click)="setPrioridadNuevoHallazgo('baja')">
+              <i class="fa fa-circle"></i>
+            </button>
+          </div>
         </div>
         <div class="col-md-3 col-sm-6 compact-field">
           <label>Área responsable</label>
@@ -100,12 +124,6 @@
             <option *ngFor="let quien of quienesDetectan" [value]="quien">{{quien}}</option>
           </select>
         </div>
-        <div class="col-md-2 col-sm-6 compact-field">
-          <label>Estado</label>
-          <select class="form-control" [(ngModel)]="nuevoHallazgo.estado">
-            <option *ngFor="let estado of estadosHallazgo" [value]="estado">{{estado}}</option>
-          </select>
-        </div>
       </div>
 
       <div class="row row-compact mt-10">
@@ -114,6 +132,12 @@
           <select class="form-control" [(ngModel)]="nuevoHallazgo.origenHallazgo">
             <option value="">Seleccione</option>
             <option *ngFor="let origen of origenesHallazgo" [value]="origen">{{origen}}</option>
+          </select>
+        </div>
+        <div class="col-md-2 col-sm-6 compact-field">
+          <label>Estado</label>
+          <select class="form-control" [(ngModel)]="nuevoHallazgo.estado">
+            <option *ngFor="let estado of estadosHallazgo" [value]="estado">{{estado}}</option>
           </select>
         </div>
         <div class="col-md-5 col-sm-6 compact-field">
@@ -163,6 +187,7 @@
             <th class="col-numero">N°</th>
             <th class="col-fecha">FECHA</th>
             <th class="col-tipo">TIPO DE ACCIÓN</th>
+            <th class="col-prioridad">PRIORIDAD</th>
             <th class="col-estado">ESTADO</th>
             <th class="col-area">ÁREA RESPONSABLE</th>
             <th class="col-obra">OBRA</th>
@@ -175,7 +200,7 @@
         </thead>
         <tbody>
           <tr *ngIf="hallazgosFiltrados.length === 0">
-            <td colspan="11" class="tabla-vacia">
+            <td colspan="12" class="tabla-vacia">
               <div class="mensaje-vacio">
                 <strong *ngIf="hallazgos.length === 0">No hay hallazgos registrados</strong>
                 <strong *ngIf="hallazgos.length > 0">No hay hallazgos para el filtro seleccionado</strong>
@@ -204,6 +229,37 @@
                   <option value="">-</option>
                   <option *ngFor="let tipo of tiposAccion" [value]="tipo">{{tipo}}</option>
                 </select>
+              </td>
+              <td class="prioridad-hallazgo-celda">
+                <div class="prioridad-hallazgo-selector" *ngIf="hallazgoEnEdicionId === item.id; else prioridadSoloLectura">
+                  <button type="button" class="opcion-semaforo opcion-alta"
+                          [class.activo]="getPrioridadActualHallazgo(item).toUpperCase() === 'ALTA'"
+                          [disabled]="soloLectura || estaBloqueadoParaMi(item)"
+                          title="Prioridad alta" aria-label="Prioridad alta"
+                          (click)="actualizarPrioridadHallazgo(item, 'alta')">
+                    <i class="fa fa-circle"></i>
+                  </button>
+                  <button type="button" class="opcion-semaforo opcion-media"
+                          [class.activo]="getPrioridadActualHallazgo(item).toUpperCase() === 'MEDIA'"
+                          [disabled]="soloLectura || estaBloqueadoParaMi(item)"
+                          title="Prioridad media" aria-label="Prioridad media"
+                          (click)="actualizarPrioridadHallazgo(item, 'media')">
+                    <i class="fa fa-circle"></i>
+                  </button>
+                  <button type="button" class="opcion-semaforo opcion-baja"
+                          [class.activo]="getPrioridadActualHallazgo(item).toUpperCase() === 'BAJA'"
+                          [disabled]="soloLectura || estaBloqueadoParaMi(item)"
+                          title="Prioridad baja" aria-label="Prioridad baja"
+                          (click)="actualizarPrioridadHallazgo(item, 'baja')">
+                    <i class="fa fa-circle"></i>
+                  </button>
+                </div>
+                <ng-template #prioridadSoloLectura>
+                  <span class="semaforo-prioridad"
+                        [ngClass]="getPrioridadClass(getPrioridadActualHallazgo(item))"
+                        [attr.aria-label]="'Prioridad ' + getPrioridadLabel(getPrioridadActualHallazgo(item))"
+                        [title]="'Prioridad ' + getPrioridadLabel(getPrioridadActualHallazgo(item))"></span>
+                </ng-template>
               </td>
               <td>
                 <select [(ngModel)]="item.estado"

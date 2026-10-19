@@ -378,6 +378,36 @@
   display: block;
 }
 
+.prioridad-hallazgo-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+}
+
+.prioridad-hallazgo-selector .opcion-semaforo {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+}
+
+.col-prioridad {
+  min-width: 88px;
+}
+
+.prioridad-hallazgo-celda {
+  text-align: center;
+}
+
+.prioridad-hallazgo-celda .semaforo-prioridad {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
 .hallazgos-form .form-control {
   height: 28px;
   padding: 3px 6px;
@@ -598,36 +628,27 @@
 }
 
 .semaforo-prioridad {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 700;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 12px;
-  border: 1px solid transparent;
-}
-
-.semaforo-prioridad i {
-  font-size: 10px;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  vertical-align: middle;
 }
 
 .semaforo-prioridad.prioridad-alta {
-  background-color: #f8d7da;
-  color: #7f1d1d;
-  border-color: #f1aeb5;
+  background-color: #dc3545;
+  box-shadow: 0 0 0 1px #dc3545;
 }
 
 .semaforo-prioridad.prioridad-media {
-  background-color: #fff3cd;
-  color: #7c5e10;
-  border-color: #ffe69c;
+  background-color: #e0aa00;
+  box-shadow: 0 0 0 1px #e0aa00;
 }
 
 .semaforo-prioridad.prioridad-baja {
-  background-color: #d1e7dd;
-  color: #0f5132;
-  border-color: #a3cfbb;
+  background-color: #28a745;
+  box-shadow: 0 0 0 1px #28a745;
 }
 
 /* ================================ */
@@ -757,6 +778,19 @@ select.tipo-leccion {
   border: 2px solid #333 !important;
   font-size: 10px !important;
   padding: 2px 18px 2px 4px !important;
+}
+
+select.tipo-near-miss {
+  background-color: #ffe2c2 !important;
+  color: #7a3e00 !important;
+  font-weight: 600 !important;
+  border: 2px solid #f28c28 !important;
+}
+
+select.input-tipo:disabled {
+  opacity: 1 !important;
+  -webkit-text-fill-color: currentColor;
+  cursor: default;
 }
 
 /* ================================ */

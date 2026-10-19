@@ -119,7 +119,8 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     'Observación',
     'Stop Work',
     'No Conformidad',
-    'Leccion aprendida'
+    'Leccion aprendida',
+    'Near Miss'
   ];
 
   areasResponsables: string[] = [
@@ -434,6 +435,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
       obra: original.obra,
       quienDetecta: original.quienDetecta,
       origenHallazgo: original.origenHallazgo,
+      prioridad: original.prioridad,
       archivos: original.archivos || []
     };
 
@@ -446,10 +448,11 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     this.hallazgoOriginalEnEdicion = null;
   }
 
-  getPrioridadLabel(prioridad: PrioridadSemaforoHallazgo | 'todas'): string {
-    if (prioridad === 'alta') { return 'Alta'; }
-    if (prioridad === 'media') { return 'Media'; }
-    if (prioridad === 'baja') { return 'Baja'; }
+  getPrioridadLabel(prioridad: string): string {
+    const valor = (prioridad || '').toLowerCase();
+    if (valor === 'alta') { return 'Alta'; }
+    if (valor === 'media') { return 'Media'; }
+    if (valor === 'baja') { return 'Baja'; }
     return 'Todas';
   }
 
@@ -557,9 +560,24 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     this.nuevaBitacoraForm.prioridad = prioridad;
   }
 
+  setPrioridadNuevoHallazgo(prioridad: PrioridadSemaforoHallazgo) {
+    if (this.soloLectura) { return; }
+    this.nuevoHallazgo.prioridad = prioridad.toUpperCase();
+  }
+
+  actualizarPrioridadHallazgo(item: HallazgoItem, prioridad: PrioridadSemaforoHallazgo) {
+    if (this.soloLectura || this.hallazgoEnEdicionId !== item.id || this.estaBloqueadoParaMi(item)) {
+      return;
+    }
+    this.actualizarCampoHallazgo(item, 'prioridad', prioridad.toUpperCase());
+  }
+
   getPrioridadActualHallazgo(item: HallazgoItem): string {
+    if (item && item.prioridad) {
+      return item.prioridad;
+    }
     const ultima = this.getUltimaBitacora(item);
-    return (ultima && ultima.prioridad) ? ultima.prioridad : (item.prioridad || 'MEDIA');
+    return (ultima && ultima.prioridad) ? ultima.prioridad : 'MEDIA';
   }
 
   getBitacorasOrdenadas(item: HallazgoItem): BitacoraHallazgo[] {
@@ -1488,6 +1506,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
   getTipoClass(tipo: string): string {
     const t = (tipo || '').toLowerCase();
+    if (t.includes('near miss'))       return 'tipo-near-miss';
     if (t.includes('flash'))           return 'tipo-flash';
     if (t.includes('positivo') || t === 'rel' || t === 'rel.') return 'tipo-positivo';
     if (t.includes('mejora'))          return 'tipo-mejora';
@@ -1590,7 +1609,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
           items.push({
             id: doc.id,
             ...data,
-            prioridad: data.prioridad || 'MEDIA',
+            prioridad: data.prioridad || '',
             archivos: Array.isArray(data.archivos) ? data.archivos : [],
             bitacoras: Array.isArray(data.bitacoras) ? data.bitacoras : [],
             bloqueado: data.bloqueado === true
