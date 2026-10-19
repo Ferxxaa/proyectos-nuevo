@@ -79,7 +79,9 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
   MisProyectos: Array<mMis_Proyectos>;
   MisProyectosOriginal: Array<mMis_Proyectos>;
   subProyectosSeleccionados: number[];
+  subProyectosHallazgosSeleccionados: number[];
   subProyectosConControlAvance: Set<number>;
+  subProyectosConHallazgos: Set<number>;
 
   //Loading
   Loading: boolean;
@@ -93,6 +95,7 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
   // Suscripción al router para detectar cuando se vuelve a esta vista
   private routerSub: Subscription;
   private unsubscribeControlesAvance: () => void;
+  private unsubscribeHallazgos: () => void;
 
   constructor(
     private _http: Http,
@@ -108,7 +111,9 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     this.MisProyectos = [];
     this.MisProyectosOriginal = [];
     this.subProyectosSeleccionados = [];
+    this.subProyectosHallazgosSeleccionados = [];
     this.subProyectosConControlAvance = new Set<number>();
+    this.subProyectosConHallazgos = new Set<number>();
     this.ProyectosMatriz = [];
     this.Proyectos = [];
     this.Estados = [];
@@ -145,12 +150,16 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     if (this.unsubscribeControlesAvance) {
       this.unsubscribeControlesAvance();
     }
+    if (this.unsubscribeHallazgos) {
+      this.unsubscribeHallazgos();
+    }
   }
 
   private resetearEstado() {
     this.MisProyectos = [];
     this.MisProyectosOriginal = [];
     this.subProyectosSeleccionados = [];
+    this.subProyectosHallazgosSeleccionados = [];
     this.ProyectosMatriz = [];
     this.Proyectos = [];
     this.Estados = [];
@@ -290,6 +299,14 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     return this.subProyectosConControlAvance.has(idSubProyecto);
   }
 
+  estaSeleccionadoParaHallazgos(idSubProyecto: number): boolean {
+    return this.subProyectosHallazgosSeleccionados.indexOf(idSubProyecto) !== -1;
+  }
+
+  tieneControlHallazgos(idSubProyecto: number): boolean {
+    return this.subProyectosConHallazgos.has(idSubProyecto);
+  }
+
   private suscribirControlesAvance() {
     this.unsubscribeControlesAvance = firestoreDB.collection('controlAvance')
       .onSnapshot((snapshot: any) => {
@@ -304,6 +321,21 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
       }, (error: any) => {
         console.error('Error al cargar controles de avance existentes:', error);
       });
+
+    this.unsubscribeHallazgos = firestoreDB.collection('hallazgos')
+      .onSnapshot((snapshot: any) => {
+        const ids = new Set<number>();
+        snapshot.forEach((doc: any) => {
+          const hallazgo = doc.data();
+          const idSubProyecto = Number(hallazgo && hallazgo.idSubProyecto);
+          if (hallazgo && hallazgo.ambito !== 'oficina' && idSubProyecto > 0) {
+            ids.add(idSubProyecto);
+          }
+        });
+        this.subProyectosConHallazgos = ids;
+      }, (error: any) => {
+        console.error('Error al cargar hallazgos existentes:', error);
+      });
   }
 
   cambiarSeleccionGantt(proyecto: mMis_Proyectos, event: Event) {
@@ -317,6 +349,17 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     }
   }
 
+  cambiarSeleccionHallazgos(proyecto: mMis_Proyectos, event: Event) {
+    event.stopPropagation();
+    const indice = this.subProyectosHallazgosSeleccionados.indexOf(proyecto.idSubProyecto);
+
+    if (indice === -1) {
+      this.subProyectosHallazgosSeleccionados.push(proyecto.idSubProyecto);
+    } else {
+      this.subProyectosHallazgosSeleccionados.splice(indice, 1);
+    }
+  }
+
   verCartasGantt() {
     if (!this.subProyectosSeleccionados.length) {
       return;
@@ -324,6 +367,14 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
 
     localStorage.setItem('subProyectosGanttSeleccionados', JSON.stringify(this.subProyectosSeleccionados));
     this.router.navigate(['/Proyectos-CartasGantt']);
+  }
+
+  verControlHallazgos() {
+    localStorage.setItem(
+      'subProyectosHallazgosSeleccionados',
+      JSON.stringify(this.subProyectosHallazgosSeleccionados)
+    );
+    this.router.navigate(['/Proyectos-ControlHallazgosSeleccionados']);
   }
 
   Buscar() {

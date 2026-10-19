@@ -54,7 +54,7 @@
       </button>
 
       <button
-        *ngIf="!soloLectura"
+        *ngIf="!soloLectura && !ocultarFormulario"
         type="button"
         class="hallazgos-header-toggle"
         (click)="toggleFormularioHallazgos()"
@@ -73,7 +73,7 @@
   <div class="hallazgos-body">
 
     <!-- Formulario de creación -->
-    <div class="hallazgos-form" *ngIf="!soloLectura && mostrarFormulario">
+    <div class="hallazgos-form" *ngIf="!soloLectura && !ocultarFormulario && mostrarFormulario">
       <div class="row row-compact">
         <div class="col-md-2 col-sm-6 compact-field">
           <label>Fecha</label>
@@ -204,7 +204,8 @@
               <div class="mensaje-vacio">
                 <strong *ngIf="hallazgos.length === 0">No hay hallazgos registrados</strong>
                 <strong *ngIf="hallazgos.length > 0">No hay hallazgos para el filtro seleccionado</strong>
-                <p *ngIf="hallazgos.length === 0">Haga clic en "Agregar registro" para comenzar</p>
+                <p *ngIf="hallazgos.length === 0 && !ocultarFormulario">Haga clic en "Agregar registro" para comenzar</p>
+                <p *ngIf="hallazgos.length === 0 && ocultarFormulario">No hay hallazgos registrados en este subproyecto.</p>
                 <p *ngIf="hallazgos.length > 0">Pruebe con otro color del semáforo o quite el filtro.</p>
               </div>
             </td>

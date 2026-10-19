@@ -99,6 +99,8 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   @Input() nombreProyecto: string = '';
   @Input() soloLectura: boolean = false;
   @Input() esOficina: boolean = false;
+  @Input() subProyectoSeleccionado: any = null;
+  @Input() ocultarFormulario: boolean = false;
 
   usuario: any;
   proyecto: mProyecto | null = null;
@@ -232,6 +234,10 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.usuario = JSON.parse(localStorage.usuario || 'null');
+    if (this.subProyectoSeleccionado) {
+      this.subProyectoActual = this.subProyectoSeleccionado;
+      this.nombreProyectoLocal = this.subProyectoSeleccionado.nombreSubProyecto || '';
+    }
     this.resetNuevoHallazgo();
     this.cargarDatosIniciales();
     this.cargarPermisoEliminacion();

@@ -32,6 +32,12 @@
                   <i class="fa fa-bar-chart"></i> Ver Control de avances
                   <span class="badge-selection" *ngIf="subProyectosSeleccionados.length > 0">{{subProyectosSeleccionados.length}}</span>
                 </button>
+                <button class="btn btn-create btn-hallazgos" type="button"
+                  (click)="verControlHallazgos()"
+                  title="Ver los controles de hallazgos seleccionados">
+                  <i class="fa fa-exclamation-circle"></i> Ver Control de hallazgos
+                  <span class="badge-selection" *ngIf="subProyectosHallazgosSeleccionados.length > 0">{{subProyectosHallazgosSeleccionados.length}}</span>
+                </button>
               </div>
 
               <!-- Estadísticas y filtros -->
@@ -97,7 +103,8 @@
                 <table class="projects-table table">
                   <thead>
                     <tr>
-                      <td class="gantt-selection-column">Gantt</td>
+                      <td class="gantt-selection-column">Avance</td>
+                      <td class="hallazgos-selection-column">Hallazgos</td>
                       <td>Proyecto Matriz</td>
                       <td>Proyecto</td>
                       <td>Sub-proyecto</td>
@@ -128,6 +135,14 @@
                           [class.gantt-control-disponible]="tieneControlAvance(MiProyecto.idSubProyecto)"
                           (click)="cambiarSeleccionGantt(MiProyecto, $event)"
                           [attr.aria-label]="'Seleccionar ' + MiProyecto.nombreSubProyecto + ' para Carta Gantt'">
+                      </td>
+                      <td class="hallazgos-selection-column"
+                          [class.hallazgos-control-disponible-cell]="tieneControlHallazgos(MiProyecto.idSubProyecto)">
+                        <input type="checkbox"
+                          [checked]="estaSeleccionadoParaHallazgos(MiProyecto.idSubProyecto)"
+                          [class.hallazgos-control-disponible]="tieneControlHallazgos(MiProyecto.idSubProyecto)"
+                          (click)="cambiarSeleccionHallazgos(MiProyecto, $event)"
+                          [attr.aria-label]="'Seleccionar ' + MiProyecto.nombreSubProyecto + ' para Control de hallazgos'">
                       </td>
                       <td>{{MiProyecto.nombreProyectoMatriz}}</td>
                       <td>{{MiProyecto.nombreProyecto}}</td>

@@ -23,6 +23,7 @@ import { SubProyectoComponent } from './Proyectos/sub-proyecto/sub-proyecto.comp
 import { ValidarSubProyectoComponent } from './Proyectos/validar-sub-proyecto/validar-sub-proyecto.component';
 import { MisProyectosComponent } from './Proyectos/mis-proyectos/mis-proyectos.component';
 import { CartasGanttComponent } from './Proyectos/cartas-gantt.component';
+import { HallazgosSeleccionadosComponent } from './Proyectos/hallazgos-seleccionados.component';
 import { ConfiguracionSubProyectoComponent } from './Configuracion/configuracion-sub-proyecto/configuracion-sub-proyecto.component';
 import { ValidacionConfigSubProyectoComponent } from './Configuracion/validacion-config-sub-proyecto/validacion-config-sub-proyecto.component';
 import { validateConfig } from '@angular/router/src/config';
@@ -124,6 +125,10 @@ const route = [
     component: CartasGanttComponent
   },
   {
+    path: 'Proyectos-ControlHallazgosSeleccionados',
+    component: HallazgosSeleccionadosComponent
+  },
+  {
     path: 'Configuracion-SubProyecto',
     component: ConfiguracionSubProyectoComponent
   },
@@ -206,6 +211,7 @@ const route = [
     ValidarSubProyectoComponent,
     MisProyectosComponent,
     CartasGanttComponent,
+    HallazgosSeleccionadosComponent,
     ConfiguracionSubProyectoComponent,
     ValidacionConfigSubProyectoComponent,
     SelectValidatorDirective,

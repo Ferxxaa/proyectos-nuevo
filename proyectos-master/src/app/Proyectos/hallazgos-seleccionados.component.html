@@ -1,0 +1,101 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <section class="widget hallazgos-seleccionados-widget">
+      <header class="hallazgos-seleccionados-cabecera">
+        <div>
+          <span class="hallazgos-seleccionados-kicker">CONTROL DE HALLAZGOS</span>
+          <h2><strong>Hallazgos Consolidados</strong></h2>
+        </div>
+        <a class="btn btn-volver-hallazgos" [routerLink]="['/Proyectos-MisProyectos']">
+          <i class="fa fa-arrow-left"></i>
+          <span>Volver</span>
+        </a>
+      </header>
+
+      <div class="widget-body">
+        <div class="loader" *ngIf="cargando">
+          <span class="spinner"><i class="fa fa-spinner fa-spin"></i></span>
+        </div>
+
+        <label class="incluir-hallazgos-operacionales" *ngIf="!cargando"
+          [class.incluido]="incluirHallazgosOperacionales">
+          <input type="checkbox" [(ngModel)]="incluirHallazgosOperacionales"
+            (change)="guardarInclusionHallazgosOperacionales()">
+          Incluir hallazgos operacionales de oficina
+        </label>
+
+        <div class="alert alert-info" *ngIf="!cargando && subProyectos.length === 0 && !incluirHallazgosOperacionales">
+          Selecciona uno o más sub-proyectos desde Mis Proyectos o incluye los hallazgos operacionales de oficina.
+        </div>
+
+        <section class="grupo-hallazgos-seleccionados hallazgos-operacionales"
+          *ngIf="!cargando && incluirHallazgosOperacionales"
+          [class.activo]="incluirHallazgosOperacionales">
+          <button type="button" class="grupo-hallazgos-titulo" (click)="alternarHallazgosOperacionales()"
+            [attr.aria-expanded]="hallazgosOperacionalesExpandido">
+            <span class="grupo-hallazgos-nombre">
+              <i class="fa" [class.fa-chevron-down]="hallazgosOperacionalesExpandido"
+                [class.fa-chevron-right]="!hallazgosOperacionalesExpandido"></i>
+              <strong>Hallazgos Operacionales</strong>
+              <small>Oficina</small>
+            </span>
+            <span class="grupo-hallazgos-contador">Control de oficina</span>
+          </button>
+          <div *ngIf="hallazgosOperacionalesExpandido">
+            <app-control-hallazgos
+              [esOficina]="true"
+              [ocultarFormulario]="true"
+              [soloLectura]="false">
+            </app-control-hallazgos>
+          </div>
+        </section>
+
+        <div class="grupos-hallazgos-seleccionados" *ngIf="!cargando && subProyectos.length">
+          <section class="grupo-hallazgos-seleccionados" *ngFor="let grupo of grupos">
+            <button type="button" class="grupo-hallazgos-titulo" (click)="alternarGrupo(grupo)"
+              [attr.aria-expanded]="grupo.expandido">
+              <span class="grupo-hallazgos-nombre">
+                <i class="fa" [class.fa-chevron-down]="grupo.expandido" [class.fa-chevron-right]="!grupo.expandido"></i>
+                <strong>{{grupo.nombreProyecto}}</strong>
+                <small>Proyecto {{grupo.idProyecto}}</small>
+              </span>
+              <span class="grupo-hallazgos-contador">
+                {{grupo.subProyectos.length}} subproyecto{{grupo.subProyectos.length === 1 ? '' : 's'}}
+              </span>
+            </button>
+
+            <div class="lista-hallazgos-seleccionados" *ngIf="grupo.expandido">
+              <div class="hallazgo-seleccionado" *ngFor="let item of grupo.subProyectos">
+                <button type="button" class="hallazgo-seleccionado-titulo" (click)="alternarSubProyecto(item)"
+                  [class.hallazgo-seleccionado-titulo-abierto]="item.expandido"
+                  [attr.aria-expanded]="item.expandido"
+                  [attr.aria-label]="(item.expandido ? 'Ocultar' : 'Ver') + ' control de hallazgos de ' + item.subProyecto.nombreSubProyecto">
+                  <span class="hallazgo-seleccionado-nombre">
+                    <i class="fa" [class.fa-chevron-down]="item.expandido" [class.fa-chevron-right]="!item.expandido"></i>
+                    <span class="hallazgo-seleccionado-etiqueta">HALLAZGOS</span>
+                    <strong>{{item.subProyecto.nombreSubProyecto}}</strong>
+                  </span>
+                  <span class="hallazgo-seleccionado-accion">
+                    <i class="fa" [class.fa-eye-slash]="item.expandido" [class.fa-eye]="!item.expandido"></i>
+                    {{item.expandido ? 'Ocultar control' : 'Ver control'}}
+                  </span>
+                </button>
+
+                <app-control-hallazgos
+                  *ngIf="item.expandido"
+                  [idProyecto]="item.subProyecto.idProyecto"
+                  [nombreProyecto]="item.subProyecto.nombreSubProyecto"
+                  [subProyectoSeleccionado]="item.subProyecto"
+                  [ocultarFormulario]="true"
+                  [soloLectura]="false">
+                </app-control-hallazgos>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
