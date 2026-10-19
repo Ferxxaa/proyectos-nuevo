@@ -25,3 +25,7 @@ Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protrac
 ## Further help
 
 To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI README](https://github.com/angular/angular-cli/blob/master/README.md).
+
+## Hallazgos operacionales de oficina
+
+La sección **Hallazgos Operacionales** del menú permite administrar hallazgos globales de oficina, tareas generales y entradas de bitácora sin asociarlas a un subproyecto real. Los registros se guardan en `hallazgos` con ámbito `oficina` y un tipo de registro propio, para separarlos del control de hallazgos de proyectos y usar los permisos de Firestore ya configurados para esa colección. La sección no está disponible para usuarios con perfil Cliente.

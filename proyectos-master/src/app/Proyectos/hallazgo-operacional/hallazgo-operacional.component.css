@@ -1,0 +1,327 @@
+.hallazgo-operacional {
+  min-height: 100%;
+  padding: 78px 30px 42px;
+  background-color: #f7f8f9;
+}
+
+:host ::ng-deep .hallazgo-operacional > .widget {
+  margin-top: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.operacional-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  min-height: 76px;
+  padding: 16px 20px;
+  overflow: visible !important;
+  background: linear-gradient(135deg, #555 0%, #444 100%) !important;
+}
+
+.operacional-header h2 {
+  display: block;
+  margin: 0 0 5px !important;
+  color: #fff !important;
+  font-size: 20px !important;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.operacional-header h2 i {
+  margin-right: 7px;
+  color: #f59325;
+}
+
+.operacional-header p {
+  display: block;
+  margin: 0;
+  color: #e5e5e5 !important;
+  line-height: 1.5;
+}
+
+:host ::ng-deep .hallazgo-operacional > .widget > .widget-body {
+  padding: 20px;
+  background-color: #fff;
+}
+
+.operacional-tabs {
+  margin: 0 -18px 18px;
+  padding: 0 18px;
+  border-bottom: 1px solid #ddd;
+}
+
+.operacional-tabs .nav-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  border-bottom: 0;
+}
+
+.operacional-tabs .nav-item {
+  margin: 0;
+  border-radius: 6px 6px 0 0;
+  background-color: #ddd;
+}
+
+.operacional-tabs .nav-link {
+  display: block;
+  padding: 9px 15px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.operacional-tabs .nav-link.active {
+  color: #fff;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.35);
+}
+
+.operacional-tabs .tab-hallazgos {
+  background-color: #069;
+}
+
+.operacional-tabs .tab-hallazgos:hover,
+.operacional-tabs .tab-hallazgos.active {
+  background-color: #2f7aa0;
+}
+
+.operacional-tabs .tab-tareas {
+  background-color: #e2cef6;
+  color: #2f2140;
+}
+
+.operacional-tabs .tab-tareas:hover,
+.operacional-tabs .tab-tareas.active {
+  background-color: #d2b8ee;
+  color: #2f2140;
+}
+
+.operacional-tabs .tab-bitacoras {
+  background-color: #fc0;
+  color: #000;
+}
+
+.operacional-tabs .tab-bitacoras:hover,
+.operacional-tabs .tab-bitacoras.active {
+  background-color: #ffd633;
+  color: #000;
+}
+
+.operacional-panel {
+  padding: 0 0 8px;
+  background: #fff;
+}
+
+.panel-heading {
+  margin: 0 0 18px;
+}
+
+.panel-heading p {
+  margin: 0;
+  color: #737b82;
+}
+
+.panel-heading h3 {
+  margin: 0 0 5px;
+}
+
+.operacional-form {
+  padding: 16px;
+  margin-bottom: 18px;
+  border: 1px solid #e0e4e8;
+  border-radius: 4px;
+  background: #f8f9fa;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.form-grid label {
+  margin: 0;
+  color: #4e555b;
+  font-weight: 600;
+}
+
+.form-grid .form-control {
+  margin-top: 5px;
+  font-weight: 400;
+}
+
+.wide-field {
+  grid-column: span 2;
+}
+
+.operational-table th {
+  background: #555;
+  color: #fff;
+}
+
+.operational-table td {
+  vertical-align: middle;
+}
+
+.operational-table .item-description {
+  margin-top: 4px;
+  color: #6d747b;
+  white-space: pre-wrap;
+}
+
+.estado-select {
+  min-width: 120px;
+}
+
+.action-cell {
+  width: 54px;
+  text-align: center;
+}
+
+.bitacora-list {
+  display: grid;
+  gap: 10px;
+}
+
+.bitacora-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e0e4e8;
+  border-left: 4px solid #0879b2;
+  border-radius: 4px;
+}
+
+.bitacora-date {
+  min-width: 100px;
+  color: #0879b2;
+  font-weight: 700;
+}
+
+.bitacora-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.bitacora-content h4 {
+  margin: 0 0 6px;
+}
+
+.bitacora-content p {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+}
+
+.bitacora-content small {
+  color: #737b82;
+}
+
+.bitacora-adjuntos {
+  margin: 0 0 14px;
+}
+
+.bitacora-adjuntos > label {
+  display: block;
+  margin-bottom: 5px;
+  color: #4e555b;
+  font-weight: 600;
+}
+
+.archivos-seleccionados,
+.bitacora-archivos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.archivo-seleccionado,
+.bitacora-archivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 9px;
+  border: 1px solid #d8dee3;
+  border-radius: 4px;
+  background: #f8f9fa;
+}
+
+.archivo-seleccionado span {
+  overflow-wrap: anywhere;
+}
+
+.btn-quitar-archivo {
+  padding: 0 3px;
+  border: 0;
+  color: #b52b27;
+  background: transparent;
+}
+
+.bitacora-archivo {
+  color: #026aa7;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.bitacora-archivo:hover {
+  color: #014f7e;
+  text-decoration: underline;
+}
+
+.empty-state {
+  padding: 22px;
+  color: #737b82;
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .hallazgo-operacional {
+    padding: 72px 10px 30px;
+  }
+
+  .operacional-header {
+    align-items: flex-start;
+    min-height: 0;
+    padding: 14px 16px;
+  }
+
+  .operacional-tabs {
+    overflow-x: auto;
+    margin-right: -10px;
+    margin-left: -10px;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .operacional-tabs .nav-link {
+    padding: 10px 12px;
+    white-space: nowrap;
+  }
+
+  :host ::ng-deep .hallazgo-operacional > .widget > .widget-body {
+    padding: 14px 10px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wide-field {
+    grid-column: span 1;
+  }
+
+  .bitacora-item {
+    gap: 8px;
+  }
+}

@@ -109,6 +109,17 @@
             </div>
         </div>
 
+        <ul class="sidebar-nav" *ngIf="!Cliente">
+            <li>
+                <a [routerLink]="['/Hallazgos-Operacionales']" routerLinkActive="router-link-active">
+                    Hallazgos Operacionales
+                    <span class="icon">
+                        <i class="fa fa-exclamation-circle"></i>
+                    </span>
+                </a>
+            </li>
+        </ul>
+
         <ul class="sidebar-nav">
             <li>
                 <a class="sidebar-section-tareas" href="#sidebar-group-tareas" data-toggle="collapse" aria-expanded="false">

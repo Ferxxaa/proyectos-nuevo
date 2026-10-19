@@ -1,0 +1,195 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content hallazgo-operacional">
+    <section class="widget">
+      <header class="operacional-header">
+        <div>
+          <h2><i class="fa fa-building"></i> Hallazgos Operacionales</h2>
+          <p>Registro y seguimiento general de oficina, independiente de los subproyectos.</p>
+        </div>
+        <a class="btn btn-inverse" [routerLink]="['/Home']">Volver</a>
+      </header>
+
+      <div class="widget-body">
+        <nav class="operacional-tabs" aria-label="Secciones de hallazgos operacionales">
+          <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item">
+              <a class="nav-link tab-hallazgos" [class.active]="pestanaActiva === 'hallazgos'"
+                role="tab" aria-controls="panel-hallazgos" [attr.aria-selected]="pestanaActiva === 'hallazgos'"
+                (click)="seleccionarPestana('hallazgos')">
+                <i class="fa fa-exclamation-circle"></i> Control de Hallazgos
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link tab-tareas" [class.active]="pestanaActiva === 'tareas'"
+                role="tab" aria-controls="panel-tareas" [attr.aria-selected]="pestanaActiva === 'tareas'"
+                (click)="seleccionarPestana('tareas')">
+                <i class="fa fa-tasks"></i> Tareas
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link tab-bitacoras" [class.active]="pestanaActiva === 'bitacoras'"
+                role="tab" aria-controls="panel-bitacoras" [attr.aria-selected]="pestanaActiva === 'bitacoras'"
+                (click)="seleccionarPestana('bitacoras')">
+                <i class="fa fa-book"></i> Bitácoras
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+        <section id="panel-hallazgos" class="operacional-panel" *ngIf="pestanaActiva === 'hallazgos'">
+          <app-control-hallazgos [esOficina]="true"></app-control-hallazgos>
+        </section>
+
+        <section id="panel-tareas" class="operacional-panel" *ngIf="pestanaActiva === 'tareas'">
+    <div class="panel-heading">
+      <h3><i class="fa fa-tasks"></i> Tareas de oficina</h3>
+      <p>Las tareas de esta sección son generales y no quedan asociadas a un subproyecto.</p>
+    </div>
+
+    <form class="operacional-form" (ngSubmit)="agregarTarea()">
+      <div class="form-grid">
+        <label class="wide-field">Tarea
+          <input class="form-control" name="tituloTarea" [(ngModel)]="tareaNueva.titulo"
+            maxlength="160" required placeholder="Título de la tarea">
+        </label>
+        <label>Responsable
+          <input class="form-control" name="responsableTarea" [(ngModel)]="tareaNueva.responsable"
+            maxlength="120" placeholder="Nombre del responsable">
+        </label>
+        <label>Fecha compromiso
+          <input class="form-control" type="date" name="fechaTarea" [(ngModel)]="tareaNueva.fechaCompromiso">
+        </label>
+        <label>Prioridad
+          <select class="form-control" name="prioridadTarea" [(ngModel)]="tareaNueva.prioridad">
+            <option>Alta</option>
+            <option>Media</option>
+            <option>Baja</option>
+          </select>
+        </label>
+        <label class="wide-field">Descripción
+          <textarea class="form-control" name="descripcionTarea" [(ngModel)]="tareaNueva.descripcion"
+            rows="2" maxlength="2000" placeholder="Detalle de la tarea"></textarea>
+        </label>
+      </div>
+      <button class="btn btn-primary" type="submit" [disabled]="guardandoTarea || !tareaNueva.titulo.trim()">
+        <i class="fa" [ngClass]="guardandoTarea ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
+        {{guardandoTarea ? 'Guardando...' : 'Agregar tarea'}}
+      </button>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped operational-table">
+        <thead>
+          <tr>
+            <th>Tarea</th>
+            <th>Responsable</th>
+            <th>Prioridad</th>
+            <th>Compromiso</th>
+            <th>Estado</th>
+            <th>Creada por</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="tareas.length === 0">
+            <td colspan="7" class="empty-state">Todavía no hay tareas operacionales.</td>
+          </tr>
+          <tr *ngFor="let tarea of tareas">
+            <td><strong>{{tarea.titulo}}</strong><div class="item-description">{{tarea.descripcion}}</div></td>
+            <td>{{tarea.responsable || '-'}}</td>
+            <td>{{tarea.prioridad}}</td>
+            <td>{{tarea.fechaCompromiso || '-'}}</td>
+            <td>
+              <select class="form-control estado-select" [ngModel]="tarea.estado"
+                (ngModelChange)="cambiarEstadoTarea(tarea, $event)" [name]="'estado-' + tarea.id">
+                <option>Pendiente</option>
+                <option>En curso</option>
+                <option>Completada</option>
+              </select>
+            </td>
+            <td>{{tarea.creador || '-'}}</td>
+            <td class="action-cell">
+              <button class="btn btn-danger btn-sm" type="button" title="Eliminar tarea"
+                *ngIf="puedeEliminarTarea(tarea)"
+                (click)="eliminarTarea(tarea)">
+                <i class="fa fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+        </section>
+
+        <section id="panel-bitacoras" class="operacional-panel" *ngIf="pestanaActiva === 'bitacoras'">
+    <div class="panel-heading">
+      <h3><i class="fa fa-book"></i> Bitácora de oficina</h3>
+      <p>Registro general de eventos y acuerdos operacionales de la oficina.</p>
+    </div>
+
+    <form class="operacional-form" (ngSubmit)="agregarBitacora()">
+      <div class="form-grid">
+        <label>Fecha
+          <input class="form-control" type="date" name="fechaBitacora" [(ngModel)]="bitacoraNueva.fecha" required>
+        </label>
+        <label class="wide-field">Asunto
+          <input class="form-control" name="tituloBitacora" [(ngModel)]="bitacoraNueva.titulo"
+            maxlength="160" required placeholder="Asunto del registro">
+        </label>
+        <label class="wide-field">Detalle
+          <textarea class="form-control" name="descripcionBitacora" [(ngModel)]="bitacoraNueva.descripcion"
+            rows="3" maxlength="4000" required placeholder="Descripción, acuerdos o seguimiento"></textarea>
+        </label>
+      </div>
+      <div class="bitacora-adjuntos">
+        <label for="archivosBitacoraOficina">Adjuntar archivos (PDF, Excel y otros)</label>
+        <input id="archivosBitacoraOficina" class="form-control" type="file" multiple
+          accept=".pdf,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.csv,.txt,.jpg,.jpeg,.png"
+          [disabled]="guardandoBitacora"
+          (change)="onArchivosBitacoraSeleccionados($event)">
+        <div class="archivos-seleccionados" *ngIf="archivosBitacora.length > 0">
+          <div class="archivo-seleccionado" *ngFor="let archivo of archivosBitacora; let i = index">
+            <span><i class="fa" [ngClass]="getIconoArchivo(archivo.name)"></i> {{archivo.name}}</span>
+            <button class="btn-quitar-archivo" type="button" [disabled]="guardandoBitacora"
+              (click)="quitarArchivoBitacora(i)" title="Quitar archivo">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit"
+        [disabled]="guardandoBitacora || !bitacoraNueva.titulo.trim() || !bitacoraNueva.descripcion.trim()">
+        <i class="fa" [ngClass]="guardandoBitacora ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
+        {{guardandoBitacora ? 'Guardando...' : 'Agregar entrada'}}
+      </button>
+    </form>
+
+    <div class="bitacora-list">
+      <article class="bitacora-item" *ngFor="let registro of bitacoras">
+        <div class="bitacora-date">{{registro.fecha}}</div>
+        <div class="bitacora-content">
+          <h4>{{registro.titulo}}</h4>
+          <p>{{registro.descripcion}}</p>
+          <small>Registrado por {{registro.autor || 'Usuario'}}</small>
+          <div class="bitacora-archivos" *ngIf="registro.archivos && registro.archivos.length > 0">
+            <a *ngFor="let archivo of registro.archivos" [href]="archivo.url" target="_blank" rel="noopener"
+              class="bitacora-archivo">
+              <i class="fa" [ngClass]="getIconoArchivo(archivo.nombre)"></i> {{archivo.nombre}}
+            </a>
+          </div>
+        </div>
+        <button class="btn btn-danger btn-sm" type="button" title="Eliminar entrada"
+          *ngIf="puedeEliminarBitacora(registro)"
+          (click)="eliminarBitacora(registro)">
+          <i class="fa fa-trash"></i>
+        </button>
+      </article>
+      <div class="empty-state" *ngIf="bitacoras.length === 0">Todavía no hay entradas en la bitácora.</div>
+    </div>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>

@@ -36,7 +36,7 @@
       </div>
 
       <button
-        *ngIf="!soloLectura && puedeAdministrarPermisoCoordinador()"
+        *ngIf="!soloLectura && !esOficina && puedeAdministrarPermisoCoordinador()"
         type="button"
         class="hallazgos-header-permission"
         [class.activo]="coordinadorTienePermisoEliminar"

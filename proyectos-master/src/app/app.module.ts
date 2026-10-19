@@ -75,6 +75,7 @@ import { TemplateAprobComponent } from './aprob-cierre/template-aprob/template-a
 import { SortSpPipe } from './Proyectos/pipe/sort-sp.pipe';
 import { ControlAvanceComponent } from './Proyectos/control-avance/control-avance.component';
 import { ControlHallazgosComponent } from './Proyectos/control-hallazgos/control-hallazgos.component';
+import { HallazgoOperacionalComponent } from './Proyectos/hallazgo-operacional/hallazgo-operacional.component';
 import { GraficoEstructuralComponent } from './nav/estructura-matrices/grafico-estructural.component';
 import { sVis_ProyectoMatriz } from './services/sVis_ProyectoMatriz.service';
 import { sVis_Proyectos } from './services/sVis_Proyectos.service';
@@ -137,6 +138,10 @@ const route = [
   {
     path: 'Tablero-Control/:id',
     component: TableroControlComponent
+  },
+  {
+    path: 'Hallazgos-Operacionales',
+    component: HallazgoOperacionalComponent
   },
   {
     path: 'Ver-Bitacora',
@@ -239,6 +244,7 @@ const route = [
     NotificacionesComponent,
     ControlAvanceComponent,
     ControlHallazgosComponent,
+    HallazgoOperacionalComponent,
     GraficoEstructuralComponent,
   ],
   imports: [

@@ -11,6 +11,9 @@ declare var Swal: any;
 
 interface HallazgoItem {
   id?: string;
+  ambito?: string;
+  tipoRegistro?: string;
+  idUsuarioCreador?: number;
   fecha: string;
   anio: number;
   numero: number;
@@ -95,6 +98,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   @Input() idProyecto: number | null = null;
   @Input() nombreProyecto: string = '';
   @Input() soloLectura: boolean = false;
+  @Input() esOficina: boolean = false;
 
   usuario: any;
   proyecto: mProyecto | null = null;
@@ -194,6 +198,9 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   get nombreProyectoVisible(): string {
+    if (this.esOficina) {
+      return 'Oficina';
+    }
     return this.nombreProyecto || this.nombreProyectoLocal || '';
   }
 
@@ -253,6 +260,11 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     this.nuevoHallazgo.idSubProyecto = this.getIdSubProyectoActual();
 
     const datosAGuardar = { ...this.nuevoHallazgo, bloqueado: false };
+    if (this.esOficina) {
+      datosAGuardar.ambito = 'oficina';
+      datosAGuardar.tipoRegistro = 'hallazgo-oficina';
+      datosAGuardar.idUsuarioCreador = Number(this.usuario && this.usuario.idUsuario);
+    }
     datosAGuardar.archivos = [];
     delete datosAGuardar.id;
 
@@ -288,7 +300,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
   eliminarHallazgo(item: HallazgoItem) {
     if (this.soloLectura) { return; }
-    if (!this.puedeEliminarHallazgo) {
+    if (!this.puedeEliminarEsteHallazgo(item)) {
       Swal.fire('Acceso denegado', this.getMensajePermisoEliminacion(), 'warning');
       return;
     }
@@ -834,6 +846,10 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
       return false;
     }
 
+    if (this.esOficina) {
+      return this.esGerencia;
+    }
+
     const idUsuarioActual = Number(this.usuario.idUsuario);
     const idUsuarioCreadorSubProyecto = Number(this.subProyectoActual && this.subProyectoActual.idUsuarioCreador);
     return idUsuarioActual > 0 && (
@@ -843,6 +859,9 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   esCoordinadorSubProyecto(): boolean {
+    if (this.esOficina) {
+      return false;
+    }
     if (!this.usuario || !this.usuario.idUsuario || !this.subProyectoActual) {
       return false;
     }
@@ -851,6 +870,9 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   getMensajePermisoEliminacion(): string {
+    if (this.esOficina) {
+      return 'Solo quien creó el hallazgo o un usuario con rol de gerencia puede eliminarlo.';
+    }
     if (this.esCoordinadorSubProyecto() && !this.coordinadorTienePermisoEliminar) {
       return 'Como coordinador, debes pedir autorización al creador del subproyecto o a un usuario con rol de gerencia para eliminar hallazgos.';
     }
@@ -1528,12 +1550,18 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   private getIdSubProyectoActual(): string {
+    if (this.esOficina) {
+      return 'oficina-operacional';
+    }
     return this.subProyectoActual && this.subProyectoActual.idSubProyecto
       ? String(this.subProyectoActual.idSubProyecto)
       : 'sin-subproyecto';
   }
 
   private getIdConfigHallazgos(): string {
+    if (this.esOficina) {
+      return 'oficina-operacional';
+    }
     return this.subProyectoActual && this.subProyectoActual.idSubProyecto
       ? String(this.subProyectoActual.idSubProyecto)
       : 'sin-subproyecto';
@@ -1546,12 +1574,19 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
       this.unsubscribeHallazgos();
     }
 
-    this.unsubscribeHallazgos = firestoreDB.collection('hallazgos')
-      .where('idSubProyecto', '==', idSubProyecto)
+    const consulta = this.esOficina
+      ? firestoreDB.collection('hallazgos').where('ambito', '==', 'oficina')
+      : firestoreDB.collection('hallazgos').where('idSubProyecto', '==', idSubProyecto);
+
+    this.unsubscribeHallazgos = consulta
       .onSnapshot((snapshot: any) => {
         const items: HallazgoItem[] = [];
         snapshot.forEach((doc: any) => {
           const data = doc.data() || {};
+          if (this.esOficina && data.tipoRegistro &&
+              data.tipoRegistro !== 'hallazgo-oficina') {
+            return;
+          }
           items.push({
             id: doc.id,
             ...data,
@@ -1667,6 +1702,11 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     }
 
     const idUsuarioActual = Number(this.usuario.idUsuario);
+    if (this.esOficina) {
+      this.puedeEliminarHallazgo = this.esGerencia ||
+        this.hallazgos.some((item: HallazgoItem) => Number(item.idUsuarioCreador) === idUsuarioActual);
+      return;
+    }
     const idUsuarioCreadorSubProyecto = Number(this.subProyectoActual && this.subProyectoActual.idUsuarioCreador);
     const idUsuarioCoordinadorSubProyecto = Number(this.subProyectoActual && this.subProyectoActual.idUsuarioCoordinador);
 
@@ -1677,6 +1717,14 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     ) || (
       this.coordinadorTienePermisoEliminar && idUsuarioActual === idUsuarioCoordinadorSubProyecto
     );
+  }
+
+  private puedeEliminarEsteHallazgo(item: HallazgoItem): boolean {
+    if (this.esOficina) {
+      return this.esGerencia ||
+        Number(item && item.idUsuarioCreador) === Number(this.usuario && this.usuario.idUsuario);
+    }
+    return this.puedeEliminarHallazgo;
   }
 
   private cargarPermisoEliminacion() {
