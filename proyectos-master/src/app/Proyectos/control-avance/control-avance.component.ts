@@ -145,15 +145,20 @@ interface GrupoPlantillaPersonalizada extends GrupoPlantillas {
 })
 export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
+  private static readonly DOC_CLAVE_EDICION = '_claveEdicion';
+  private static readonly ITERACIONES_CLAVE_EDICION = 120000;
+
   @Input() idProyecto: number;
   @Input() idSubProyecto: number;
   @Input() detalleSeguimiento: any[];
   @Input() soloLectura: boolean = false;
   @Input() nombreProyecto: string = '';
+  @Input() nombreMandante: string = '';
   @Input() ocultarTitulo: boolean = false;
   @Input() ocultarFiltros: boolean = false;
   @Input() ocultarExportacion: boolean = false;
   @Input() vistaInicial: 'tabla' | 'gantt' = 'tabla';
+  accesoEdicionConClave: boolean = false;
 
   ControlesAvance: Array<ControlAvanceItem>;
 
@@ -349,7 +354,214 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return this.nombreProyecto || this.nombreProyectoLocal || '';
   }
 
+  get puedeEditarAvance(): boolean {
+    return !this.soloLectura && this.accesoEdicionConClave;
+  }
+
+  get modoSoloLectura(): boolean {
+    return !this.puedeEditarAvance;
+  }
+
+  async abrirAccesoEdicion() {
+    if (this.soloLectura) { return; }
+    if (this.accesoEdicionConClave) {
+      this.bloquearEdicion();
+      return;
+    }
+
+    try {
+      const config = await this.obtenerConfigClaveEdicion();
+      if (!config) {
+        const clave = await this.solicitarNuevaClaveEdicion();
+        if (!clave) { return; }
+        await this.guardarClaveEdicion(clave, true);
+        this.accesoEdicionConClave = true;
+        Swal.fire({
+          icon: 'success',
+          title: 'Clave configurada',
+          text: 'La edición quedó habilitada en esta pantalla.',
+          timer: 1800,
+          showConfirmButton: false
+        });
+        return;
+      }
+
+      const valida = await this.solicitarClaveEdicion(config);
+      if (valida) {
+        this.accesoEdicionConClave = true;
+      }
+    } catch (error) {
+      Swal.fire('Error', 'No se pudo habilitar la edición: ' + this.getMensajeError(error), 'error');
+    }
+  }
+
+  bloquearEdicion() {
+    this.accesoEdicionConClave = false;
+    Object.keys(this.tiempoGuardado || {}).forEach(indice => {
+      clearTimeout(this.tiempoGuardado[indice]);
+    });
+    if (this.tiempoRecalculo) {
+      clearTimeout(this.tiempoRecalculo);
+      this.tiempoRecalculo = null;
+    }
+    if (this.filaEnEdicion !== null) {
+      const item = this.ControlesAvance[this.filaEnEdicion];
+      if (item) { this.cancelarEdicion(item, this.filaEnEdicion); }
+    }
+    if (this.editandoNombreGanttId) {
+      const barra = this.ganttBarras.find(item => item.item.id === this.editandoNombreGanttId);
+      if (barra) { this.cancelarNombreGantt(barra); }
+    }
+    this.mostrarFormulario = false;
+    this.nuevaFilaGantt = null;
+    this.editorFechasGantt = null;
+  }
+
+  async cambiarClaveEdicion() {
+    if (!this.puedeEditarAvance) { return; }
+    try {
+      const config = await this.obtenerConfigClaveEdicion();
+      if (!config || !(await this.solicitarClaveEdicion(config))) { return; }
+      const nuevaClave = await this.solicitarNuevaClaveEdicion();
+      if (!nuevaClave) { return; }
+      await this.guardarClaveEdicion(nuevaClave);
+      Swal.fire({
+        icon: 'success',
+        title: 'Clave actualizada',
+        timer: 1800,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      Swal.fire('Error', 'No se pudo cambiar la clave: ' + this.getMensajeError(error), 'error');
+    }
+  }
+
+  private obtenerConfigClaveEdicion(): Promise<any> {
+    return firestoreDB.collection('controlAvanceConfig').doc(ControlAvanceComponent.DOC_CLAVE_EDICION)
+      .get().then((doc: any) => {
+        const data = doc.exists ? doc.data() : null;
+        return data && data.hash && data.salt ? data : null;
+      });
+  }
+
+  private async solicitarClaveEdicion(config: any): Promise<boolean> {
+    const resultado = await Swal.fire({
+      title: 'Habilitar edición',
+      text: 'Ingresa la clave compartida para modificar el Control de Avance.',
+      input: 'password',
+      inputPlaceholder: 'Clave',
+      inputAttributes: { autocapitalize: 'off', autocorrect: 'off', autocomplete: 'current-password' },
+      showCancelButton: true,
+      confirmButtonText: 'Desbloquear',
+      cancelButtonText: 'Cancelar',
+      preConfirm: async (clave: string) => {
+        const hash = await this.hashClaveEdicion(
+          config.salt,
+          clave || '',
+          Number(config.iteraciones) || ControlAvanceComponent.ITERACIONES_CLAVE_EDICION
+        );
+        if (hash !== config.hash) {
+          Swal.showValidationMessage('Clave incorrecta');
+          return false;
+        }
+        return true;
+      }
+    });
+    return !!(resultado && resultado.value === true);
+  }
+
+  private async solicitarNuevaClaveEdicion(): Promise<string | null> {
+    const resultado = await Swal.fire({
+      title: 'Configurar clave de edición',
+      html:
+        '<p>Define la clave compartida para editar todos los controles de avance.</p>' +
+        '<input id="swal-control-avance-clave-1" type="password" class="swal2-input" placeholder="Clave (mín. 8 caracteres)" autocomplete="new-password">' +
+        '<input id="swal-control-avance-clave-2" type="password" class="swal2-input" placeholder="Repetir clave" autocomplete="new-password">',
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar clave',
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const primera = (document.getElementById('swal-control-avance-clave-1') as HTMLInputElement).value || '';
+        const segunda = (document.getElementById('swal-control-avance-clave-2') as HTMLInputElement).value || '';
+        if (primera.length < 8) {
+          Swal.showValidationMessage('La clave debe tener al menos 8 caracteres');
+          return false;
+        }
+        if (primera !== segunda) {
+          Swal.showValidationMessage('Las claves no coinciden');
+          return false;
+        }
+        return primera;
+      }
+    });
+    return resultado && resultado.value ? resultado.value : null;
+  }
+
+  private async guardarClaveEdicion(clave: string, soloSiNoExiste: boolean = false): Promise<void> {
+    const cryptoApi: any = (window as any).crypto;
+    if (!cryptoApi || !cryptoApi.getRandomValues) {
+      throw new Error('Este navegador no permite generar una clave segura.');
+    }
+    const bytes = new Uint8Array(16);
+    cryptoApi.getRandomValues(bytes);
+    const salt = Array.prototype.map.call(bytes, (byte: number) =>
+      ('0' + byte.toString(16)).slice(-2)
+    ).join('');
+    const hash = await this.hashClaveEdicion(salt, clave, ControlAvanceComponent.ITERACIONES_CLAVE_EDICION);
+    const referencia = firestoreDB.collection('controlAvanceConfig').doc(ControlAvanceComponent.DOC_CLAVE_EDICION);
+    const datos = {
+      hash,
+      salt,
+      iteraciones: ControlAvanceComponent.ITERACIONES_CLAVE_EDICION,
+      fechaActualizacion: new Date().toISOString()
+    };
+    await firestoreDB.runTransaction((transaccion: any) => transaccion.get(referencia).then((doc: any) => {
+      if (soloSiNoExiste && doc.exists) {
+        throw new Error('La clave ya fue configurada en otro control. Intenta ingresar con la clave vigente.');
+      }
+      transaccion.set(referencia, datos);
+    }));
+  }
+
+  private async hashClaveEdicion(salt: string, clave: string, iteraciones: number): Promise<string> {
+    const cryptoApi: any = (window as any).crypto;
+    if (!cryptoApi || !cryptoApi.subtle) {
+      throw new Error('La validación de claves requiere un navegador actualizado y una conexión segura.');
+    }
+    const codificada = encodeURIComponent(clave);
+    const bytesClave: number[] = [];
+    for (let i = 0; i < codificada.length; i++) {
+      if (codificada.charAt(i) === '%') {
+        bytesClave.push(parseInt(codificada.substr(i + 1, 2), 16));
+        i += 2;
+      } else {
+        bytesClave.push(codificada.charCodeAt(i));
+      }
+    }
+    const claveBytes = new Uint8Array(bytesClave);
+    const saltBytes = new Uint8Array(salt.length / 2);
+    for (let i = 0; i < saltBytes.length; i++) {
+      saltBytes[i] = parseInt(salt.substr(i * 2, 2), 16);
+    }
+    const material = await cryptoApi.subtle.importKey('raw', claveBytes, 'PBKDF2', false, ['deriveBits']);
+    const derivado = await cryptoApi.subtle.deriveBits({
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations: iteraciones,
+      hash: 'SHA-256'
+    }, material, 256);
+    return Array.prototype.map.call(new Uint8Array(derivado), (byte: number) =>
+      ('0' + byte.toString(16)).slice(-2)
+    ).join('');
+  }
+
+  private getMensajeError(error: any): string {
+    return error && error.message ? error.message : String(error);
+  }
+
   guardarCodigoSubProyectoParaExcel(codigo: string) {
+    if (!this.puedeEditarAvance) { return; }
     if (!this.subProyectoActual) {
       this.subProyectoActual = {};
     }
@@ -363,7 +575,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Abre el modal aparte para configurar el código del Excel, sin pasar por crear un título/lámina. */
   abrirModalCodigoExcel() {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
     this.codigoExcelModal = (this.subProyectoActual && this.subProyectoActual.codigo) || '';
 
     if (typeof $ !== 'undefined') {
@@ -384,6 +596,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   guardarCodigoExcelModal() {
+    if (!this.puedeEditarAvance) { return; }
     const codigo = (this.codigoExcelModal || '').trim();
     if (!codigo) {
       Swal.fire('Falta el código', 'Escribe un código antes de guardar.', 'info');
@@ -866,7 +1079,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    * oscura de ancho completo (con prioridad sobre su propia fecha/plazo, si es que los tiene).
    */
   toggleFranjaCompleta(item: ControlAvanceItem, index: number) {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
     item.mostrarFranjaCompleta = !item.mostrarFranjaCompleta;
     this.OnCambio(item, index);
   }
@@ -884,7 +1097,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Se dispara al mantener presionado el ícono de agarre (⣿) de una fila e iniciar el arrastre. */
   onDragStart(fila: FilaTabla) {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
     this.filaArrastrada = fila;
   }
 
@@ -909,7 +1122,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     this.filaSobreDrag = null;
     const origen = this.filaArrastrada;
     this.filaArrastrada = null;
-    if (this.soloLectura || !origen) { return; }
+    if (!this.puedeEditarAvance || !origen) { return; }
     if (origen.item.id === filaDestino.item.id) { return; }
     if ((origen.item.idPadre || null) !== (filaDestino.item.idPadre || null)) {
       return; // solo se reordena entre hermanos del mismo nivel
@@ -998,7 +1211,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Renumera el código de todas las láminas (subitems, no sub-títulos) de un título, según su orden actual. */
   renumerarLaminasDeTitulo(idTitulo: string) {
-    if (!idTitulo) { return; }
+    if (!this.puedeEditarAvance || !idTitulo) { return; }
     const titulo = this.ControlesAvance.find(it => it.id === idTitulo);
     if (!titulo) { return; }
 
@@ -1032,6 +1245,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Botón manual: recalcula los códigos de las láminas de un título con su prefijo actual (por si quedaron desordenados). */
   renumerarManualmente(idTitulo: string) {
+    if (!this.puedeEditarAvance) { return; }
     this.renumerarLaminasDeTitulo(idTitulo);
     Swal.fire({
       icon: 'success',
@@ -1043,6 +1257,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Desplaza en +1 el orden de todos los hermanos posteriores al punto de inserción, dejando un hueco para la lámina intermedia. */
   private async insertarConOrdenIntermedio(idPadre: string | null, ordenDespuesDe: number): Promise<void> {
+    if (!this.puedeEditarAvance) { return; }
     const hermanosPosteriores = this.ControlesAvance.filter(it =>
       (it.idPadre || null) === (idPadre || null) && (it.orden || 0) > ordenDespuesDe
     );
@@ -1063,7 +1278,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // =========================================================================
 
   abrirFormularioAgregar(idPadre: string | null = null, nombrePadre: string = 'Raíz', esTituloSugerido: boolean = true) {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
     this.idPadreActivo = idPadre;
     this.nombrePadreActivo = nombrePadre;
     this.ordenInsercionDespuesDe = null; // se agrega al final, no entremedio
@@ -1078,7 +1293,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    * (misma jerarquía/título), en vez de agregarla al final. Los códigos se renumeran solos al guardar.
    */
   abrirFormularioInsertarDespues(fila: FilaTabla) {
-    if (this.soloLectura || fila.item.esTitulo) { return; }
+    if (!this.puedeEditarAvance || fila.item.esTitulo) { return; }
 
     const idPadre = fila.item.idPadre || null;
     const padre = idPadre ? this.ControlesAvance.find(it => it.id === idPadre) : null;
@@ -1167,7 +1382,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   async AgregarDesdeFormulario() {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
 
     const esTitulo = !!this.nuevoDoc.esTitulo;
 
@@ -1330,7 +1545,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // =========================================================================
 
   abrirModalPlantillas() {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
     this.seleccionPlantillas = {};
     this.destinoPlantillaIdPadre = null;
     this.filtroPlantillasTexto = '';
@@ -1475,7 +1690,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Crea un título nuevo con el nombre de la disciplina + todas sus láminas como subitems, en un solo batch. */
   async agregarGrupoCompleto(grupoPlantilla: GrupoPlantillas) {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
 
     const confirmacion = await Swal.fire({
       title: `Agregar "${grupoPlantilla.grupo}"`,
@@ -1603,7 +1818,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    * (ej: "BE_PLC_ARQ 01") en vez de "ARC-TRZ-01".
    */
   async agregarSeleccionPlantillaAdestino() {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
 
     const seleccionados: PlantillaDocumento[] = [];
     this.gruposPlantillaTodos.forEach(g => {
@@ -1739,7 +1954,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   async guardarPlantillaPersonalizada() {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
 
     if (!this.nuevaPlantilla.nombre.trim()) {
       Swal.fire('Falta el nombre', 'Ingresa un nombre para la disciplina/plantilla.', 'info');
@@ -1777,7 +1992,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   eliminarPlantillaPersonalizada(grupo: GrupoPlantillaPersonalizada) {
-    if (this.soloLectura || !grupo.id) { return; }
+    if (!this.puedeEditarAvance || !grupo.id) { return; }
 
     Swal.fire({
       title: 'Eliminar plantilla',
@@ -1787,7 +2002,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       confirmButtonText: 'Eliminar',
       cancelButtonText: 'Cancelar'
     }).then((result: any) => {
-      if (!result.value) { return; }
+      if (!result.value || !this.puedeEditarAvance) { return; }
 
       firestoreDB.collection('controlAvancePlantillasPersonalizadas').doc(grupo.id).delete()
         .catch((error: any) => {
@@ -1797,6 +2012,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private subirArchivosADocumento(docId: string, archivos: File[]): Promise<void> {
+    if (!this.puedeEditarAvance) {
+      return Promise.reject(new Error('La edición del Control de Avance está bloqueada.'));
+    }
     const subidas = archivos.map(archivo => {
       const rutaArchivo = `controlAvance/${this.getIdProyectoActual()}/${this.getIdSubProyectoActual()}/${docId}/${Date.now()}_${archivo.name}`;
       const referencia = storageRef.ref(rutaArchivo);
@@ -1811,6 +2029,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     });
 
     return Promise.all(subidas).then((nuevosArchivos: ArchivoAdjunto[]) => {
+      if (!this.puedeEditarAvance) {
+        throw new Error('La edición del Control de Avance está bloqueada.');
+      }
       return firestoreDB.collection('controlAvance').doc(docId).get().then((doc: any) => {
         const archivosActuales: ArchivoAdjunto[] = (doc.exists && doc.data().archivos) ? doc.data().archivos : [];
         return firestoreDB.collection('controlAvance').doc(docId).update({
@@ -1821,6 +2042,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onArchivosFilaSeleccionados(event: any, item: ControlAvanceItem, index: number) {
+    if (!this.puedeEditarAvance) { return; }
     const files: FileList = event.target.files;
     if (!files || files.length === 0 || !item.id) {
       return;
@@ -1851,7 +2073,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   eliminarArchivoAdjunto(item: ControlAvanceItem, archivo: ArchivoAdjunto, index: number) {
-    if (!item.id) { return; }
+    if (!this.puedeEditarAvance || !item.id) { return; }
 
     Swal.fire({
       title: 'Eliminar archivo',
@@ -1861,11 +2083,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       confirmButtonText: 'Eliminar',
       cancelButtonText: 'Cancelar'
     }).then((result: any) => {
-      if (!result.value) { return; }
+      if (!result.value || !this.puedeEditarAvance) { return; }
 
       storageRef.ref(archivo.path).delete().catch(() => {
         // si el archivo ya no existe en Storage, igual limpiamos la referencia en Firestore
       }).then(() => {
+        if (!this.puedeEditarAvance) { return; }
         const archivosActuales = (item.archivos || []).filter(a => a.path !== archivo.path);
         firestoreDB.collection('controlAvance').doc(item.id).update({ archivos: archivosActuales })
           .catch((error: any) => {
@@ -1910,7 +2133,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   agregarNotaBitacora(item: ControlAvanceItem, index: number) {
-    if (this.soloLectura || !item.id) { return; }
+    if (!this.puedeEditarAvance || !item.id) { return; }
 
     const texto = (this.nuevaNotaTexto[item.id] || '').trim();
     if (!texto) {
@@ -1950,7 +2173,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   eliminarNotaBitacora(item: ControlAvanceItem, index: number, nota: NotaBitacora) {
-    if (this.soloLectura || !item.id) { return; }
+    if (!this.puedeEditarAvance || !item.id) { return; }
 
     Swal.fire({
       title: 'Eliminar nota',
@@ -2086,6 +2309,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   GuardarFila(item: ControlAvanceItem, index: number) {
+    if (!this.puedeEditarAvance) { return; }
     if (!item.esTitulo && (!item.codigo || !item.tipo || !item.descripcion)) {
       Swal.fire('Error', 'Complete los campos obligatorios: Código, Tipo y Descripción', 'error');
       return;
@@ -2112,6 +2336,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Tras guardar un item, propaga y persiste el recálculo de fechas/avance en sus títulos ancestros. */
   private guardarAncestros(item: ControlAvanceItem) {
+    if (!this.puedeEditarAvance) { return; }
     let actual = item;
     let seguridad = 0;
     while (actual.idPadre && seguridad < 20) {
@@ -2124,6 +2349,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   OnCambio(item: ControlAvanceItem, index: number) {
+    if (!this.puedeEditarAvance) { return; }
     // El recálculo de jerarquía/Gantt reconstruye arreglos completos y repinta la tabla:
     // hacerlo en cada tecla (fechas/números) traba la escritura. Se espera una breve pausa.
     if (this.tiempoRecalculo) {
@@ -2148,11 +2374,13 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onCambioFechaInicioProgramada(item: ControlAvanceItem, index: number) {
+    if (!this.puedeEditarAvance) { return; }
     item.fechaInicioProgramadaManual = true;
     this.OnCambio(item, index);
   }
 
   onCambioFechaTerminoProgramada(item: ControlAvanceItem, index: number) {
+    if (!this.puedeEditarAvance) { return; }
     item.fechaTerminoProgramadaManual = true;
     this.OnCambio(item, index);
   }
@@ -2233,6 +2461,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private guardarValidadoresSeleccionados() {
+    if (!this.puedeEditarAvance) { return; }
     firestoreDB.collection('controlAvanceConfig').doc(this.getIdConfigValidadores())
       .set({ validadoresSeleccionados: this.validadoresSeleccionados }, { merge: true })
       .catch((error: any) => {
@@ -2298,6 +2527,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   toggleSeleccionValidador(idValidador: number, checked: boolean) {
+    if (!this.puedeEditarAvance) { return; }
     const yaExiste = this.validadoresSeleccionados.indexOf(idValidador) !== -1;
 
     if (checked && !yaExiste) {
@@ -2329,6 +2559,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   toggleValidacionUsuario(item: ControlAvanceItem, index: number, idValidador: number, checked: boolean) {
+    if (!this.puedeEditarAvance) { return; }
     if (!this.puedeUsuarioValidar(idValidador)) {
       return;
     }
@@ -2375,7 +2606,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   activarEdicion(item: ControlAvanceItem, index: number) {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
     this.filaEnEdicion = index;
     this.copiaEdicion = JSON.parse(JSON.stringify(item));
   }
@@ -2393,6 +2624,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   confirmarEdicion(item: ControlAvanceItem, index: number) {
+    if (!this.puedeEditarAvance) { return; }
     if (this.tiempoGuardado[index]) {
       clearTimeout(this.tiempoGuardado[index]);
     }
@@ -2470,6 +2702,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    * Así el título y sus láminas desaparecen al instante de la tabla y del Gantt.
    */
   PrepararEliminar(index: number) {
+    if (!this.puedeEditarAvance) {
+      Swal.fire('Edición bloqueada', 'Ingresa la clave para modificar el Control de Avance.', 'info');
+      return;
+    }
     if (!this.puedeEliminarControlAvance()) {
       Swal.fire('Acceso denegado', this.getMensajePermisoEliminacionAvance(), 'warning');
       return;
@@ -2497,7 +2733,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       confirmButtonText: 'Eliminar',
       cancelButtonText: 'Cancelar'
     }).then((result: any) => {
-      if (result.value) {
+      if (result.value && this.puedeEditarAvance) {
         this.Loading = true;
 
         const idPadreParaRenumerar = item.idPadre;
@@ -2809,7 +3045,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
     // Espacio extra al final (solo en pantalla, si se puede editar) para poder arrastrar o estirar
     // una barra más allá de la última fecha. El Excel exportado no incluye este relleno.
-    const diasRelleno = this.soloLectura ? 0 : this.GANTT_DIAS_RELLENO;
+    const diasRelleno = this.puedeEditarAvance ? this.GANTT_DIAS_RELLENO : 0;
     const fechaFinVisual = new Date(fechaMax);
     fechaFinVisual.setDate(fechaFinVisual.getDate() + diasRelleno);
 
@@ -2913,7 +3149,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         anchoRelleno = Math.round(ancho * avanceReal / 100);
       }
 
-      const editable = !this.soloLectura
+      const editable = this.puedeEditarAvance
         && !!item.id
         && !esFranjaCompleta
         && !(esGrupo && idsConHijos[item.id]);
@@ -3103,7 +3339,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Guarda un cambio hecho desde la Carta Gantt (sin exigir Código/Tipo como GuardarFila). */
   private guardarCambioGantt(item: ControlAvanceItem) {
-    if (!item || !item.id) { return; }
+    if (!this.puedeEditarAvance || !item || !item.id) { return; }
     firestoreDB.collection('controlAvance').doc(item.id).update(this.limpiarParaGuardar(item))
       .then(() => this.guardarAncestros(item))
       .catch((error: any) => {
@@ -3183,6 +3419,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     objetivo: EstadoFechasProgramadasGantt,
     estadoActual: EstadoFechasProgramadasGantt
   ): Promise<any> {
+    if (!this.puedeEditarAvance) {
+      return Promise.reject(new Error('La edición del Control de Avance está bloqueada.'));
+    }
     const batch = firestoreDB.batch();
     let hayCambios = false;
 
@@ -3212,7 +3451,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    * Así, al volver a la tabla, recargar o exportar el Excel, se ven exactamente las mismas fechas.
    */
   private aplicarCambioFechasGantt(item: ControlAvanceItem, aplicar: () => void) {
-    if (this.guardandoCambioFechasGantt) { return; }
+    if (!this.puedeEditarAvance || this.guardandoCambioFechasGantt) { return; }
     const estadoAntes = this.capturarEstadoFechasGantt();
     const antes = this.capturarFechasProgramadas();
     aplicar();
@@ -3243,6 +3482,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   deshacerCambioFechasGantt() {
+    if (!this.puedeEditarAvance) { return; }
     const cambio = this.ultimoCambioFechasGantt;
     if (!cambio || this.guardandoCambioFechasGantt) { return; }
 
@@ -3279,7 +3519,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // ---- 1) Nombre inline ----
 
   iniciarEdicionNombreGantt(barra: BarraGantt) {
-    if (this.soloLectura || !barra || !barra.item.id) { return; }
+    if (!this.puedeEditarAvance || !barra || !barra.item.id) { return; }
     this.editandoNombreGanttId = barra.item.id;
     this.nombreGanttOriginal = barra.item.descripcion || '';
     setTimeout(() => {
@@ -3294,6 +3534,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   confirmarNombreGantt(barra: BarraGantt) {
     // Enter dispara confirmar y luego el blur al desaparecer el input: el segundo llamado se ignora.
     if (this.editandoNombreGanttId !== barra.item.id) { return; }
+    if (!this.puedeEditarAvance) {
+      this.cancelarNombreGantt(barra);
+      return;
+    }
     const item = barra.item;
     this.editandoNombreGanttId = null;
 
@@ -3438,6 +3682,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.dragGanttId = null;
       this.dragGanttEtiqueta = '';
       this.limpiarGuiasArrastreGantt();
+      if (!this.puedeEditarAvance) { return; }
       if (!drag || !drag.movido) { return; }
 
       // Evita que el click que dispara el navegador al soltar se interprete como "asignar fecha".
@@ -3571,6 +3816,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    */
   onInputFechaTabla(input: HTMLInputElement, item: ControlAvanceItem, campo: string, index: number) {
     if (!input || !item) { return; }
+    if (!this.puedeEditarAvance) {
+      this.restaurarFechaTabla(input, item, campo);
+      return;
+    }
     const digitos = (input.value || '').replace(/\D/g, '').substring(0, 8);
     let texto = digitos;
     if (digitos.length > 4) {
@@ -3603,6 +3852,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Fecha elegida con el botón de calendario de la tabla (llega como 'YYYY-MM-DD'). */
   onPickerFechaTabla(valorIso: string, item: ControlAvanceItem, campo: string, index: number) {
+    if (!this.puedeEditarAvance) { return; }
     if (!item || !valorIso || valorIso === (item as any)[campo]) { return; }
     (item as any)[campo] = valorIso;
     this.notificarCambioFechaTabla(item, campo, index);
@@ -3629,6 +3879,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Mientras se escribe la fecha en el editor: deja solo números y agrega las "/" solas (dd/mm/aaaa). */
   onInputFechaEditorGantt(input: HTMLInputElement) {
+    if (!this.puedeEditarAvance) { return; }
     if (!this.editorFechasGantt || !input) { return; }
     const digitos = (input.value || '').replace(/\D/g, '').substring(0, 8);
     let texto = digitos;
@@ -3644,12 +3895,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Fecha elegida con el botón de calendario (llega como 'YYYY-MM-DD'). */
   onPickerFechaEditorGantt(valorIso: string) {
+    if (!this.puedeEditarAvance) { return; }
     if (!this.editorFechasGantt || !valorIso) { return; }
     this.editorFechasGantt.inicio = valorIso;
     this.editorFechasGantt.inicioTexto = this.isoADdmmaaaa(valorIso);
   }
 
   guardarEditorFechasGantt() {
+    if (!this.puedeEditarAvance) { return; }
     const editor = this.editorFechasGantt;
     if (!editor || this.guardandoCambioFechasGantt) { return; }
     if (!editor.inicio) {
@@ -3709,7 +3962,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** "+" en un título: agrega una lámina al final de ese título (si estaba plegado, lo despliega). */
   abrirNuevaFilaDentroGantt(barra: BarraGantt) {
-    if (this.soloLectura || !barra || !barra.item.id) { return; }
+    if (!this.puedeEditarAvance || !barra || !barra.item.id) { return; }
     if (this.titulosColapsados[barra.item.id]) {
       this.titulosColapsados[barra.item.id] = false;
       this.recalcularJerarquiaYAgregados();
@@ -3729,7 +3982,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** "+" en una lámina: inserta otra justo debajo, dentro del mismo título. */
   abrirNuevaFilaDespuesGantt(barra: BarraGantt) {
-    if (this.soloLectura || !barra || !barra.item.id) { return; }
+    if (!this.puedeEditarAvance || !barra || !barra.item.id) { return; }
     const idPadre = barra.item.idPadre || null;
     const padre = idPadre ? this.ControlesAvance.find(it => it.id === idPadre) : null;
     this.nuevaFilaGantt = {
@@ -3746,7 +3999,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Fila "+ Nuevo título" del final: crea un título en la raíz. */
   abrirNuevoTituloRaizGantt() {
-    if (this.soloLectura) { return; }
+    if (!this.puedeEditarAvance) { return; }
     this.nuevaFilaGantt = {
       despuesDeId: '__final__',
       idPadre: null,
@@ -3824,7 +4077,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    */
   async crearFilaDesdeGantt(seguirAgregando: boolean) {
     const nueva = this.nuevaFilaGantt;
-    if (!nueva || this.creandoFilaGantt || this.soloLectura) { return; }
+    if (!nueva || this.creandoFilaGantt || !this.puedeEditarAvance) { return; }
 
     const descripcion = (nueva.descripcion || '').trim();
     if (!descripcion) {
@@ -3985,7 +4238,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
  
       // ==== BLOQUE DE ENCABEZADO ====
       const subProyecto: any = this.subProyectoActual || {};
-      const mandante = subProyecto.nombreMandante || subProyecto.mandante || 'Banco Estado';
+      const mandante = this.nombreMandante || subProyecto.nombreMandante || subProyecto.mandante || this.nombreProyectoVisible || 'Proyecto';
       const contacto = subProyecto.contacto || subProyecto.nombreContacto || '-';
       const direccion = subProyecto.direccion || subProyecto.direccionProyecto || '-';
       const codigoProyecto = (subProyecto.codigo || subProyecto.codigoProyecto || '').trim() ||

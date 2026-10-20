@@ -3,7 +3,7 @@ import { mDetalleSubProyecto } from '../models/mDetalleSubProyecto';
 import { mSubProyecto } from '../models/mSubProyecto';
 import { sDetalleSubProyecto } from '../services/sDetalleSubProyecto.service';
 import { sSubProyecto } from '../services/sSubProyecto.service';
-import { sProyecto } from '../services/sProyecto.service';
+import { sVis_Proyectos } from '../services/sVis_Proyectos.service';
 
 interface CartaGanttSeleccionada {
   subProyecto: mSubProyecto;
@@ -14,6 +14,7 @@ interface CartaGanttSeleccionada {
 interface GrupoCartasGantt {
   idProyecto: number;
   nombreProyecto: string;
+  nombreMandante: string;
   cartas: CartaGanttSeleccionada[];
   expandido: boolean;
 }
@@ -22,18 +23,19 @@ interface GrupoCartasGantt {
   selector: 'app-cartas-gantt',
   templateUrl: './cartas-gantt.component.html',
   styleUrls: ['./cartas-gantt.component.css'],
-  providers: [sSubProyecto, sDetalleSubProyecto, sProyecto]
+  providers: [sSubProyecto, sDetalleSubProyecto, sVis_Proyectos]
 })
 export class CartasGanttComponent implements OnInit {
   cartasGantt: CartaGanttSeleccionada[] = [];
   gruposCartasGantt: GrupoCartasGantt[] = [];
   nombresProyectos: { [idProyecto: number]: string } = {};
+  nombresMandantes: { [idProyecto: number]: string } = {};
   cargando: boolean = true;
 
   constructor(
     private _sSubProyecto: sSubProyecto,
     private _sDetalleSubProyecto: sDetalleSubProyecto,
-    private _sProyecto: sProyecto
+    private _sVisProyectos: sVis_Proyectos
   ) {}
 
   ngOnInit() {
@@ -67,14 +69,16 @@ export class CartasGanttComponent implements OnInit {
 
   private async cargarNombresProyectos() {
     const idsProyecto = Array.from(new Set(this.cartasGantt.map(carta => carta.subProyecto.idProyecto)));
-    const proyectos = await Promise.all(idsProyecto.map(idProyecto =>
-      this._sProyecto.getProyectobyID(idProyecto).toPromise()
+    const proyectosVista = await Promise.all(idsProyecto.map(idProyecto =>
+      this._sVisProyectos.getVis_ProyectosbyidProyecto(idProyecto).toPromise()
     ));
 
-    proyectos.forEach(proyecto => {
+    proyectosVista.forEach((resultados, index) => {
+      const proyecto = (resultados || [])[0];
       if (proyecto) {
-        const idProyecto = Number(proyecto.idProyecto);
-        this.nombresProyectos[idProyecto] = proyecto.nombreProyecto;
+        const idProyecto = Number(proyecto.idProyecto) || Number(idsProyecto[index]);
+        this.nombresProyectos[idProyecto] = proyecto.nombreProyecto || '';
+        this.nombresMandantes[idProyecto] = proyecto.nombreProyectoMatriz || '';
       }
     });
   }
@@ -90,6 +94,7 @@ export class CartasGanttComponent implements OnInit {
         grupos[clave] = {
           idProyecto,
           nombreProyecto: this.nombresProyectos[idProyecto] || 'Proyecto sin nombre',
+          nombreMandante: this.nombresMandantes[idProyecto] || '',
           cartas: [],
           expandido: true
         };

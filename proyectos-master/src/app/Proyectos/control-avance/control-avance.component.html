@@ -42,20 +42,32 @@
         </button>
       </div>
 
-      <div class="plantillas-toggle" *ngIf="!LoadingTabla && !soloLectura">
+      <ng-container *ngIf="!soloLectura">
+        <button type="button" class="btn-codigo-excel" (click)="abrirAccesoEdicion()"
+                [title]="accesoEdicionConClave ? 'Bloquear las modificaciones' : 'Ingresar clave para modificar el Control de Avance'">
+          <i class="fa" [ngClass]="accesoEdicionConClave ? 'fa-unlock' : 'fa-lock'"></i>
+          {{accesoEdicionConClave ? 'Bloquear edición' : 'Habilitar edición'}}
+        </button>
+        <button type="button" class="btn-codigo-excel" *ngIf="accesoEdicionConClave"
+                (click)="cambiarClaveEdicion()" title="Cambiar la clave compartida">
+          <i class="fa fa-key"></i> Cambiar clave
+        </button>
+      </ng-container>
+
+      <div class="plantillas-toggle" *ngIf="!LoadingTabla && !modoSoloLectura">
         <button type="button" class="btn-plantillas" (click)="abrirModalPlantillas()" title="Ver y usar plantillas de entregables">
           <i class="fa fa-clone"></i> Plantillas
         </button>
       </div>
 
-      <div class="codigo-excel-toggle" *ngIf="!LoadingTabla">
+      <div class="codigo-excel-toggle" *ngIf="!LoadingTabla && !modoSoloLectura">
         <button type="button" class="btn-codigo-excel" (click)="abrirModalCodigoExcel()" title="Configurar el código que aparece en el encabezado del Excel">
           <i class="fa fa-file-excel-o"></i> Código Excel
         </button>
       </div>
 
       <button
-        *ngIf="!soloLectura"
+        *ngIf="!modoSoloLectura"
         type="button"
         class="avance-header-toggle"
         (click)="toggleFormularioAvance()"
@@ -73,7 +85,7 @@
   </div>
 
   <!-- Formulario de creación: puede crear un TÍTULO (raíz o dentro de otro título) o un SUBITEM -->
-  <div class="avance-form" *ngIf="!soloLectura && mostrarFormulario" [class.avance-form-titulo]="nuevoDoc.esTitulo">
+  <div class="avance-form" *ngIf="!modoSoloLectura && mostrarFormulario" [class.avance-form-titulo]="nuevoDoc.esTitulo">
     <div class="creando-en">
       Creando dentro de: <strong>{{nombrePadreActivo}}</strong>
       <span class="creando-entremedio" *ngIf="ordenInsercionDespuesDe !== null">
@@ -219,7 +231,7 @@
                 <label class="check-validador" *ngFor="let usuarioValidador of usuariosValidadores">
                   <input type="checkbox"
                          [checked]="estaValidadorSeleccionado(usuarioValidador.idUsuario)"
-                         [disabled]="soloLectura || !puedeConfigurarValidadores() || cargandoValidadores"
+                         [disabled]="modoSoloLectura || !puedeConfigurarValidadores() || cargandoValidadores"
                          (change)="toggleSeleccionValidador(usuarioValidador.idUsuario, $event.target.checked)">
                   <span>{{ usuarioValidador.nombre }}</span>
                 </label>
@@ -332,9 +344,9 @@
             [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(fila.item)"
             [class.fila-bitacora-match]="filtroBitacora !== 'todas' && itemCoincideFiltroBitacora(fila.item)"
             [class.fila-drop-target]="filaSobreDrag === fila.item.id"
-            [class.fila-arrastrable]="!soloLectura && filaEnEdicion !== fila.indexOriginal"
+            [class.fila-arrastrable]="!modoSoloLectura && filaEnEdicion !== fila.indexOriginal"
             [style.background]="fila.item.esTitulo ? getColorTituloPorNivel(fila.nivel) : null"
-            [attr.draggable]="(!soloLectura && filaEnEdicion !== fila.indexOriginal) ? true : null"
+            [attr.draggable]="(!modoSoloLectura && filaEnEdicion !== fila.indexOriginal) ? true : null"
             title="Mantén presionado y arrastra para reordenar"
             (dragstart)="onDragStart(fila)"
             (dragover)="onDragOver($event, fila)"
@@ -349,7 +361,7 @@
                 <i class="fa" [ngClass]="fila.colapsado ? 'fa-caret-right' : 'fa-caret-down'"></i>
               </button>
               <span class="btn-colapsar-tabla-placeholder" *ngIf="fila.item.esTitulo && !fila.tieneHijos" aria-hidden="true"></span>
-              <button type="button" class="btn-agregar-excel" *ngIf="fila.item.esTitulo && !soloLectura"
+              <button type="button" class="btn-agregar-excel" *ngIf="fila.item.esTitulo && !modoSoloLectura"
                       (click)="abrirFormularioAgregar(fila.item.id, (fila.item.codigo + ' ' + fila.item.descripcion), false)"
                       title="Agregar subitem aquí">
                 <i class="fa fa-plus"></i>
@@ -360,7 +372,7 @@
           <td>
             <div class="celda-codigo" [style.paddingLeft.px]="fila.nivel * 14">
               <input type="text" [(ngModel)]="fila.item.codigo"
-                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                     [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                      class="input-texto input-codigo" placeholder="Código">
               <ng-container *ngIf="fila.item.esTitulo && filaEnEdicion === fila.indexOriginal">
                 <input type="text" [(ngModel)]="fila.item.prefijoCodigo"
@@ -378,7 +390,7 @@
           </td>
           <td>
             <select *ngIf="!fila.item.esTitulo" [(ngModel)]="fila.item.tipo"
-                  [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                  [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                     class="input-select input-compact input-estado" [ngClass]="getTipoClass(fila.item.tipo)">
               <option value="">-</option>
               <option *ngFor="let tipo of tiposDocumento" [value]="tipo">{{tipo.substring(tipo.indexOf('-') + 1).trim()}}</option>
@@ -386,18 +398,18 @@
           </td>
           <td>
             <input type="text" [(ngModel)]="fila.item.descripcion"
-                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                   [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                    [class.texto-titulo]="fila.item.esTitulo"
                    class="input-texto" placeholder="Descripción">
           </td>
           <td>
             <input type="number" [(ngModel)]="fila.item.revisionActual"
-                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal || fila.item.esTitulo"
+                   [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal || fila.item.esTitulo"
                    min="0" class="input-numero input-small" placeholder="0">
           </td>
           <td>
             <select [(ngModel)]="fila.item.estado"
-                  [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal || fila.item.esTitulo"
+                  [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal || fila.item.esTitulo"
                     class="input-select input-estado input-compact" [ngClass]="getEstadoClass(fila.item.estado)" [title]="getEstadoTextoCompleto(fila.item.estado)">
               <option *ngFor="let estado of estadosDisponibles" [value]="estado.value">{{estado.label}}</option>
             </select>
@@ -407,11 +419,11 @@
               <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
                      class="input-fecha input-compact"
                      [value]="fechaVista(fila.item.fechaInicioProgramada)"
-                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                     [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                      (input)="onInputFechaTabla($event.target, fila.item, 'fechaInicioProgramada', fila.indexOriginal)"
                      (blur)="restaurarFechaTabla($event.target, fila.item, 'fechaInicioProgramada')"
                      title="Por defecto usa el término de la lámina anterior; también puede editarse libremente">
-              <span class="btn-calendario-tabla" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
+              <span class="btn-calendario-tabla" *ngIf="!modoSoloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
                 <i class="fa fa-calendar"></i>
                 <input type="date" class="picker-fecha-oculto" tabindex="-1"
                        [value]="fila.item.fechaInicioProgramada || ''"
@@ -422,7 +434,7 @@
           <td>
             <input type="number" [(ngModel)]="fila.item.plazoProgramado"
                    (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
-                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                   [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                    title="Días de plazo (como plazo contrato del Excel)"
                    min="0" class="input-numero input-small" placeholder="días">
           </td>
@@ -431,11 +443,11 @@
               <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
                      class="input-fecha input-compact"
                      [value]="fechaVista(fila.item.fechaTerminoProgramada)"
-                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                     [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                      (input)="onInputFechaTabla($event.target, fila.item, 'fechaTerminoProgramada', fila.indexOriginal)"
                      (blur)="restaurarFechaTabla($event.target, fila.item, 'fechaTerminoProgramada')"
                      title="Por defecto usa el inicio de la siguiente actividad; también puede editarse">
-              <span class="btn-calendario-tabla" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
+              <span class="btn-calendario-tabla" *ngIf="!modoSoloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
                 <i class="fa fa-calendar"></i>
                 <input type="date" class="picker-fecha-oculto" tabindex="-1"
                        [value]="fila.item.fechaTerminoProgramada || ''"
@@ -455,10 +467,10 @@
               <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
                      class="input-fecha input-compact"
                      [value]="fechaVista(fila.item.fechaInicio)"
-                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                     [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                      (input)="onInputFechaTabla($event.target, fila.item, 'fechaInicio', fila.indexOriginal)"
                      (blur)="restaurarFechaTabla($event.target, fila.item, 'fechaInicio')">
-              <span class="btn-calendario-tabla" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
+              <span class="btn-calendario-tabla" *ngIf="!modoSoloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
                 <i class="fa fa-calendar"></i>
                 <input type="date" class="picker-fecha-oculto" tabindex="-1"
                        [value]="fila.item.fechaInicio || ''"
@@ -469,7 +481,7 @@
           <td>
             <input type="number" [(ngModel)]="fila.item.plazoReal"
                    (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
-                   [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal"
+                   [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                    title="Días de plazo real (como plazo real del Excel)"
                    min="0" class="input-numero input-small" placeholder="días">
           </td>
@@ -481,7 +493,7 @@
             <div class="celda-porcentaje">
               <input type="number" [(ngModel)]="fila.item.avanceReal"
                      (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
-                     [disabled]="soloLectura || filaEnEdicion !== fila.indexOriginal || fila.item.esTitulo"
+                     [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal || fila.item.esTitulo"
                      min="0" max="100" class="input-numero input-small" [ngClass]="getClaseAvanceReal(fila.item.avanceReal, fila.item.avanceProgramado)" placeholder="0">
               <span class="simbolo-porcentaje">%</span>
             </div>
@@ -504,13 +516,13 @@
                   <i class="fa" [ngClass]="getIconoArchivo(archivo.nombre)"></i>
                   <span class="archivo-nombre">{{archivo.nombre}}</span>
                 </a>
-                <button type="button" class="btn-quitar-archivo" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal"
+                <button type="button" class="btn-quitar-archivo" *ngIf="!modoSoloLectura && filaEnEdicion === fila.indexOriginal"
                         (click)="eliminarArchivoAdjunto(fila.item, archivo, fila.indexOriginal)" title="Eliminar">
                   <i class="fa fa-times"></i>
                 </button>
               </div>
             </div>
-            <label class="btn-adjuntar" *ngIf="!soloLectura && filaEnEdicion === fila.indexOriginal" [class.subiendo]="subiendoArchivos[fila.indexOriginal]">
+            <label class="btn-adjuntar" *ngIf="!modoSoloLectura && filaEnEdicion === fila.indexOriginal" [class.subiendo]="subiendoArchivos[fila.indexOriginal]">
               <i class="fa" [ngClass]="subiendoArchivos[fila.indexOriginal] ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
               <span>{{subiendoArchivos[fila.indexOriginal] ? 'Subiendo...' : ((fila.item.archivos && fila.item.archivos.length > 0) ? 'Agregar' : 'Adjuntar')}}</span>
               <input type="file" multiple accept=".pdf,.xls,.xlsx" style="display:none"
@@ -529,7 +541,7 @@
               <label class="check-validador" *ngFor="let validador of getValidadoresDocumento(fila.item)">
                 <input type="checkbox"
                        [checked]="estaValidadorAprobado(fila.item, validador.idUsuario)"
-                       [disabled]="soloLectura || !puedeUsuarioValidar(validador.idUsuario)"
+                       [disabled]="modoSoloLectura || !puedeUsuarioValidar(validador.idUsuario)"
                        (change)="toggleValidacionUsuario(fila.item, fila.indexOriginal, validador.idUsuario, $event.target.checked)">
                 <span [title]="validador.nombre">{{validador.nombre}}</span>
               </label>
@@ -538,7 +550,7 @@
           <td class="acciones-celda">
             <div class="acciones-fila">
               <ng-container *ngIf="filaEnEdicion === fila.indexOriginal; else modoVista">
-                <button class="btn-accion btn-confirmar" (click)="confirmarEdicion(fila.item, fila.indexOriginal)" title="Guardar cambios">
+                <button class="btn-accion btn-confirmar" (click)="confirmarEdicion(fila.item, fila.indexOriginal)" [disabled]="modoSoloLectura" title="Guardar cambios">
                   <i class="fa fa-check"></i>
                 </button>
                 <button class="btn-accion btn-cancelar" (click)="cancelarEdicion(fila.item, fila.indexOriginal)" title="Cancelar">
@@ -546,11 +558,11 @@
                 </button>
               </ng-container>
               <ng-template #modoVista>
-                <button class="btn-accion btn-editar" (click)="activarEdicion(fila.item, fila.indexOriginal)" [disabled]="soloLectura" title="Editar esta fila">
+                <button class="btn-accion btn-editar" (click)="activarEdicion(fila.item, fila.indexOriginal)" [disabled]="modoSoloLectura" title="Editar esta fila">
                   <i class="fa fa-pencil"></i> Editar
                 </button>
                 <button class="btn-accion btn-eliminar" (click)="PrepararEliminar(fila.indexOriginal)"
-                        [disabled]="soloLectura || !puedeEliminarControlAvance()"
+                        [disabled]="modoSoloLectura || !puedeEliminarControlAvance()"
                         [class.btn-eliminar-bloqueado]="!puedeEliminarControlAvance()"
                         [title]="puedeEliminarControlAvance() ? (fila.item.esTitulo && fila.tieneHijos ? 'Eliminar título y todas sus láminas' : 'Eliminar') : getMensajePermisoEliminacionAvance()">
                   <i class="fa fa-trash"></i>
@@ -581,7 +593,7 @@
      
 
       <button type="button" class="btn-deshacer-gantt"
-              *ngIf="!soloLectura && ultimoCambioFechasGantt"
+              *ngIf="!modoSoloLectura && ultimoCambioFechasGantt"
               [disabled]="guardandoCambioFechasGantt"
               (click)="deshacerCambioFechasGantt()"
               title="Deshacer el último movimiento de fechas">
@@ -599,7 +611,7 @@
     <div class="mensaje-vacio gantt-vacio" *ngIf="ganttBarras.length === 0">
       <strong>Sin fechas registradas todavía</strong>
       <p>Ingrese fechas + plazo (días) en la tabla para visualizar la Carta Gantt</p>
-      <button type="button" class="btn btn-primary btn-sm gantt-vacio-agregar" *ngIf="!soloLectura"
+      <button type="button" class="btn btn-primary btn-sm gantt-vacio-agregar" *ngIf="!modoSoloLectura"
               (click)="abrirFormularioAgregar(null, 'Raíz', true)">
         <i class="fa fa-plus"></i> Agregar título
       </button>
@@ -627,9 +639,9 @@
               </button>
               <strong class="gantt-codigo">{{barra.item.codigo || 'Sin código'}}</strong>
             </span>
-            <span class="gantt-col-desc" [class.gantt-col-desc-editable]="!soloLectura"
+            <span class="gantt-col-desc" [class.gantt-col-desc-editable]="!modoSoloLectura"
                   [style.paddingLeft.px]="10 + barra.nivel * 14"
-                  [title]="soloLectura ? barra.item.descripcion : (barra.item.descripcion + ' — doble clic para editar')"
+                  [title]="modoSoloLectura ? barra.item.descripcion : (barra.item.descripcion + ' — doble clic para editar')"
                   (dblclick)="iniciarEdicionNombreGantt(barra)">
               <input *ngIf="editandoNombreGanttId === barra.item.id"
                      id="gantt-input-nombre"
@@ -644,7 +656,7 @@
               <span class="gantt-descripcion" *ngIf="editandoNombreGanttId !== barra.item.id">{{barra.item.descripcion}}</span>
 
               <!-- Acciones rápidas al pasar el mouse: agregar / insertar / eliminar -->
-              <span class="gantt-acciones-fila" *ngIf="!soloLectura && editandoNombreGanttId !== barra.item.id"
+              <span class="gantt-acciones-fila" *ngIf="!modoSoloLectura && editandoNombreGanttId !== barra.item.id"
                     (dblclick)="$event.stopPropagation()">
                 <button type="button" class="gantt-btn-accion" *ngIf="barra.item.esTitulo"
                         (click)="$event.stopPropagation(); abrirNuevaFilaDentroGantt(barra)"
@@ -700,7 +712,7 @@
           </div>
 
           <!-- "+ Nuevo título", siempre al final de la lista -->
-          <div class="gantt-fila-nombre gantt-fila-agregar" *ngIf="!soloLectura" (click)="abrirNuevoTituloRaizGantt()">
+          <div class="gantt-fila-nombre gantt-fila-agregar" *ngIf="!modoSoloLectura" (click)="abrirNuevoTituloRaizGantt()">
             <i class="fa fa-plus"></i> Nuevo título
           </div>
         </div>
@@ -838,7 +850,7 @@
 
           <div class="gantt-fila gantt-fila-nueva" *ngIf="nuevaFilaGantt && nuevaFilaGantt.despuesDeId === '__final__'"
                [style.width.px]="ganttAnchoTotalPx"></div>
-          <div class="gantt-fila gantt-fila-agregar-spacer" *ngIf="!soloLectura" [style.width.px]="ganttAnchoTotalPx"></div>
+          <div class="gantt-fila gantt-fila-agregar-spacer" *ngIf="!modoSoloLectura" [style.width.px]="ganttAnchoTotalPx"></div>
         </div>
       </div>
     </div>
@@ -908,7 +920,7 @@
         <div class="modal-body">
 
           <!-- Formulario de nueva nota -->
-          <div class="bitacora-nueva-nota" *ngIf="!soloLectura">
+          <div class="bitacora-nueva-nota" *ngIf="!modoSoloLectura">
             <textarea class="form-control" rows="2" placeholder="Escriba una nota de bitácora..."
                       [(ngModel)]="nuevaNotaTexto[item.id]"></textarea>
             <div class="bitacora-nueva-nota-acciones">
@@ -950,7 +962,7 @@
                   <strong>{{nota.nombreUsuarioCreador || 'Usuario'}}</strong>
                   <span class="bitacora-nota-fecha">{{nota.fecha}}</span>
                   <span class="bitacora-nota-badge" [ngClass]="getPrioridadClase(nota.prioridad)">{{getPrioridadLabel(nota.prioridad)}}</span>
-                  <button type="button" class="btn-quitar-archivo" *ngIf="!soloLectura"
+                  <button type="button" class="btn-quitar-archivo" *ngIf="!modoSoloLectura"
                           (click)="eliminarNotaBitacora(item, i, nota)" title="Eliminar nota">
                     <i class="fa fa-times"></i>
                   </button>
@@ -1004,7 +1016,7 @@
           </button>
         </div>
 
-        <div class="plantillas-creador-toggle" *ngIf="!soloLectura" (click)="toggleCreadorPlantilla()">
+        <div class="plantillas-creador-toggle" *ngIf="!modoSoloLectura" (click)="toggleCreadorPlantilla()">
           <i class="fa" [ngClass]="mostrarCreadorPlantilla ? 'fa-minus-circle' : 'fa-plus-circle'"></i>
           <span>Crear plantilla personalizada</span>
         </div>
