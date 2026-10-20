@@ -84,7 +84,7 @@
           <select class="form-control" [(ngModel)]="nuevoHallazgo.tipoAccion"
                   [ngClass]="getTipoClass(nuevoHallazgo.tipoAccion)">
             <option value="">Seleccione</option>
-            <option *ngFor="let tipo of tiposAccion" [value]="tipo">{{tipo}}</option>
+            <option *ngFor="let tipo of tiposAccion" [value]="tipo">{{tipo === 'Near Miss' ? 'NEAR MISS' : tipo}}</option>
           </select>
         </div>
         <div class="col-md-2 col-sm-6 compact-field">
@@ -228,7 +228,7 @@
                         (ngModelChange)="actualizarCampoHallazgo(item, 'tipoAccion', $event)"
                         class="input-select input-tipo input-compact" [ngClass]="getTipoClass(item.tipoAccion)">
                   <option value="">-</option>
-                  <option *ngFor="let tipo of tiposAccion" [value]="tipo">{{tipo}}</option>
+                  <option *ngFor="let tipo of tiposAccion" [value]="tipo">{{tipo === 'Near Miss' ? 'NEAR MISS' : tipo}}</option>
                 </select>
               </td>
               <td class="prioridad-hallazgo-celda">

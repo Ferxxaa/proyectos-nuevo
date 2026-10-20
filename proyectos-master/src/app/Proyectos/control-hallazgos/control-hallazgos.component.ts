@@ -118,7 +118,6 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     'Flash Report',
     'Refuerzo Positivo',
     'Oportunidad de Mejora',
-    'Observación',
     'Stop Work',
     'No Conformidad',
     'Leccion aprendida',
@@ -142,6 +141,8 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     'Reclamo Clientes',
     'Auditoria',
     'Hallazgos Positivos',
+    'Auto Denuncia',
+    'Interno',
     'Otros'
   ];
 
@@ -1512,7 +1513,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
   getTipoClass(tipo: string): string {
     const t = (tipo || '').toLowerCase();
-    if (t.includes('near miss'))       return 'tipo-near-miss';
+    if (t.includes('near miss'))       return 'tipo-observacion';
     if (t.includes('flash'))           return 'tipo-flash';
     if (t.includes('positivo') || t === 'rel' || t === 'rel.') return 'tipo-positivo';
     if (t.includes('mejora'))          return 'tipo-mejora';
