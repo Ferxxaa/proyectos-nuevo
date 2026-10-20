@@ -132,7 +132,7 @@ export class MisTareasComponent implements OnInit {
 
   aplicarFiltros() {
     const tareasBase = [...(this.TareasOriginal || [])];
-    const filtroNombre = (this.responsableFiltro || '').trim().toLowerCase();
+    const filtroNombre = this.normalizarTextoFiltro(this.responsableFiltro);
     const estado = this.estadoFiltro;
     const prioridad = this.prioridadFiltro;
 
@@ -163,8 +163,8 @@ export class MisTareasComponent implements OnInit {
     // Filtro por nombre de responsable o creador
     if (filtroNombre) {
       salida = salida.filter(t => {
-        const nombreResponsable = (t.UsuarioResponsable || '').toString().toLowerCase();
-        const nombreCreador = (t.UsuarioCreador || '').toString().toLowerCase();
+        const nombreResponsable = this.normalizarTextoFiltro(t.UsuarioResponsable);
+        const nombreCreador = this.normalizarTextoFiltro(t.UsuarioCreador);
         return nombreResponsable.includes(filtroNombre) || nombreCreador.includes(filtroNombre);
       });
     }
@@ -195,6 +195,13 @@ export class MisTareasComponent implements OnInit {
 
     this.Tareas = this.ordenarTareasPorFechaCreacion(salida);
   }
+
+  private normalizarTextoFiltro(valor: any): string {
+    return (valor || '').toString().trim().toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
   descripcionExpandidaIndex: number|null = null;
 
   // Comentarios (edición inline en la grilla)
