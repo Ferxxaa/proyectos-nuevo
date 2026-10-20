@@ -93,7 +93,7 @@
           <div class="cu-row cu-row-head">
             <div class="cu-col cu-col-name sortable" (click)="sortBy('descripcionTarea')">Nombre <i class="fa fa-sort"></i></div>
             <div class="cu-col sortable" (click)="sortBy('UsuarioResponsable')">Responsable <i class="fa fa-sort"></i></div>
-            <div class="cu-col sortable" (click)="sortBy('fechaTerminoProgramado')">Compromiso <i class="fa fa-sort"></i></div>
+            <div class="cu-col sortable" (click)="sortBy('fechaTerminoProgramado')" title="Ordenar por fecha de entrega">Fechas <i class="fa fa-sort"></i></div>
             <div class="cu-col sortable" (click)="sortBy('prioridad')">Prioridad <i class="fa fa-sort"></i></div>
             <div class="cu-col sortable" (click)="sortBy('area')">Área <i class="fa fa-sort"></i></div>
             <div class="cu-col sortable" (click)="sortBy('nombreSubProyecto')">Sub Proyecto <i class="fa fa-sort"></i></div>
@@ -143,9 +143,11 @@
                         <span [title]="'Creada el ' + (Tarea.fechaCreacion | date:'dd/MM/yyyy')">{{Tarea.fechaCreacion | date:'dd/MM/yy'}}</span>
                       </div>
                     </div>
-                    <span class="cu-history" (click)="TraeHistorial(Tarea.idTarea); $event.stopPropagation()" title="Ver historial">
+                    <button type="button" class="cu-history" (click)="TraeHistorial(Tarea.idTarea); $event.stopPropagation()"
+                            [attr.aria-label]="'Ver historial, ' + (Tarea.Hiteraciones || 0) + ' registros'"
+                            title="Ver historial de la tarea">
                       <i class="fa fa-comment-o"></i> {{Tarea.Hiteraciones || 0}}
-                    </span>
+                    </button>
                   </div>
 
                   <!-- Responsable -->
@@ -156,16 +158,19 @@
                     </span>
                   </div>
 
-                  <!-- Compromiso -->
+                  <!-- Fechas de la tarea -->
                   <div class="cu-col">
-                    <span class="cu-date" *ngIf="Tarea.fechaTerminoProgramado"
-                          [class.overdue]="esVencida(Tarea)"
-                          [class.due-soon]="!esVencida(Tarea) && isDueSoon(Tarea.fechaTerminoProgramado)"
-                          [title]="Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy'">
-                      <i class="fa" [ngClass]="esVencida(Tarea) ? 'fa-exclamation-circle' : 'fa-calendar-o'"></i>
-                      {{formatoFechaCorta(Tarea.fechaTerminoProgramado)}}
-                    </span>
-                    <span class="cu-dash" *ngIf="!Tarea.fechaTerminoProgramado">—</span>
+                    <div class="cu-dates">
+                      <div class="cu-date-line cu-date-start">
+                        <span class="cu-date-label">Inicio real</span>
+                        <span>{{Tarea.fechaInicioReal ? (Tarea.fechaInicioReal | date:'dd/MM/yyyy') : 'Sin iniciar'}}</span>
+                      </div>
+                      <div class="cu-date-line cu-date-due" [class.overdue]="esVencida(Tarea)"
+                           [class.due-soon]="!esVencida(Tarea) && isDueSoon(Tarea.fechaTerminoProgramado)">
+                        <span class="cu-date-label">Entrega</span>
+                        <span>{{Tarea.fechaTerminoProgramado ? (Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy') : 'Sin definir'}}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Prioridad -->
@@ -305,6 +310,18 @@
                 <span class="cu-tag" *ngIf="Tarea.area">{{Tarea.area}}</span>
               </div>
 
+              <div class="cu-card-dates">
+                <div class="cu-card-date-line">
+                  <span><i class="fa fa-play-circle-o"></i> Inicio real</span>
+                  <strong>{{Tarea.fechaInicioReal ? (Tarea.fechaInicioReal | date:'dd/MM/yyyy') : 'Sin iniciar'}}</strong>
+                </div>
+                <div class="cu-card-date-line" [class.overdue]="esVencida(Tarea)"
+                     [class.due-soon]="!esVencida(Tarea) && isDueSoon(Tarea.fechaTerminoProgramado)">
+                  <span><i class="fa fa-calendar-check-o"></i> Entrega</span>
+                  <strong>{{Tarea.fechaTerminoProgramado ? (Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy') : 'Sin definir'}}</strong>
+                </div>
+              </div>
+
               <div class="cu-card-footer">
                 <!-- Responsable: avatar + nombre (igual que en la lista) -->
                 <span class="cu-user" [title]="'Para: ' + Tarea.UsuarioResponsable"
@@ -317,15 +334,12 @@
                     {{Tarea.UsuarioResponsable}}
                   </span>
                 </span>
-                <span class="cu-date" *ngIf="Tarea.fechaTerminoProgramado"
-                      [class.overdue]="esVencida(Tarea)"
-                      [class.due-soon]="!esVencida(Tarea) && isDueSoon(Tarea.fechaTerminoProgramado)">
-                  <i class="fa fa-calendar-o"></i> {{formatoFechaCorta(Tarea.fechaTerminoProgramado)}}
-                </span>
                 <i class="fa fa-flag" *ngIf="Tarea.prioridad" [style.color]="getColorPrioridad(Tarea.prioridad)" [title]="'Prioridad ' + Tarea.prioridad"></i>
-                <span class="cu-history" (click)="TraeHistorial(Tarea.idTarea); $event.stopPropagation()" title="Ver historial">
+                <button type="button" class="cu-history" (click)="TraeHistorial(Tarea.idTarea); $event.stopPropagation()"
+                        [attr.aria-label]="'Ver historial, ' + (Tarea.Hiteraciones || 0) + ' registros'"
+                        title="Ver historial de la tarea">
                   <i class="fa fa-comment-o"></i> {{Tarea.Hiteraciones || 0}}
-                </span>
+                </button>
                 <div class="cu-actions">
                   <button type="button" class="cu-icon-btn" title="Enviar recordatorio" [disabled]="sendingEmail" (click)="ReenviarCorreo(Tarea); $event.stopPropagation()">
                     <i class="fa fa-bell-o" *ngIf="!sendingEmail"></i>
@@ -640,6 +654,14 @@
               </div>
 
               <div class="cu-field">
+                <label for="fechaInicioReal"><i class="fa fa-play-circle-o"></i> Fecha de inicio real</label>
+                <input id="fechaInicioReal" name="fechaInicioReal" type="date" class="form-control cu-input"
+                       [ngModel]="fechaInicioRealInput(Tarea.fechaInicioReal)"
+                       (ngModelChange)="actualizarFechaInicioReal($event)">
+                <small class="cu-field-hint">Se completa automáticamente al pasar a En Proceso; puedes corregirla aquí.</small>
+              </div>
+
+              <div class="cu-field">
                 <label><i class="fa fa-calendar-check-o"></i> Fecha compromiso</label>
                 <div id="datetimepicker1" class="input-group date cu-date-group">
                   <input id="txtCompromiso" name="txtCompromiso" type="text" (focusout)="asignaFechaInicio()" class="form-control cu-input" />
@@ -722,6 +744,9 @@
                   </span>
                   <span class="cu-change" *ngIf="!(i > 0 && Log.fechaTerminoProgramado !== LogTarea[i-1]?.fechaTerminoProgramado) && Log.fechaTerminoProgramado">
                     Compromiso: {{Log.fechaTerminoProgramado | date:'dd/MM/yyyy'}}
+                  </span>
+                  <span class="cu-change cu-change-date" *ngIf="i > 0 && Log.fechaInicioReal !== LogTarea[i-1]?.fechaInicioReal" title="Cambio de fecha de inicio real">
+                    <i class="fa fa-play-circle-o"></i> Inicio real → {{Log.fechaInicioReal ? (Log.fechaInicioReal | date:'dd/MM/yyyy') : 'Sin definir'}}
                   </span>
                 </div>
 

@@ -121,42 +121,81 @@
 }
 
 .panel-heading {
-  margin: 0 0 18px;
+  display: flex;
+  align-items: center;
+  min-height: 41px;
+  margin: 0 -18px 18px;
+  padding: 8px 20px 6px;
+  background-color: #555;
 }
 
-.panel-heading p {
+.panel-heading h5 {
   margin: 0;
-  color: #737b82;
+  color: #fff;
+  font-size: 17px;
 }
 
-.panel-heading h3 {
-  margin: 0 0 5px;
+.panel-heading h5 i {
+  margin-right: 4px;
+}
+
+.panel-heading h5 span {
+  color: #f59325;
 }
 
 .operacional-form {
-  padding: 16px;
-  margin-bottom: 18px;
-  border: 1px solid #e0e4e8;
+  margin: 12px 15px;
+  padding: 12px;
+  border: 1px solid #e6e6e6;
   border-radius: 4px;
-  background: #f8f9fa;
+  background: #fafafa;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 8px 12px;
+  margin-bottom: 10px;
 }
 
 .form-grid label {
   margin: 0;
   color: #4e555b;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .form-grid .form-control {
-  margin-top: 5px;
+  height: 28px;
+  margin-top: 3px;
+  padding: 3px 6px;
+  font-size: 11px;
   font-weight: 400;
+}
+
+.form-grid textarea.form-control {
+  height: auto;
+  min-height: 48px;
+  resize: vertical;
+}
+
+.bitacora-adjuntos .form-control {
+  min-height: 34px;
+  font-size: 11px;
+}
+
+.operacional-form > .btn-primary {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 3px;
+  background: #026aa7;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.operacional-form > .btn-primary:hover {
+  background: #014f7e;
 }
 
 .wide-field {
@@ -170,6 +209,7 @@
 
 .operational-table td {
   vertical-align: middle;
+  overflow-wrap: anywhere;
 }
 
 .operational-table .item-description {

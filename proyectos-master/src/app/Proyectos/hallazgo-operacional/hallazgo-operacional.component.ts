@@ -2,6 +2,8 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Http, Response } from '@angular/http';
 import { Router } from '@angular/router';
 import { firestoreDB, storageRef } from '../../firebase-init';
+import { sUsuario } from '../../services/sUsuario.service';
+import { sVis_UsuarioPersona } from '../../services/sVis_UsuarioPersona.service';
 
 declare var Swal: any;
 
@@ -12,13 +14,25 @@ interface TareaOficina {
   tipoRegistro?: string;
   titulo: string;
   descripcion: string;
-  responsable: string;
+  responsable?: string;
+  idUsuarioResponsable: number;
+  responsableNombre: string;
+  idUsuarioCC: number;
+  ccNombre: string;
+  area: string;
   fechaCompromiso: string;
   estado: string;
   prioridad: string;
   idUsuarioCreador: number;
   creador: string;
   fechaCreacion: string;
+}
+
+interface ResponsableOficina {
+  idUsuario: number;
+  nombre: string;
+  paterno: string;
+  materno?: string;
 }
 
 interface BitacoraOficina {
@@ -51,13 +65,26 @@ const TIPO_REGISTRO_BITACORA = 'bitacora-oficina';
 @Component({
   selector: 'app-hallazgo-operacional',
   templateUrl: './hallazgo-operacional.component.html',
-  styleUrls: ['./hallazgo-operacional.component.css']
+  styleUrls: ['./hallazgo-operacional.component.css'],
+  providers: [sUsuario, sVis_UsuarioPersona]
 })
 export class HallazgoOperacionalComponent implements OnInit, OnDestroy {
   pestanaActiva: PestanaOperacional = 'hallazgos';
   tareas: TareaOficina[] = [];
   bitacoras: BitacoraOficina[] = [];
   usuario: any;
+  responsables: ResponsableOficina[] = [];
+  areas: Array<{ id: string; nombre: string }> = [
+    { id: 'Administracion', nombre: 'Administración' },
+    { id: 'SGI', nombre: 'SGI' },
+    { id: 'SSO_MA', nombre: 'SSO-MA' },
+    { id: 'Estudio', nombre: 'Estudio' },
+    { id: 'Comercial', nombre: 'Comercial' },
+    { id: 'Gerencia', nombre: 'Gerencia' },
+    { id: 'Construccion', nombre: 'Construcción' },
+    { id: 'Arquitectura', nombre: 'Arquitectura' }
+  ];
+  cargandoResponsables: boolean = false;
   guardandoTarea: boolean = false;
   guardandoBitacora: boolean = false;
   archivosBitacora: File[] = [];
@@ -68,7 +95,12 @@ export class HallazgoOperacionalComponent implements OnInit, OnDestroy {
   private unsubscribeBitacoras: (() => void) | null = null;
   private readonly urlPerfiles = 'http://trazas-nbi.com:1234/api/UsuariosPerfiles/GetUsuariosPerfilesByIdUsuario/IdUsuario=';
 
-  constructor(private http: Http, private router: Router) {
+  constructor(
+    private http: Http,
+    private router: Router,
+    private sUsuario: sUsuario,
+    private sVisUsuarioPersona: sVis_UsuarioPersona
+  ) {
     this.usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
     this.tareaNueva = this.crearTareaNueva();
     this.bitacoraNueva = this.crearBitacoraNueva();
@@ -92,6 +124,7 @@ export class HallazgoOperacionalComponent implements OnInit, OnDestroy {
           return;
         }
 
+        this.cargarResponsables();
         this.cargarTareas();
         this.cargarBitacoras();
       }, (error: any) => {
@@ -117,9 +150,21 @@ export class HallazgoOperacionalComponent implements OnInit, OnDestroy {
   }
 
   agregarTarea() {
-    if (!this.tareaNueva.titulo.trim() || this.guardandoTarea) {
+    if (!this.tareaNueva.titulo.trim() || !this.tareaNueva.idUsuarioResponsable ||
+        !this.tareaNueva.area || !this.tareaNueva.prioridad || this.guardandoTarea) {
       return;
     }
+
+    const responsable = this.responsables.find((persona: ResponsableOficina) =>
+      Number(persona.idUsuario) === Number(this.tareaNueva.idUsuarioResponsable)
+    );
+    if (!responsable) {
+      Swal.fire('Responsable no válido', 'Selecciona un responsable activo para la tarea.', 'warning');
+      return;
+    }
+    const usuarioCC = this.responsables.find((persona: ResponsableOficina) =>
+      Number(persona.idUsuario) === Number(this.tareaNueva.idUsuarioCC)
+    );
 
     const tarea: TareaOficina = {
       ambito: 'oficina',
@@ -127,7 +172,11 @@ export class HallazgoOperacionalComponent implements OnInit, OnDestroy {
       tipoRegistro: TIPO_REGISTRO_TAREA,
       titulo: this.tareaNueva.titulo.trim(),
       descripcion: this.tareaNueva.descripcion.trim(),
-      responsable: this.tareaNueva.responsable.trim(),
+      idUsuarioResponsable: Number(responsable.idUsuario),
+      responsableNombre: this.nombreResponsable(responsable),
+      idUsuarioCC: usuarioCC ? Number(usuarioCC.idUsuario) : 0,
+      ccNombre: usuarioCC ? this.nombreResponsable(usuarioCC) : '',
+      area: this.tareaNueva.area,
       fechaCompromiso: this.tareaNueva.fechaCompromiso,
       estado: this.tareaNueva.estado,
       prioridad: this.tareaNueva.prioridad,
@@ -209,9 +258,11 @@ export class HallazgoOperacionalComponent implements OnInit, OnDestroy {
       fechaCreacion: new Date().toISOString()
     } as BitacoraOficina;
 
+    const archivosSubidos: ArchivoOficina[] = [];
     this.guardandoBitacora = true;
     this.subirArchivosBitacora(this.archivosBitacora)
       .then((archivos: ArchivoOficina[]) => {
+        archivosSubidos.push.apply(archivosSubidos, archivos);
         return firestoreDB.collection('hallazgos').add({
           ...registro,
           archivos: archivos
@@ -225,7 +276,13 @@ export class HallazgoOperacionalComponent implements OnInit, OnDestroy {
       })
       .catch((error: any) => {
         console.error('Error al guardar la bitácora operacional:', error);
-        Swal.fire('Error', 'No se pudo guardar la entrada: ' + error.message, 'error');
+        return Promise.all(archivosSubidos.map((archivo: ArchivoOficina) =>
+          storageRef.ref(archivo.path).delete().catch((cleanupError: any) => {
+            console.error('No se pudo limpiar un adjunto de bitácora tras fallar el registro:', archivo.path, cleanupError);
+          })
+        )).then(() => {
+          Swal.fire('Error', 'No se pudo guardar la entrada: ' + error.message, 'error');
+        });
       })
       .then(() => {
         this.guardandoBitacora = false;
@@ -364,6 +421,33 @@ export class HallazgoOperacionalComponent implements OnInit, OnDestroy {
       });
   }
 
+  private cargarResponsables() {
+    this.cargandoResponsables = true;
+    this.sUsuario.getUsuariobyactivo(true).subscribe((usuarios: any[]) => {
+      this.sVisUsuarioPersona.getVis_UsuarioPersona().subscribe((personas: any[]) => {
+        const idsActivos = (usuarios || []).map((usuario: any) => Number(usuario.idUsuario));
+        this.responsables = (personas || [])
+          .filter((persona: any) => idsActivos.indexOf(Number(persona.idUsuario)) !== -1)
+          .sort((a: any, b: any) => this.nombreResponsable(a).localeCompare(this.nombreResponsable(b)));
+        this.cargandoResponsables = false;
+      }, (error: any) => {
+        this.cargandoResponsables = false;
+        console.error('Error al cargar los nombres de usuarios responsables:', error);
+        Swal.fire('Error', 'No se pudieron cargar los responsables de las tareas.', 'error');
+      });
+    }, (error: any) => {
+      this.cargandoResponsables = false;
+      console.error('Error al cargar los usuarios activos para tareas:', error);
+      Swal.fire('Error', 'No se pudieron cargar los usuarios activos para asignar tareas.', 'error');
+    });
+  }
+
+  private nombreResponsable(persona: any): string {
+    return [persona && persona.nombre, persona && persona.paterno, persona && persona.materno]
+      .filter((parte: string) => !!parte)
+      .join(' ');
+  }
+
   private cargarBitacoras() {
     this.unsubscribeBitacoras = firestoreDB.collection('hallazgos')
       .where('ambito', '==', 'oficina')
@@ -386,7 +470,11 @@ export class HallazgoOperacionalComponent implements OnInit, OnDestroy {
     return {
       titulo: '',
       descripcion: '',
-      responsable: '',
+      idUsuarioResponsable: 0,
+      responsableNombre: '',
+      idUsuarioCC: 0,
+      ccNombre: '',
+      area: '',
       fechaCompromiso: '',
       estado: 'Pendiente',
       prioridad: 'Media',

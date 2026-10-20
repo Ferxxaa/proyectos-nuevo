@@ -5,8 +5,8 @@
     <section class="widget">
       <header class="operacional-header">
         <div>
-          <h2><i class="fa fa-building"></i> Hallazgos Operacionales</h2>
-          <p>Registro y seguimiento general de oficina, independiente de los subproyectos.</p>
+          <h2><i class="fa fa-building"></i> Hallazgos Operacional</h2>
+          
         </div>
         <a class="btn btn-inverse" [routerLink]="['/Home']">Volver</a>
       </header>
@@ -43,40 +43,65 @@
         </section>
 
         <section id="panel-tareas" class="operacional-panel" *ngIf="pestanaActiva === 'tareas'">
-    <div class="panel-heading">
-      <h3><i class="fa fa-tasks"></i> Tareas de oficina</h3>
-      <p>Las tareas de esta sección son generales y no quedan asociadas a un subproyecto.</p>
-    </div>
+    <header class="panel-heading">
+      <h5><i class="fa fa-tasks"></i> <strong>Tareas de <span>Oficina</span></strong></h5>
+    </header>
 
     <form class="operacional-form" (ngSubmit)="agregarTarea()">
       <div class="form-grid">
-        <label class="wide-field">Tarea
+        <label>Tarea
           <input class="form-control" name="tituloTarea" [(ngModel)]="tareaNueva.titulo"
             maxlength="160" required placeholder="Título de la tarea">
         </label>
-        <label>Responsable
-          <input class="form-control" name="responsableTarea" [(ngModel)]="tareaNueva.responsable"
-            maxlength="120" placeholder="Nombre del responsable">
+        <label>Para (*)
+          <select class="form-control" name="responsableTarea" [(ngModel)]="tareaNueva.idUsuarioResponsable"
+            [disabled]="cargandoResponsables || responsables.length === 0" required>
+            <option [ngValue]="0">--- Seleccione responsable ---</option>
+            <option *ngFor="let responsable of responsables" [ngValue]="responsable.idUsuario">
+              {{responsable.nombre}} {{responsable.paterno}} {{responsable.materno}}
+            </option>
+          </select>
+        </label>
+        <label>CC
+          <select class="form-control" name="ccTarea" [(ngModel)]="tareaNueva.idUsuarioCC"
+            [disabled]="cargandoResponsables">
+            <option [ngValue]="0">--- Sin copia ---</option>
+            <option *ngFor="let responsable of responsables" [ngValue]="responsable.idUsuario">
+              {{responsable.nombre}} {{responsable.paterno}} {{responsable.materno}}
+            </option>
+          </select>
         </label>
         <label>Fecha compromiso
           <input class="form-control" type="date" name="fechaTarea" [(ngModel)]="tareaNueva.fechaCompromiso">
         </label>
         <label>Prioridad
-          <select class="form-control" name="prioridadTarea" [(ngModel)]="tareaNueva.prioridad">
+          <select class="form-control" name="prioridadTarea" [(ngModel)]="tareaNueva.prioridad" required>
+            <option value="">--- Seleccione prioridad ---</option>
             <option>Alta</option>
             <option>Media</option>
             <option>Baja</option>
           </select>
         </label>
-        <label class="wide-field">Descripción
+        <label>Área (*)
+          <select class="form-control" name="areaTarea" [(ngModel)]="tareaNueva.area" required>
+            <option value="">--- Seleccione área ---</option>
+            <option *ngFor="let area of areas" [value]="area.id">{{area.nombre}}</option>
+          </select>
+        </label>
+        <label class="wide-field">Descripción de la tarea
           <textarea class="form-control" name="descripcionTarea" [(ngModel)]="tareaNueva.descripcion"
-            rows="2" maxlength="2000" placeholder="Detalle de la tarea"></textarea>
+            rows="3" maxlength="2000" required placeholder="Detalle de la tarea"></textarea>
         </label>
       </div>
-      <button class="btn btn-primary" type="submit" [disabled]="guardandoTarea || !tareaNueva.titulo.trim()">
+      <button class="btn btn-primary" type="submit"
+        [disabled]="guardandoTarea || cargandoResponsables || !tareaNueva.titulo.trim() ||
+          !tareaNueva.descripcion.trim() || !tareaNueva.idUsuarioResponsable || !tareaNueva.prioridad || !tareaNueva.area">
         <i class="fa" [ngClass]="guardandoTarea ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
-        {{guardandoTarea ? 'Guardando...' : 'Agregar tarea'}}
+        {{guardandoTarea ? 'Guardando...' : (cargandoResponsables ? 'Cargando responsables...' : 'Asignar tarea')}}
       </button>
+      <span class="text-muted" *ngIf="!cargandoResponsables && responsables.length === 0">
+        No hay usuarios activos disponibles para asignar.
+      </span>
     </form>
 
     <div class="table-responsive">
@@ -84,21 +109,26 @@
         <thead>
           <tr>
             <th>Tarea</th>
-            <th>Responsable</th>
+            <th>Para quién</th>
+            <th>CC</th>
+            <th>Área</th>
             <th>Prioridad</th>
             <th>Compromiso</th>
             <th>Estado</th>
             <th>Creada por</th>
+            <th>Fecha creación</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr *ngIf="tareas.length === 0">
-            <td colspan="7" class="empty-state">Todavía no hay tareas operacionales.</td>
+            <td colspan="10" class="empty-state">Todavía no hay tareas operacionales.</td>
           </tr>
           <tr *ngFor="let tarea of tareas">
             <td><strong>{{tarea.titulo}}</strong><div class="item-description">{{tarea.descripcion}}</div></td>
-            <td>{{tarea.responsable || '-'}}</td>
+            <td>{{tarea.responsableNombre || tarea.responsable || '-'}}</td>
+            <td>{{tarea.ccNombre || '-'}}</td>
+            <td>{{tarea.area || '-'}}</td>
             <td>{{tarea.prioridad}}</td>
             <td>{{tarea.fechaCompromiso || '-'}}</td>
             <td>
@@ -110,6 +140,7 @@
               </select>
             </td>
             <td>{{tarea.creador || '-'}}</td>
+            <td>{{tarea.fechaCreacion | date:'dd/MM/yyyy'}}</td>
             <td class="action-cell">
               <button class="btn btn-danger btn-sm" type="button" title="Eliminar tarea"
                 *ngIf="puedeEliminarTarea(tarea)"
@@ -124,10 +155,9 @@
         </section>
 
         <section id="panel-bitacoras" class="operacional-panel" *ngIf="pestanaActiva === 'bitacoras'">
-    <div class="panel-heading">
-      <h3><i class="fa fa-book"></i> Bitácora de oficina</h3>
-      <p>Registro general de eventos y acuerdos operacionales de la oficina.</p>
-    </div>
+    <header class="panel-heading">
+      <h5><i class="fa fa-book"></i> <strong>Bitácora de <span>Oficina</span></strong></h5>
+    </header>
 
     <form class="operacional-form" (ngSubmit)="agregarBitacora()">
       <div class="form-grid">

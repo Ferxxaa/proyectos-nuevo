@@ -103,22 +103,18 @@
                     <li>
                         <a [routerLink]="['/Grafico-Estructural']" routerLinkActive="router-link-active">Gráfico Estructural</a>
                     </li>
+                    <li>
+                <a [routerLink]="['/Hallazgos-Operacionales']" routerLinkActive="router-link-active">
+                    Hallazgos Operacional
+                    
+                </a>
+            </li>
                 </ul>
             </li>
                 </ul>
             </div>
         </div>
-
-        <ul class="sidebar-nav" *ngIf="!Cliente">
-            <li>
-                <a [routerLink]="['/Hallazgos-Operacionales']" routerLinkActive="router-link-active">
-                    Hallazgos Operacionales
-                    <span class="icon">
-                        <i class="fa fa-exclamation-circle"></i>
-                    </span>
-                </a>
-            </li>
-        </ul>
+        
 
         <ul class="sidebar-nav">
             <li>

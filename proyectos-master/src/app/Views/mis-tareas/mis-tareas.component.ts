@@ -578,11 +578,16 @@ export class MisTareasComponent implements OnInit {
   private persistirTarea(tarea: any, tareaPrev: any, onOk: () => void, onError?: () => void) {
     const prev: any = tareaPrev || {};
 
+    if (+prev.idEstadoTarea !== 2 && +tarea.idEstadoTarea === 2 && !tarea.fechaInicioReal) {
+      tarea.fechaInicioReal = this.fechaLocalHoy();
+    }
+
     const cambioFecha = prev.fechaTerminoProgramado !== tarea.fechaTerminoProgramado;
+    const cambioFechaInicioReal = prev.fechaInicioReal !== tarea.fechaInicioReal;
     const cambioEstado = prev.idEstadoTarea !== tarea.idEstadoTarea;
     const cambioComentario = prev.observacionTarea !== tarea.observacionTarea;
 
-    if (cambioFecha || cambioEstado || cambioComentario) {
+    if (cambioFecha || cambioFechaInicioReal || cambioEstado || cambioComentario) {
       console.log('Guardando en historial - Cambio de fecha:', cambioFecha, 'Cambio de estado:', cambioEstado, 'Cambio de comentario:', cambioComentario);
 
       // Crear objeto logTarea solo con los campos que existen en mLogTarea
@@ -707,6 +712,23 @@ export class MisTareasComponent implements OnInit {
     this.Tarea.fechaTerminoProgramado = this._Comunes.ReturnFecha($("#txtCompromiso"));
   }
 
+  fechaInicioRealInput(fecha: string): string {
+    if (!fecha) return '';
+    const valor = fecha.toString().split('T')[0];
+    return /^\d{4}-\d{2}-\d{2}$/.test(valor) ? valor : '';
+  }
+
+  actualizarFechaInicioReal(fecha: string) {
+    this.Tarea.fechaInicioReal = fecha ? fecha + 'T00:00:00' : null;
+  }
+
+  private fechaLocalHoy(): string {
+    const hoy = new Date();
+    const mes = ('0' + (hoy.getMonth() + 1)).slice(-2);
+    const dia = ('0' + hoy.getDate()).slice(-2);
+    return hoy.getFullYear() + '-' + mes + '-' + dia + 'T00:00:00';
+  }
+
   TraeHistorial(idTarea) {
     $("#Historial").attr('class', 'modal fade in');
     $("#Historial").attr("style", "display: block;background-color:rgba(15, 18, 24, 0.45);overflow-y: auto;");
@@ -731,10 +753,11 @@ export class MisTareasComponent implements OnInit {
         const registroAnterior = result[i - 1];
 
         const cambioFecha = registroActual.fechaTerminoProgramado !== registroAnterior.fechaTerminoProgramado;
+        const cambioFechaInicioReal = registroActual.fechaInicioReal !== registroAnterior.fechaInicioReal;
         const cambioEstado = registroActual.idEstadoTarea !== registroAnterior.idEstadoTarea;
         const cambioDescripcion = registroActual.descripcionTarea !== registroAnterior.descripcionTarea;
 
-        if (cambioFecha || cambioEstado || cambioDescripcion) {
+        if (cambioFecha || cambioFechaInicioReal || cambioEstado || cambioDescripcion) {
           registrosFiltrados.push(registroActual);
         }
       }
@@ -1733,6 +1756,9 @@ export class MisTareasComponent implements OnInit {
     tarea.area = datos.area;
     tarea.idEstadoTarea = +datos.idEstado || 1;
     tarea.fechaTerminoProgramado = datos.fechaCompromiso || null;
+    if (tarea.idEstadoTarea === 2) {
+      tarea.fechaInicioReal = this.fechaLocalHoy();
+    }
 
     const idsCC = (datos.idsCC || [])
       .map(id => +id)

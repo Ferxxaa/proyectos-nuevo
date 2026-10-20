@@ -781,10 +781,10 @@ select.tipo-leccion {
 }
 
 select.tipo-near-miss {
-  background-color: #ffe2c2 !important;
-  color: #7a3e00 !important;
+  background-color: #b43f22 !important;
+  color: #ffffff !important;
   font-weight: 600 !important;
-  border: 2px solid #f28c28 !important;
+  border: 2px solid #f22828 !important;
 }
 
 select.input-tipo:disabled {

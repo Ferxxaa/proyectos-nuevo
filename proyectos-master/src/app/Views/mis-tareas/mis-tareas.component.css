@@ -331,15 +331,15 @@
 }
 
 .cu-table {
-    min-width: 980px;
+    min-width: 1140px;
 }
 
-/* Columnas: Nombre | Responsable | Compromiso | Prioridad | Área | Sub Proyecto | Acciones */
+/* Columnas: Nombre | Responsable | Fechas | Prioridad | Área | Sub Proyecto | Acciones */
 .cu-row {
     display: grid;
-    grid-template-columns: minmax(340px, 1fr) 180px 110px 100px 140px 160px 72px;
+    grid-template-columns: minmax(340px, 1fr) 180px 150px 100px 140px 160px 72px;
     align-items: center;
-    height: 50px;
+    min-height: 62px;
     border-bottom: 1px solid #f0f1f3;
     border-left: 3px solid transparent;
     cursor: pointer;
@@ -462,12 +462,14 @@
 
 .cu-col-name .cu-history {
     flex: 0 0 auto;
-    padding: 2px 6px;
-    border-radius: 10px;
-    background: #f5f6f8;
+    padding: 5px 9px;
+    border-radius: 12px;
+    background: #f1e9f3;
+    color: #76547c;
+    font-weight: 700;
 }
 
-.cu-row:hover .cu-col-name .cu-history { background: #eceef1; }
+.cu-row:hover .cu-col-name .cu-history { background: #e8dbea; }
 
 .cu-id { font-weight: 600; }
 
@@ -488,15 +490,32 @@
 .cu-type-Todas    { background: #e3f6f9; color: #0f7f91; }
 
 .cu-history {
+    border: 1px solid #e3d6e6;
+    background: #f1e9f3;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    color: #87909e;
-    font-size: 11px;
+    justify-content: center;
+    gap: 5px;
+    min-width: 34px;
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: 14px;
+    color: #76547c;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
 }
 
-.cu-history:hover { color: #89658F; }
+.cu-history:hover,
+.cu-history:focus {
+    border-color: #cdb8d2;
+    background: #e8dbea;
+    color: #5f3e66;
+}
+
+.cu-history:focus { outline: 2px solid rgba(137, 101, 143, 0.25); }
 
 .cu-list-link {
     color: #4f5762;
@@ -574,6 +593,38 @@
     align-items: center;
     gap: 4px;
 }
+
+.cu-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.cu-date-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.cu-date-label {
+    min-width: 39px;
+    color: #87909e;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.cu-date-start > span:last-child,
+.cu-date-due > span:last-child {
+    color: #4f5762;
+    font-weight: 600;
+}
+
+.cu-date-due.overdue > span:last-child { color: #c62828; }
+.cu-date-due.due-soon > span:last-child { color: #a86400; }
 
 .cu-date.overdue  { color: #d33d44; font-weight: 600; }
 .cu-date.due-soon { color: #c47a00; font-weight: 600; }
@@ -674,6 +725,31 @@
     flex-wrap: wrap;
     margin-bottom: 8px;
 }
+
+.cu-card-dates {
+    display: grid;
+    gap: 5px;
+    margin: 0 0 9px;
+    padding: 7px 9px;
+    border: 1px solid #ece8ee;
+    border-radius: 6px;
+    background: #faf8fb;
+}
+
+.cu-card-date-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    color: #68717e;
+    font-size: 11px;
+}
+
+.cu-card-date-line > span { white-space: nowrap; }
+.cu-card-date-line .fa { margin-right: 4px; color: #89658f; }
+.cu-card-date-line strong { color: #374151; font-weight: 700; }
+.cu-card-date-line.overdue strong { color: #c62828; }
+.cu-card-date-line.due-soon strong { color: #a86400; }
 
 .cu-card-footer {
     display: flex;
@@ -854,6 +930,14 @@
     height: 34px;
     display: flex;
     align-items: center;
+}
+
+.cu-field-hint {
+    display: block;
+    margin-top: 5px;
+    color: #87909e;
+    font-size: 11px;
+    line-height: 1.35;
 }
 
 .cu-input {
