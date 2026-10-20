@@ -51,19 +51,23 @@
 }
 
 .gantt-selection-column {
-  width: 54px !important;
-  max-width: 54px !important;
+  width: 42px !important;
+  max-width: 42px !important;
+  box-sizing: border-box;
+  padding: 2px !important;
 }
 
 .hallazgos-selection-column {
-  width: 72px !important;
-  max-width: 72px !important;
+  width: 48px !important;
+  max-width: 48px !important;
+  box-sizing: border-box;
+  padding: 2px !important;
 }
 
 .gantt-selection-column input {
   cursor: pointer;
-  height: 20px;
-  width: 20px;
+  height: 18px;
+  width: 18px;
 }
 
 .gantt-selection-column input.gantt-control-disponible {
@@ -80,8 +84,8 @@
 
 .hallazgos-selection-column input {
   cursor: pointer;
-  height: 20px;
-  width: 20px;
+  height: 18px;
+  width: 18px;
 }
 
 .hallazgos-selection-column input.hallazgos-control-disponible {
@@ -166,7 +170,7 @@
 /* FILAS */
 
 .projects-table tbody tr {
-  height: 42px;
+  height: 38px;
   transition: background 0.2s ease;
 }
 
