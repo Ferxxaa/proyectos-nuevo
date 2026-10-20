@@ -578,11 +578,16 @@
       </div>
 
       <!-- Ayuda rápida de la edición directa en la Carta Gantt -->
-      <span class="gantt-ayuda-edicion" *ngIf="!soloLectura && ganttBarras.length > 0"
-            title="Arrastra una barra para mover sus fechas (si llegas al borde, el gráfico se desplaza solo) · Arrastra su borde derecho para cambiar el plazo · Doble clic en la barra para escribir la fecha de inicio y los días exactos · Doble clic en la descripción para renombrar · Clic en una fila sin fecha para asignarle inicio">
-        <i class="fa fa-hand-pointer-o"></i>
-        Arrastra para mover · Estira el borde para el plazo · Doble clic en la barra para escribir fecha y días · Doble clic en el nombre para renombrar
-      </span>
+     
+
+      <button type="button" class="btn-deshacer-gantt"
+              *ngIf="!soloLectura && ultimoCambioFechasGantt"
+              [disabled]="guardandoCambioFechasGantt"
+              (click)="deshacerCambioFechasGantt()"
+              title="Deshacer el último movimiento de fechas">
+        <i class="fa" [ngClass]="guardandoCambioFechasGantt ? 'fa-spinner fa-spin' : 'fa-undo'"></i>
+        {{guardandoCambioFechasGantt ? 'Guardando...' : 'Deshacer movimiento'}}
+      </button>
 
       <!-- Exportar a Excel: vive junto a la leyenda de la Carta Gantt, no en el header -->
       <button type="button" class="btn-exportar-excel" *ngIf="!ocultarExportacion && !LoadingTabla && ganttBarras.length > 0"

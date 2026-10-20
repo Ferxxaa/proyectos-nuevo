@@ -118,6 +118,17 @@ interface ArrastreGantt {
   movido: boolean;
 }
 
+interface EstadoFechasProgramadasGantt {
+  [id: string]: {
+    fechaInicioProgramada: string;
+    fechaInicioProgramadaManual: boolean;
+    fechaTerminoProgramada: string;
+    fechaTerminoProgramadaManual: boolean;
+    plazoProgramado: number;
+    avanceProgramado: number;
+  };
+}
+
 /** Plantilla creada por el propio usuario desde el modal de Plantillas, con ícono a elección y guardada en Firestore. */
 interface GrupoPlantillaPersonalizada extends GrupoPlantillas {
   id?: string;
@@ -281,6 +292,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   ganttDiasRelleno: number = 0;
   /** Editor rápido de fechas (doble clic en una barra): fecha de inicio y plazo exactos. */
   editorFechasGantt: { barra: BarraGantt; inicio: string; inicioTexto: string; plazo: number; x: number; y: number } | null = null;
+  guardandoCambioFechasGantt: boolean = false;
+  ultimoCambioFechasGantt: {
+    antes: EstadoFechasProgramadasGantt;
+    despues: EstadoFechasProgramadasGantt;
+  } | null = null;
   /** Id del item cuya descripción se está editando inline en la columna de nombres del Gantt. */
   editandoNombreGanttId: string | null = null;
   private nombreGanttOriginal: string = '';
@@ -3104,16 +3120,89 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   /** Huella de los campos programados de cada fila, para detectar qué cambió tras recalcular. */
   private capturarFechasProgramadas(): { [id: string]: string } {
     const huellas: { [id: string]: string } = {};
-    this.ControlesAvance.forEach(it => {
-      if (!it.id) { return; }
-      huellas[it.id] = [
-        it.fechaInicioProgramada || '',
-        it.fechaTerminoProgramada || '',
-        it.plazoProgramado || 0,
-        it.avanceProgramado || 0
-      ].join('|');
+    const estado = this.capturarEstadoFechasGantt();
+    Object.keys(estado).forEach(id => {
+      huellas[id] = this.huellaEstadoFechasGantt(estado[id]);
     });
     return huellas;
+  }
+
+  private capturarEstadoFechasGantt(): EstadoFechasProgramadasGantt {
+    const estado: EstadoFechasProgramadasGantt = {};
+    (this.ControlesAvance || []).forEach(item => {
+      if (!item.id) { return; }
+      estado[item.id] = {
+        fechaInicioProgramada: item.fechaInicioProgramada || '',
+        fechaInicioProgramadaManual: !!item.fechaInicioProgramadaManual,
+        fechaTerminoProgramada: item.fechaTerminoProgramada || '',
+        fechaTerminoProgramadaManual: !!item.fechaTerminoProgramadaManual,
+        plazoProgramado: Number(item.plazoProgramado) || 0,
+        avanceProgramado: Number(item.avanceProgramado) || 0
+      };
+    });
+    return estado;
+  }
+
+  private huellaEstadoFechasGantt(estado: EstadoFechasProgramadasGantt[string]): string {
+    return [
+      estado.fechaInicioProgramada,
+      estado.fechaInicioProgramadaManual,
+      estado.fechaTerminoProgramada,
+      estado.fechaTerminoProgramadaManual,
+      estado.plazoProgramado,
+      estado.avanceProgramado
+    ].join('|');
+  }
+
+  private estadosFechasGanttIguales(
+    primero: EstadoFechasProgramadasGantt,
+    segundo: EstadoFechasProgramadasGantt
+  ): boolean {
+    const idsPrimero = Object.keys(primero);
+    const idsSegundo = Object.keys(segundo);
+    if (idsPrimero.length !== idsSegundo.length) { return false; }
+    return idsPrimero.every(id =>
+      !!segundo[id] && this.huellaEstadoFechasGantt(primero[id]) === this.huellaEstadoFechasGantt(segundo[id])
+    );
+  }
+
+  private restaurarEstadoFechasGantt(estado: EstadoFechasProgramadasGantt) {
+    (this.ControlesAvance || []).forEach(item => {
+      if (!item.id || !estado[item.id]) { return; }
+      const anterior = estado[item.id];
+      item.fechaInicioProgramada = anterior.fechaInicioProgramada;
+      item.fechaInicioProgramadaManual = anterior.fechaInicioProgramadaManual;
+      item.fechaTerminoProgramada = anterior.fechaTerminoProgramada;
+      item.fechaTerminoProgramadaManual = anterior.fechaTerminoProgramadaManual;
+      item.plazoProgramado = anterior.plazoProgramado;
+      item.avanceProgramado = anterior.avanceProgramado;
+    });
+  }
+
+  private guardarEstadoFechasGanttEnFirestore(
+    objetivo: EstadoFechasProgramadasGantt,
+    estadoActual: EstadoFechasProgramadasGantt
+  ): Promise<any> {
+    const batch = firestoreDB.batch();
+    let hayCambios = false;
+
+    (this.ControlesAvance || []).forEach(item => {
+      if (!item.id || !objetivo[item.id] || !estadoActual[item.id]) { return; }
+      const destino = objetivo[item.id];
+      if (this.huellaEstadoFechasGantt(destino) === this.huellaEstadoFechasGantt(estadoActual[item.id])) { return; }
+
+      batch.update(firestoreDB.collection('controlAvance').doc(item.id), {
+        fechaInicioProgramada: destino.fechaInicioProgramada,
+        fechaInicioProgramadaManual: destino.fechaInicioProgramadaManual,
+        fechaTerminoProgramada: destino.fechaTerminoProgramada,
+        fechaTerminoProgramadaManual: destino.fechaTerminoProgramadaManual,
+        plazoProgramado: destino.plazoProgramado,
+        avanceProgramado: destino.avanceProgramado
+      });
+      hayCambios = true;
+    });
+
+    return hayCambios ? batch.commit() : Promise.resolve();
   }
 
   /**
@@ -3123,36 +3212,67 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    * Así, al volver a la tabla, recargar o exportar el Excel, se ven exactamente las mismas fechas.
    */
   private aplicarCambioFechasGantt(item: ControlAvanceItem, aplicar: () => void) {
+    if (this.guardandoCambioFechasGantt) { return; }
+    const estadoAntes = this.capturarEstadoFechasGantt();
     const antes = this.capturarFechasProgramadas();
     aplicar();
     this.refrescarTrasCambioGantt();
+    const estadoDespues = this.capturarEstadoFechasGantt();
     const despues = this.capturarFechasProgramadas();
 
-    const batch = firestoreDB.batch();
     let hayCambios = false;
 
     this.ControlesAvance.forEach(it => {
       if (!it.id) { return; }
       const esMovida = it.id === item.id;
       if (!esMovida && antes[it.id] === despues[it.id]) { return; }
-
-      const datos: any = {
-        fechaInicioProgramada: it.fechaInicioProgramada || '',
-        fechaTerminoProgramada: it.fechaTerminoProgramada || '',
-        plazoProgramado: Number(it.plazoProgramado) || 0,
-        avanceProgramado: Number(it.avanceProgramado) || 0
-      };
-      if (esMovida) {
-        datos.fechaInicioProgramadaManual = !!it.fechaInicioProgramadaManual;
-        datos.fechaTerminoProgramadaManual = !!it.fechaTerminoProgramadaManual;
-      }
-      batch.update(firestoreDB.collection('controlAvance').doc(it.id), datos);
       hayCambios = true;
     });
 
     if (!hayCambios) { return; }
-    batch.commit().catch((error: any) => {
+    this.guardandoCambioFechasGantt = true;
+    this.guardarEstadoFechasGanttEnFirestore(estadoDespues, estadoAntes).then(() => {
+      this.ultimoCambioFechasGantt = { antes: estadoAntes, despues: estadoDespues };
+      this.guardandoCambioFechasGantt = false;
+    }).catch((error: any) => {
+      this.restaurarEstadoFechasGantt(estadoAntes);
+      this.refrescarTrasCambioGantt();
+      this.guardandoCambioFechasGantt = false;
       Swal.fire('Error', 'No se pudo guardar el cambio de fechas: ' + error.message, 'error');
+    });
+  }
+
+  deshacerCambioFechasGantt() {
+    const cambio = this.ultimoCambioFechasGantt;
+    if (!cambio || this.guardandoCambioFechasGantt) { return; }
+
+    const estadoActual = this.capturarEstadoFechasGantt();
+    if (!this.estadosFechasGanttIguales(estadoActual, cambio.despues)) {
+      this.ultimoCambioFechasGantt = null;
+      Swal.fire('No se puede deshacer', 'Las fechas cambiaron después de este movimiento. Haz el movimiento nuevamente si necesitas deshacerlo.', 'info');
+      return;
+    }
+
+    this.guardandoCambioFechasGantt = true;
+    this.restaurarEstadoFechasGantt(cambio.antes);
+    this.refrescarTrasCambioGantt();
+
+    this.guardarEstadoFechasGanttEnFirestore(cambio.antes, estadoActual).then(() => {
+      this.ultimoCambioFechasGantt = null;
+      this.guardandoCambioFechasGantt = false;
+      Swal.fire({
+        title: 'Movimiento deshecho',
+        icon: 'success',
+        timer: 1800,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+    }).catch((error: any) => {
+      this.restaurarEstadoFechasGantt(estadoActual);
+      this.refrescarTrasCambioGantt();
+      this.guardandoCambioFechasGantt = false;
+      Swal.fire('Error', 'No se pudo deshacer el movimiento: ' + error.message, 'error');
     });
   }
 
@@ -3199,7 +3319,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // ---- 2) y 3) Arrastrar barra (mover) o su borde derecho (estirar) ----
 
   iniciarArrastreGantt(event: MouseEvent, barra: BarraGantt, modo: 'mover' | 'estirar') {
-    if (!barra || !barra.editable || event.button !== 0 || !this.ganttFechaInicioRango) { return; }
+    if (this.guardandoCambioFechasGantt || !barra || !barra.editable || event.button !== 0 || !this.ganttFechaInicioRango) { return; }
     if (modo === 'estirar' && barra.esHito) { return; }
     if (this.filaEnEdicion === barra.indexOriginal) { return; }
 
@@ -3358,7 +3478,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // ---- 4) Clic en una fila sin fecha: asigna inicio en ese día ----
 
   onClickFilaGantt(event: MouseEvent, barra: BarraGantt) {
-    if (this.ignorarClickGantt || !barra || !barra.asignable || !this.ganttFechaInicioRango) { return; }
+    if (this.guardandoCambioFechasGantt || this.ignorarClickGantt || !barra || !barra.asignable || !this.ganttFechaInicioRango) { return; }
     if (this.filaEnEdicion === barra.indexOriginal) { return; }
 
     const objetivo: any = event.target;
@@ -3382,7 +3502,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // ---- 4b) Doble clic en una barra: escribir fecha de inicio y plazo exactos ----
 
   abrirEditorFechasGantt(event: MouseEvent, barra: BarraGantt) {
-    if (!barra || !barra.editable || this.filaEnEdicion === barra.indexOriginal) { return; }
+    if (this.guardandoCambioFechasGantt || !barra || !barra.editable || this.filaEnEdicion === barra.indexOriginal) { return; }
     event.preventDefault();
     event.stopPropagation();
 
@@ -3531,7 +3651,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   guardarEditorFechasGantt() {
     const editor = this.editorFechasGantt;
-    if (!editor) { return; }
+    if (!editor || this.guardandoCambioFechasGantt) { return; }
     if (!editor.inicio) {
       if (editor.inicioTexto) {
         Swal.fire('Fecha inválida', 'Escribe la fecha como dd/mm/aaaa (ej: 28/09/2026).', 'info');
