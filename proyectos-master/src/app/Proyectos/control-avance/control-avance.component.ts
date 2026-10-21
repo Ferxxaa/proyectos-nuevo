@@ -146,7 +146,6 @@ interface GrupoPlantillaPersonalizada extends GrupoPlantillas {
 export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   private static readonly DOC_CLAVE_EDICION = '_claveEdicion';
-  private static readonly ITERACIONES_CLAVE_EDICION = 120000;
 
   @Input() idProyecto: number;
   @Input() idSubProyecto: number;
@@ -371,14 +370,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
     try {
       const config = await this.obtenerConfigClaveEdicion();
-      if (!config) {
+      if (!config || !config.clave) {
         const clave = await this.solicitarNuevaClaveEdicion();
         if (!clave) { return; }
-        await this.guardarClaveEdicion(clave, true);
+        await this.guardarClaveEdicion(clave, !config);
         this.accesoEdicionConClave = true;
         Swal.fire({
           icon: 'success',
-          title: 'Clave configurada',
+          title: config ? 'Clave reemplazada' : 'Clave configurada',
           text: 'La edición quedó habilitada en esta pantalla.',
           timer: 1800,
           showConfirmButton: false
@@ -421,7 +420,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (!this.puedeEditarAvance) { return; }
     try {
       const config = await this.obtenerConfigClaveEdicion();
-      if (!config || !(await this.solicitarClaveEdicion(config))) { return; }
+      if (!config || (config.clave && !(await this.solicitarClaveEdicion(config)))) { return; }
       const nuevaClave = await this.solicitarNuevaClaveEdicion();
       if (!nuevaClave) { return; }
       await this.guardarClaveEdicion(nuevaClave);
@@ -440,7 +439,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return firestoreDB.collection('controlAvanceConfig').doc(ControlAvanceComponent.DOC_CLAVE_EDICION)
       .get().then((doc: any) => {
         const data = doc.exists ? doc.data() : null;
-        return data && data.hash && data.salt ? data : null;
+        return data && (typeof data.clave === 'string' || (data.hash && data.salt)) ? data : null;
       });
   }
 
@@ -455,12 +454,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       confirmButtonText: 'Desbloquear',
       cancelButtonText: 'Cancelar',
       preConfirm: async (clave: string) => {
-        const hash = await this.hashClaveEdicion(
-          config.salt,
-          clave || '',
-          Number(config.iteraciones) || ControlAvanceComponent.ITERACIONES_CLAVE_EDICION
-        );
-        if (hash !== config.hash) {
+        if (typeof config.clave !== 'string') {
+          Swal.showValidationMessage('La clave anterior debe reemplazarse. Cierra este cuadro y vuelve a habilitar la edición.');
+          return false;
+        }
+        if (clave !== config.clave) {
           Swal.showValidationMessage('Clave incorrecta');
           return false;
         }
@@ -499,21 +497,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private async guardarClaveEdicion(clave: string, soloSiNoExiste: boolean = false): Promise<void> {
-    const cryptoApi: any = (window as any).crypto;
-    if (!cryptoApi || !cryptoApi.getRandomValues) {
-      throw new Error('Este navegador no permite generar una clave segura.');
-    }
-    const bytes = new Uint8Array(16);
-    cryptoApi.getRandomValues(bytes);
-    const salt = Array.prototype.map.call(bytes, (byte: number) =>
-      ('0' + byte.toString(16)).slice(-2)
-    ).join('');
-    const hash = await this.hashClaveEdicion(salt, clave, ControlAvanceComponent.ITERACIONES_CLAVE_EDICION);
     const referencia = firestoreDB.collection('controlAvanceConfig').doc(ControlAvanceComponent.DOC_CLAVE_EDICION);
     const datos = {
-      hash,
-      salt,
-      iteraciones: ControlAvanceComponent.ITERACIONES_CLAVE_EDICION,
+      clave,
       fechaActualizacion: new Date().toISOString()
     };
     await firestoreDB.runTransaction((transaccion: any) => transaccion.get(referencia).then((doc: any) => {
@@ -522,38 +508,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       }
       transaccion.set(referencia, datos);
     }));
-  }
-
-  private async hashClaveEdicion(salt: string, clave: string, iteraciones: number): Promise<string> {
-    const cryptoApi: any = (window as any).crypto;
-    if (!cryptoApi || !cryptoApi.subtle) {
-      throw new Error('La validación de claves requiere un navegador actualizado y una conexión segura.');
-    }
-    const codificada = encodeURIComponent(clave);
-    const bytesClave: number[] = [];
-    for (let i = 0; i < codificada.length; i++) {
-      if (codificada.charAt(i) === '%') {
-        bytesClave.push(parseInt(codificada.substr(i + 1, 2), 16));
-        i += 2;
-      } else {
-        bytesClave.push(codificada.charCodeAt(i));
-      }
-    }
-    const claveBytes = new Uint8Array(bytesClave);
-    const saltBytes = new Uint8Array(salt.length / 2);
-    for (let i = 0; i < saltBytes.length; i++) {
-      saltBytes[i] = parseInt(salt.substr(i * 2, 2), 16);
-    }
-    const material = await cryptoApi.subtle.importKey('raw', claveBytes, 'PBKDF2', false, ['deriveBits']);
-    const derivado = await cryptoApi.subtle.deriveBits({
-      name: 'PBKDF2',
-      salt: saltBytes,
-      iterations: iteraciones,
-      hash: 'SHA-256'
-    }, material, 256);
-    return Array.prototype.map.call(new Uint8Array(derivado), (byte: number) =>
-      ('0' + byte.toString(16)).slice(-2)
-    ).join('');
   }
 
   private getMensajeError(error: any): string {
