@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, ViewEncapsulation, OnChanges, SimpleChanges, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, ViewEncapsulation, OnChanges, SimpleChanges, NgZone, ElementRef } from '@angular/core';
 import { sUsuario } from '../../services/sUsuario.service';
 import { sVis_UsuarioPersona } from '../../services/sVis_UsuarioPersona.service';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
@@ -67,6 +67,9 @@ interface ControlAvanceItem {
   mostrarFranjaCompleta?: boolean; // solo para títulos nivel 0: el usuario elige pintar la franja completa (tenga o no fecha propia)
   // Solo aplica a títulos: prefijo usado para autonumerar el código de sus láminas (ej: 'ARC' -> ARC-TRZ-01, ARC-TRZ-02...)
   prefijoCodigo?: string;
+  // Ids de las actividades predecesoras (dependencia termina → inicia, igual que ClickUp):
+  // esta actividad no debería empezar hasta que terminen todas las de esta lista.
+  dependencias?: string[];
 }
 
 interface FilaTabla {
@@ -118,6 +121,29 @@ interface ArrastreGantt {
   movido: boolean;
 }
 
+/** Flecha de dependencia ya calculada, lista para dibujar en el SVG de la Carta Gantt. */
+interface FlechaGantt {
+  id: string;              // `${idPredecesora}>${idDependiente}`
+  idPredecesora: string;
+  idDependiente: string;
+  d: string;               // trazo de la línea (con codos, como ClickUp)
+  punta: string;           // triángulo de la punta de la flecha
+  conflicto: boolean;      // la dependiente empieza antes de que termine la predecesora
+}
+
+/** Estado mientras se arrastra desde un conector (puntito) para crear una dependencia. */
+interface ConexionGantt {
+  origen: BarraGantt;
+  extremo: 'inicio' | 'fin';   // 'fin' = la otra barra depende de esta; 'inicio' = esta depende de la otra
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  destinoId: string | null;
+  scrollEl: HTMLElement | null;
+  nombresAncho: number;
+}
+
 interface EstadoFechasProgramadasGantt {
   [id: string]: {
     fechaInicioProgramada: string;
@@ -146,6 +172,7 @@ interface GrupoPlantillaPersonalizada extends GrupoPlantillas {
 export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   private static readonly DOC_CLAVE_EDICION = '_claveEdicion';
+  private static readonly KEY_REPROGRAMAR_DEPENDENCIAS = 'controlAvanceReprogramarDependencias';
 
   @Input() idProyecto: number;
   @Input() idSubProyecto: number;
@@ -317,6 +344,22 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   private listenerMouseUpGantt: any = null;
   private ignorarClickGantt: boolean = false;
 
+  // ---- Dependencias entre barras (estilo ClickUp) ----
+  /** Flechas de dependencia dibujadas sobre el timeline. */
+  ganttFlechas: FlechaGantt[] = [];
+  /** Alto total del timeline (px), para dimensionar el SVG de las flechas. */
+  ganttAltoTimeline: number = 0;
+  /** Conexión en curso (arrastrando desde un puntito hacia otra barra). */
+  conexionGantt: ConexionGantt | null = null;
+  /** Si está activo, al mover una actividad se corren las que dependen de ella (preferencia por navegador). */
+  reprogramarDependencias: boolean = true;
+  /** Centro vertical (px, relativo al timeline) de cada fila, medido desde el DOM. */
+  private ganttFilasY: { [id: string]: number } = {};
+  private ganttAltoFila: number = 28;
+  private timerFlechasGantt: any = null;
+  private listenerMouseMoveConexion: any = null;
+  private listenerMouseUpConexion: any = null;
+
   /** Fila inline para crear un título/lámina directo desde la Carta Gantt (estilo "+ Agregar tarea" de ClickUp). */
   nuevaFilaGantt: {
     despuesDeId: string;           // id de la fila tras la cual se muestra el input ('__final__' = al final de todo)
@@ -338,7 +381,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     private _sUsuario: sUsuario,
     private _sVisUsuarioPersona: sVis_UsuarioPersona,
     private _sUsuariosPerfiles: sUsuariosPerfiles,
-    private _ngZone: NgZone
+    private _ngZone: NgZone,
+    private _elementRef: ElementRef
   ) {
     this.ControlesAvance = new Array<ControlAvanceItem>();
     this.Loading = false;
@@ -347,6 +391,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const subProyecto = JSON.parse(localStorage.getItem('SubProyecto') || 'null');
     this.subProyectoActual = subProyecto;
     this.nombreProyectoLocal = subProyecto && subProyecto.nombreSubProyecto ? subProyecto.nombreSubProyecto : '';
+    try {
+      this.reprogramarDependencias = localStorage.getItem(ControlAvanceComponent.KEY_REPROGRAMAR_DEPENDENCIAS) !== '0';
+    } catch (error) {
+      this.reprogramarDependencias = true;
+    }
   }
 
   get nombreProyectoVisible(): string {
@@ -375,6 +424,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         if (!clave) { return; }
         await this.guardarClaveEdicion(clave, !config);
         this.accesoEdicionConClave = true;
+        // Las barras pasan a ser editables (conectores, arrastre): se recalcula el Gantt.
+        this.actualizarDatosGantt();
         Swal.fire({
           icon: 'success',
           title: config ? 'Clave reemplazada' : 'Clave configurada',
@@ -388,6 +439,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const valida = await this.solicitarClaveEdicion(config);
       if (valida) {
         this.accesoEdicionConClave = true;
+        this.actualizarDatosGantt();
       }
     } catch (error) {
       Swal.fire('Error', 'No se pudo habilitar la edición: ' + this.getMensajeError(error), 'error');
@@ -411,9 +463,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const barra = this.ganttBarras.find(item => item.item.id === this.editandoNombreGanttId);
       if (barra) { this.cancelarNombreGantt(barra); }
     }
+    this.cancelarConexionGantt();
     this.mostrarFormulario = false;
     this.nuevaFilaGantt = null;
     this.editorFechasGantt = null;
+    this.actualizarDatosGantt();
   }
 
   async cambiarClaveEdicion() {
@@ -641,7 +695,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (this.tiempoRecalculo) {
       clearTimeout(this.tiempoRecalculo);
     }
+    if (this.timerFlechasGantt) {
+      clearTimeout(this.timerFlechasGantt);
+    }
     this.quitarListenersArrastreGantt();
+    this.quitarListenersConexionGantt();
   }
 
   calcularAvancesYValidaciones() {
@@ -788,6 +846,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       }
       if (item.esTitulo && (item.prefijoCodigo === undefined || item.prefijoCodigo === null)) {
         item.prefijoCodigo = '';
+      }
+      if (!Array.isArray(item.dependencias)) {
+        item.dependencias = [];
       }
     });
   }
@@ -2654,6 +2715,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    * FIX: al confirmar la eliminación, se marca localmente activo=false de inmediato en el título
    * y todos sus descendientes, y se filtran de ControlesAvance sin esperar el snapshot de Firestore.
    * Así el título y sus láminas desaparecen al instante de la tabla y del Gantt.
+   * También se limpian las dependencias que otras actividades tenían hacia lo eliminado.
    */
   PrepararEliminar(index: number) {
     if (!this.puedeEditarAvance) {
@@ -2694,13 +2756,25 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         const eraLamina = !item.esTitulo;
 
         const todosLosItems = [item, ...descendientes];
+        const idsEliminados: { [id: string]: boolean } = {};
         const batch = firestoreDB.batch();
         todosLosItems.forEach(it => {
           if (!it.id) { return; }
+          idsEliminados[it.id] = true;
           batch.update(firestoreDB.collection('controlAvance').doc(it.id), {
             activo: false,
             idUsuarioRemovedor: this.usuario.idUsuario
           });
+        });
+
+        // Las actividades que dependían de lo eliminado quedan sin esa dependencia.
+        this.ControlesAvance.forEach(it => {
+          if (!it.id || idsEliminados[it.id] || !Array.isArray(it.dependencias) || it.dependencias.length === 0) { return; }
+          const filtradas = it.dependencias.filter(idDep => !idsEliminados[idDep]);
+          if (filtradas.length !== it.dependencias.length) {
+            it.dependencias = filtradas;
+            batch.update(firestoreDB.collection('controlAvance').doc(it.id), { dependencias: filtradas });
+          }
         });
 
         batch.commit()
@@ -2961,6 +3035,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.ganttPeriodos = [];
       this.ganttFinesDeSemanaOffsets = [];
       this.ganttBarras = [];
+      this.ganttFlechas = [];
       this.ganttDiasTotales = 0;
       this.ganttHoyOffset = -1;
       return;
@@ -2988,6 +3063,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.ganttPeriodos = [];
       this.ganttFinesDeSemanaOffsets = [];
       this.ganttBarras = [];
+      this.ganttFlechas = [];
       this.ganttDiasTotales = 0;
       return;
     }
@@ -3128,6 +3204,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         asignable
       } as BarraGantt;
     });
+
+    // Las flechas de dependencia se calculan después de que Angular pinte las filas (necesitan su posición).
+    this.programarFlechasGantt();
   }
 
   /** Arma las cabeceras de semanas/días, los periodos de la escala activa y los fines de semana del rango. */
@@ -3178,6 +3257,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (this.ganttFechaInicioRango) {
       this.recalcularPeriodosGantt(this.ganttFechaInicioRango, this.ganttDiasTotales);
     }
+    this.programarFlechasGantt();
   }
 
   private recalcularPeriodosGantt(inicioRango: Date, totalDias: number) {
@@ -3400,8 +3480,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /**
    * Aplica un cambio de fechas hecho desde la Carta Gantt y lo deja reflejado en la tabla y en Firestore:
-   * recalcula la jerarquía (láminas encadenadas que se corren + títulos que las agrupan) y guarda en un
-   * solo batch TODAS las filas cuyas fechas/plazo/avance programado cambiaron, no solo la que se movió.
+   * recalcula la jerarquía (láminas encadenadas que se corren + títulos que las agrupan), corre las
+   * actividades dependientes si "Mover dependientes" está activo, y guarda en un solo batch TODAS las
+   * filas cuyas fechas/plazo/avance programado cambiaron, no solo la que se movió.
    * Así, al volver a la tabla, recargar o exportar el Excel, se ven exactamente las mismas fechas.
    */
   private aplicarCambioFechasGantt(item: ControlAvanceItem, aplicar: () => void) {
@@ -3410,16 +3491,19 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const antes = this.capturarFechasProgramadas();
     aplicar();
     this.refrescarTrasCambioGantt();
+
+    // Dependencias: las actividades que quedaron empezando antes de que termine su predecesora se corren.
+    if (this.reprogramarDependencias && this.propagarDependenciasGantt()) {
+      this.refrescarTrasCambioGantt();
+    }
+
     const estadoDespues = this.capturarEstadoFechasGantt();
     const despues = this.capturarFechasProgramadas();
 
     let hayCambios = false;
-
     this.ControlesAvance.forEach(it => {
       if (!it.id) { return; }
-      const esMovida = it.id === item.id;
-      if (!esMovida && antes[it.id] === despues[it.id]) { return; }
-      hayCambios = true;
+      if (antes[it.id] !== despues[it.id]) { hayCambios = true; }
     });
 
     if (!hayCambios) { return; }
@@ -3626,6 +3710,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         this.dragGuiaInicioTxt = '';
       }
     }
+
+    // Las flechas de dependencia siguen a la barra en vivo (y se ponen rojas si queda en conflicto).
+    this.construirFlechasGantt();
   }
 
   private onMouseUpGantt(event: MouseEvent) {
@@ -3659,6 +3746,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           item.fechaTerminoProgramada = this.calcularFechaTerminoDesdePlazo(item.fechaInicioProgramada, anchoFinal);
         }
       });
+
+      // Si al final no cambió nada (volvió a su lugar), igual se redibujan las flechas en su posición real.
+      this.construirFlechasGantt();
     });
   }
 
@@ -3681,7 +3771,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (this.filaEnEdicion === barra.indexOriginal) { return; }
 
     const objetivo: any = event.target;
-    if (objetivo && objetivo.closest && objetivo.closest('.gantt-barra, .gantt-hito')) { return; }
+    if (objetivo && objetivo.closest && objetivo.closest('.gantt-barra, .gantt-hito, .gantt-conector')) { return; }
 
     const fila = event.currentTarget as HTMLElement;
     const dia = Math.floor(this.ganttPixelADia(event.clientX - fila.getBoundingClientRect().left));
@@ -3882,6 +3972,409 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     });
   }
 
+  // =========================================================================
+  // DEPENDENCIAS ENTRE BARRAS (estilo ClickUp)
+  // - Al pasar el mouse por una barra aparecen dos puntitos (inicio y fin).
+  // - Arrastrar el puntito del FIN hasta otra barra: la otra depende de esta.
+  // - Arrastrar el puntito del INICIO hasta otra barra: esta depende de la otra.
+  // - Dependencia termina → inicia: la dependiente empieza el día siguiente al
+  //   término de su predecesora. Si "Mover dependientes" está activo, al mover
+  //   una barra las dependientes se corren solas; si no, la flecha queda roja.
+  // - Clic en una flecha para quitar la dependencia.
+  // =========================================================================
+
+  toggleReprogramarDependencias(valor: boolean) {
+    this.reprogramarDependencias = !!valor;
+    try {
+      localStorage.setItem(ControlAvanceComponent.KEY_REPROGRAMAR_DEPENDENCIAS, valor ? '1' : '0');
+    } catch (error) {
+      // sin localStorage la preferencia solo dura mientras la pantalla esté abierta
+    }
+  }
+
+  trackByFlecha(index: number, flecha: FlechaGantt): string {
+    return flecha.id;
+  }
+
+  /** Una barra se puede conectar si se puede editar y tiene algo dibujado (barra o hito). */
+  esBarraConectable(barra: BarraGantt): boolean {
+    return !!barra && barra.editable && !!barra.item.id && (barra.esHito || barra.ancho > 0);
+  }
+
+  /** X (px) donde empieza una barra o un hito dentro del timeline. */
+  xInicioBarraGantt(barra: BarraGantt): number {
+    if (barra.esHito) { return this.ganttDiaAPixel(barra.offsetHito) - 6; }
+    return this.ganttDiaAPixel(barra.offset);
+  }
+
+  /** X (px) donde termina una barra o un hito dentro del timeline. */
+  xFinBarraGantt(barra: BarraGantt): number {
+    if (barra.esHito) { return this.ganttDiaAPixel(barra.offsetHito) + 6; }
+    return this.ganttDiaAPixel(barra.offset) + this.ganttDiasAPixel(barra.offset, barra.ancho);
+  }
+
+  private obtenerTimelineGantt(): HTMLElement | null {
+    const raiz: HTMLElement = this._elementRef ? this._elementRef.nativeElement : null;
+    return raiz ? raiz.querySelector('.gantt-timeline') as HTMLElement : null;
+  }
+
+  /** Mide y redibuja las flechas después de que Angular pinte las filas del Gantt. */
+  programarFlechasGantt() {
+    if (this.timerFlechasGantt) { clearTimeout(this.timerFlechasGantt); }
+    this.timerFlechasGantt = setTimeout(() => {
+      this.timerFlechasGantt = null;
+      this.medirFilasGantt();
+      this.construirFlechasGantt();
+    }, 0);
+  }
+
+  /** Guarda el centro vertical de cada fila del timeline (relativo al propio timeline). */
+  private medirFilasGantt() {
+    this.ganttFilasY = {};
+    const timeline = this.obtenerTimelineGantt();
+    if (!timeline) {
+      this.ganttAltoTimeline = 0;
+      return;
+    }
+    const topTimeline = timeline.getBoundingClientRect().top;
+    const filas = timeline.querySelectorAll('.gantt-fila[data-gantt-id]');
+    for (let i = 0; i < filas.length; i++) {
+      const fila = filas[i] as HTMLElement;
+      const rect = fila.getBoundingClientRect();
+      const id = fila.getAttribute('data-gantt-id');
+      if (id) {
+        this.ganttFilasY[id] = rect.top - topTimeline + rect.height / 2;
+      }
+      if (i === 0 && rect.height > 0) {
+        this.ganttAltoFila = rect.height;
+      }
+    }
+    this.ganttAltoTimeline = timeline.scrollHeight;
+  }
+
+  /** Calcula el trazo de todas las flechas visibles a partir de las barras y las filas medidas. */
+  construirFlechasGantt() {
+    const barraPorId: { [id: string]: BarraGantt } = {};
+    this.ganttBarras.forEach(b => {
+      if (b.item.id) { barraPorId[b.item.id] = b; }
+    });
+
+    const flechas: FlechaGantt[] = [];
+    this.ganttBarras.forEach(dependiente => {
+      const idDependiente = dependiente.item.id;
+      if (!idDependiente || !(dependiente.esHito || dependiente.ancho > 0)) { return; }
+
+      (dependiente.item.dependencias || []).forEach(idPredecesora => {
+        const predecesora = barraPorId[idPredecesora];
+        if (!predecesora || !(predecesora.esHito || predecesora.ancho > 0)) { return; }
+
+        const y1 = this.ganttFilasY[idPredecesora];
+        const y2 = this.ganttFilasY[idDependiente];
+        if (y1 === undefined || y2 === undefined) { return; }
+
+        const x1 = this.xFinBarraGantt(predecesora);
+        const x2 = this.xInicioBarraGantt(dependiente);
+        const finPredecesora = predecesora.esHito ? predecesora.offsetHito : predecesora.offset + predecesora.ancho - 1;
+        const inicioDependiente = dependiente.esHito ? dependiente.offsetHito : dependiente.offset;
+
+        flechas.push({
+          id: `${idPredecesora}>${idDependiente}`,
+          idPredecesora,
+          idDependiente,
+          d: this.trazoFlechaGantt(x1, y1, x2, y2),
+          punta: `M ${x2 - 7} ${y2 - 4} L ${x2} ${y2} L ${x2 - 7} ${y2 + 4} Z`,
+          conflicto: inicioDependiente <= finPredecesora
+        });
+      });
+    });
+
+    this.ganttFlechas = flechas;
+  }
+
+  /** Línea con codos en ángulo recto, como las de ClickUp. */
+  private trazoFlechaGantt(x1: number, y1: number, x2: number, y2: number): string {
+    const salida = 10;
+    if (x2 - x1 >= salida * 2) {
+      const xCodo = x1 + salida;
+      return `M ${x1} ${y1} H ${xCodo} V ${y2} H ${x2 - 6}`;
+    }
+    // La dependiente empieza antes (o casi encima) del fin de la predecesora: la línea rodea pasando entre las filas.
+    const mitadFila = this.ganttAltoFila / 2;
+    const yEntreFilas = y2 > y1 ? y2 - mitadFila : y2 + mitadFila;
+    return `M ${x1} ${y1} H ${x1 + salida} V ${yEntreFilas} H ${x2 - salida} V ${y2} H ${x2 - 6}`;
+  }
+
+  /** Mousedown en un puntito: empieza a dibujar la línea punteada hacia otra barra. */
+  iniciarConexionGantt(event: MouseEvent, barra: BarraGantt, extremo: 'inicio' | 'fin') {
+    if (!this.puedeEditarAvance || this.guardandoCambioFechasGantt || event.button !== 0 || !this.esBarraConectable(barra)) { return; }
+    event.preventDefault();
+    event.stopPropagation();
+
+    const timeline = this.obtenerTimelineGantt();
+    if (!timeline) { return; }
+    this.medirFilasGantt();
+    const y = this.ganttFilasY[barra.item.id];
+    if (y === undefined) { return; }
+    const x = extremo === 'fin' ? this.xFinBarraGantt(barra) : this.xInicioBarraGantt(barra);
+
+    const scrollEl: HTMLElement = (timeline as any).closest ? (timeline as any).closest('.gantt-scroll') : null;
+    const nombresEl: HTMLElement = scrollEl ? scrollEl.querySelector('.gantt-nombres') as HTMLElement : null;
+
+    this.conexionGantt = {
+      origen: barra,
+      extremo,
+      x1: x,
+      y1: y,
+      x2: x,
+      y2: y,
+      destinoId: null,
+      scrollEl,
+      nombresAncho: nombresEl ? nombresEl.offsetWidth : 0
+    };
+    document.body.classList.add('gantt-conectando');
+
+    this._ngZone.runOutsideAngular(() => {
+      this.listenerMouseMoveConexion = (e: MouseEvent) => this.onMouseMoveConexionGantt(e);
+      this.listenerMouseUpConexion = (e: MouseEvent) => this.onMouseUpConexionGantt(e);
+      document.addEventListener('mousemove', this.listenerMouseMoveConexion);
+      document.addEventListener('mouseup', this.listenerMouseUpConexion);
+    });
+  }
+
+  private onMouseMoveConexionGantt(event: MouseEvent) {
+    const conexion = this.conexionGantt;
+    if (!conexion) { return; }
+
+    if (conexion.scrollEl) {
+      const rectScroll = conexion.scrollEl.getBoundingClientRect();
+      const margen = 48;
+      if (event.clientX > rectScroll.right - margen) {
+        conexion.scrollEl.scrollLeft += 24;
+      } else if (event.clientX < rectScroll.left + conexion.nombresAncho + margen) {
+        conexion.scrollEl.scrollLeft -= 24;
+      }
+    }
+
+    const timeline = this.obtenerTimelineGantt();
+    if (!timeline) { return; }
+    const rect = timeline.getBoundingClientRect();
+    const destinoId = this.idBarraBajoPunteroGantt(event.clientX, event.clientY, conexion.origen.item.id);
+
+    this._ngZone.run(() => {
+      conexion.x2 = event.clientX - rect.left;
+      conexion.y2 = event.clientY - rect.top;
+      conexion.destinoId = destinoId;
+    });
+  }
+
+  /** Id de la fila (timeline o columna de nombres) que está bajo el mouse, si se puede conectar. */
+  private idBarraBajoPunteroGantt(x: number, y: number, idOrigen: string): string | null {
+    const elemento: any = document.elementFromPoint(x, y);
+    const fila = elemento && elemento.closest ? elemento.closest('[data-gantt-id]') : null;
+    if (!fila) { return null; }
+    const id = fila.getAttribute('data-gantt-id');
+    if (!id || id === idOrigen) { return null; }
+    const barra = this.ganttBarras.find(b => b.item.id === id);
+    return barra && this.esBarraConectable(barra) ? id : null;
+  }
+
+  private onMouseUpConexionGantt(event: MouseEvent) {
+    this.quitarListenersConexionGantt();
+    this._ngZone.run(() => {
+      const conexion = this.conexionGantt;
+      this.conexionGantt = null;
+      if (!conexion) { return; }
+
+      // Evita que el click al soltar sobre una fila sin fecha le asigne una fecha.
+      this.ignorarClickGantt = true;
+      setTimeout(() => { this.ignorarClickGantt = false; }, 50);
+
+      if (!this.puedeEditarAvance) { return; }
+      const idOrigen = conexion.origen.item.id;
+      const idDestino = this.idBarraBajoPunteroGantt(event.clientX, event.clientY, idOrigen) || conexion.destinoId;
+      if (!idDestino) { return; }
+
+      if (conexion.extremo === 'fin') {
+        this.crearDependenciaGantt(idOrigen, idDestino);
+      } else {
+        this.crearDependenciaGantt(idDestino, idOrigen);
+      }
+    });
+  }
+
+  private quitarListenersConexionGantt() {
+    if (this.listenerMouseMoveConexion) {
+      document.removeEventListener('mousemove', this.listenerMouseMoveConexion);
+      this.listenerMouseMoveConexion = null;
+    }
+    if (this.listenerMouseUpConexion) {
+      document.removeEventListener('mouseup', this.listenerMouseUpConexion);
+      this.listenerMouseUpConexion = null;
+    }
+    document.body.classList.remove('gantt-conectando');
+  }
+
+  private cancelarConexionGantt() {
+    this.quitarListenersConexionGantt();
+    this.conexionGantt = null;
+  }
+
+  /** true si `idItem` depende (directa o indirectamente) de `idBuscado`. Sirve para evitar ciclos. */
+  private dependeDeGantt(idItem: string, idBuscado: string): boolean {
+    const porId: { [id: string]: ControlAvanceItem } = {};
+    this.ControlesAvance.forEach(it => { if (it.id) { porId[it.id] = it; } });
+
+    const visitados: { [id: string]: boolean } = {};
+    const pendientes: string[] = [idItem];
+    while (pendientes.length > 0) {
+      const actual = pendientes.pop() as string;
+      if (visitados[actual]) { continue; }
+      visitados[actual] = true;
+      const item = porId[actual];
+      if (!item) { continue; }
+      const deps = item.dependencias || [];
+      for (let i = 0; i < deps.length; i++) {
+        if (deps[i] === idBuscado) { return true; }
+        pendientes.push(deps[i]);
+      }
+    }
+    return false;
+  }
+
+  /** Crea la dependencia "idDependiente empieza cuando termina idPredecesora" y la guarda en Firestore. */
+  crearDependenciaGantt(idPredecesora: string, idDependiente: string) {
+    if (!this.puedeEditarAvance || !idPredecesora || !idDependiente || idPredecesora === idDependiente) { return; }
+
+    const predecesora = this.ControlesAvance.find(it => it.id === idPredecesora);
+    const dependiente = this.ControlesAvance.find(it => it.id === idDependiente);
+    if (!predecesora || !dependiente || !dependiente.id) { return; }
+
+    const actuales = Array.isArray(dependiente.dependencias) ? dependiente.dependencias : [];
+    if (actuales.indexOf(idPredecesora) !== -1) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Ya están conectadas',
+        text: `"${dependiente.descripcion}" ya depende de "${predecesora.descripcion}".`,
+        timer: 2000,
+        showConfirmButton: false
+      });
+      return;
+    }
+    if (this.dependeDeGantt(idPredecesora, idDependiente)) {
+      Swal.fire('Dependencia circular', `"${predecesora.descripcion}" ya depende (directa o indirectamente) de "${dependiente.descripcion}". No se pueden conectar al revés.`, 'warning');
+      return;
+    }
+
+    const nuevas = actuales.concat([idPredecesora]);
+    dependiente.dependencias = nuevas;
+    this.construirFlechasGantt();
+
+    firestoreDB.collection('controlAvance').doc(dependiente.id).update({ dependencias: nuevas })
+      .then(() => {
+        // Si quedó en conflicto (empieza antes de que termine la predecesora), se corre sola.
+        if (this.reprogramarDependencias) {
+          this.aplicarCambioFechasGantt(dependiente, () => {});
+        }
+      })
+      .catch((error: any) => {
+        const item = this.ControlesAvance.find(it => it.id === idDependiente);
+        if (item) { item.dependencias = actuales; }
+        this.construirFlechasGantt();
+        Swal.fire('Error', 'No se pudo guardar la dependencia: ' + error.message, 'error');
+      });
+  }
+
+  /** Clic en una flecha: confirma y quita la dependencia. */
+  quitarDependenciaGantt(flecha: FlechaGantt) {
+    if (!this.puedeEditarAvance || !flecha) { return; }
+    const predecesora = this.ControlesAvance.find(it => it.id === flecha.idPredecesora);
+    const dependiente = this.ControlesAvance.find(it => it.id === flecha.idDependiente);
+    if (!dependiente) { return; }
+
+    Swal.fire({
+      title: 'Quitar dependencia',
+      text: `¿Quitar la conexión entre "${predecesora ? predecesora.descripcion : 'actividad'}" y "${dependiente.descripcion}"? Las fechas no cambian.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Quitar',
+      cancelButtonText: 'Cancelar'
+    }).then((result: any) => {
+      if (!result.value || !this.puedeEditarAvance) { return; }
+      // Se busca de nuevo por si llegó un snapshot mientras el cuadro estaba abierto.
+      const actual = this.ControlesAvance.find(it => it.id === flecha.idDependiente);
+      if (!actual || !actual.id) { return; }
+
+      const anteriores = actual.dependencias || [];
+      const nuevas = anteriores.filter(id => id !== flecha.idPredecesora);
+      actual.dependencias = nuevas;
+      this.construirFlechasGantt();
+
+      firestoreDB.collection('controlAvance').doc(actual.id).update({ dependencias: nuevas })
+        .catch((error: any) => {
+          actual.dependencias = anteriores;
+          this.construirFlechasGantt();
+          Swal.fire('Error', 'No se pudo quitar la dependencia: ' + error.message, 'error');
+        });
+    });
+  }
+
+  /**
+   * Corre hacia adelante las actividades que empiezan antes de que termine alguna de sus predecesoras
+   * (las deja partiendo el día siguiente al término, manteniendo su plazo). Se repite en cadena:
+   * si A empuja a B y B empuja a C, C también se corre. Devuelve true si movió algo.
+   */
+  private propagarDependenciasGantt(): boolean {
+    let huboCambios = false;
+
+    for (let vuelta = 0; vuelta < 50; vuelta++) {
+      const porId: { [id: string]: ControlAvanceItem } = {};
+      this.ControlesAvance.forEach(it => {
+        if (it.id && it.activo !== false) { porId[it.id] = it; }
+      });
+
+      let cambioEnVuelta = false;
+
+      this.ControlesAvance.forEach(dependiente => {
+        if (!dependiente.id || dependiente.activo === false) { return; }
+        const deps = dependiente.dependencias || [];
+        if (deps.length === 0) { return; }
+        // Un título con láminas toma sus fechas de ellas: no se mueve directamente.
+        if (dependiente.esTitulo && this.esFilaConHijos(dependiente.id)) { return; }
+
+        let inicioMinimo: Date | null = null;
+        deps.forEach(idPredecesora => {
+          const predecesora = porId[idPredecesora];
+          if (!predecesora) { return; }
+          const fin = this.parsearFechaISO(predecesora.fechaTerminoProgramada || predecesora.fechaInicioProgramada);
+          if (!fin) { return; }
+          const siguiente = new Date(fin);
+          siguiente.setDate(siguiente.getDate() + 1);
+          if (!inicioMinimo || siguiente > inicioMinimo) { inicioMinimo = siguiente; }
+        });
+        if (!inicioMinimo) { return; }
+
+        const inicioActual = this.parsearFechaISO(dependiente.fechaInicioProgramada);
+        if (inicioActual && inicioActual >= (inicioMinimo as Date)) { return; }
+
+        dependiente.fechaInicioProgramada = this.formatearFechaISO(inicioMinimo as Date);
+        dependiente.fechaInicioProgramadaManual = true;
+        const plazo = Number(dependiente.plazoProgramado) || 0;
+        dependiente.fechaTerminoProgramadaManual = false;
+        dependiente.fechaTerminoProgramada = plazo > 0
+          ? this.calcularFechaTerminoDesdePlazo(dependiente.fechaInicioProgramada, plazo)
+          : '';
+        cambioEnVuelta = true;
+      });
+
+      if (!cambioEnVuelta) { break; }
+      huboCambios = true;
+      // Los títulos que agrupan a las movidas se recalculan antes de la siguiente vuelta.
+      this.recalcularJerarquiaYAgregados();
+    }
+
+    return huboCambios;
+  }
+
   // ---- 5) Crear títulos / láminas directo desde la Carta Gantt ----
 
   /** Id de la última fila visible que cuelga de un título (para mostrar el input justo debajo de su bloque). */
@@ -3931,6 +4424,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       descripcion: '',
       nombrePadre: barra.item.descripcion || ''
     };
+    this.programarFlechasGantt();
     this.enfocarInputNuevaFilaGantt();
   }
 
@@ -3948,6 +4442,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       descripcion: '',
       nombrePadre: padre ? (padre.descripcion || '') : 'Raíz'
     };
+    this.programarFlechasGantt();
     this.enfocarInputNuevaFilaGantt();
   }
 
@@ -3963,12 +4458,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       descripcion: '',
       nombrePadre: 'Raíz'
     };
+    this.programarFlechasGantt();
     this.enfocarInputNuevaFilaGantt();
   }
 
   cancelarNuevaFilaGantt() {
     this.nuevaFilaGantt = null;
     this.reenfocandoNuevaFilaGantt = false;
+    this.programarFlechasGantt();
   }
 
   /** Al salir del input: si quedó texto se crea, si está vacío se cierra (salvo que el foco pase al selector de tipo). */
@@ -3981,6 +4478,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         this.crearFilaDesdeGantt(false);
       } else {
         this.nuevaFilaGantt = null;
+        this.programarFlechasGantt();
       }
     }, 150);
   }

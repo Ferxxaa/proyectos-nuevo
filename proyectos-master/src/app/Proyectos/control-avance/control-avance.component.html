@@ -589,8 +589,13 @@
         <button type="button" [class.activo]="ganttEscala === 'mes'" (click)="cambiarEscalaGantt('mes')">Mes</button>
       </div>
 
-      <!-- Ayuda rápida de la edición directa en la Carta Gantt -->
-     
+      <!-- Dependencias: al mover una barra, las que dependen de ella se corren solas (como ClickUp) -->
+      <label class="gantt-reprogramar" *ngIf="!modoSoloLectura"
+             title="Pasa el mouse por una barra y arrastra uno de sus puntitos hasta otra barra para conectarlas. Con esto marcado, si mueves una actividad, las que dependen de ella se corren para empezar después de que termine.">
+        <input type="checkbox" [checked]="reprogramarDependencias"
+               (change)="toggleReprogramarDependencias($event.target.checked)">
+        <i class="fa fa-link"></i> Mover dependientes
+      </label>
 
       <button type="button" class="btn-deshacer-gantt"
               *ngIf="!modoSoloLectura && ultimoCambioFechasGantt"
@@ -630,7 +635,9 @@
           </div>
           <ng-container *ngFor="let barra of ganttBarras; trackBy: trackByBarra">
           <div class="gantt-fila-nombre"
+               [attr.data-gantt-id]="barra.item.id"
                [class.gantt-fila-titulo]="barra.item.esTitulo"
+               [class.gantt-fila-conexion-destino]="conexionGantt && conexionGantt.destinoId === barra.item.id"
                [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(barra.item)"
                [class.fila-bitacora-match]="filtroBitacora !== 'todas' && itemCoincideFiltroBitacora(barra.item)">
             <span class="gantt-col-item" [style.paddingLeft.px]="6 + barra.nivel * 14">
@@ -793,8 +800,10 @@
 
           <ng-container *ngFor="let barra of ganttBarras; trackBy: trackByBarra">
           <div class="gantt-fila" [style.width.px]="ganttAnchoTotalPx"
+               [attr.data-gantt-id]="barra.item.id"
             [class.gantt-fila-titulo]="barra.esGrupo || barra.esFranjaCompleta"
                [class.gantt-fila-asignable]="barra.asignable"
+               [class.gantt-fila-conexion-destino]="conexionGantt && conexionGantt.destinoId === barra.item.id"
                [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(barra.item)"
                [title]="barra.asignable ? 'Clic para asignar la fecha de inicio en este día' : ''"
                (click)="onClickFilaGantt($event, barra)">
@@ -834,6 +843,22 @@
               </div>
             </div>
 
+            <!-- Conectores de dependencia (estilo ClickUp): arrastrar un puntito hasta otra barra -->
+            <ng-container *ngIf="esBarraConectable(barra) && dragGanttId !== barra.item.id">
+              <span class="gantt-conector gantt-conector-inicio"
+                    [style.left.px]="xInicioBarraGantt(barra) - 14"
+                    title="Arrastra hasta otra barra: esta actividad empezará cuando termine la otra"
+                    (mousedown)="iniciarConexionGantt($event, barra, 'inicio')"
+                    (click)="$event.stopPropagation()"
+                    (dblclick)="$event.stopPropagation()"></span>
+              <span class="gantt-conector gantt-conector-fin"
+                    [style.left.px]="xFinBarraGantt(barra) + 4"
+                    title="Arrastra hasta otra barra: la otra actividad empezará cuando termine esta"
+                    (mousedown)="iniciarConexionGantt($event, barra, 'fin')"
+                    (click)="$event.stopPropagation()"
+                    (dblclick)="$event.stopPropagation()"></span>
+            </ng-container>
+
             <!-- Tooltip con las fechas mientras se arrastra -->
             <div class="gantt-drag-tooltip" *ngIf="dragGanttId === barra.item.id && dragGanttEtiqueta"
                  [style.left.px]="barra.esHito
@@ -851,6 +876,25 @@
           <div class="gantt-fila gantt-fila-nueva" *ngIf="nuevaFilaGantt && nuevaFilaGantt.despuesDeId === '__final__'"
                [style.width.px]="ganttAnchoTotalPx"></div>
           <div class="gantt-fila gantt-fila-agregar-spacer" *ngIf="!modoSoloLectura" [style.width.px]="ganttAnchoTotalPx"></div>
+
+          <!-- Flechas de dependencia (predecesora termina → dependiente inicia). Clic en una flecha para quitarla. -->
+          <svg class="gantt-flechas" *ngIf="ganttFlechas.length > 0 || conexionGantt"
+               [attr.width]="ganttAnchoTotalPx" [attr.height]="ganttAltoTimeline"
+               [class.gantt-flechas-solo-lectura]="modoSoloLectura">
+            <g *ngFor="let flecha of ganttFlechas; trackBy: trackByFlecha"
+               class="gantt-flecha" [class.gantt-flecha-conflicto]="flecha.conflicto">
+              <path class="gantt-flecha-hit" [attr.d]="flecha.d" (click)="quitarDependenciaGantt(flecha)">
+                <title>Clic para quitar la dependencia</title>
+              </path>
+              <path class="gantt-flecha-linea" [attr.d]="flecha.d"></path>
+              <path class="gantt-flecha-punta" [attr.d]="flecha.punta"></path>
+            </g>
+            <ng-container *ngIf="conexionGantt">
+              <path class="gantt-conexion-temporal"
+                    [attr.d]="'M ' + conexionGantt.x1 + ' ' + conexionGantt.y1 + ' L ' + conexionGantt.x2 + ' ' + conexionGantt.y2"></path>
+              <circle class="gantt-conexion-punto" [attr.cx]="conexionGantt.x2" [attr.cy]="conexionGantt.y2" r="4"></circle>
+            </ng-container>
+          </svg>
         </div>
       </div>
     </div>
