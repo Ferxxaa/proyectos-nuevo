@@ -13,7 +13,6 @@ import { mSubProyecto } from '../../models/mSubProyecto';
 //Servicios
 import { sMis_Proyectos } from '../../services/sMis_Proyectos.service';
 import { sSubProyecto } from '../../services/sSubProyecto.service';
-import { spAvanceProgramado } from '../../services/Personalizados/spAvanceProgramado.service';
 import { sProyectoMatriz } from '../../services/sProyectoMatriz.service';
 import { sProyecto } from '../../services/sProyecto.service';
 import { sEstadoProyecto } from '../../services/sEstadoProyecto.service';
@@ -33,7 +32,6 @@ declare var $: any;
   providers: [
     sMis_Proyectos,
     sSubProyecto,
-    spAvanceProgramado,
     sProyectoMatriz,
     sProyecto,
     sEstadoProyecto,
@@ -261,14 +259,11 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
         });
 
         this.applyFilters();
-        this.calDuracionProy(this.MisProyectos);
-        this.LoadingTabla = false;
       });
     } else {
       this._sMis_Proyectos.getMis_ProyectosbyidUsuarioCoordinador(this.usuario.idUsuario).subscribe(result => {
         this.MisProyectosOriginal = result;
         this.applyFilters();
-        this.LoadingTabla = false;
       });
     }
   }
@@ -476,6 +471,25 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
       const results = await Promise.all((misProyectos || []).map(async el => {
         const detalle = await this._sDetalleSubProyecto.asyncDetalleSubProyectobyidSubProyecto(el.idSubProyecto);
         const copy = { ...el } as any;
+        const etapas = (detalle || []).slice().sort((a, b) => Number(a.idEtapa) - Number(b.idEtapa));
+        const etapaActual = etapas.find(etapa => etapa.vigente);
+
+        if (etapas.length) {
+          const avanceRealEtapas = this.calcularAvanceReal(etapas);
+          if (this.debeUsarAvanceEtapas(copy, ['AvanceReal', 'avanceReal'], avanceRealEtapas)) {
+            copy.AvanceReal = avanceRealEtapas;
+          }
+        }
+        if (etapaActual) {
+          copy.AvanceProgramado = this.calcularAvanceProgramadoEtapa(etapaActual, etapas, copy.fechaInicio);
+        }
+        if (etapas.length) {
+          const avanceRealEtapa = this.normalizarPorcentaje(etapaActual && etapaActual.avanceReal);
+          if (this.debeUsarAvanceEtapas(copy, ['AvanceRealEtapa', 'avanceRealEtapa'], avanceRealEtapa)) {
+            copy.AvanceRealEtapa = avanceRealEtapa;
+          }
+        }
+
         if (detalle && detalle.length) {
           if (copy.idEstadoProyecto <= 4) {
             const dateInicioReal: number  = new Date(detalle[0].fechaInicioReal).getTime();
@@ -514,6 +528,9 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
   private normalizarIndicadoresProyecto(proyecto: any) {
     if (!proyecto) return;
 
+    proyecto.AvanceReal = this.normalizarPorcentaje(proyecto.AvanceReal);
+    proyecto.AvanceRealEtapa = this.normalizarPorcentaje(proyecto.AvanceRealEtapa);
+
     const fechaInicio = proyecto.fechaInicio ? new Date(proyecto.fechaInicio) : null;
     const hoy = new Date();
 
@@ -531,5 +548,62 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     const avanceProgramado = Number(proyecto.AvanceProgramado) || 0;
     proyecto.AvanceProgramado = avanceProgramado < 0 ? 0 : avanceProgramado > 100 ? 100 : avanceProgramado;
     proyecto.duracionReal = Math.max(0, Number(proyecto.duracionReal) || 0);
+  }
+
+  private calcularAvanceReal(etapas: any[]): number {
+    const ponderadoTotal = etapas.reduce((total, etapa) => total + (Number(etapa.ponderado) || 0), 0);
+    if (ponderadoTotal <= 0) {
+      return 0;
+    }
+
+    const avance = etapas.reduce((total, etapa) => {
+      const avanceEtapa = this.normalizarPorcentaje(etapa.avanceReal);
+      const ponderado = Number(etapa.ponderado) || 0;
+      return total + avanceEtapa * ponderado / 100;
+    }, 0);
+
+    return this.normalizarPorcentaje(avance);
+  }
+
+  private calcularAvanceProgramadoEtapa(etapaActual: any, etapas: any[], fechaInicioProyecto: string): number {
+    const inicioProyecto = fechaInicioProyecto ? new Date(fechaInicioProyecto) : null;
+    if (!inicioProyecto || isNaN(inicioProyecto.getTime())) {
+      return 0;
+    }
+
+    const diasPrevios = etapas
+      .filter(etapa => Number(etapa.idEtapa) < Number(etapaActual.idEtapa))
+      .reduce((total, etapa) => total + (Number(etapa.duracion) || 0), 0);
+    const fechaInicioEtapa = new Date(inicioProyecto);
+    fechaInicioEtapa.setDate(fechaInicioEtapa.getDate() + diasPrevios);
+
+    const diasDesdeInicio = Math.round(
+      (Date.now() - fechaInicioEtapa.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const duracion = Number(etapaActual.duracion) || 0;
+    if (duracion <= 0) {
+      return diasDesdeInicio >= 0 ? 100 : 0;
+    }
+
+    if (diasDesdeInicio > duracion) {
+      return 100;
+    }
+    if (diasDesdeInicio < 0) {
+      return 0;
+    }
+
+    return this.normalizarPorcentaje(Math.round(diasDesdeInicio * 100 / duracion));
+  }
+
+  private debeUsarAvanceEtapas(proyecto: any, nombres: string[], avanceEtapas: number): boolean {
+    const valorActual = nombres
+      .map(nombre => proyecto && proyecto[nombre])
+      .find(valor => valor !== undefined && valor !== null && valor !== '');
+    return valorActual === undefined || Number(valorActual) === 0 && avanceEtapas > 0;
+  }
+
+  private normalizarPorcentaje(valor: any): number {
+    const porcentaje = Number(valor) || 0;
+    return Math.max(0, Math.min(100, Number(porcentaje.toFixed(2))));
   }
 }

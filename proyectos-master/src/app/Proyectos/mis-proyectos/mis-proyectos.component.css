@@ -89,11 +89,11 @@
 }
 
 .hallazgos-selection-column input.hallazgos-control-disponible {
-  accent-color: #f59325;
-  background-color: #fff0df;
-  border: 1px solid #f59325;
+  accent-color: #cc7006;
+  background-color: #f6c082;
+  border: 1px solid #cc7006;
   border-radius: 3px;
-  box-shadow: 0 0 0 3px #fff0df;
+  box-shadow: 0 0 0 3px #f4c591;
 }
 
 .projects-table tbody td.hallazgos-control-disponible-cell {

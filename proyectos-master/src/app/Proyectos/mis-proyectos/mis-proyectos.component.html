@@ -159,8 +159,8 @@
                           {{100 - desviacion | number:'1.0-2'}}%
                         </ng-container>
                       </td>
-                      <td class="align-center">{{MiProyecto.AvanceProgramado}}%</td>
-                      <td class="align-center"><span *ngIf="MiProyecto.AvanceReal==null">0</span>{{MiProyecto.AvanceReal}}%</td>
+                      <td class="align-center">{{MiProyecto.AvanceProgramado | number:'1.0-2'}}%</td>
+                      <td class="align-center">{{MiProyecto.AvanceReal | number:'1.0-2'}}%</td>
                       <td class="align-center">
                           <i class="fa fa-circle icono icono-bitacora text-danger" *ngIf="MiProyecto.AvanceProgramado - MiProyecto.AvanceReal > 3 || MiProyecto.DuracionTotal - MiProyecto.duracionReal < -10"></i>
                           <i class="fa fa-circle icono icono-bitacora text-warning" *ngIf="MiProyecto.AvanceProgramado - MiProyecto.AvanceReal <= 3 && MiProyecto.AvanceReal - MiProyecto.AvanceProgramado < 0 && MiProyecto.DuracionTotal - MiProyecto.duracionReal > -10"></i>
