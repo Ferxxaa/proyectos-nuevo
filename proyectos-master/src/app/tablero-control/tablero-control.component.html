@@ -48,7 +48,7 @@
         </ul>
       </div>
 
-      <div class="tab-content mb-lg" id="myTabContent" style="overflow: hidden">
+      <div class="tab-content mb-lg seguimiento-tab-content" id="myTabContent">
         <br>
         <br>
 
@@ -60,7 +60,7 @@
             </div>
 
             <div class="bitacora-column">
-            <section class="widget bitacora-selector">
+            <section class="widget bitacora-selector" [class.archivos-abiertos]="mostrarArchivosEstandares">
               <header>
                 <h5 class="bitacora-selector-title">
                   <strong><span class="title-initial">B</span>itácora <span class="title-initial">N</span>otas

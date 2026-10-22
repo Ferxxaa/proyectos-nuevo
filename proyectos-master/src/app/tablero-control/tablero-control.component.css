@@ -254,6 +254,10 @@ h2{
 }
 
 /* Edición de etapa con archivos estándares alineados debajo; bitácoras al costado. */
+.seguimiento-tab-content {
+  overflow: visible !important;
+}
+
 .seguimiento-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -299,7 +303,7 @@ h2{
 
 .bitacora-standards-dropdown {
   position: relative;
-  z-index: 20;
+  z-index: 1002;
   flex: 0 0 auto;
 }
 
@@ -342,7 +346,7 @@ h2{
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  z-index: 30;
+  z-index: 1003;
   width: min(560px, calc(100vw - 32px));
   max-height: min(70vh, 620px);
   overflow: auto;
@@ -357,6 +361,7 @@ h2{
 }
 
 .bitacora-selector {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -373,9 +378,13 @@ h2{
   box-shadow: 0 2px 10px rgba(31, 45, 61, 0.08);
 }
 
+.bitacora-selector.archivos-abiertos {
+  z-index: 1000;
+}
+
 .bitacora-selector header {
   position: relative;
-  z-index: 21;
+  z-index: 1001;
   display: flex;
   align-items: center;
   justify-content: space-between;
