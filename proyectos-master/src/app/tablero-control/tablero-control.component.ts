@@ -56,7 +56,7 @@ export class TableroControlComponent implements OnInit {
   verSSOMA: boolean;
   verPac: boolean;
   bitacoraSeleccionada: number = null;
-  mostrarFormularioBitacora: boolean = true;
+  mostrarFormularioBitacora: boolean = false;
   mostrarArchivosEstandares: boolean = false;
 
   // //Objetos
@@ -188,17 +188,17 @@ export class TableroControlComponent implements OnInit {
 
   PestBitDoc() {
     this.bitacoraSeleccionada = 1;
-    this.mostrarFormularioBitacora = true;
+    this.mostrarFormularioBitacora = false;
   }
 
   PestSSOMA() {
     this.bitacoraSeleccionada = 2;
-    this.mostrarFormularioBitacora = true;
+    this.mostrarFormularioBitacora = false;
   }
 
   PestCalidad() {
     this.bitacoraSeleccionada = 3;
-    this.mostrarFormularioBitacora = true;
+    this.mostrarFormularioBitacora = false;
   }
 
   PestTareas() {

@@ -1,5 +1,5 @@
 .bitacora-form {
-    margin-bottom: 18px;
+    margin-bottom: 10px;
     overflow: hidden;
     border: 1px solid #e3e7eb;
     border-radius: 8px;
@@ -34,7 +34,7 @@
 }
 
 .bitacora-form .widget-body {
-    padding: 18px;
+    padding: 12px 14px;
 }
 
 .bitacora-form-fields {
@@ -47,14 +47,14 @@
 }
 
 .bitacora-form .form-group {
-    margin-bottom: 16px;
+    margin-bottom: 10px;
 }
 
 .bitacora-form .form-control-label {
     display: block;
-    margin-bottom: 7px;
+    margin-bottom: 4px;
     color: #3f4852;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
 }
 
@@ -62,7 +62,7 @@
     display: grid;
     grid-template-columns: minmax(120px, 1fr) minmax(180px, 230px);
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 
 .bitacora-priority-row .form-control-label {
@@ -70,7 +70,7 @@
 }
 
 .bitacora-form .form-control {
-    height: 40px;
+    height: 34px;
     border: 1px solid #d5dbe1;
     border-radius: 5px;
     background-color: #fff;
@@ -87,11 +87,11 @@
 
 .bitacora-form textarea.form-control {
     width: 100%;
-    min-height: 150px;
-    height: 170px;
-    max-height: 300px;
-    padding: 11px 12px;
-    line-height: 1.5;
+    min-height: 80px;
+    height: 100px;
+    max-height: 180px;
+    padding: 8px 10px;
+    line-height: 1.4;
     resize: vertical;
 }
 
@@ -112,7 +112,7 @@
 .bitacora-file-input {
     display: flex;
     align-items: stretch;
-    height: 40px;
+    height: 34px;
     width: 100%;
     overflow: hidden;
     border: 1px solid #d5dbe1;
@@ -123,7 +123,7 @@
 .bitacora-file-name {
     flex: 1 1 auto;
     min-width: 0;
-    padding: 9px 11px;
+    padding: 6px 9px;
     overflow: hidden;
     color: #58636e;
     font-size: 13px;
@@ -139,12 +139,12 @@
     justify-content: center;
     gap: 7px;
     margin: 0;
-    padding: 0 13px;
+    padding: 0 10px;
     border: 0;
     border-left: 0;
     background: #f5f7f9;
     color: #3f4852;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
@@ -176,14 +176,14 @@
 }
 
 .bitacora-file-notice {
-    margin-top: 10px;
-    padding: 10px 12px;
-    border-left: 4px solid #f59325;
+    margin-top: 7px;
+    padding: 7px 9px;
+    border-left: 3px solid #f59325;
     border-radius: 4px;
     background-color: #fff8e9;
     color: #6d4c00;
-    font-size: 11px;
-    line-height: 1.55;
+    font-size: 10px;
+    line-height: 1.4;
 }
 
 .bitacora-file-notice > .fa {
@@ -198,15 +198,15 @@
 .bitacora-form-actions {
     display: flex;
     justify-content: center;
-    margin-top: 8px;
-    padding: 14px 12px;
+    margin-top: 5px;
+    padding: 9px 10px;
     border-top: 1px solid #e8ebee;
     background: #f7f8fa;
 }
 
 .bitacora-form-actions .btn {
-    min-width: 170px;
-    padding: 9px 18px;
+    min-width: 150px;
+    padding: 7px 14px;
     border: 0;
     border-radius: 5px;
     background: #32965d;
@@ -244,7 +244,7 @@
 
 @media (max-width: 480px) {
     .bitacora-form .widget-body {
-        padding: 14px;
+        padding: 10px;
     }
 
     .bitacora-priority-row {
@@ -253,8 +253,8 @@
     }
 
     .bitacora-form textarea.form-control {
-        min-height: 130px;
-        height: 150px;
+        min-height: 75px;
+        height: 90px;
     }
 
     .bitacora-file-button {

@@ -23,6 +23,24 @@
   margin: 0;
   padding: 6px 16px;
   border-left: 4px solid #f59325;
+  background: #555;
+}
+
+.widget .seguimiento-heading {
+  min-width: 0;
+  margin: 0;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.seguimiento-heading > .fa {
+  margin-right: 9px;
+  color: #f59325;
+}
+
+.seguimiento-heading-accent {
+  color: #ffad4c;
 }
 
 .widget-body {
@@ -30,7 +48,8 @@
   min-height: 0;
   --label-col: 250px;
   --gap-col: 0.6rem;
-  padding: 0.65rem 1rem;
+  padding: 0.75rem 1rem;
+  background: #f7f8fa;
 }
 
 fieldset {
@@ -53,22 +72,25 @@ fieldset > div.form-group.row {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  border-radius: 6px;
-  padding: 0.45rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 0.48rem 0.75rem;
   margin: 0;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 fieldset > div.form-group.row:nth-child(odd) {
-  background-color: #f8f8f8;
+  background-color: #fff;
 }
 
 fieldset > div.form-group.row:nth-child(even) {
-  background-color: #fbfbfb;
+  background-color: #f3f5f7;
 }
 
 fieldset > div.form-group.row:hover {
-  background-color: #f0f0f0;
+  border-color: #e8edf2;
+  background-color: #fff;
+  box-shadow: 0 2px 7px rgba(31, 45, 61, 0.06);
 }
 
 /* Anula el flex/ancho de Bootstrap para que mande nuestra grilla, */
@@ -112,48 +134,55 @@ fieldset > div.form-group.row:first-of-type {
 
 fieldset > div.form-group.row:first-of-type > *:nth-child(1) {
   grid-column: 2 !important;
-  background-color: #cdfdc1 !important;
-  color: #1f5d12;
+  background-color: #fff5e8 !important;
+  color: #8b4b06;
 }
 
 fieldset > div.form-group.row:first-of-type > *:nth-child(2) {
   grid-column: 3 !important;
-  background-color: #ccdaff !important;
-  color: #1f3b8f;
+  background-color: #edf2f7 !important;
+  color: #3e5267;
 }
 
 fieldset > div.form-group.row:first-of-type > label {
   font-weight: 700;
-  border-radius: 4px;
-  padding: 0.3rem 0;
+  border: 1px solid #f3dfc5;
+  border-radius: 6px;
+  padding: 0.48rem 0;
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   font-size: 0.78rem;
 }
 
+fieldset > div.form-group.row:first-of-type > label:nth-child(2) {
+  border-color: #dce4ec;
+}
+
 /* ===== Etiquetas y valores ===== */
 fieldset > div.form-group.row > label:first-child {
   font-weight: 600;
-  color: #444;
+  color: #48525d;
 }
 
 fieldset > div.form-group.row > span.form-control-label {
-  color: #666;
+  color: #38434f;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
+  font-weight: 500;
 }
 
 /* ===== Inputs editables (columna "real") ===== */
 /* Inputs sueltos (Costo, Porcentaje), sin input-group */
 fieldset > div.form-group.row > [class*="col-"] > input.form-control {
   width: 100%;
-  border: 1px solid #d7d7d7;
-  border-radius: 4px;
+  min-height: 36px;
+  border: 1px solid #d9e0e7;
+  border-radius: 6px;
   background-color: #fff;
   box-shadow: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
   text-align: center;
 }
 
@@ -180,15 +209,15 @@ fieldset input.form-control:disabled {
 /* Selector de fecha: NO se toca display/width, Bootstrap ya resuelve el layout */
 /* (display:table en .input-group, width:1% en el addon); solo estética */
 .input-group.date .form-control {
-  border-radius: 4px 0 0 4px;
+  border-radius: 6px 0 0 6px;
   text-align: center;
 }
 
 .input-group.date .input-group-addon {
-  border: 1px solid #d7d7d7;
+  border: 1px solid #d9e0e7;
   border-left: none;
-  background-color: #fff;
-  border-radius: 0 4px 4px 0;
+  background-color: #f7f8fa;
+  border-radius: 0 6px 6px 0;
   cursor: pointer;
 }
 
@@ -206,11 +235,11 @@ fieldset input.form-control:disabled {
 .form-actions {
   margin-top: 1.25rem;
   padding: 1rem 1.5rem 0;
-  border-top: 1px solid #e6e6e6;
+  border-top: 1px solid #e3e8ed;
 }
 
 .form-actions .btn {
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 0.5rem 1.4rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -235,4 +264,20 @@ fieldset input.form-control:disabled {
 .form-actions .btn-primary:hover:not(:disabled) {
   background-color: #d97e15;
   border-color: #d97e15;
+}
+
+@media (max-width: 767px) {
+  .widget-body {
+    --label-col: 105px;
+    --gap-col: 0.35rem;
+    padding: 0.6rem;
+  }
+
+  fieldset > div.form-group.row {
+    padding: 0.42rem 0.5rem;
+  }
+
+  fieldset > div.form-group.row > label:first-child {
+    font-size: 12px;
+  }
 }

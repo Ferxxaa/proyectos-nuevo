@@ -386,6 +386,7 @@ h2{
   min-width: 0;
   box-sizing: border-box;
   padding: 6px 14px;
+  border-left: 4px solid #f59325;
   background-color: #555555;
   text-align: left;
 }

@@ -1,14 +1,9 @@
 <section class="widget">
-  <header style="background-color: #555555">
-    <a *ngIf="hayOrden && !soloLectura" (click)="RestablecerOrden()" title="Volver al orden original"
-      style="float: right; color: #ddd; cursor: pointer; font-size: 12px; margin-top: 3px;">
+  <div class="bitacora-list-actions" *ngIf="hayOrden && !soloLectura">
+    <a (click)="RestablecerOrden()" title="Volver al orden original">
       <i class="fa fa-undo"></i> Restablecer orden
     </a>
-    <h5 style="color: white;">
-      <strong>Bitacora</strong>
-    </h5>
-  </header>
-  <br>
+  </div>
   <div class="list-group list-group-lg" *ngIf="!Loader">
     <ng-container *ngFor="let Bitacora of Bitacoras; let i = index">
       <div class="linea"

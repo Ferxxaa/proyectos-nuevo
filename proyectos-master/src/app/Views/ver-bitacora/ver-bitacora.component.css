@@ -4,6 +4,22 @@ a{
   color: black;
 }
 
+.bitacora-list-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px 0;
+}
+
+.bitacora-list-actions a {
+  color: #59636e;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.bitacora-list-actions a:hover {
+  color: #d97e15;
+}
+
 .icon{
     height: 1px;
     width: 25px;
