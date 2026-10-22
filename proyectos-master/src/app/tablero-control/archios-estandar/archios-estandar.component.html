@@ -1,55 +1,66 @@
-<section class="widget">
-  <header style="background-color: #555555">
-    <h5 style="color: white;">
-      <strong>
-        Archivos estandares
-      </strong>
-    </h5>
+<section class="widget standards-library">
+  <header class="standards-library-header">
+    <div>
+      <h5><i class="fa fa-folder-open" aria-hidden="true"></i> Archivos estándares</h5>
+      <small>Consulta y descarga documentos del proyecto</small>
+    </div>
   </header>
   <div class="widget-body">
-    <fieldset>
+    <fieldset class="standards-library-list">
       <legend></legend>
 
-      <div class="panel panel-default" *ngFor="let panel of paneles">
-        <div class="panel-heading">
-          <h6 class="panel-title">
-            <a class="collapsed w80" data-toggle="collapse" data-parent="#accordion" [attr.href]="'#' + panel.id"
-              aria-expanded="false" (click)="CargaArchivos(panel.id, panel.tipo)">
-              <h5>
-                {{panel.titulo}}
-                <i class="fa fa-angle-down pull-xs-right"></i>
-              </h5>
+      <div class="panel panel-default standard-category" *ngFor="let panel of paneles">
+        <div class="panel-heading standard-category-heading">
+          <div class="standard-category-main">
+            <a class="collapsed standard-category-toggle" data-toggle="collapse" data-parent="#accordion"
+              [attr.href]="'#' + panel.id" aria-expanded="false"
+              (click)="CargaArchivos(panel.id, panel.tipo)">
+              <span class="standard-category-icon"><i class="fa fa-file-text-o" aria-hidden="true"></i></span>
+              <span class="standard-category-title">{{panel.titulo}}</span>
+              <i class="fa fa-chevron-down standard-category-chevron" aria-hidden="true"></i>
             </a>
-            <a *ngIf="!soloLectura" (click)="verPupUp(panel.tipo)"><mat-icon class="text-success">add_circle</mat-icon></a>
-          </h6>
+          </div>
+          <button type="button" class="standard-add" *ngIf="!soloLectura" (click)="verPupUp(panel.tipo)"
+            [attr.aria-label]="'Agregar archivo a ' + panel.titulo" title="Agregar archivo">
+            <i class="fa fa-plus" aria-hidden="true"></i>
+          </button>
         </div>
         <div [id]="panel.id" class="panel-collapse collapse" aria-expanded="false">
-          <div class="panel-body">
-            <div class="div" *ngIf="open === panel.tipo">
-              <table class="table table-bordered table-striped table-hover no-footer" cellspacing="0" rules="all" border="1"
-                style="color:Blue;border-collapse:collapse;">
-                <thead>
-                  <tr style="color:White;background-color:#333333;font-weight:bold;">
-                    <th scope="col">Nombre</th>
-                    <th scope="col">acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let archivo of Archivos$ | async; let i = index">
-                    <td>
-                      <a [href]="linkDescarga(archivo)" target="_blank">{{archivo.nombreArchivo}}</a>
-                      <mat-icon *ngIf="archivo.urlFirebase" class="text-success" title="Respaldado en Firebase"
-                        style="font-size:16px;height:16px;width:16px;vertical-align:middle;margin-left:4px;">cloud_done</mat-icon>
-                    </td>
-                    <td>
-                      <button class="text-danger" mat-icon-button (click)="eliminar(archivo)" *ngIf="admin()">
-                        <mat-icon>close</mat-icon>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <div class="panel-body standard-category-body">
+            <div class="standard-empty" *ngIf="open === panel.tipo && !(Archivos$ | async)?.length">
+              <i class="fa fa-folder-open-o" aria-hidden="true"></i>
+              <span>No hay archivos en esta categoría.</span>
             </div>
+            <table class="table table-hover no-footer standard-files-table" *ngIf="open === panel.tipo && (Archivos$ | async)?.length">
+              <thead>
+                <tr>
+                  <th scope="col">Archivo</th>
+                  <th scope="col" class="standard-actions-heading">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let archivo of Archivos$ | async">
+                  <td>
+                    <a class="standard-file-link" [href]="linkDescarga(archivo)" target="_blank">
+                      <i class="fa fa-file-o" aria-hidden="true"></i>
+                      <span>{{archivo.nombreArchivo}}</span>
+                    </a>
+                    <i *ngIf="archivo.urlFirebase" class="fa fa-cloud standard-cloud-icon"
+                      title="Respaldado en Firebase" aria-label="Respaldado en Firebase"></i>
+                  </td>
+                  <td class="standard-actions">
+                    <a class="standard-download" [href]="linkDescarga(archivo)" target="_blank" title="Abrir o descargar archivo"
+                      aria-label="Abrir o descargar archivo">
+                      <i class="fa fa-download" aria-hidden="true"></i>
+                    </a>
+                    <button type="button" class="standard-delete" (click)="eliminar(archivo)" *ngIf="admin()"
+                      title="Eliminar archivo" aria-label="Eliminar archivo">
+                      <i class="fa fa-trash-o" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

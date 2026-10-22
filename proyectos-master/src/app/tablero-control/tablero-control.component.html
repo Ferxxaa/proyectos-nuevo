@@ -57,12 +57,28 @@
           <div class="seguimiento-layout">
             <div class="seguimiento-etapas">
               <app-seguimiento (ActualizarSubProy)="ActualizaSP()" [idEtapa]="idEtapa" [soloLectura]="esCliente"></app-seguimiento>
-              <app-archios-estandar [perfiles]="perfilesUsuario" [soloLectura]="esCliente"></app-archios-estandar>
             </div>
 
+            <div class="bitacora-column">
             <section class="widget bitacora-selector">
               <header>
-                <h5><strong>Bitácoras</strong></h5>
+                <h5 class="bitacora-selector-title">
+                  <strong><span class="title-initial">B</span>itácora <span class="title-initial">N</span>otas
+                    <span class="title-initial">I</span>mportantes</strong>
+                </h5>
+                <div class="bitacora-standards-dropdown">
+                  <button type="button" class="bitacora-standards-trigger" [class.active]="mostrarArchivosEstandares"
+                    [attr.aria-expanded]="mostrarArchivosEstandares"
+                    (click)="mostrarArchivosEstandares = !mostrarArchivosEstandares">
+                    <i class="fa fa-folder-open" aria-hidden="true"></i>
+                    <span>Archivos estándares</span>
+                    <i class="fa" [ngClass]="mostrarArchivosEstandares ? 'fa-chevron-up' : 'fa-chevron-down'"
+                      aria-hidden="true"></i>
+                  </button>
+                  <div class="bitacora-standards-popover" *ngIf="mostrarArchivosEstandares">
+                    <app-archios-estandar [perfiles]="perfilesUsuario" [soloLectura]="esCliente"></app-archios-estandar>
+                  </div>
+                </div>
               </header>
               <div class="widget-body">
                 
@@ -146,6 +162,7 @@
                 </div>
               </div>
             </section>
+            </div>
 
           </div>
         </div>

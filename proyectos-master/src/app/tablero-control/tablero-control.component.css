@@ -258,7 +258,7 @@ h2{
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
   width: 100%;
   box-sizing: border-box;
 }
@@ -270,6 +270,7 @@ h2{
 
 .seguimiento-layout > * {
   min-width: 0;
+  height: 100%;
 }
 
 .seguimiento-etapas {
@@ -277,20 +278,95 @@ h2{
   flex-direction: column;
   gap: 14px;
   min-width: 0;
+  min-height: 0;
 }
 
-.seguimiento-etapas > app-seguimiento,
-.seguimiento-etapas > app-archios-estandar {
+.seguimiento-etapas > app-seguimiento {
   display: block;
+  flex: 1 1 auto;
   width: 100%;
   min-width: 0;
+  min-height: 0;
+}
+
+.bitacora-column {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bitacora-standards-dropdown {
+  position: relative;
+  z-index: 20;
+  flex: 0 0 auto;
+}
+
+.bitacora-standards-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid #d8dee5;
+  border-radius: 6px;
+  background: #fff;
+  color: #424c56;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(31, 45, 61, 0.06);
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.bitacora-standards-trigger .fa-folder-open {
+  color: #f59325;
+  font-size: 16px;
+}
+
+.bitacora-standards-trigger .fa-chevron-down,
+.bitacora-standards-trigger .fa-chevron-up {
+  margin-left: 4px;
+  font-size: 11px;
+}
+
+.bitacora-standards-trigger:hover,
+.bitacora-standards-trigger.active {
+  border-color: #f59325;
+  background: #fff8ef;
+  color: #343a40;
+}
+
+.bitacora-standards-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(70vh, 620px);
+  overflow: auto;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(31, 45, 61, 0.2);
+}
+
+.bitacora-standards-popover app-archios-estandar {
+  display: block;
 }
 
 .bitacora-selector {
-  align-self: start;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-self: stretch;
   margin: 0;
-  overflow: hidden;
+  overflow: visible;
   min-width: 0;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid #e1e5e9;
   border-radius: 8px;
   background: #fff;
@@ -298,23 +374,47 @@ h2{
 }
 
 .bitacora-selector header {
-  padding: 10px 14px;
+  position: relative;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  height: 52px;
+  min-height: 52px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 6px 14px;
   background-color: #555555;
-  text-align: center;
+  text-align: left;
 }
 
 .bitacora-selector header h5 {
-  margin: 0;
+  margin: 0 auto;
   color: white;
+  line-height: 20px;
+  text-align: center;
+}
+
+.bitacora-selector header .bitacora-selector-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bitacora-selector-title .title-initial {
+  color: #f59325;
 }
 
 .bitacora-selector .widget-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 14px;
   background-color: #f7f8fa;
-  max-height: 480px;
   max-height: calc(100vh - 260px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  border-radius: 0 0 8px 8px;
 }
 
 .bitacora-selector p {
@@ -434,10 +534,45 @@ h2{
   .seguimiento-layout {
     grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.35fr);
   }
+
+  .seguimiento-etapas,
+  .bitacora-column {
+    height: 100%;
+  }
+
+  .seguimiento-etapas > app-seguimiento,
+  .seguimiento-etapas > app-seguimiento > .widget {
+    height: 100%;
+  }
 }
 
 @media (max-width: 1199px) {
   .seguimiento-row {
     padding: 0 15px;
+  }
+
+  .bitacora-selector {
+    flex: 0 1 auto;
+  }
+
+  .bitacora-selector .widget-body {
+    max-height: min(65vh, 560px);
+  }
+}
+
+@media (max-width: 600px) {
+  .bitacora-standards-popover {
+    right: 0;
+    width: min(560px, calc(100vw - 30px));
+  }
+
+  .bitacora-tabs {
+    flex-wrap: wrap;
+  }
+
+  .bitacora-selector .bitacora-tab {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    margin: 0;
   }
 }

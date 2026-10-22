@@ -57,6 +57,7 @@ export class TableroControlComponent implements OnInit {
   verPac: boolean;
   bitacoraSeleccionada: number = null;
   mostrarFormularioBitacora: boolean = true;
+  mostrarArchivosEstandares: boolean = false;
 
   // //Objetos
   SubProyecto: mSubProyecto;
