@@ -1,63 +1,61 @@
-<section class="widget">
-    <header style="background-color: #555555">
+<section class="widget bitacora-form">
+    <header class="bitacora-form-header" *ngIf="!ocultarEncabezado">
         <h5 style="color: white;">
-            <strong>Bitacora-</strong>
-            <strong>Sub-Proyecto
-        <span style="color: #F59325">{{SubProyecto.nombreSubProyecto}}</span>
-      </strong>
+            <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+            <strong> Nueva entrada</strong>
+            <span class="bitacora-subproyecto">
+                {{SubProyecto.nombreSubProyecto}}
+            </span>
         </h5>
     </header>
     <div class="widget-body">
         <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
-            <fieldset>
+            <fieldset class="bitacora-form-fields">
                 <legend></legend>
-                <div class="form-group row">
-                    <label for="normal-field" class="col-md-6 form-control-label h5">Prioridad Bitacora(*):</label>
-                    <div class="col-md-6">
-                        <select class="dropdown-toggle select2-chosen-2 form-control requiered" [(ngModel)]="Bitacora.idPrioridad" name="drdPrioridad" appSelectValidator [disabled]="soloLectura">
-              <option value=0 selected>--- Seleccione una opcion ---</option>
-              <option *ngFor="let Prioridad of Prioridades" value={{Prioridad.idPrioridad}}>{{Prioridad.nombrePrioridad}}</option>
-            </select>
-                    </div>
-                    <br><br>
-                    <div class="col-md-12">
-                        <textarea class="form-control requiered" [(ngModel)]="Bitacora.descripcion" name="txtBitacora" required [disabled]="soloLectura"></textarea>
-                    </div>
-
+                <div class="form-group bitacora-priority-row">
+                    <label for="drdPrioridad" class="form-control-label">Prioridad <span class="required-mark">*</span></label>
+                    <select id="drdPrioridad" class="dropdown-toggle select2-chosen-2 form-control requiered"
+                        [(ngModel)]="Bitacora.idPrioridad" name="drdPrioridad" appSelectValidator
+                        [disabled]="soloLectura">
+                        <option value=0 selected>--- Seleccione una opción ---</option>
+                        <option *ngFor="let Prioridad of Prioridades" value={{Prioridad.idPrioridad}}>{{Prioridad.nombrePrioridad}}</option>
+                    </select>
                 </div>
-                <div class="form-group row">
-                    <div class="col-md-12">
-                        <!-- col-md-offset-3 -->
-                        <div class="fileinput fileinput-new input-group" data-provides="fileinput">
-                            <div class="form-control" data-trigger="fileinput">
-                                <i class="glyphicon glyphicon-file fileinput-exists"></i>
-                                <span class="fileinput-filename" id="NombreArch"></span>
-                            </div>
-                            <span class="input-group-addon btn btn-secondary btn-file">
-                <span class="fileinput-new">Adjuntar</span>
-                            <span class="fileinput-exists">Change</span>
-                            <input id="fileupload1" type="file" name="fileupload1" (change)="NombreArchivo()" [disabled]="soloLectura">
-                            </span>
+                <div class="form-group bitacora-description-group">
+                    <label for="txtBitacora" class="form-control-label">Descripción <span class="required-mark">*</span></label>
+                    <textarea id="txtBitacora" class="form-control requiered" [(ngModel)]="Bitacora.descripcion"
+                        name="txtBitacora" required [disabled]="soloLectura"
+                        placeholder="Escribe aquí el detalle de la bitácora..."></textarea>
+                </div>
+                <div class="form-group bitacora-attachment-group">
+                    <label class="form-control-label" for="fileupload1">Archivo adjunto <span class="optional-mark">(opcional)</span></label>
+                    <div class="bitacora-file-control">
+                        <div class="bitacora-file-input">
+                            <span class="bitacora-file-name" id="NombreArch"></span>
+                            <label class="bitacora-file-button" for="fileupload1">
+                                <i class="fa fa-paperclip" aria-hidden="true"></i>
+                                <span>Adjuntar archivo</span>
+                            </label>
+                            <input id="fileupload1" class="bitacora-file-native" type="file" name="fileupload1"
+                                (change)="NombreArchivo()" [disabled]="soloLectura">
                         </div>
 
                         <!-- Aviso de nombre de archivo -->
-                        <div *ngIf="!soloLectura" style="margin-top: 6px; padding: 6px 10px; background-color: #fff8e1; border-left: 4px solid #F59325; border-radius: 3px; font-size: 12px; color: #6d4c00;">
-                            <i class="fa fa-exclamation-triangle" style="color: #F59325;"></i>
+                        <div *ngIf="!soloLectura" class="bitacora-file-notice">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
                             <strong>Importante:</strong> el nombre del archivo debe ir <strong>sin tildes, sin ñ ni caracteres especiales</strong>
                             (#, &amp;, %, ´, etc.). Solo letras, números, espacios, guion (-), guion bajo (_), puntos y paréntesis.
                             Tamaño máximo: 25 MB.
                             <br>
-                            <span style="color: #8a6d3b;">Ej.: <b>PPT Reunion de obra T9.pdf</b> en vez de <b>PPT Reunión de obra T9.pdf</b></span>
+                            <span>Ej.: <b>PPT Reunion de obra T9.pdf</b> en vez de <b>PPT Reunión de obra T9.pdf</b></span>
                         </div>
                     </div>
                 </div>
             </fieldset>
-            <div class="form-actions">
-                <div class="row">
-                    <div class="col-md-offset-4 col-md-8">
-                        <button ID="btnCrearArea" class="btn btn-success" [disabled]="(!CForm.valid && loader) || soloLectura">Agregar bitacora</button>
-                    </div>
-                </div>
+            <div class="form-actions bitacora-form-actions">
+                <button ID="btnCrearArea" class="btn btn-success" [disabled]="(!CForm.valid && loader) || soloLectura">
+                    <i class="fa fa-plus" aria-hidden="true"></i> Agregar bitácora
+                </button>
             </div>
         </form>
     </div>

@@ -46,10 +46,7 @@ export class TableroControlComponent implements OnInit {
 
   //Pestañas
   rowSeguimiento: boolean;
-  rowBitDoc: boolean;
   rowTareas: boolean;
-  rowPac: boolean;
-  rowSSOMA: boolean;
   rowGantt: boolean;
   rowControlAvance: boolean;
   rowControlHallazgos: boolean;
@@ -58,6 +55,8 @@ export class TableroControlComponent implements OnInit {
   verDoc: boolean;
   verSSOMA: boolean;
   verPac: boolean;
+  bitacoraSeleccionada: number = null;
+  mostrarFormularioBitacora: boolean = true;
 
   // //Objetos
   SubProyecto: mSubProyecto;
@@ -175,17 +174,11 @@ export class TableroControlComponent implements OnInit {
 
   PestSeguimiento() {
     this.rowSeguimiento = true;
-    this.rowBitDoc = false;
-    this.rowSSOMA = false;
-    this.rowPac = false;
     this.rowTareas = false;
     this.rowGantt = false;
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
     $("#TabSeguimiento").attr("class", "nav-link active")
-    $("#TabBitDoc").attr("class", "nav-link")
-    $("#TabSSOMA").attr("class", "nav-link")
-    $("#TabPac").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
@@ -193,75 +186,27 @@ export class TableroControlComponent implements OnInit {
   }
 
   PestBitDoc() {
-    this.rowSeguimiento = false;
-    this.rowBitDoc = true;
-    this.rowSSOMA = false;
-    this.rowPac = false;
-    this.rowTareas = false;
-    this.rowGantt = false;
-    this.rowControlAvance = false;
-    this.rowControlHallazgos = false;
-    $("#TabSeguimiento").attr("class", "nav-link")
-    $("#TabBitDoc").attr("class", "nav-link active")
-    $("#TabSSOMA").attr("class", "nav-link")
-    $("#TabPac").attr("class", "nav-link")
-    $("#TabTareas").attr("class", "nav-link")
-    $("#TabGantt").attr("class", "nav-link")
-    $("#TabControlAvance").attr("class", "nav-link")
-    $("#TabControlHallazgos").attr("class", "nav-link")
+    this.bitacoraSeleccionada = 1;
+    this.mostrarFormularioBitacora = true;
   }
 
   PestSSOMA() {
-    this.rowSeguimiento = false;
-    this.rowBitDoc = false;
-    this.rowSSOMA = true;
-    this.rowPac = false;
-    this.rowTareas = false;
-    this.rowGantt = false;
-    this.rowControlAvance = false;
-    this.rowControlHallazgos = false;
-    $("#TabSeguimiento").attr("class", "nav-link")
-    $("#TabBitDoc").attr("class", "nav-link")
-    $("#TabSSOMA").attr("class", "nav-link active")
-    $("#TabPac").attr("class", "nav-link")
-    $("#TabTareas").attr("class", "nav-link")
-    $("#TabGantt").attr("class", "nav-link")
-    $("#TabControlAvance").attr("class", "nav-link")
-    $("#TabControlHallazgos").attr("class", "nav-link")
+    this.bitacoraSeleccionada = 2;
+    this.mostrarFormularioBitacora = true;
   }
 
   PestCalidad() {
-    this.rowSeguimiento = false;
-    this.rowBitDoc = false;
-    this.rowSSOMA = false;
-    this.rowPac = true;
-    this.rowTareas = false;
-    this.rowGantt = false;
-    this.rowControlAvance = false;
-    this.rowControlHallazgos = false;
-    $("#TabSeguimiento").attr("class", "nav-link")
-    $("#TabBitDoc").attr("class", "nav-link")
-    $("#TabSSOMA").attr("class", "nav-link")
-    $("#TabPac").attr("class", "nav-link active")
-    $("#TabTareas").attr("class", "nav-link")
-    $("#TabGantt").attr("class", "nav-link")
-    $("#TabControlAvance").attr("class", "nav-link")
-    $("#TabControlHallazgos").attr("class", "nav-link")
+    this.bitacoraSeleccionada = 3;
+    this.mostrarFormularioBitacora = true;
   }
 
   PestTareas() {
     this.rowSeguimiento = false;
-    this.rowBitDoc = false;
-    this.rowSSOMA = false;
-    this.rowPac = false;
     this.rowTareas = true;
     this.rowGantt = false;
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
     $("#TabSeguimiento").attr("class", "nav-link")
-    $("#TabBitDoc").attr("class", "nav-link")
-    $("#TabSSOMA").attr("class", "nav-link")
-    $("#TabPac").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link active")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
@@ -278,17 +223,11 @@ export class TableroControlComponent implements OnInit {
 
   PestGantt() {
     this.rowSeguimiento = false;
-    this.rowBitDoc = false;
-    this.rowSSOMA = false;
-    this.rowPac = false;
     this.rowTareas = false;
     this.rowGantt = true;
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
     $("#TabSeguimiento").attr("class", "nav-link")
-    $("#TabBitDoc").attr("class", "nav-link")
-    $("#TabSSOMA").attr("class", "nav-link")
-    $("#TabPac").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link active")
     $("#TabControlAvance").attr("class", "nav-link")
@@ -297,17 +236,11 @@ export class TableroControlComponent implements OnInit {
 
   PestControlAvance() {
     this.rowSeguimiento = false;
-    this.rowBitDoc = false;
-    this.rowSSOMA = false;
-    this.rowPac = false;
     this.rowTareas = false;
     this.rowGantt = false;
     this.rowControlAvance = true;
     this.rowControlHallazgos = false;
     $("#TabSeguimiento").attr("class", "nav-link")
-    $("#TabBitDoc").attr("class", "nav-link")
-    $("#TabSSOMA").attr("class", "nav-link")
-    $("#TabPac").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link active")
@@ -316,17 +249,11 @@ export class TableroControlComponent implements OnInit {
 
   PestControlHallazgos() {
     this.rowSeguimiento = false;
-    this.rowBitDoc = false;
-    this.rowSSOMA = false;
-    this.rowPac = false;
     this.rowTareas = false;
     this.rowGantt = false;
     this.rowControlAvance = false;
     this.rowControlHallazgos = true;
     $("#TabSeguimiento").attr("class", "nav-link")
-    $("#TabBitDoc").attr("class", "nav-link")
-    $("#TabSSOMA").attr("class", "nav-link")
-    $("#TabPac").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")

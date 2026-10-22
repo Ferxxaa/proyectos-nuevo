@@ -31,8 +31,6 @@
                 <thead>
                   <tr style="color:White;background-color:#333333;font-weight:bold;">
                     <th scope="col">Nombre</th>
-                    <th scope="col">Proyecto Matriz</th>
-                    <th scope="col">Etapa</th>
                     <th scope="col">acciones</th>
                   </tr>
                 </thead>
@@ -42,12 +40,6 @@
                       <a [href]="linkDescarga(archivo)" target="_blank">{{archivo.nombreArchivo}}</a>
                       <mat-icon *ngIf="archivo.urlFirebase" class="text-success" title="Respaldado en Firebase"
                         style="font-size:16px;height:16px;width:16px;vertical-align:middle;margin-left:4px;">cloud_done</mat-icon>
-                    </td>
-                    <td>
-                      <span></span>
-                    </td>
-                    <td>
-                      <span></span>
                     </td>
                     <td>
                       <button class="text-danger" mat-icon-button (click)="eliminar(archivo)" *ngIf="admin()">

@@ -45,6 +45,7 @@ export class BitacoraComponent implements OnInit {
 
   @Input() TipoBitacora: number;
   @Input() soloLectura: boolean = false;
+  @Input() ocultarEncabezado: boolean = false;
 
   @Output() ConseguirBitacoras = new EventEmitter();
 

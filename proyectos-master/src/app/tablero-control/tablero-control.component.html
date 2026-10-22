@@ -30,10 +30,6 @@
               (click)="PestSeguimiento()"><b>Seguimiento Proyecto</b></a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" id="TabBitDoc" data-toggle="tab" role="tab" style="cursor: pointer;"
-              (click)="PestBitDoc()"><b>Bitacora Proyecto</b></a>
-          </li>
-          <li class="nav-item">
             <a class="nav-link" id="TabGantt" data-toggle="tab" role="tab" style="cursor: pointer;"
               (click)="PestGantt()"><b>Carta Gantt</b></a>
           </li>
@@ -44,14 +40,6 @@
           <li class="nav-item">
             <a class="nav-link" id="TabTareas" data-toggle="tab" role="tab" style="cursor: pointer;"
               (click)="PestTareas()"><b>Tareas</b></a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" id="TabSSOMA" data-toggle="tab" role="tab" style="cursor: pointer;"
-              (click)="PestSSOMA()"><b>Bitacora SSO-MA</b></a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" id="TabPac" data-toggle="tab" role="tab" style="cursor: pointer;"
-              (click)="PestCalidad()"><b>Bitacora Calidad</b></a>
           </li>
           <li class="nav-item">
             <a class="nav-link" id="TabControlAvance" data-toggle="tab" role="tab" style="cursor: pointer;"
@@ -65,63 +53,100 @@
         <br>
 
         <!-- SEGUIMIENTO -->
-        <div class="row" *ngIf="rowSeguimiento">
-          <div class="col-lg-7">
-            <app-seguimiento (ActualizarSubProy)="ActualizaSP()" [idEtapa]="idEtapa" [soloLectura]="esCliente"></app-seguimiento>
-          </div>
-          <div class="col-lg-5">
-            <app-archios-estandar [perfiles]="perfilesUsuario" [soloLectura]="esCliente"></app-archios-estandar>
-          </div>
-        </div>
-
-        <!-- BITACORA DOC -->
-        <div class="row" *ngIf="rowBitDoc">
-          <div class="col-lg-5">
-            <app-bitacora [TipoBitacora]="1" [soloLectura]="esCliente" (ConseguirBitacoras)="ActualizaDoc()"></app-bitacora>
-          </div>
-          <div class="col-lg-7" *ngIf="verDoc">
-            <app-ver-bitacora [TipoBitacora]="1" [soloLectura]="esCliente"></app-ver-bitacora>
-          </div>
-          <div class="col-lg-7" *ngIf="!verDoc">
-            <div class="loader animated fadeIn handle">
-              <span class="spinner">
-                <i class="fa fa-spinner fa-spin"></i>
-              </span>
+        <div class="seguimiento-row" *ngIf="rowSeguimiento">
+          <div class="seguimiento-layout">
+            <div class="seguimiento-etapas">
+              <app-seguimiento (ActualizarSubProy)="ActualizaSP()" [idEtapa]="idEtapa" [soloLectura]="esCliente"></app-seguimiento>
+              <app-archios-estandar [perfiles]="perfilesUsuario" [soloLectura]="esCliente"></app-archios-estandar>
             </div>
-          </div>
-        </div>
 
-        <!-- SSOMA -->
-        <div class="row" *ngIf="rowSSOMA">
-          <div class="col-lg-5">
-            <app-bitacora [TipoBitacora]="2" [soloLectura]="esCliente" (ConseguirBitacoras)="ActualizaSSOMA()"></app-bitacora>
-          </div>
-          <div class="col-lg-7" *ngIf="verSSOMA">
-            <app-ver-bitacora [TipoBitacora]="2" [soloLectura]="esCliente"></app-ver-bitacora>
-          </div>
-          <div class="col-lg-7" *ngIf="!verSSOMA">
-            <div class="loader animated fadeIn handle">
-              <span class="spinner">
-                <i class="fa fa-spinner fa-spin"></i>
-              </span>
-            </div>
-          </div>
-        </div>
+            <section class="widget bitacora-selector">
+              <header>
+                <h5><strong>Bitácoras</strong></h5>
+              </header>
+              <div class="widget-body">
+                
+                <div class="bitacora-tabs" role="tablist" aria-label="Tipos de bitácora">
+                <button type="button" class="bitacora-tab" role="tab"
+                  [attr.aria-selected]="bitacoraSeleccionada === 1" [class.active]="bitacoraSeleccionada === 1"
+                  (click)="PestBitDoc()">
+                  <i class="fa fa-book" aria-hidden="true"></i>
+                  Bitácora Proyecto
+                </button>
+                <button type="button" class="bitacora-tab" role="tab"
+                  [attr.aria-selected]="bitacoraSeleccionada === 2" [class.active]="bitacoraSeleccionada === 2"
+                  (click)="PestSSOMA()">
+                  <i class="fa fa-shield" aria-hidden="true"></i>
+                  Bitácora SSO-MA
+                </button>
+                <button type="button" class="bitacora-tab" role="tab"
+                  [attr.aria-selected]="bitacoraSeleccionada === 3" [class.active]="bitacoraSeleccionada === 3"
+                  (click)="PestCalidad()">
+                  <i class="fa fa-check-circle" aria-hidden="true"></i>
+                  Bitácora Calidad
+                </button>
+                </div>
 
-        <!-- PAC -->
-        <div class="row" *ngIf="rowPac">
-          <div class="col-lg-5">
-            <app-bitacora [TipoBitacora]="3" [soloLectura]="esCliente" (ConseguirBitacoras)="ActualizaPac()"></app-bitacora>
-          </div>
-          <div class="col-lg-7" *ngIf="verPac">
-            <app-ver-bitacora [TipoBitacora]="3" [soloLectura]="esCliente"></app-ver-bitacora>
-          </div>
-          <div class="col-lg-7" *ngIf="!verPac">
-            <div class="loader animated fadeIn handle">
-              <span class="spinner">
-                <i class="fa fa-spinner fa-spin"></i>
-              </span>
-            </div>
+                <div class="bitacora-detalle" *ngIf="bitacoraSeleccionada === 1">
+                  <header class="bitacora-panel-header">
+                    <div class="bitacora-panel-title">
+                      <span><i class="fa fa-pencil-square-o" aria-hidden="true"></i> Nueva entrada</span>
+                      <small>{{SubProyecto.nombreSubProyecto}}</small>
+                    </div>
+                    <button type="button" class="bitacora-form-toggle" [attr.aria-expanded]="mostrarFormularioBitacora"
+                      [attr.aria-label]="mostrarFormularioBitacora ? 'Ocultar formulario' : 'Mostrar formulario'"
+                      [title]="mostrarFormularioBitacora ? 'Ocultar formulario' : 'Mostrar formulario'"
+                      (click)="mostrarFormularioBitacora = !mostrarFormularioBitacora">
+                      <i class="fa" [ngClass]="mostrarFormularioBitacora ? 'fa-chevron-up' : 'fa-chevron-down'"
+                        aria-hidden="true"></i>
+                    </button>
+                  </header>
+                  <app-bitacora *ngIf="mostrarFormularioBitacora" [TipoBitacora]="1" [soloLectura]="esCliente"
+                    [ocultarEncabezado]="true"
+                    (ConseguirBitacoras)="ActualizaDoc()"></app-bitacora>
+                  <app-ver-bitacora *ngIf="verDoc" [TipoBitacora]="1" [soloLectura]="esCliente"></app-ver-bitacora>
+                </div>
+                <div class="bitacora-detalle" *ngIf="bitacoraSeleccionada === 2">
+                  <header class="bitacora-panel-header">
+                    <div class="bitacora-panel-title">
+                      <span><i class="fa fa-pencil-square-o" aria-hidden="true"></i> Nueva entrada</span>
+                      <small>{{SubProyecto.nombreSubProyecto}}</small>
+                    </div>
+                    <button type="button" class="bitacora-form-toggle" [attr.aria-expanded]="mostrarFormularioBitacora"
+                      [attr.aria-label]="mostrarFormularioBitacora ? 'Ocultar formulario' : 'Mostrar formulario'"
+                      [title]="mostrarFormularioBitacora ? 'Ocultar formulario' : 'Mostrar formulario'"
+                      (click)="mostrarFormularioBitacora = !mostrarFormularioBitacora">
+                      <i class="fa" [ngClass]="mostrarFormularioBitacora ? 'fa-chevron-up' : 'fa-chevron-down'"
+                        aria-hidden="true"></i>
+                    </button>
+                  </header>
+                  <app-bitacora *ngIf="mostrarFormularioBitacora" [TipoBitacora]="2" [soloLectura]="esCliente"
+                    [ocultarEncabezado]="true"
+                    (ConseguirBitacoras)="ActualizaSSOMA()"></app-bitacora>
+                  <app-ver-bitacora *ngIf="verSSOMA" [TipoBitacora]="2" [soloLectura]="esCliente"></app-ver-bitacora>
+                </div>
+                <div class="bitacora-detalle" *ngIf="bitacoraSeleccionada === 3">
+                  <header class="bitacora-panel-header">
+                    <div class="bitacora-panel-title">
+                      <span><i class="fa fa-pencil-square-o" aria-hidden="true"></i> Nueva entrada</span>
+                      <small>{{SubProyecto.nombreSubProyecto}}</small>
+                    </div>
+                    <button type="button" class="bitacora-form-toggle" [attr.aria-expanded]="mostrarFormularioBitacora"
+                      [attr.aria-label]="mostrarFormularioBitacora ? 'Ocultar formulario' : 'Mostrar formulario'"
+                      [title]="mostrarFormularioBitacora ? 'Ocultar formulario' : 'Mostrar formulario'"
+                      (click)="mostrarFormularioBitacora = !mostrarFormularioBitacora">
+                      <i class="fa" [ngClass]="mostrarFormularioBitacora ? 'fa-chevron-up' : 'fa-chevron-down'"
+                        aria-hidden="true"></i>
+                    </button>
+                  </header>
+                  <app-bitacora *ngIf="mostrarFormularioBitacora" [TipoBitacora]="3" [soloLectura]="esCliente"
+                    [ocultarEncabezado]="true"
+                    (ConseguirBitacoras)="ActualizaPac()"></app-bitacora>
+                  <app-ver-bitacora *ngIf="verPac" [TipoBitacora]="3" [soloLectura]="esCliente"></app-ver-bitacora>
+                </div>
+              </div>
+            </section>
+
           </div>
         </div>
 
