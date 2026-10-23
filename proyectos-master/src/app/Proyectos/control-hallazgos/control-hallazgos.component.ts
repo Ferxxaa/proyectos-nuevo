@@ -1057,14 +1057,14 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
   /** Muestra el diálogo para definir una clave nueva (dos veces) y la guarda como hash + salt. */
   private crearClaveGerencia(esCambio: boolean = false): Promise<boolean> {
-    return Swal.fire({
+    const promesa = Swal.fire({
       title: esCambio ? 'Nueva clave' : 'Definir clave',
       html:
         '<p style="font-size:13px;margin-bottom:10px">' +
         (esCambio ? 'Ingresa la nueva clave.' : 'Es la primera vez que se usa el candado. Define la clave que solo el sub-gerente conocerá.') +
         '</p>' +
-        '<input id="swal-clave-1" type="password" class="swal2-input" placeholder="Clave (mín. 6 caracteres)" autocomplete="new-password">' +
-        '<input id="swal-clave-2" type="password" class="swal2-input" placeholder="Repetir clave" autocomplete="new-password">',
+        this.htmlCampoClave('swal-clave-1', 'Clave (mín. 6 caracteres)', 'new-password') +
+        this.htmlCampoClave('swal-clave-2', 'Repetir clave', 'new-password'),
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'Guardar clave',
@@ -1082,7 +1082,10 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
         }
         return c1;
       }
-    }).then((result: any) => {
+    });
+    setTimeout(() => this.activarOjosClave(), 0);
+
+    return promesa.then((result: any) => {
       if (!result || !result.value) { return false; }
       return this.guardarClave(result.value).then(() => {
         Swal.fire({
@@ -1120,25 +1123,29 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     };
     document.addEventListener('click', onClickOlvide, true);
 
-    return Swal.fire({
+    const promesa = Swal.fire({
       title: titulo,
-      text: 'Ingresa la clave',
-      input: 'password',
-      inputPlaceholder: 'Clave',
-      inputAttributes: { autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off' },
+      html:
+        '<p style="font-size:14px;margin-bottom:0">Ingresa la clave</p>' +
+        this.htmlCampoClave('swal-clave-validar', 'Clave', 'off'),
+      focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'Confirmar',
       cancelButtonText: 'Cancelar',
       footer: '<a href="#" id="swal-olvide-clave" style="font-size:12px">¿Olvidaste la clave?</a>',
-      preConfirm: (valor: string) => {
-        const hash = this.sha256(config.salt + ':' + (valor || ''));
+      preConfirm: () => {
+        const valor = (document.getElementById('swal-clave-validar') as HTMLInputElement).value || '';
+        const hash = this.sha256(config.salt + ':' + valor);
         if (hash !== config.hash) {
           Swal.showValidationMessage('Clave incorrecta');
           return false;
         }
         return true;
       }
-    }).then((result: any) => {
+    });
+    setTimeout(() => this.activarOjosClave(), 0);
+
+    return promesa.then((result: any) => {
       document.removeEventListener('click', onClickOlvide, true);
       if (pidioRecuperar) {
         // Después de recuperar, el usuario vuelve a intentar la acción con su clave nueva
@@ -1150,6 +1157,69 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
       document.removeEventListener('click', onClickOlvide, true);
       return false;
     });
+  }
+
+  // ==========================================================
+  // Campo de clave con "ojito" para ver lo escrito
+  // (estilos inline porque el popup de SweetAlert queda fuera del CSS del componente)
+  // ==========================================================
+
+  private htmlCampoClave(id: string, placeholder: string, autocomplete: string): string {
+    return '<div style="position:relative;width:100%;margin:1em auto 0">' +
+      '<input id="' + id + '" type="password" class="swal2-input hz-clave-input" placeholder="' + placeholder + '"' +
+      ' autocomplete="' + autocomplete + '" autocapitalize="off" autocorrect="off" spellcheck="false"' +
+      ' style="margin:0;width:100%;padding-right:48px">' +
+      '<button type="button" class="hz-clave-ojo" data-target="' + id + '" title="Mostrar clave" aria-label="Mostrar clave"' +
+      ' style="position:absolute;top:50%;right:8px;transform:translateY(-50%);width:34px;height:34px;padding:0;' +
+      'border:none;border-radius:50%;background:transparent;color:#8a97a5;font-size:17px;cursor:pointer;' +
+      'display:inline-flex;align-items:center;justify-content:center;box-shadow:none;outline:none">' +
+      '<i class="fa fa-eye"></i></button>' +
+      '</div>';
+  }
+
+  /** Conecta los ojitos del popup abierto. enfocarPrimero=false deja el foco donde SweetAlert lo puso. */
+  private activarOjosClave(enfocarPrimero: boolean = true): void {
+    const popup: HTMLElement = (Swal.getPopup && Swal.getPopup()) || document.body;
+    const botones = popup.querySelectorAll('.hz-clave-ojo');
+
+    Array.prototype.forEach.call(botones, (btn: HTMLButtonElement) => {
+      if (btn.getAttribute('data-listo') === '1') { return; }
+      btn.setAttribute('data-listo', '1');
+
+      const input = document.getElementById(btn.getAttribute('data-target')) as HTMLInputElement;
+      if (!input) { return; }
+
+      // Evita que el botón le quite el foco al input
+      btn.addEventListener('mousedown', (e: Event) => e.preventDefault());
+      btn.addEventListener('mouseenter', () => { btn.style.background = '#eef6fb'; });
+      btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
+
+      btn.addEventListener('click', () => {
+        const mostrar = input.type === 'password';
+        input.type = mostrar ? 'text' : 'password';
+        const icono = btn.querySelector('i');
+        if (icono) { icono.className = mostrar ? 'fa fa-eye-slash' : 'fa fa-eye'; }
+        btn.style.color = mostrar ? '#026AA7' : '#8a97a5';
+        const titulo = mostrar ? 'Ocultar clave' : 'Mostrar clave';
+        btn.title = titulo;
+        btn.setAttribute('aria-label', titulo);
+        input.focus();
+        try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) { }
+      });
+
+      // Enter confirma, igual que el input nativo de SweetAlert
+      input.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          Swal.clickConfirm();
+        }
+      });
+    });
+
+    if (enfocarPrimero) {
+      const primero = popup.querySelector('.hz-clave-input') as HTMLInputElement;
+      if (primero) { setTimeout(() => primero.focus(), 50); }
+    }
   }
 
   // ==========================================================
@@ -1253,14 +1323,14 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   private pedirCodigoYNuevaClave(correo: string): Promise<any> {
-    return Swal.fire({
+    const promesa = Swal.fire({
       title: 'Restablecer clave',
       html:
         '<p style="font-size:13px;margin-bottom:10px">Ingresa el código que enviamos a <strong>' +
         this.enmascararCorreo(correo) + '</strong> y tu nueva clave.</p>' +
         '<input id="swal-codigo" type="text" class="swal2-input" placeholder="Código del correo" autocomplete="off" style="text-transform:uppercase;letter-spacing:3px">' +
-        '<input id="swal-nueva-1" type="password" class="swal2-input" placeholder="Nueva clave (mín. 6 caracteres)" autocomplete="new-password">' +
-        '<input id="swal-nueva-2" type="password" class="swal2-input" placeholder="Repetir nueva clave" autocomplete="new-password">',
+        this.htmlCampoClave('swal-nueva-1', 'Nueva clave (mín. 6 caracteres)', 'new-password') +
+        this.htmlCampoClave('swal-nueva-2', 'Repetir nueva clave', 'new-password'),
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'Guardar clave',
@@ -1282,7 +1352,14 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
           return c1;
         });
       }
-    }).then((result: any) => {
+    });
+    setTimeout(() => {
+      this.activarOjosClave(false);
+      const codigo = document.getElementById('swal-codigo') as HTMLInputElement;
+      if (codigo) { setTimeout(() => codigo.focus(), 60); }
+    }, 0);
+
+    return promesa.then((result: any) => {
       if (!result || !result.value) { return; }
       return this.guardarClave(result.value).then(() =>
         firestoreDB.collection('hallazgosConfig').doc(DOC_RECUPERACION_CLAVE).delete()

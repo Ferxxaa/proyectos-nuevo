@@ -2,6 +2,8 @@ import { Component, OnInit, OnDestroy, Input, ViewEncapsulation, OnChanges, Simp
 import { sUsuario } from '../../services/sUsuario.service';
 import { sVis_UsuarioPersona } from '../../services/sVis_UsuarioPersona.service';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
+import { sPerfil } from '../../services/sPerfil.service';
+import { sMail } from '../../services/sMail.service';
 import { firestoreDB, storageRef } from '../../firebase-init';
 import * as XlsxPopulate from 'xlsx-populate';
 import * as JSZip from 'jszip';
@@ -162,11 +164,21 @@ interface GrupoPlantillaPersonalizada extends GrupoPlantillas {
   personalizada: true;
 }
 
+/** Documento de controlAvanceConfig con el código de recuperación de la clave de edición (solo hash). */
+const DOC_RECUPERACION_CLAVE_AVANCE = '_recuperacionClaveEdicion';
+/** Credenciales de EmailJS (las mismas que usa Control de Hallazgos). */
+const EMAILJS_SERVICE_ID = 'service_s0l9tnp';
+const EMAILJS_TEMPLATE_ID = 'template_ud73y7s';
+const EMAILJS_PUBLIC_KEY = 'eU69rwXxt1sceIIXr';
+const MINUTOS_VIGENCIA_CODIGO = 15;
+const MAX_INTENTOS_CODIGO = 5;
+const SEGUNDOS_ENTRE_ENVIOS = 60;
+
 @Component({
   selector: 'app-control-avance',
   templateUrl: './control-avance.component.html',
   styleUrls: ['./control-avance.component.css'],
-  providers: [sUsuario, sVis_UsuarioPersona, sUsuariosPerfiles],
+  providers: [sUsuario, sVis_UsuarioPersona, sUsuariosPerfiles, sPerfil, sMail],
   encapsulation: ViewEncapsulation.None
 })
 export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
@@ -205,6 +217,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   subProyectoActual: any = null;
   esGerenciaConfirmado: boolean = false;
+  /** Solo el perfil SUB-GERENTE puede recuperar la clave de edición (se detecta por nombre de perfil, igual que en Hallazgos). */
+  esSubGerente: boolean = false;
+  private idsPerfilesUsuario: number[] = [];
+  private idsPerfilesSubGerente: number[] = [];
 
   avanceTotalProgramado: number = 0;
   avanceTotalReal: number = 0;
@@ -381,6 +397,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     private _sUsuario: sUsuario,
     private _sVisUsuarioPersona: sVis_UsuarioPersona,
     private _sUsuariosPerfiles: sUsuariosPerfiles,
+    private _sPerfil: sPerfil,
+    private _sMail: sMail,
     private _ngZone: NgZone,
     private _elementRef: ElementRef
   ) {
@@ -498,16 +516,22 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private async solicitarClaveEdicion(config: any): Promise<boolean> {
-    const resultado = await Swal.fire({
+    let pidioRecuperar = false;
+
+    const promesa = Swal.fire({
       title: 'Habilitar edición',
-      text: 'Ingresa la clave compartida para modificar el Control de Avance.',
-      input: 'password',
-      inputPlaceholder: 'Clave',
-      inputAttributes: { autocapitalize: 'off', autocorrect: 'off', autocomplete: 'current-password' },
+      html:
+        '<p>Ingresa la clave compartida para modificar el Control de Avance.</p>' +
+        this.htmlCampoClave('swal-control-avance-clave', 'Clave', 'current-password') +
+        '<div class="ca-clave-recuperar">' +
+        '<a href="#" id="swal-control-avance-recuperar" class="ca-clave-recuperar-link">¿Olvidaste la clave?</a>' +
+        '</div>',
+      focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'Desbloquear',
       cancelButtonText: 'Cancelar',
-      preConfirm: async (clave: string) => {
+      preConfirm: async () => {
+        const clave = (document.getElementById('swal-control-avance-clave') as HTMLInputElement).value || '';
         if (typeof config.clave !== 'string') {
           Swal.showValidationMessage('La clave anterior debe reemplazarse. Cierra este cuadro y vuelve a habilitar la edición.');
           return false;
@@ -519,16 +543,390 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         return true;
       }
     });
+
+    // Se conecta después de abrir (no depende de onOpen/didOpen, que cambian según la versión de SweetAlert)
+    setTimeout(() => {
+      this.activarOjosClave();
+      const link = document.getElementById('swal-control-avance-recuperar');
+      if (link) {
+        link.addEventListener('click', (e: Event) => {
+          e.preventDefault();
+          pidioRecuperar = true;
+          Swal.close();
+        });
+      }
+    }, 0);
+
+    const resultado = await promesa;
+
+    if (pidioRecuperar) {
+      const restablecida = await this.iniciarRecuperacionClave();
+      if (!restablecida) { return false; }
+      // Con la clave nueva ya guardada, se vuelve a pedir para desbloquear
+      const configActual = (await this.obtenerConfigClaveEdicion()) || config;
+      return this.solicitarClaveEdicion(configActual);
+    }
+
     return !!(resultado && resultado.value === true);
   }
 
+  // ==========================================================
+  // Recuperación de clave por correo (misma lógica que Control de Hallazgos)
+  // ==========================================================
+
+  /** Envía un código al correo del sub-gerente y le deja definir una clave nueva. Devuelve true si se restableció. */
+  private async iniciarRecuperacionClave(): Promise<boolean> {
+    if (!this.esSubGerente) {
+      await Swal.fire({
+        icon: 'info',
+        title: 'Recuperar clave',
+        text: 'Solo el Sub-Gerente puede recuperar la clave de edición. Solicítasela a él.',
+        confirmButtonText: 'Entendido'
+      });
+      return false;
+    }
+
+    try {
+      const correoDestino = await this.obtenerCorreoUsuarioActual();
+      if (!correoDestino) {
+        await Swal.fire('Sin correo', 'Tu usuario no tiene un correo registrado. Pide que lo agreguen en Usuarios.', 'warning');
+        return false;
+      }
+
+      const doc = await firestoreDB.collection('controlAvanceConfig').doc(DOC_RECUPERACION_CLAVE_AVANCE).get();
+      const data = doc.exists ? doc.data() : null;
+      const ahora = Date.now();
+      const enviadoHace = data && data.fechaEnvio ? (ahora - new Date(data.fechaEnvio).getTime()) / 1000 : Infinity;
+      const vigente = data && data.expira && new Date(data.expira).getTime() > ahora &&
+        Number(data.idUsuario) === Number(this.usuario && this.usuario.idUsuario);
+
+      // Si ya hay un código recién enviado, no se reenvía: se va directo a ingresarlo
+      if (vigente && enviadoHace < SEGUNDOS_ENTRE_ENVIOS) {
+        return this.pedirCodigoYNuevaClave(correoDestino);
+      }
+
+      const confirmar = await Swal.fire({
+        title: 'Recuperar clave',
+        html: 'Te enviaremos un código de verificación a<br><strong>' + this.enmascararCorreo(correoDestino) + '</strong>',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Enviar código',
+        cancelButtonText: 'Cancelar'
+      });
+      if (!confirmar || !confirmar.value) { return false; }
+
+      await this.enviarCodigoRecuperacion(correoDestino);
+      return this.pedirCodigoYNuevaClave(correoDestino);
+    } catch (error) {
+      await Swal.fire('Error', 'No se pudo iniciar la recuperación: ' + this.getMensajeError(error), 'error');
+      return false;
+    }
+  }
+
+  private enviarCodigoRecuperacion(correo: string): Promise<any> {
+    const codigo = this.generarCodigoRecuperacion();
+    const salt = this.generarSalt();
+    const ahora = new Date();
+    const expira = new Date(ahora.getTime() + MINUTOS_VIGENCIA_CODIGO * 60000);
+    const nombre = this.getNombreUsuarioActual();
+    const ref = firestoreDB.collection('controlAvanceConfig').doc(DOC_RECUPERACION_CLAVE_AVANCE);
+
+    return ref.set({
+      codigoHash: this.sha256(salt + ':' + codigo),
+      salt: salt,
+      idUsuario: Number(this.usuario && this.usuario.idUsuario) || null,
+      fechaEnvio: ahora.toISOString(),
+      expira: expira.toISOString(),
+      intentos: 0
+    }).then(() => {
+      return this.enviarCorreoEmailJS({
+        to_email: correo,
+        nombre: nombre,
+        codigo: codigo,
+        minutos: String(MINUTOS_VIGENCIA_CODIGO)
+      }).catch((error: any) => {
+        // Si el correo no salió, se elimina el código para que pueda pedir otro al tiro
+        return ref.delete().then(() => { throw error; }, () => { throw error; });
+      });
+    });
+  }
+
+  /** Envía un correo con la API REST de EmailJS (sin instalar paquetes). */
+  private enviarCorreoEmailJS(params: { [clave: string]: string }): Promise<void> {
+    if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY.indexOf('TU_') === 0) {
+      return Promise.reject(new Error('Falta configurar la Public Key de EmailJS.'));
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', 'https://api.emailjs.com/api/v1.0/email/send', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error('EmailJS respondió ' + xhr.status + ': ' + (xhr.responseText || 'error desconocido')));
+        }
+      };
+      xhr.onerror = () => reject(new Error('No se pudo conectar con el servicio de correo.'));
+      xhr.send(JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        template_params: params
+      }));
+    });
+  }
+
+  private async pedirCodigoYNuevaClave(correo: string): Promise<boolean> {
+    const promesa = Swal.fire({
+      title: 'Restablecer clave',
+      html:
+        '<p style="font-size:13px;margin-bottom:10px">Ingresa el código que enviamos a <strong>' +
+        this.enmascararCorreo(correo) + '</strong> y la nueva clave.</p>' +
+        '<input id="swal-control-avance-codigo" type="text" class="swal2-input" placeholder="Código del correo" autocomplete="off" style="text-transform:uppercase;letter-spacing:3px">' +
+        this.htmlCampoClave('swal-control-avance-nueva-1', 'Nueva clave (mín. 8 caracteres)', 'new-password') +
+        this.htmlCampoClave('swal-control-avance-nueva-2', 'Repetir nueva clave', 'new-password'),
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar clave',
+      cancelButtonText: 'Cancelar',
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        const codigo = ((document.getElementById('swal-control-avance-codigo') as HTMLInputElement).value || '').trim().toUpperCase();
+        const c1 = (document.getElementById('swal-control-avance-nueva-1') as HTMLInputElement).value || '';
+        const c2 = (document.getElementById('swal-control-avance-nueva-2') as HTMLInputElement).value || '';
+        if (!codigo) { Swal.showValidationMessage('Ingresa el código'); return false; }
+        if (c1.length < 8) { Swal.showValidationMessage('La clave debe tener al menos 8 caracteres'); return false; }
+        if (c1 !== c2) { Swal.showValidationMessage('Las claves no coinciden'); return false; }
+
+        return this.validarCodigoRecuperacion(codigo).then((error: string) => {
+          if (error) {
+            Swal.showValidationMessage(error);
+            return false;
+          }
+          return c1;
+        });
+      }
+    });
+
+    setTimeout(() => {
+      this.activarOjosClave();
+      const codigo = document.getElementById('swal-control-avance-codigo') as HTMLInputElement;
+      if (codigo) { setTimeout(() => codigo.focus(), 60); }
+    }, 0);
+
+    const resultado = await promesa;
+    if (!resultado || !resultado.value) { return false; }
+
+    try {
+      await this.guardarClaveEdicion(resultado.value);
+      await firestoreDB.collection('controlAvanceConfig').doc(DOC_RECUPERACION_CLAVE_AVANCE).delete();
+      await Swal.fire({
+        icon: 'success',
+        title: 'Clave restablecida',
+        text: 'Ya puedes usar la nueva clave.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+      return true;
+    } catch (error) {
+      await Swal.fire('Error', 'No se pudo guardar la clave: ' + this.getMensajeError(error), 'error');
+      return false;
+    }
+  }
+
+  /** Devuelve '' si el código es válido, o el mensaje de error. */
+  private validarCodigoRecuperacion(codigo: string): Promise<string> {
+    const ref = firestoreDB.collection('controlAvanceConfig').doc(DOC_RECUPERACION_CLAVE_AVANCE);
+    return ref.get().then((doc: any) => {
+      const data = doc.exists ? doc.data() : null;
+      if (!data || !data.codigoHash) {
+        return 'No hay un código vigente. Solicita uno nuevo.';
+      }
+      if (Number(data.idUsuario) !== Number(this.usuario && this.usuario.idUsuario)) {
+        return 'Este código fue solicitado por otro usuario.';
+      }
+      if (new Date(data.expira).getTime() < Date.now()) {
+        return 'El código venció. Solicita uno nuevo.';
+      }
+      const intentos = Number(data.intentos) || 0;
+      if (intentos >= MAX_INTENTOS_CODIGO) {
+        return 'Demasiados intentos. Solicita un código nuevo.';
+      }
+      if (this.sha256(data.salt + ':' + codigo) !== data.codigoHash) {
+        return ref.update({ intentos: intentos + 1 }).then(() =>
+          'Código incorrecto (' + (MAX_INTENTOS_CODIGO - intentos - 1) + ' intentos restantes)'
+        );
+      }
+      return '';
+    }).catch((error: any) => 'No se pudo validar el código: ' + this.getMensajeError(error));
+  }
+
+  /** Obtiene el correo registrado (módulo Usuarios / sMail) de la persona del usuario conectado. */
+  private obtenerCorreoUsuarioActual(): Promise<string> {
+    const u = this.usuario || {};
+    const correoDirecto = u.direccionMail || u.email || u.correo || '';
+    const idPersona = Number(u.idPersona);
+    if (!idPersona) {
+      return Promise.resolve(correoDirecto);
+    }
+
+    const servicio: any = this._sMail;
+    let llamada: any = null;
+    if (typeof servicio.getMailbyidPersona === 'function') {
+      llamada = servicio.getMailbyidPersona(idPersona);
+    } else if (typeof servicio.getMailbyIdPersona === 'function') {
+      llamada = servicio.getMailbyIdPersona(idPersona);
+    } else if (typeof servicio.getMail === 'function') {
+      llamada = servicio.getMail();
+    }
+    if (!llamada) {
+      return Promise.resolve(correoDirecto);
+    }
+
+    return this.aPromesa(llamada).then((res: any) => {
+      const lista: any[] = Array.isArray(res) ? res : (res ? [res] : []);
+      const delUsuario = lista.filter((m: any) =>
+        m && Number(m.idPersona) === idPersona && m.activo !== false && !m.fechaRemocion && m.direccionMail
+      );
+      return delUsuario.length ? String(delUsuario[delUsuario.length - 1].direccionMail).trim() : correoDirecto;
+    }).catch(() => correoDirecto);
+  }
+
+  /** Convierte un Observable, Promise o jqXHR en Promise. */
+  private aPromesa(valor: any): Promise<any> {
+    if (valor && typeof valor.subscribe === 'function') {
+      return new Promise((resolve, reject) => {
+        const sub = valor.subscribe((r: any) => { resolve(r); setTimeout(() => sub && sub.unsubscribe && sub.unsubscribe()); }, reject);
+      });
+    }
+    if (valor && typeof valor.then === 'function') {
+      return new Promise((resolve, reject) => valor.then(resolve, reject));
+    }
+    return Promise.resolve(valor);
+  }
+
+  private generarCodigoRecuperacion(): string {
+    // Sin caracteres confusos (0/O, 1/I/L)
+    const alfabeto = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    const bytes = new Uint8Array(8);
+    const c: any = (window as any).crypto || (window as any).msCrypto;
+    if (c && c.getRandomValues) {
+      c.getRandomValues(bytes);
+    } else {
+      for (let i = 0; i < bytes.length; i++) { bytes[i] = Math.floor(Math.random() * 256); }
+    }
+    let codigo = '';
+    for (let i = 0; i < bytes.length; i++) { codigo += alfabeto.charAt(bytes[i] % alfabeto.length); }
+    return codigo;
+  }
+
+  private enmascararCorreo(correo: string): string {
+    const partes = (correo || '').split('@');
+    if (partes.length !== 2) { return this.escaparHtml(correo); }
+    const nombre = partes[0];
+    const visible = nombre.length <= 2 ? nombre.charAt(0) : nombre.substring(0, 2);
+    return this.escaparHtml(visible + '***@' + partes[1]);
+  }
+
+  private escaparHtml(texto: string): string {
+    return (texto || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  private getNombreUsuarioActual(): string {
+    const u = this.usuario || {};
+    return u.nombreUsuario || u.nombre || u.usuario || u.email || '';
+  }
+
+  private generarSalt(): string {
+    const bytes = new Uint8Array(16);
+    const c: any = (window as any).crypto || (window as any).msCrypto;
+    if (c && c.getRandomValues) {
+      c.getRandomValues(bytes);
+    } else {
+      for (let i = 0; i < bytes.length; i++) { bytes[i] = Math.floor(Math.random() * 256); }
+    }
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) { hex += ('0' + bytes[i].toString(16)).slice(-2); }
+    return hex;
+  }
+
+  /** SHA-256 síncrono (UTF-8) — sin dependencias, compatible con navegadores antiguos. */
+  private sha256(texto: string): string {
+    const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n));
+    const K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+    const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    // Codificación UTF-8 manual (sin unescape/TextEncoder)
+    const b: number[] = [];
+    for (let i = 0; i < texto.length; i++) {
+      let cp = texto.charCodeAt(i);
+      if (cp >= 0xd800 && cp <= 0xdbff && i + 1 < texto.length) {
+        const lo = texto.charCodeAt(i + 1);
+        if (lo >= 0xdc00 && lo <= 0xdfff) {
+          cp = 0x10000 + ((cp - 0xd800) << 10) + (lo - 0xdc00);
+          i++;
+        }
+      }
+      if (cp < 0x80) {
+        b.push(cp);
+      } else if (cp < 0x800) {
+        b.push(0xc0 | (cp >> 6), 0x80 | (cp & 0x3f));
+      } else if (cp < 0x10000) {
+        b.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+      } else {
+        b.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+      }
+    }
+    const bitLen = b.length * 8;
+    b.push(0x80);
+    while (b.length % 64 !== 56) { b.push(0); }
+    const high = Math.floor(bitLen / 0x100000000);
+    for (let i = 3; i >= 0; i--) { b.push((high >>> (i * 8)) & 0xff); }
+    for (let i = 3; i >= 0; i--) { b.push((bitLen >>> (i * 8)) & 0xff); }
+
+    const w = new Array(64);
+    for (let o = 0; o < b.length; o += 64) {
+      for (let t = 0; t < 16; t++) {
+        w[t] = (b[o + t * 4] << 24) | (b[o + t * 4 + 1] << 16) | (b[o + t * 4 + 2] << 8) | b[o + t * 4 + 3];
+      }
+      for (let t = 16; t < 64; t++) {
+        const s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);
+        const s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
+        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) | 0;
+      }
+      let a = H[0], bb = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (let t = 0; t < 64; t++) {
+        const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        const ch = (e & f) ^ (~e & g);
+        const t1 = (h + S1 + ch + K[t] + w[t]) | 0;
+        const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+        const mj = (a & bb) ^ (a & c) ^ (bb & c);
+        const t2 = (S0 + mj) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = bb; bb = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + bb) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map((x: number) => ('00000000' + (x >>> 0).toString(16)).slice(-8)).join('');
+  }
+
   private async solicitarNuevaClaveEdicion(): Promise<string | null> {
-    const resultado = await Swal.fire({
+    const promesa = Swal.fire({
       title: 'Configurar clave de edición',
       html:
         '<p>Define la clave compartida para editar todos los controles de avance.</p>' +
-        '<input id="swal-control-avance-clave-1" type="password" class="swal2-input" placeholder="Clave (mín. 8 caracteres)" autocomplete="new-password">' +
-        '<input id="swal-control-avance-clave-2" type="password" class="swal2-input" placeholder="Repetir clave" autocomplete="new-password">',
+        this.htmlCampoClave('swal-control-avance-clave-1', 'Clave (mín. 8 caracteres)', 'new-password') +
+        this.htmlCampoClave('swal-control-avance-clave-2', 'Repetir clave', 'new-password'),
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'Guardar clave',
@@ -547,7 +945,59 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         return primera;
       }
     });
+    setTimeout(() => this.activarOjosClave(), 0);
+    const resultado = await promesa;
     return resultado && resultado.value ? resultado.value : null;
+  }
+
+  // Campo de clave con botón "ojito" para mostrar/ocultar lo escrito
+  private htmlCampoClave(id: string, placeholder: string, autocomplete: string): string {
+    return '<div class="ca-clave-wrap">' +
+      '<input id="' + id + '" type="password" class="swal2-input ca-clave-input" placeholder="' + placeholder + '"' +
+      ' autocomplete="' + autocomplete + '" autocapitalize="off" autocorrect="off" spellcheck="false">' +
+      '<button type="button" class="ca-clave-ojo" data-target="' + id + '" title="Mostrar clave" aria-label="Mostrar clave">' +
+      '<i class="fa fa-eye"></i></button>' +
+      '</div>';
+  }
+
+  private activarOjosClave(): void {
+    const popup: HTMLElement = (Swal.getPopup && Swal.getPopup()) || document.body;
+    const botones = popup.querySelectorAll('.ca-clave-ojo');
+
+    Array.prototype.forEach.call(botones, (btn: HTMLButtonElement) => {
+      if (btn.getAttribute('data-listo') === '1') { return; }
+      btn.setAttribute('data-listo', '1');
+
+      const input = document.getElementById(btn.getAttribute('data-target')) as HTMLInputElement;
+      if (!input) { return; }
+
+      // Evita que el botón le quite el foco al input
+      btn.addEventListener('mousedown', (e: Event) => e.preventDefault());
+
+      btn.addEventListener('click', () => {
+        const mostrar = input.type === 'password';
+        input.type = mostrar ? 'text' : 'password';
+        const icono = btn.querySelector('i');
+        if (icono) { icono.className = mostrar ? 'fa fa-eye-slash' : 'fa fa-eye'; }
+        const titulo = mostrar ? 'Ocultar clave' : 'Mostrar clave';
+        btn.title = titulo;
+        btn.setAttribute('aria-label', titulo);
+        if (mostrar) { btn.classList.add('activo'); } else { btn.classList.remove('activo'); }
+        input.focus();
+        try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) { }
+      });
+
+      // Enter confirma, igual que el input nativo de SweetAlert
+      input.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          Swal.clickConfirm();
+        }
+      });
+    });
+
+    const primero = popup.querySelector('.ca-clave-input:not([readonly])') as HTMLInputElement;
+    if (primero) { setTimeout(() => primero.focus(), 50); }
   }
 
   private async guardarClaveEdicion(clave: string, soloSiNoExiste: boolean = false): Promise<void> {
@@ -649,6 +1099,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   private cargarPermisoGerencia() {
     if (!this.usuario || !this.usuario.idUsuario) {
       this.esGerenciaConfirmado = false;
+      this.idsPerfilesUsuario = [];
+      this.actualizarEsSubGerente();
       return;
     }
 
@@ -659,11 +1111,48 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         this.esGerenciaConfirmado = listaPerfiles.some((perfil: any) =>
           perfil.idPerfil == 1 || perfil.idPerfil == 2 || perfil.idPerfil == 11
         );
+        this.idsPerfilesUsuario = listaPerfiles
+          .filter((perfil: any) => perfil.activo !== false && !perfil.fechaRemocion)
+          .map((perfil: any) => Number(perfil.idPerfil));
+        this.actualizarEsSubGerente();
       },
       () => {
         this.esGerenciaConfirmado = false;
+        this.idsPerfilesUsuario = [];
+        this.actualizarEsSubGerente();
       }
     );
+
+    // Se busca el perfil SUB-GERENTE por nombre (no por id fijo) en el maestro de perfiles
+    this._sPerfil.getPerfil().subscribe(
+      (perfiles: any) => {
+        const lista = Array.isArray(perfiles) ? perfiles : [];
+        this.idsPerfilesSubGerente = lista
+          .filter((perfil: any) => this.esNombrePerfilSubGerente(perfil.nombrePerfil))
+          .map((perfil: any) => Number(perfil.idPerfil));
+        this.actualizarEsSubGerente();
+      },
+      () => {
+        this.idsPerfilesSubGerente = [];
+        this.actualizarEsSubGerente();
+      }
+    );
+  }
+
+  private esNombrePerfilSubGerente(nombre: string): boolean {
+    // "SUB-GERENTE", "Sub Gerente", "Subgerente", "SUB_GERENTE"...
+    const limpio = this.normalizarTextoClave(nombre).replace(/[^A-Z]/g, '');
+    return limpio === 'SUBGERENTE' || limpio.indexOf('SUBGERENTE') === 0;
+  }
+
+  private actualizarEsSubGerente() {
+    this.esSubGerente = this.idsPerfilesUsuario.some((id: number) => this.idsPerfilesSubGerente.indexOf(id) >= 0);
+  }
+
+  private normalizarTextoClave(texto: string): string {
+    let t = (texto || '').toString();
+    try { t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) { }
+    return t.trim().toUpperCase();
   }
 
   ngOnChanges(changes: SimpleChanges) {

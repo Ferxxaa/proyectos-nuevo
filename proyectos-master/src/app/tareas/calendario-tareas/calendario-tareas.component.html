@@ -1,111 +1,385 @@
 <app-main></app-main>
 
 <div class="content-wrap">
-  <main id="content" role="main"class="content">
-    <br>
-    <div class="widget-body">
-      <div class="row">
-          <div class="col-xl-8">
-              <h1 class="page-title">{{Fecha | date:'MMMM'}} {{Fecha | date:'yyyy'}} - <b>{{Fecha | date:'EEEE'}}</b></h1>
-          </div>
-          <div class="col-xl-4 text-right" id="indicadorPermisos" style="display: none;">
-              <div class="alert alert-info" style="margin: 0; padding: 0.5rem;">
-                  <i class="fa fa-crown"></i> <strong>Vista Gerencial</strong>
-                  <br><small>Puede ver todas las tareas del sistema</small>
-              </div>
-          </div>
-      </div>
-      
-      <div class="filtros-calendario">
-        <div class="row">
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="filtroNombre" class="form-control-label">Buscar por Tarea:</label>
-              <input type="text" id="filtroNombre" class="form-control" placeholder="Escriba el nombre de la tarea...">
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="filtroResponsable" class="form-control-label">Buscar por Responsable:</label>
-              <input type="text" id="filtroResponsable" class="form-control" placeholder="Escriba el nombre del responsable...">
+  <main id="content" role="main" class="content">
+    <div class="cal-page">
+
+      <!-- ================= HEADER ================= -->
+      <header class="cal-topbar">
+        <div class="cal-brand">
+          <span class="cal-brand-icon"><i class="fa fa-calendar"></i></span>
+          <div>
+            <div class="cal-brand-title">Calendario de Tareas</div>
+            <div class="cal-brand-sub">
+              <span><b>{{totalVisibles}}</b> tareas</span>
+              <span class="cal-dot-sep">·</span>
+              <span [class.cal-brand-alert]="totalVencidas > 0"><b>{{totalVencidas}}</b> vencidas</span>
+              <span class="cal-dot-sep">·</span>
+              <span><b>{{sinFecha.length}}</b> sin fecha</span>
             </div>
           </div>
         </div>
-       
-        <div class="row">
-          <div class="col-md-12">
-            <button class="btn btn-secondary btn-sm" id="limpiarFiltros">
-              <i class="fa fa-times"></i> Limpiar Filtros
+        <div class="cal-topbar-actions">
+          <button type="button" class="cal-btn cal-btn-glass" (click)="cargarDatos()" [disabled]="cargando" title="Actualizar">
+            <i class="fa fa-refresh" [class.fa-spin]="cargando"></i>
+          </button>
+          <a class="cal-btn cal-btn-white" [routerLink]="['/Ver-Tareas']">
+            <i class="fa fa-list-ul"></i> Mis Tareas
+          </a>
+        </div>
+      </header>
+
+      <!-- ================= TOOLBAR: navegación + vista + búsqueda ================= -->
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button type="button" class="cal-btn cal-btn-ghost" (click)="irAHoy()">Hoy</button>
+          <div class="cal-nav-arrows">
+            <button type="button" class="cal-icon-btn" (click)="anterior()" title="Anterior"><i class="fa fa-angle-left"></i></button>
+            <button type="button" class="cal-icon-btn" (click)="siguiente()" title="Siguiente"><i class="fa fa-angle-right"></i></button>
+          </div>
+          <h2 class="cal-periodo">{{tituloPeriodo}}</h2>
+        </div>
+
+        <div class="cal-toolbar-right">
+          <div class="cal-search">
+            <i class="fa fa-search"></i>
+            <input type="text" placeholder="Buscar tarea..." [(ngModel)]="textoBusqueda" (input)="onTextoBusqueda()">
+            <button type="button" class="cal-search-clear" *ngIf="textoBusqueda" (click)="textoBusqueda = ''; reconstruir()">
+              <i class="fa fa-times"></i>
             </button>
-            <button class="btn btn-info btn-sm ml-2" id="filtroMisTareas">
-              <i class="fa fa-user"></i> Tareas Propias
-            </button>
-            <button class="btn btn-success btn-sm ml-2" id="filtroTareasCreadas">
-              <i class="fa fa-plus-circle"></i> Tareas Asignadas
-            </button>
-            <button class="btn btn-warning btn-sm ml-2" id="filtroVistaGlobal">
-              <i class="fa fa-globe"></i> Vista Global
-            </button>
-            <!-- Select oculto para el filtro de tipo de usuario, necesario para la lógica de los botones -->
-            <select id="filtroTipoUsuario" style="display:none">
-              <option value="propias">Tareas Propias</option>
-              <option value="creadas">Tareas Asignadas</option>
-              <option value="todas">Vista Global</option>
-            </select>
-            <!-- Botones de estado al lado de los de tareas -->
-            <div class="btn-group" role="group" aria-label="Filtro Estado" style="vertical-align:middle; margin-left:32px;">
-              
-              <button type="button" class="btn btn-warning btn-sm" id="filtroEstadoPendiente" style="background-color:#ffc107;color:black;">Pendiente</button>
-              <button type="button" class="btn btn-info btn-sm" id="filtroEstadoEnProceso" style="background-color:#17a2b8;color:white;">En Proceso</button>
-              
-              
-            </div>
-            <span class="ml-3" id="contadorResultados" style="display: none;">
-            </span>
+          </div>
+
+          <div class="cal-segmented">
+            <button type="button" [class.active]="vista === 'mes'" (click)="cambiarVista('mes')"><i class="fa fa-th"></i> Mes</button>
+            <button type="button" [class.active]="vista === 'semana'" (click)="cambiarVista('semana')"><i class="fa fa-columns"></i> Semana</button>
           </div>
         </div>
       </div>
 
-      <div class="row">
-        <div class="col-lg-5 col-xl-5" >
-          <section id="widget" class="widget" style="padding-left: 0px; background-color: transparent; margin-top: 0px; padding-top: 0px;">
-              
-          </section>
+      <!-- ================= FILTROS ================= -->
+      <div class="cal-filtros">
+        <div class="cal-segmented">
+          <button type="button" *ngFor="let tipo of tiposFiltro; trackBy: trackByValue" [class.active]="tipoFiltro === tipo.value" (click)="setTipo(tipo.value)">
+            <i class="fa" [ngClass]="tipo.icon"></i> {{tipo.label}}
+          </button>
         </div>
-        <div class="col-lg-7 col-xl-7">
-          <section class="widget widget-calendar" style="margin-top: 0px; padding-top: 0px;">
-            <div class="widget-body">
-              <div class="calendar-controls">
-                <div class="btn-group ">
-                  <button class="btn btn-secondary" id="calender-prev"><i class="fa fa-angle-left"></i></button>
-                  <button class="btn btn-secondary" id="calender-next"><i class="fa fa-angle-right"></i></button>
-                  <span style="margin-left:16px; font-size:1.3em; font-weight:bold; vertical-align:middle; display:inline-block;">
-                    {{Fecha | date:'MMMM'}} {{Fecha | date:'yyyy'}} - <b>{{Fecha | date:'EEEE'}}</b>
-                  </span>
-                </div>
-             <div id="calendar-switcher" class="btn-group pull-xs-right" data-toggle="buttons" style="visibility:hidden;" >
-                  <label class="btn btn-secondary active">
-                    <input type="radio" name="view" value="month"/> Month
-                  </label>
-                  <label class="btn btn-secondary">
-                    <input type="radio" name="view" value="agendaWeek"/> Week
-                  </label>
-                  <label class="btn btn-secondary">
-                    <input type="radio" name="view" value="agendaDay"/> Day
-                  </label>
-                </div>
+
+        <div class="cal-chips">
+          <button type="button" class="cal-chip-filtro" *ngFor="let e of estadosFiltro" [class.active]="estadoFiltro === e.value" (click)="setEstado(e.value)">
+            <span class="cal-dot" *ngIf="e.color" [style.background]="e.color"></span> {{e.label}}
+          </button>
+        </div>
+
+        <button type="button" class="cal-btn cal-btn-ghost cal-btn-sm" *ngIf="hayFiltrosActivos" (click)="limpiarFiltros()">
+          <i class="fa fa-times"></i> Limpiar filtros
+        </button>
+      </div>
+
+      <!-- ================= RESALTAR RESPONSABLES ================= -->
+      <div class="cal-resaltar">
+        <div class="cal-resaltar-label">
+          <span class="cal-resaltar-ico"><i class="fa fa-paint-brush"></i></span>
+          Resaltar responsables
+        </div>
+
+        <div class="cal-resaltar-box">
+          <span class="cal-resp-chip" *ngFor="let r of resaltados; trackBy: trackByResp" [style.background]="r.color">
+            <span class="cal-resp-avatar">{{getIniciales(r.nombre)}}</span>
+            {{r.nombre}}
+            <span class="cal-resp-count">{{conteoResaltados[r.key] || 0}}</span>
+            <button type="button" class="cal-resp-remove" (click)="quitarResaltado(r)" title="Quitar">×</button>
+          </span>
+
+          <div class="cal-resp-input-wrap" *ngIf="resaltados.length < maxResaltados">
+            <span class="cal-resp-preview" *ngIf="busquedaResp.length >= 2" [style.background]="siguienteColor()"></span>
+            <input type="text" class="cal-resp-input"
+                   [placeholder]="resaltados.length ? 'Agregar otro...' : 'Busca un responsable para marcar sus tareas con un color...'"
+                   [ngModel]="busquedaResp"
+                   (ngModelChange)="onBusquedaResp($event)"
+                   (focus)="abrirDropdownResp()"
+                   (blur)="cerrarDropdownResp()"
+                   (keydown.enter)="onEnterResp()"
+                   (keydown.escape)="onEscapeResp()">
+
+            <div class="cal-resp-dropdown" *ngIf="dropdownResp">
+              <div class="cal-resp-option" *ngFor="let s of sugerenciasResp" (mousedown)="agregarResaltado(s)">
+                <span class="cal-avatar" [style.background]="getColorAvatar(s.nombre)">{{getIniciales(s.nombre)}}</span>
+                <span class="cal-resp-option-name">{{s.nombre}}</span>
+                <span class="cal-resp-option-count" *ngIf="s.total > 0">{{s.total}} activas</span>
+                <span class="cal-resp-option-color" [style.background]="siguienteColor()"></span>
               </div>
-              <div id="calendar" class="calendar"></div>
+              <div class="cal-resp-empty" *ngIf="sugerenciasResp.length === 0">Sin coincidencias</div>
             </div>
-          </section>
+          </div>
+        </div>
+
+        <div class="cal-resaltar-actions" *ngIf="resaltados.length > 0">
+          <button type="button" class="cal-toggle" [class.active]="soloResaltadas" (click)="toggleSoloResaltadas()">
+            <span class="cal-toggle-track"><span class="cal-toggle-thumb"></span></span>
+            Solo resaltadas
+          </button>
+          <button type="button" class="cal-link-btn" (click)="limpiarResaltados()">Quitar todos</button>
         </div>
       </div>
+
+      <!-- ================= CUERPO ================= -->
+      <div class="cal-body">
+
+        <!-- -------- Calendario -------- -->
+        <div class="cal-main">
+          <div class="cal-loading" *ngIf="cargando">
+            <i class="fa fa-spinner fa-spin"></i> Cargando tareas...
+          </div>
+
+          <div class="cal-error" *ngIf="errorCarga && !cargando">
+            <i class="fa fa-exclamation-triangle"></i> No se pudieron cargar las tareas.
+            <button type="button" class="cal-link-btn" (click)="cargarDatos()">Reintentar</button>
+          </div>
+
+          <div class="cal-grid" [class.cal-grid-semana]="vista === 'semana'" [class.cal-grid-dragging]="!!arrastrando">
+            <!-- Cabecera de días -->
+            <div class="cal-weekdays">
+              <div class="cal-weekday" *ngFor="let d of diasSemana; let i = index" [class.cal-weekday-finde]="i >= 5">
+                {{d}}
+                <span class="cal-weekday-num" *ngIf="vista === 'semana' && semanas[0]"
+                      [class.cal-weekday-hoy]="semanas[0][i]?.esHoy">{{semanas[0][i]?.numero}}</span>
+              </div>
+            </div>
+
+            <!-- Semanas -->
+            <div class="cal-week" *ngFor="let semana of semanas">
+              <div class="cal-dia" *ngFor="let dia of semana; trackBy: trackByDia"
+                   [class.cal-dia-fuera]="!dia.delMes"
+                   [class.cal-dia-hoy]="dia.esHoy"
+                   [class.cal-dia-finde]="dia.finDeSemana"
+                   [class.cal-dia-drop]="diaDrop === dia.key"
+                   [class.cal-dia-sel]="diaSeleccionadoKey === dia.key"
+                   [class.cal-dia-resaltado]="dia.colores.length > 0"
+                   [style.background]="dia.tinte"
+                   [style.box-shadow]="dia.barra"
+                   (click)="seleccionarDia(dia)"
+                   (dragover)="onDragOverDia($event, dia)"
+                   (dragleave)="onDragLeaveDia($event, dia)"
+                   (drop)="onDropDia($event, dia)">
+
+                <div class="cal-dia-head" *ngIf="vista === 'mes'">
+                  <span class="cal-dia-num">{{dia.numero}}</span>
+                  <span class="cal-dia-mes" *ngIf="dia.numero === 1">{{mesCorto(dia.fecha)}}</span>
+                  <span class="cal-dia-dots">
+                    <i *ngFor="let c of dia.colores" [style.background]="c"></i>
+                  </span>
+                </div>
+
+                <div class="cal-dia-body">
+                  <div class="cal-chip"
+                       *ngFor="let t of dia.visibles; trackBy: trackByTarea"
+                       [ngClass]="'cal-chip-e' + t.estadoId"
+                       [class.cal-chip-resaltada]="!!t._color"
+                       [class.cal-chip-dim]="t._dim"
+                       [class.cal-chip-vencida]="t.vencida"
+                       [class.cal-chip-guardando]="t._guardando"
+                       [class.cal-chip-activa]="tareaSeleccionada === t"
+                       [class.cal-chip-bloqueada]="!t._editable"
+                       [style.background]="t._color"
+                       [style.border-color]="t._color"
+                       [attr.draggable]="t._editable ? 'true' : 'false'"
+                       (dragstart)="onDragStart($event, t)"
+                       (dragend)="onDragEnd()"
+                       (click)="seleccionarTarea(t); $event.stopPropagation()"
+                       [title]="t.descripcion + ' — ' + t.responsableNombre">
+                    <span class="cal-chip-status"></span>
+                    <span class="cal-chip-text">{{t.descripcion}}</span>
+                    <i class="fa fa-exclamation-circle cal-chip-alert" *ngIf="t.vencida" title="Vencida"></i>
+                    <i class="fa fa-spinner fa-spin cal-chip-alert" *ngIf="t._guardando"></i>
+                    <span class="cal-chip-avatar" [style.background]="t._color ? 'rgba(255,255,255,0.28)' : getColorAvatar(t.responsableNombre)">{{t.iniciales}}</span>
+                  </div>
+
+                  <button type="button" class="cal-mas" *ngIf="dia.extra > 0" (click)="seleccionarDia(dia); $event.stopPropagation()">
+                    +{{dia.extra}} más
+                  </button>
+
+                  <div class="cal-dia-vacio" *ngIf="vista === 'semana' && dia.tareas.length === 0">Sin tareas</div>
+                </div>
+
+                <div class="cal-drop-hint" *ngIf="diaDrop === dia.key">
+                  <i class="fa fa-calendar-check-o"></i> Mover aquí
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Leyenda -->
+          <div class="cal-leyenda">
+            <span><i class="cal-ley-box" style="background:#f1f3f5; border-color:#87909e"></i> Pendiente</span>
+            <span><i class="cal-ley-box" style="background:#edf2ff; border-color:#4466ff"></i> En Proceso</span>
+            <span><i class="cal-ley-box" style="background:#eafaf1; border-color:#008844"></i> Terminada</span>
+            <span><i class="fa fa-exclamation-circle" style="color:#d33d44"></i> Vencida</span>
+            <span class="cal-leyenda-hint"><i class="fa fa-hand-paper-o"></i> Arrastra una tarea a otro día para cambiar su fecha de compromiso</span>
+          </div>
+        </div>
+
+        <!-- -------- Panel lateral -------- -->
+        <aside class="cal-side">
+
+          <!-- Tabs -->
+          <div class="cal-side-tabs" *ngIf="panelModo === 'sinfecha'">
+            <span class="cal-side-tab active">
+              <i class="fa fa-inbox"></i> Sin fecha
+              <span class="cal-side-badge">{{sinFecha.length}}</span>
+            </span>
+          </div>
+
+          <div class="cal-side-head" *ngIf="panelModo !== 'sinfecha'">
+            <button type="button" class="cal-icon-btn" (click)="volverPanel()" title="Volver"><i class="fa fa-arrow-left"></i></button>
+            <div class="cal-side-head-title" *ngIf="panelModo === 'dia'">
+              <div class="cal-side-kicker">Tareas del día</div>
+              <div class="cal-side-title">{{fechaLarga(diaSeleccionadoFecha)}}</div>
+            </div>
+            <div class="cal-side-head-title" *ngIf="panelModo === 'tarea' && tareaSeleccionada">
+              <div class="cal-side-kicker">Detalle de tarea</div>
+              <div class="cal-side-title">#{{tareaSeleccionada.idTarea}}</div>
+            </div>
+            <button type="button" class="cal-icon-btn" (click)="verSinFecha()" title="Cerrar"><i class="fa fa-times"></i></button>
+          </div>
+
+          <!-- ===== Sin fecha ===== -->
+          <div class="cal-side-body" *ngIf="panelModo === 'sinfecha'">
+            <div class="cal-side-hint" *ngIf="sinFecha.length > 0">
+              <i class="fa fa-lightbulb-o"></i> Arrastra una tarea a un día del calendario para asignarle fecha de compromiso.
+            </div>
+
+            <div class="cal-item"
+                 *ngFor="let t of sinFecha; trackBy: trackByTarea"
+                 [class.cal-item-dim]="t._dim"
+                 [class.cal-item-bloqueada]="!t._editable"
+                 [style.border-left-color]="t._color || colorEstado(t.estadoId)"
+                 [attr.draggable]="t._editable ? 'true' : 'false'"
+                 (dragstart)="onDragStart($event, t)"
+                 (dragend)="onDragEnd()"
+                 (click)="seleccionarTarea(t)">
+              <div class="cal-item-top">
+                <span class="cal-estado-pill" [style.background]="colorEstado(t.estadoId)">{{t.estadoNombre}}</span>
+                <span class="cal-prio" *ngIf="t.prioridad"><i class="fa fa-flag" [style.color]="colorPrioridad(t.prioridad)"></i> {{t.prioridad}}</span>
+                <i class="fa fa-arrows cal-item-drag" *ngIf="t._editable" title="Arrastrar al calendario"></i>
+              </div>
+              <div class="cal-item-desc">{{t.descripcion}}</div>
+              <div class="cal-item-meta">
+                <span class="cal-avatar cal-avatar-sm" [style.background]="t._color || getColorAvatar(t.responsableNombre)">{{t.iniciales}}</span>
+                <span class="cal-item-resp">{{t.responsableNombre}}</span>
+                <span class="cal-item-id">#{{t.idTarea}}</span>
+              </div>
+            </div>
+
+            <div class="cal-side-empty" *ngIf="sinFecha.length === 0 && !cargando">
+              <i class="fa fa-check-circle"></i>
+              <div>Todas las tareas tienen fecha de compromiso</div>
+            </div>
+          </div>
+
+          <!-- ===== Tareas del día ===== -->
+          <div class="cal-side-body" *ngIf="panelModo === 'dia'">
+            <div class="cal-item"
+                 *ngFor="let t of tareasDiaSeleccionado; trackBy: trackByTarea"
+                 [class.cal-item-dim]="t._dim"
+                 [class.cal-item-bloqueada]="!t._editable"
+                 [style.border-left-color]="t._color || colorEstado(t.estadoId)"
+                 [attr.draggable]="t._editable ? 'true' : 'false'"
+                 (dragstart)="onDragStart($event, t)"
+                 (dragend)="onDragEnd()"
+                 (click)="seleccionarTarea(t)">
+              <div class="cal-item-top">
+                <span class="cal-estado-pill" [style.background]="colorEstado(t.estadoId)">{{t.estadoNombre}}</span>
+                <span class="cal-prio" *ngIf="t.prioridad"><i class="fa fa-flag" [style.color]="colorPrioridad(t.prioridad)"></i> {{t.prioridad}}</span>
+                <span class="cal-vencida-tag" *ngIf="t.vencida"><i class="fa fa-exclamation-circle"></i> Vencida</span>
+              </div>
+              <div class="cal-item-desc">{{t.descripcion}}</div>
+              <div class="cal-item-meta">
+                <span class="cal-avatar cal-avatar-sm" [style.background]="t._color || getColorAvatar(t.responsableNombre)">{{t.iniciales}}</span>
+                <span class="cal-item-resp">{{t.responsableNombre}}</span>
+                <span class="cal-item-id">#{{t.idTarea}}</span>
+              </div>
+            </div>
+
+            <div class="cal-side-empty" *ngIf="tareasDiaSeleccionado.length === 0">
+              <i class="fa fa-calendar-o"></i>
+              <div>No hay tareas para este día</div>
+            </div>
+          </div>
+
+          <!-- ===== Detalle ===== -->
+          <div class="cal-side-body cal-detalle" *ngIf="panelModo === 'tarea' && tareaSeleccionada">
+            <div class="cal-detalle-card" [style.border-top-color]="tareaSeleccionada._color || colorEstado(tareaSeleccionada.estadoId)">
+              <div class="cal-item-top">
+                <span class="cal-estado-pill" [style.background]="colorEstado(tareaSeleccionada.estadoId)">{{tareaSeleccionada.estadoNombre}}</span>
+                <span class="cal-vencida-tag" *ngIf="tareaSeleccionada.vencida"><i class="fa fa-exclamation-circle"></i> Vencida</span>
+              </div>
+              <div class="cal-detalle-desc">{{tareaSeleccionada.descripcion}}</div>
+            </div>
+
+            <div class="cal-props">
+              <div class="cal-prop">
+                <span class="cal-prop-label"><i class="fa fa-user"></i> Responsable</span>
+                <span class="cal-prop-value">
+                  <span class="cal-avatar cal-avatar-sm" [style.background]="tareaSeleccionada._color || getColorAvatar(tareaSeleccionada.responsableNombre)">{{tareaSeleccionada.iniciales}}</span>
+                  {{tareaSeleccionada.responsableNombre}}
+                </span>
+              </div>
+
+              <div class="cal-prop" *ngIf="tareaSeleccionada.creadorNombre">
+                <span class="cal-prop-label"><i class="fa fa-user-plus"></i> Creada por</span>
+                <span class="cal-prop-value">{{tareaSeleccionada.creadorNombre}}</span>
+              </div>
+
+              <div class="cal-prop">
+                <span class="cal-prop-label"><i class="fa fa-calendar-check-o"></i> Compromiso</span>
+                <span class="cal-prop-value" *ngIf="tareaSeleccionada.fecha">
+                  <span [class.cal-txt-vencida]="tareaSeleccionada.vencida">{{fechaCorta(tareaSeleccionada.fecha)}}</span>
+                  <span class="cal-muted">· {{diasRelativos(tareaSeleccionada.fecha)}}</span>
+                </span>
+                <span class="cal-prop-value cal-muted" *ngIf="!tareaSeleccionada.fecha">
+                  <i class="fa fa-exclamation-triangle" style="color:#f08c00"></i> Sin fecha de compromiso
+                </span>
+              </div>
+
+              <div class="cal-prop" *ngIf="tareaSeleccionada.prioridad">
+                <span class="cal-prop-label"><i class="fa fa-flag-o"></i> Prioridad</span>
+                <span class="cal-prop-value"><i class="fa fa-flag" [style.color]="colorPrioridad(tareaSeleccionada.prioridad)"></i> {{tareaSeleccionada.prioridad}}</span>
+              </div>
+
+              <div class="cal-prop" *ngIf="tareaSeleccionada.area">
+                <span class="cal-prop-label"><i class="fa fa-tag"></i> Área</span>
+                <span class="cal-prop-value">{{tareaSeleccionada.area}}</span>
+              </div>
+
+              <div class="cal-prop">
+                <span class="cal-prop-label"><i class="fa fa-folder-o"></i> Sub Proyecto</span>
+                <span class="cal-prop-value">{{tareaSeleccionada.subProyecto}}</span>
+              </div>
+
+              <div class="cal-prop" *ngIf="tareaSeleccionada.fechaCreacion">
+                <span class="cal-prop-label"><i class="fa fa-clock-o"></i> Creada el</span>
+                <span class="cal-prop-value">{{fechaCorta(tareaSeleccionada.fechaCreacion)}}</span>
+              </div>
+            </div>
+
+            <div class="cal-detalle-actions">
+              <a class="cal-btn cal-btn-primary cal-btn-block" [routerLink]="['/Ver-Tareas']" [queryParams]="{ editarTarea: tareaSeleccionada.idTarea }">
+                <i class="fa fa-pencil"></i> Editar en Mis Tareas
+              </a>
+              <button type="button" class="cal-btn cal-btn-ghost cal-btn-block"
+                      *ngIf="!estaResaltado(tareaSeleccionada) && resaltados.length < maxResaltados"
+                      (click)="resaltarDesdeTarea(tareaSeleccionada)">
+                <span class="cal-dot" [style.background]="siguienteColor()"></span>
+                Resaltar tareas de {{tareaSeleccionada.responsableNombre}}
+              </button>
+              <div class="cal-side-hint" *ngIf="tareaSeleccionada._editable && tareaSeleccionada.fecha">
+                <i class="fa fa-hand-paper-o"></i> Arrastra la tarea a otro día del calendario para cambiar su compromiso.
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
     </div>
   </main>
 </div>
-
-<style>
-  .fc-event-title{
-    font-size:10px !important;
-  }
-</style>
