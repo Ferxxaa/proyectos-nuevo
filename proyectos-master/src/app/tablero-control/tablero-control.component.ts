@@ -55,7 +55,7 @@ export class TableroControlComponent implements OnInit {
   verDoc: boolean;
   verSSOMA: boolean;
   verPac: boolean;
-  bitacoraSeleccionada: number = null;
+  bitacoraSeleccionada: number = 1;
   mostrarFormularioBitacora: boolean = false;
   mostrarArchivosEstandares: boolean = false;
 

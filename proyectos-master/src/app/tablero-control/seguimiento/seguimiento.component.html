@@ -1,12 +1,11 @@
 <section class="widget">
   <header class="seguimiento-header">
-    <h5 class="seguimiento-heading">
-      <i class="fa fa-flag-checkered" aria-hidden="true"></i>
-      <strong>Sub-Proyecto
-        <span class="seguimiento-heading-accent">{{SubProyecto.nombreSubProyecto}}</span>
-        en Etapa de
-        <span class="seguimiento-heading-accent">{{Etapa.nombreEtapa}}</span>
-      </strong>
+    <h5 class="seguimiento-heading"
+      [title]="'Sub-Proyecto ' + SubProyecto.nombreSubProyecto + ' en Etapa de ' + Etapa.nombreEtapa">
+      <strong>Sub-Proyecto</strong>
+      <span class="seguimiento-heading-accent">{{SubProyecto.nombreSubProyecto}}</span>
+      <strong> en Etapa de </strong>
+      <span class="seguimiento-heading-accent">{{Etapa.nombreEtapa}}</span>
     </h5>
   </header>
   <div class="widget-body">
@@ -14,8 +13,12 @@
       <fieldset>
         <legend></legend>
         <div class="form-group row">
-          <label class="col-md-offset-2 col-md-5 form-control-label"><b>Situación programada</b></label>
-          <label class="col-md-5 form-control-label"><b>Situación real</b></label>
+          <label class="col-md-offset-2 col-md-5 form-control-label">
+            <i class="fa fa-calendar-check-o" aria-hidden="true"></i><b>Situación programada</b>
+          </label>
+          <label class="col-md-5 form-control-label">
+            <i class="fa fa-pencil-square-o" aria-hidden="true"></i><b>Situación real</b>
+          </label>
         </div>
         <div class="form-group row">
           <label class="col-md-2 form-control-label">Coordinador:</label>
@@ -57,8 +60,6 @@
             <input name="tbxCostoEtapa" type="text" [(ngModel)]="EtapaActual.costoReal" class="form-control" style="z-index: 0;" [disabled]="soloLectura">
           </div>
         </div>
-        <br>
-        <br>
         <div class="form-group row">
           <label class="col-md-2 form-control-label">Porcentaje de avance:</label>
           <span class="col-md-5 form-control-label">{{AvanceProgramado}}%</span>

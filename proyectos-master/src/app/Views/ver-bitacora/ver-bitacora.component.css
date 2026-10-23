@@ -29,32 +29,169 @@ a{
 
 .linea{
   display: flex;
-  flex-wrap: wrap;
-  padding: 6px;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 9px;
+  padding: 12px 14px;
+  border: 1px solid #e5e9ed;
+  border-left: 3px solid #f1a13d;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fff 0%, #fffdf9 100%);
+  box-shadow: 0 2px 7px rgba(31, 45, 61, 0.055);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .linea:hover{
-  background-color: rgb(239, 251, 255);
+  transform: translateY(-1px);
+  border-color: #eccb9f;
+  border-left-color: #e8891c;
+  background: #fffaf2;
+  box-shadow: 0 5px 13px rgba(91, 69, 44, 0.1);
 }
 
 .list-goup-item{
-  flex: 0 0 95%;
-  transition: 0.3s;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #344150;
+  cursor: inherit;
+  transition: color 0.15s ease;
+}
+
+.bitacora-entry-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  margin-bottom: 8px;
+}
+
+.bitacora-entry-author,
+.bitacora-entry-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.bitacora-entry-author {
+  color: #315d7b;
+  font-weight: 700;
+}
+
+.bitacora-entry-author .fa {
+  color: #7795aa;
+}
+
+.bitacora-entry-date {
+  color: #77838e;
+}
+
+.bitacora-entry-date .fa {
+  color: #a0aab3;
+}
+
+.bitacora-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+
+.bitacora-priority .fa {
+  font-size: 7px;
+}
+
+.prioridad-baja {
+  border-color: #cce8d7;
+  background: #eff9f2;
+  color: #378153;
+}
+
+.prioridad-media {
+  border-color: #f4dfaa;
+  background: #fff8e7;
+  color: #a8750b;
+}
+
+.prioridad-alta {
+  border-color: #f1c9c3;
+  background: #fff1ef;
+  color: #bd4b3e;
+}
+
+.bitacora-entry-description {
+  padding: 9px 11px;
+  border-left: 2px solid #f0d2aa;
+  border-radius: 0 5px 5px 0;
+  background: #fbf8f3;
+  color: #46515c;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.bitacora-entry-description ::ng-deep p:last-child {
+  margin-bottom: 0;
 }
 
 .link{
-  flex: 0 0 5%
+  display: inline-flex;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #ead7c0;
+  border-radius: 7px;
+  background: #fff8ee;
+  color: #d9821e;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.link:hover {
+  border-color: #e99b3e;
+  background: #f59325;
+  color: #fff;
 }
 
 .glyphicon-glyph-paperclip{
   cursor: pointer;
-  margin-left: 5px;
-  padding-bottom: 5px;
-  transition: 0.3ms;
+  font-size: 16px;
+  transition: color 0.15s ease;
 }
 
 .glyphicon-glyph-paperclip:hover{
-  color: rgb(0, 0, 255);
+  color: #fff;
+}
+
+.bitacora-entry-attachment .fa {
+  font-size: 15px;
+}
+
+@media (max-width: 480px) {
+  .linea {
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .bitacora-entry-meta {
+    gap: 6px 10px;
+  }
+
+  .bitacora-priority {
+    margin-left: 0;
+  }
 }
 
 /* ***********************************Tabla*********************************** */

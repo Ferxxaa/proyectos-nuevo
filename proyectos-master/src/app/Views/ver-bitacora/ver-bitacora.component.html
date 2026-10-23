@@ -6,7 +6,7 @@
   </div>
   <div class="list-group list-group-lg" *ngIf="!Loader">
     <ng-container *ngFor="let Bitacora of Bitacoras; let i = index">
-      <div class="linea"
+      <article class="linea"
         [attr.draggable]="!soloLectura"
         [attr.title]="!soloLectura ? 'Arrastra para cambiar el orden' : null"
         (dragstart)="onDragStart(i, $event)"
@@ -21,24 +21,32 @@
             ? (dragIndex > i ? 'inset 0 3px 0 #F59325' : 'inset 0 -3px 0 #F59325')
             : null
         }">
-        <a class="list-goup-item"  (click)="!soloLectura && VerDetalle(i)">
-          <i class="fa fa-circle pull-xs-right mt-sm" style="font-size: 40px;" [ngClass]="{
-            'text-success':Bitacora.nombrePrioridad === 'Baja',
-            'text-warning':Bitacora.nombrePrioridad === 'Media',
-            'text-danger':Bitacora.nombrePrioridad === 'Alta'
-          }"></i>
-          <h6 class="no-margin" style="color:cornflowerblue">{{Bitacora.nombre + ' ' + Bitacora.paterno}}</h6>
-          <small class="text-muted">{{Bitacora.fechaCreacion | date:'dd/MM/yyyy'}}</small>
-          <small style="text-indent: 5em; margin-top: 5px;margin-bottom: 0px;display: block;">
-            <div [innerHTML]="Bitacora.descripcion"></div>
-          </small>
+        <a class="list-goup-item" (click)="!soloLectura && VerDetalle(i)">
+          <div class="bitacora-entry-meta">
+            <span class="bitacora-entry-author">
+              <i class="fa fa-user-circle-o" aria-hidden="true"></i>
+              {{Bitacora.nombre + ' ' + Bitacora.paterno}}
+            </span>
+            <span class="bitacora-entry-date">
+              <i class="fa fa-calendar-o" aria-hidden="true"></i>
+              {{Bitacora.fechaCreacion | date:'dd/MM/yyyy'}}
+            </span>
+            <span class="bitacora-priority" [ngClass]="{
+              'prioridad-baja': Bitacora.nombrePrioridad === 'Baja',
+              'prioridad-media': Bitacora.nombrePrioridad === 'Media',
+              'prioridad-alta': Bitacora.nombrePrioridad === 'Alta'
+            }">
+              <i class="fa fa-circle" aria-hidden="true"></i>
+              {{Bitacora.nombrePrioridad}}
+            </span>
+          </div>
+          <div class="bitacora-entry-description" [innerHTML]="Bitacora.descripcion"></div>
         </a>
-        <a class="link" (click)="DescargarArchivo(i)" *ngIf="Bitacora.NombreAdjunto" style="width: 100%; height: 100%; cursor: pointer;">
-          <i class="glyphicon glyphicon-glyph-paperclip pull-xs-right mt-sm" style="font-size: 20px; margin-right: 20px; margin-top: 20px">
-          </i>
+        <a class="link bitacora-entry-attachment" (click)="DescargarArchivo(i)" *ngIf="Bitacora.NombreAdjunto"
+          title="Descargar archivo adjunto" aria-label="Descargar archivo adjunto">
+          <i class="fa fa-paperclip" aria-hidden="true"></i>
         </a>
-        <div style="clear: both;"></div>
-      </div>
+      </article>
     </ng-container>
   </div>
 

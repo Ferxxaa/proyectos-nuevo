@@ -126,7 +126,7 @@
                   </thead>
                   <tbody>
                     <tr *ngFor="let MiProyecto of MisProyectos | sortMisProyectos; let i = index"
-                        (click)="Detalle(i)"
+                        (click)="Detalle(MiProyecto)"
                         class="proyecto-row">
                         <td class="gantt-selection-column"
                           [class.gantt-control-disponible-cell]="tieneControlAvance(MiProyecto.idSubProyecto)">
@@ -153,18 +153,20 @@
                       <td>{{MiProyecto.superficie}}</td>
                       <td>{{MiProyecto.nombreTipoIntervencion}}</td>
                       <td>
-                        <ng-container *ngIf="MiProyecto.duracionReal*100/MiProyecto.DuracionTotal as desviacion">
-                          <mat-icon *ngIf="desviacion < 100" class="text-success">arrow_upward</mat-icon>
-                          <mat-icon *ngIf="desviacion >= 100" class="text-danger">arrow_downward</mat-icon>
-                          {{100 - desviacion | number:'1.0-2'}}%
+                        <ng-container *ngIf="MiProyecto.Desviacion !== null && MiProyecto.Desviacion !== undefined">
+                          <mat-icon *ngIf="MiProyecto.Desviacion < 100" class="text-success">arrow_upward</mat-icon>
+                          <mat-icon *ngIf="MiProyecto.Desviacion >= 100" class="text-danger">arrow_downward</mat-icon>
+                          {{100 - MiProyecto.Desviacion | number:'1.0-2'}}%
                         </ng-container>
                       </td>
                       <td class="align-center">{{MiProyecto.AvanceProgramado | number:'1.0-2'}}%</td>
                       <td class="align-center">{{MiProyecto.AvanceReal | number:'1.0-2'}}%</td>
                       <td class="align-center">
-                          <i class="fa fa-circle icono icono-bitacora text-danger" *ngIf="MiProyecto.AvanceProgramado - MiProyecto.AvanceReal > 3 || MiProyecto.DuracionTotal - MiProyecto.duracionReal < -10"></i>
-                          <i class="fa fa-circle icono icono-bitacora text-warning" *ngIf="MiProyecto.AvanceProgramado - MiProyecto.AvanceReal <= 3 && MiProyecto.AvanceReal - MiProyecto.AvanceProgramado < 0 && MiProyecto.DuracionTotal - MiProyecto.duracionReal > -10"></i>
-                          <i class="fa fa-circle icono icono-bitacora text-success" *ngIf="MiProyecto.AvanceProgramado - MiProyecto.AvanceReal <= 0 && MiProyecto.DuracionTotal - MiProyecto.duracionReal > 0"></i>
+                        <i class="fa fa-circle icono icono-bitacora"
+                          *ngIf="MiProyecto.Semaforo"
+                          [class.text-danger]="MiProyecto.Semaforo === 'rojo'"
+                          [class.text-warning]="MiProyecto.Semaforo === 'amarillo'"
+                          [class.text-success]="MiProyecto.Semaforo === 'verde'"></i>
                       </td>
                       <td>{{getEtapaActual(MiProyecto.EtapaActual)}}</td>
                       <td class="align-center">{{MiProyecto.AvanceRealEtapa ? MiProyecto.AvanceRealEtapa : 0}}%</td>

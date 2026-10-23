@@ -10,7 +10,7 @@
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 2px 10px rgba(31, 45, 61, 0.08);
+  box-shadow: 0 4px 16px rgba(91, 69, 44, 0.1);
   padding: 0;
 }
 
@@ -21,26 +21,33 @@
   min-height: 52px;
   box-sizing: border-box;
   margin: 0;
-  padding: 6px 16px;
+  padding: 0 14px;
   border-left: 4px solid #f59325;
-  background: #555;
+  background: linear-gradient(110deg, #41464c 0%, #555b61 78%, #66594c 100%);
 }
 
 .widget .seguimiento-heading {
+  display: block;
   min-width: 0;
   margin: 0;
+  overflow: hidden;
   color: #fff;
   font-size: 14px;
-  line-height: 1.35;
+  font-weight: 700;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.seguimiento-heading > .fa {
-  margin-right: 9px;
-  color: #f59325;
+.seguimiento-heading strong {
+  color: #fff;
+  font-weight: 700;
 }
 
 .seguimiento-heading-accent {
   color: #ffad4c;
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .widget-body {
@@ -49,7 +56,7 @@
   --label-col: 250px;
   --gap-col: 0.6rem;
   padding: 0.75rem 1rem;
-  background: #f7f8fa;
+  background: linear-gradient(145deg, #fffdf9 0%, #fff7ec 100%);
 }
 
 fieldset {
@@ -72,10 +79,11 @@ fieldset > div.form-group.row {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  border: 1px solid transparent;
+  border: 1px solid #f2e5d4;
   border-radius: 7px;
-  padding: 0.48rem 0.75rem;
-  margin: 0;
+  padding: 0.55rem 0.75rem;
+  margin: 0 0 4px;
+  box-shadow: 0 2px 5px rgba(91, 69, 44, 0.055);
   transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -84,13 +92,14 @@ fieldset > div.form-group.row:nth-child(odd) {
 }
 
 fieldset > div.form-group.row:nth-child(even) {
-  background-color: #f3f5f7;
+  border-color: #f1deca;
+  background-color: #fff8ee;
 }
 
 fieldset > div.form-group.row:hover {
-  border-color: #e8edf2;
-  background-color: #fff;
-  box-shadow: 0 2px 7px rgba(31, 45, 61, 0.06);
+  border-color: #edc184;
+  background-color: #fff4e4;
+  box-shadow: 0 4px 11px rgba(195, 119, 35, 0.12);
 }
 
 /* Anula el flex/ancho de Bootstrap para que mande nuestra grilla, */
@@ -129,48 +138,99 @@ fieldset > div.form-group.row > .col-md-offset-5.col-md-5 {
 /* Fila de encabezado (Situación programada / real) */
 fieldset > div.form-group.row:first-of-type {
   background-color: transparent;
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.45rem;
+  column-gap: 0;
 }
 
 fieldset > div.form-group.row:first-of-type > *:nth-child(1) {
   grid-column: 2 !important;
-  background-color: #fff5e8 !important;
+  background: linear-gradient(135deg, #fff3e2, #ffead0) !important;
   color: #8b4b06;
 }
 
 fieldset > div.form-group.row:first-of-type > *:nth-child(2) {
   grid-column: 3 !important;
-  background-color: #edf2f7 !important;
+  background: linear-gradient(135deg, #f2f6fa, #e7eef5) !important;
   color: #3e5267;
 }
 
 fieldset > div.form-group.row:first-of-type > label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   font-weight: 700;
   border: 1px solid #f3dfc5;
-  border-radius: 6px;
-  padding: 0.48rem 0;
+  border-radius: 7px 0 0 7px;
+  padding: 0.58rem 0.35rem;
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   font-size: 0.78rem;
+  box-shadow: 0 2px 5px rgba(31, 45, 61, 0.06);
+  white-space: nowrap;
+}
+
+fieldset > div.form-group.row:first-of-type > label .fa {
+  color: #e58a16;
+  font-size: 12px;
 }
 
 fieldset > div.form-group.row:first-of-type > label:nth-child(2) {
   border-color: #dce4ec;
+  border-left-color: #d0d9e2;
+  border-radius: 0 7px 7px 0;
+}
+
+fieldset > div.form-group.row:first-of-type > label:first-child {
+  border-right: 0;
+}
+
+fieldset > div.form-group.row:first-of-type > label:nth-child(2) .fa {
+  color: #60758a;
 }
 
 /* ===== Etiquetas y valores ===== */
 fieldset > div.form-group.row > label:first-child {
   font-weight: 600;
   color: #48525d;
+  font-size: 12px;
 }
 
 fieldset > div.form-group.row > span.form-control-label {
-  color: #38434f;
+  color: #344150;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+fieldset > div.form-group.row:not(:first-of-type) > span.col-md-5:nth-child(2) {
+  border: 1px solid #f2dfc4;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #fff7eb, #ffefd9);
+  color: #80511e;
+}
+
+fieldset > div.form-group.row:nth-child(even) > span.col-md-5:nth-child(2) {
+  background: linear-gradient(135deg, #fff2df, #ffe9ca);
+}
+
+fieldset > div.form-group.row:not(:first-of-type) > label:first-child {
+  padding-left: 8px;
+  border-left: 2px solid #edb66f;
+}
+
+fieldset > div.form-group.row > span.col-md-5:nth-child(3),
+fieldset > div.form-group.row > div.col-md-5:nth-child(3) {
+  padding: 4px;
+  border: 1px solid #deebf3;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #f6fbff, #edf5fb);
 }
 
 /* ===== Inputs editables (columna "real") ===== */
@@ -178,10 +238,10 @@ fieldset > div.form-group.row > span.form-control-label {
 fieldset > div.form-group.row > [class*="col-"] > input.form-control {
   width: 100%;
   min-height: 36px;
-  border: 1px solid #d9e0e7;
+  border: 1px solid #d7e4ee;
   border-radius: 6px;
   background-color: #fff;
-  box-shadow: none;
+  box-shadow: inset 0 1px 2px rgba(52, 85, 109, 0.05);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
   text-align: center;
 }
@@ -201,8 +261,8 @@ fieldset input.form-control:focus {
 }
 
 fieldset input.form-control:disabled {
-  background-color: #eee;
-  color: #999;
+  background-color: #f5f9fc;
+  color: #657687;
   cursor: not-allowed;
 }
 
@@ -214,16 +274,23 @@ fieldset input.form-control:disabled {
 }
 
 .input-group.date .input-group-addon {
-  border: 1px solid #d9e0e7;
+  border: 1px solid #d7e4ee;
   border-left: none;
-  background-color: #f7f8fa;
+  background-color: #eaf3fa;
+  color: #507895;
   border-radius: 0 6px 6px 0;
   cursor: pointer;
 }
 
 /* ===== Checkboxes VoBo (sin tocar su display interno) ===== */
 .checkbox.abc-checkbox {
-  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 9px;
+  border: 1px solid #eddbc3;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #fff, #fff4e5);
 }
 
 .checkbox.abc-checkbox label {
@@ -233,9 +300,10 @@ fieldset input.form-control:disabled {
 
 /* ===== Acciones (Guardar / Finalizar) ===== */
 .form-actions {
-  margin-top: 1.25rem;
-  padding: 1rem 1.5rem 0;
-  border-top: 1px solid #e3e8ed;
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem 0;
+  border-top: 1px solid #eddfcf;
+  background: linear-gradient(180deg, rgba(255, 250, 244, 0.5), rgba(255, 240, 220, 0.9));
 }
 
 .form-actions .btn {
@@ -267,6 +335,19 @@ fieldset input.form-control:disabled {
 }
 
 @media (max-width: 767px) {
+  .widget header {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .widget .seguimiento-heading {
+    font-size: 13px;
+  }
+
+  .seguimiento-heading-accent {
+    font-size: 14px;
+  }
+
   .widget-body {
     --label-col: 105px;
     --gap-col: 0.35rem;
@@ -274,7 +355,13 @@ fieldset input.form-control:disabled {
   }
 
   fieldset > div.form-group.row {
-    padding: 0.42rem 0.5rem;
+    padding: 0.48rem 0.5rem;
+  }
+
+  fieldset > div.form-group.row:first-of-type > label {
+    gap: 4px;
+    font-size: 0.66rem;
+    letter-spacing: 0;
   }
 
   fieldset > div.form-group.row > label:first-child {
