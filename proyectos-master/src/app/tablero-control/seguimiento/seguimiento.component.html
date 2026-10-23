@@ -67,22 +67,24 @@
             <input name="tbxPorcenAct" type="text" [(ngModel)]="EtapaActual.avanceReal" class="form-control" style="z-index: 0;" [disabled]="soloLectura">
           </div>
         </div>
-        <div class="form-group row">
-          <label for="normal-field" class="col-md-2 form-control-label">VºBº Etapa:</label>
-          <div class="col-md-offset-5 col-md-5">
-            <div class="checkbox abc-checkbox abc-checkbox-info abc-checkbox-circle">
+        <div class="form-group row fila-vobo">
+          <label for="chkVBetapa" class="col-md-2 form-control-label">VºBº Etapa:</label>
+          <div class="col-md-offset-5 col-md-5 vobo-celda">
+            <label class="vobo-check" [class.activo]="EtapaActual.vistoBuenoEtapa" [class.deshabilitado]="soloLectura" title="Visto bueno de la etapa">
               <input id="chkVBetapa" type="checkbox" name="chkVBetapa" [(ngModel)]="EtapaActual.vistoBuenoEtapa" (click)="AvanceReal()" [disabled]="soloLectura">
-              <label style="height: 5px;" for="chkVBetapa">Etapa</label>
-            </div>
+              <span class="vobo-circulo"><i class="fa fa-check"></i></span>
+              <span class="vobo-texto">Etapa</span>
+            </label>
           </div>
         </div>
-        <div class="form-group row">
-          <label for="normal-field" class="col-md-2 form-control-label">VºBº NBI:</label>
-          <div class="col-md-offset-5 col-md-5">
-            <div class="checkbox abc-checkbox abc-checkbox-info abc-checkbox-circle" (click)="!soloLectura && setDate()">
+        <div class="form-group row fila-vobo">
+          <label for="chkVBnbi" class="col-md-2 form-control-label">VºBº NBI:</label>
+          <div class="col-md-offset-5 col-md-5 vobo-celda">
+            <label class="vobo-check" [class.activo]="EtapaActual.vistoBuenoRitmo" [class.deshabilitado]="soloLectura" (click)="!soloLectura && setDate()" title="Visto bueno NBI">
               <input id="chkVBnbi" type="checkbox" name="chkVBnbi" [(ngModel)]="EtapaActual.vistoBuenoRitmo" [disabled]="soloLectura">
-              <label style="height: 5px;" for="chkVBnbi">NBI</label>
-            </div>
+              <span class="vobo-circulo"><i class="fa fa-check"></i></span>
+              <span class="vobo-texto">NBI</span>
+            </label>
           </div>
         </div>
       </fieldset>

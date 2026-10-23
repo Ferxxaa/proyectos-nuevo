@@ -1,3 +1,10 @@
+/* ===================================================================
+   SEGUIMIENTO — versión sobria
+   Fondo blanco, filas separadas por una línea fina y un solo acento
+   naranjo (cabecera y botón Guardar). Lo programado es texto gris,
+   lo real son los campos editables.
+   =================================================================== */
+
 /* ===== Contenedor general ===== */
 .widget {
   display: flex;
@@ -6,24 +13,24 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
-  border: 1px solid #e1e5e9;
+  border: 1px solid #e3e6ea;
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 4px 16px rgba(91, 69, 44, 0.1);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
   padding: 0;
 }
 
 .widget header {
   display: flex;
   align-items: center;
-  height: 52px;
-  min-height: 52px;
+  height: 48px;
+  min-height: 48px;
   box-sizing: border-box;
   margin: 0;
-  padding: 0 14px;
-  border-left: 4px solid #f59325;
-  background: linear-gradient(110deg, #41464c 0%, #555b61 78%, #66594c 100%);
+  padding: 0 16px;
+  border-left: 3px solid #f59325;
+  background: #4a4f55;
 }
 
 .widget .seguimiento-heading {
@@ -33,30 +40,29 @@
   overflow: hidden;
   color: #fff;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .seguimiento-heading strong {
-  color: #fff;
-  font-weight: 700;
+  color: #e9ecef;
+  font-weight: 500;
 }
 
 .seguimiento-heading-accent {
-  color: #ffad4c;
-  font-size: 15px;
-  font-weight: 800;
+  color: #ffb25e;
+  font-weight: 700;
 }
 
 .widget-body {
   flex: 1 1 auto;
   min-height: 0;
-  --label-col: 250px;
-  --gap-col: 0.6rem;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(145deg, #fffdf9 0%, #fff7ec 100%);
+  --label-col: 170px;
+  --gap-col: 16px;
+  padding: 4px 20px 0;
+  background: #fff;
 }
 
 fieldset {
@@ -70,40 +76,29 @@ fieldset > legend {
   display: none;
 }
 
-/* ===== Filas: una sola línea, vía grilla ===== */
+/* ===== Filas: grilla de 3 columnas (etiqueta / programado / real) ===== */
 fieldset > div.form-group.row {
   display: grid;
-  grid-template-columns: minmax(105px, var(--label-col)) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(110px, var(--label-col)) minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   column-gap: var(--gap-col);
   width: 100%;
   min-width: 0;
+  min-height: 52px;
   box-sizing: border-box;
-  border: 1px solid #f2e5d4;
-  border-radius: 7px;
-  padding: 0.55rem 0.75rem;
-  margin: 0 0 4px;
-  box-shadow: 0 2px 5px rgba(91, 69, 44, 0.055);
-  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  margin: 0;
+  padding: 8px 4px;
+  border: none;
+  border-bottom: 1px solid #eef0f2;
+  background: transparent;
+  transition: background-color 0.12s ease;
 }
 
-fieldset > div.form-group.row:nth-child(odd) {
-  background-color: #fff;
+fieldset > div.form-group.row:not(:first-of-type):hover {
+  background-color: #fafbfc;
 }
 
-fieldset > div.form-group.row:nth-child(even) {
-  border-color: #f1deca;
-  background-color: #fff8ee;
-}
-
-fieldset > div.form-group.row:hover {
-  border-color: #edc184;
-  background-color: #fff4e4;
-  box-shadow: 0 4px 11px rgba(195, 119, 35, 0.12);
-}
-
-/* Anula el flex/ancho de Bootstrap para que mande nuestra grilla, */
-/* SOLO en el contenedor de cada col-* (no toca lo que hay adentro, como .input-group) */
+/* Anula el flex/ancho de Bootstrap para que mande la grilla */
 fieldset > div.form-group.row > [class*="col-"] {
   flex: initial;
   float: none;
@@ -116,7 +111,6 @@ fieldset > div.form-group.row > [class*="col-"] {
   white-space: normal;
 }
 
-/* Ubicación de cada columna (etiqueta / programado / real) */
 fieldset > div.form-group.row > .col-md-2 {
   grid-column: 1;
 }
@@ -129,194 +123,235 @@ fieldset > div.form-group.row > .col-md-5:nth-child(3) {
   grid-column: 3;
 }
 
-/* Fila de VºBº: el checkbox va en la columna "real" */
+/* Fila de VºBº: el check va en la columna "real" */
 fieldset > div.form-group.row > .col-md-offset-5.col-md-5 {
   grid-column: 3 !important;
   margin-left: 0 !important;
 }
 
-/* Fila de encabezado (Situación programada / real) */
+/* ===== Encabezado de columnas (Situación programada / real) ===== */
 fieldset > div.form-group.row:first-of-type {
-  background-color: transparent;
-  margin-bottom: 0.45rem;
-  column-gap: 0;
+  min-height: 0;
+  padding: 14px 4px 8px;
+  border-bottom: 1px solid #dfe3e7;
 }
 
 fieldset > div.form-group.row:first-of-type > *:nth-child(1) {
   grid-column: 2 !important;
-  background: linear-gradient(135deg, #fff3e2, #ffead0) !important;
-  color: #8b4b06;
 }
 
 fieldset > div.form-group.row:first-of-type > *:nth-child(2) {
   grid-column: 3 !important;
-  background: linear-gradient(135deg, #f2f6fa, #e7eef5) !important;
-  color: #3e5267;
 }
 
 fieldset > div.form-group.row:first-of-type > label {
-  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 7px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none !important;
+  color: #6b737c;
+  font-size: 11px;
   font-weight: 700;
-  border: 1px solid #f3dfc5;
-  border-radius: 7px 0 0 7px;
-  padding: 0.58rem 0.35rem;
-  text-align: center;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  font-size: 0.78rem;
-  box-shadow: 0 2px 5px rgba(31, 45, 61, 0.06);
   white-space: nowrap;
 }
 
+fieldset > div.form-group.row:first-of-type > label b {
+  font-weight: 700;
+}
+
 fieldset > div.form-group.row:first-of-type > label .fa {
-  color: #e58a16;
-  font-size: 12px;
-}
-
-fieldset > div.form-group.row:first-of-type > label:nth-child(2) {
-  border-color: #dce4ec;
-  border-left-color: #d0d9e2;
-  border-radius: 0 7px 7px 0;
-}
-
-fieldset > div.form-group.row:first-of-type > label:first-child {
-  border-right: 0;
-}
-
-fieldset > div.form-group.row:first-of-type > label:nth-child(2) .fa {
-  color: #60758a;
+  color: #a7aeb5;
+  font-size: 13px;
 }
 
 /* ===== Etiquetas y valores ===== */
 fieldset > div.form-group.row > label:first-child {
+  margin: 0;
+  color: #4a525a;
+  font-size: 12.5px;
   font-weight: 600;
-  color: #48525d;
-  font-size: 12px;
 }
 
+/* Valores programados: texto plano, sin caja */
 fieldset > div.form-group.row > span.form-control-label {
-  color: #344150;
   overflow: hidden;
+  color: #2f363d;
+  font-size: 13px;
+  font-weight: 500;
   text-overflow: ellipsis;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 600;
+  white-space: nowrap;
 }
 
-fieldset > div.form-group.row:not(:first-of-type) > span.col-md-5:nth-child(2) {
-  border: 1px solid #f2dfc4;
-  padding-top: 7px;
-  padding-bottom: 7px;
-  border-radius: 5px;
-  background: linear-gradient(135deg, #fff7eb, #ffefd9);
-  color: #80511e;
+/* Columna real cuando es texto (Ritmo Etapa: días reales) */
+fieldset > div.form-group.row > span.col-md-5:nth-child(3) {
+  color: #2f363d;
 }
 
-fieldset > div.form-group.row:nth-child(even) > span.col-md-5:nth-child(2) {
-  background: linear-gradient(135deg, #fff2df, #ffe9ca);
-}
-
-fieldset > div.form-group.row:not(:first-of-type) > label:first-child {
-  padding-left: 8px;
-  border-left: 2px solid #edb66f;
-}
-
-fieldset > div.form-group.row > span.col-md-5:nth-child(3),
-fieldset > div.form-group.row > div.col-md-5:nth-child(3) {
-  padding: 4px;
-  border: 1px solid #deebf3;
-  border-radius: 7px;
-  background: linear-gradient(135deg, #f6fbff, #edf5fb);
+fieldset > div.form-group.row > span.col-md-5:nth-child(3):empty::before {
+  content: '—';
+  color: #c3c8cd;
 }
 
 /* ===== Inputs editables (columna "real") ===== */
-/* Inputs sueltos (Costo, Porcentaje), sin input-group */
-fieldset > div.form-group.row > [class*="col-"] > input.form-control {
+fieldset > div.form-group.row > [class*="col-"] > input.form-control,
+.input-group.date .form-control {
   width: 100%;
-  min-height: 36px;
-  border: 1px solid #d7e4ee;
+  height: 34px;
+  min-height: 34px;
+  border: 1px solid #d8dde2;
   border-radius: 6px;
   background-color: #fff;
-  box-shadow: inset 0 1px 2px rgba(52, 85, 109, 0.05);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-  text-align: center;
+  box-shadow: none;
+  color: #2f363d;
+  font-size: 13px;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-@media (min-width: 1200px) {
-  .widget-body {
-    --label-col: 150px;
-    --gap-col: 0.4rem;
-    padding: 0.6rem;
-  }
+fieldset input.form-control:hover:not(:disabled) {
+  border-color: #c3c9cf;
 }
 
 fieldset input.form-control:focus {
   border-color: #f59325;
-  box-shadow: 0 0 0 2px rgba(245, 147, 37, 0.18);
+  box-shadow: 0 0 0 3px rgba(245, 147, 37, 0.14);
   outline: none;
 }
 
 fieldset input.form-control:disabled {
-  background-color: #f5f9fc;
-  color: #657687;
+  background-color: #f6f7f8;
+  color: #7a838c;
   cursor: not-allowed;
 }
 
-/* Selector de fecha: NO se toca display/width, Bootstrap ya resuelve el layout */
-/* (display:table en .input-group, width:1% en el addon); solo estética */
+/* Selector de fecha: solo estética (Bootstrap resuelve el layout del input-group) */
 .input-group.date .form-control {
   border-radius: 6px 0 0 6px;
-  text-align: center;
 }
 
 .input-group.date .input-group-addon {
-  border: 1px solid #d7e4ee;
+  border: 1px solid #d8dde2;
   border-left: none;
-  background-color: #eaf3fa;
-  color: #507895;
   border-radius: 0 6px 6px 0;
+  background-color: #f6f7f8;
+  color: #7a838c;
   cursor: pointer;
 }
 
-/* ===== Checkboxes VoBo (sin tocar su display interno) ===== */
-.checkbox.abc-checkbox {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  padding: 3px 9px;
-  border: 1px solid #eddbc3;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #fff, #fff4e5);
+.input-group.date:hover .input-group-addon {
+  color: #f59325;
 }
 
-.checkbox.abc-checkbox label {
+/* ===== Checks VºBº ===== */
+fieldset > div.form-group.row > div.vobo-celda {
+  display: flex;
+  align-items: center;
+}
+
+.vobo-check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  color: #4a525a;
+  font-size: 13px;
   font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* El input real queda oculto pero accesible (teclado / lector de pantalla) */
+.vobo-check input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vobo-circulo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid #bfc6cc;
+  border-radius: 50%;
+  background: #fff;
+  color: transparent;
+  font-size: 10px;
+  transition: all 0.15s ease;
+}
+
+.vobo-check:hover .vobo-circulo {
+  border-color: #8f979f;
+}
+
+.vobo-texto {
   white-space: nowrap;
+}
+
+.vobo-check input[type="checkbox"]:checked + .vobo-circulo {
+  border-color: #2f9e6a;
+  background: #2f9e6a;
+  color: #fff;
+}
+
+.vobo-check.activo .vobo-texto {
+  color: #23804f;
+  font-weight: 600;
+}
+
+.vobo-check input[type="checkbox"]:focus + .vobo-circulo {
+  box-shadow: 0 0 0 3px rgba(245, 147, 37, 0.2);
+}
+
+.vobo-check.deshabilitado {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* ===== Acciones (Guardar / Finalizar) ===== */
 .form-actions {
-  margin-top: 0.75rem;
-  padding: 0.75rem 1rem 0;
-  border-top: 1px solid #eddfcf;
-  background: linear-gradient(180deg, rgba(255, 250, 244, 0.5), rgba(255, 240, 220, 0.9));
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 -20px;
+  padding: 14px 20px;
+  border-top: 1px solid #eef0f2;
+  background: #fafbfc;
+}
+
+.form-actions > .row {
+  margin: 0;
+}
+
+.form-actions > .row > [class*="col-"] {
+  display: flex;
+  gap: 8px;
+  float: none;
+  width: auto;
+  margin-left: 0;
+  padding: 0;
 }
 
 .form-actions .btn {
+  min-width: 104px;
+  height: 36px;
+  padding: 0 18px;
   border-radius: 6px;
-  padding: 0.5rem 1.4rem;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.01em;
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
-}
-
-.form-actions .btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .form-actions .btn:disabled {
@@ -325,46 +360,124 @@ fieldset input.form-control:disabled {
 }
 
 .form-actions .btn-primary {
-  background-color: #f59325;
   border-color: #f59325;
+  background-color: #f59325;
+  color: #fff;
 }
 
 .form-actions .btn-primary:hover:not(:disabled) {
-  background-color: #d97e15;
-  border-color: #d97e15;
+  border-color: #de8016;
+  background-color: #de8016;
+  box-shadow: 0 2px 6px rgba(222, 128, 22, 0.25);
 }
 
+/* Finalizar: secundario (borde), para que no compita con Guardar */
+.form-actions .btn-inverse {
+  border: 1px solid #ced3d8;
+  background-color: #fff;
+  color: #4a525a;
+}
+
+.form-actions .btn-inverse:hover:not(:disabled) {
+  border-color: #9aa2aa;
+  background-color: #f3f4f6;
+  color: #2f363d;
+}
+
+/* ===== Responsive ===== */
 @media (max-width: 767px) {
   .widget header {
-    padding-right: 8px;
-    padding-left: 8px;
+    padding: 0 10px;
   }
 
   .widget .seguimiento-heading {
     font-size: 13px;
   }
 
-  .seguimiento-heading-accent {
-    font-size: 14px;
-  }
-
   .widget-body {
     --label-col: 105px;
-    --gap-col: 0.35rem;
-    padding: 0.6rem;
+    --gap-col: 8px;
+    padding: 4px 12px 0;
   }
 
   fieldset > div.form-group.row {
-    padding: 0.48rem 0.5rem;
+    padding: 8px 2px;
   }
 
   fieldset > div.form-group.row:first-of-type > label {
-    gap: 4px;
-    font-size: 0.66rem;
+    font-size: 10px;
     letter-spacing: 0;
   }
 
-  fieldset > div.form-group.row > label:first-child {
-    font-size: 12px;
+  .form-actions {
+    margin: 0 -12px;
+    padding: 12px;
   }
+}
+
+/* ===================================================================
+   CÓDIGO DE COLOR SUAVE: PROGRAMADO (ámbar) vs REAL (azul)
+   =================================================================== */
+
+/* Encabezados de columna con su color y una línea debajo */
+fieldset > div.form-group.row:first-of-type > label:nth-child(1) {
+  padding-bottom: 6px;
+  border-bottom: 2px solid #f3c48d;
+  color: #a8651a;
+}
+
+fieldset > div.form-group.row:first-of-type > label:nth-child(1) .fa {
+  color: #e39a45;
+}
+
+fieldset > div.form-group.row:first-of-type > label:nth-child(2) {
+  padding-bottom: 6px;
+  border-bottom: 2px solid #9cc3de;
+  color: #3d6a8a;
+}
+
+fieldset > div.form-group.row:first-of-type > label:nth-child(2) .fa {
+  color: #6e9dbf;
+}
+
+/* Programado: fondo ámbar muy suave */
+fieldset > div.form-group.row:not(:first-of-type) > span.col-md-5:nth-child(2) {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fdf7ef;
+  color: #6b4a1f;
+}
+
+/* Real: fondo azul muy suave alrededor del campo */
+fieldset > div.form-group.row:not(:first-of-type) > div.col-md-5:nth-child(3),
+fieldset > div.form-group.row:not(:first-of-type) > span.col-md-5:nth-child(3),
+fieldset > div.form-group.row > div.vobo-celda {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 3px;
+  border-radius: 6px;
+  background: #f2f7fb;
+}
+
+fieldset > div.form-group.row:not(:first-of-type) > span.col-md-5:nth-child(3) {
+  padding: 8px 12px;
+  color: #2c5470;
+}
+
+fieldset > div.form-group.row > div.vobo-celda {
+  padding: 3px 12px;
+}
+
+/* Bordes de los campos reales en el mismo tono azul */
+fieldset > div.form-group.row > [class*="col-"] > input.form-control,
+.input-group.date .form-control,
+.input-group.date .input-group-addon {
+  border-color: #d3e1ec;
+}
+
+.input-group.date .input-group-addon {
+  background-color: #e9f1f7;
+  color: #6e9dbf;
 }

@@ -4,6 +4,55 @@
 #Etapas {
     border-collapse: separate;
     border-spacing: 0;
+    /* Etapas del mismo ancho: manda el <colgroup>, no el largo del texto */
+    table-layout: fixed;
+    width: 100%;
+    min-width: 1660px; /* bajo este ancho aparece scroll horizontal en vez de apretar las fechas */
+}
+
+#Etapas col.col-etiqueta {
+    width: 130px;
+}
+
+/* NBI y Total angostos, como estaban */
+#Etapas col.col-nbi {
+    width: 52px;
+}
+
+#Etapas col.col-total {
+    width: 64px;
+}
+
+/* .col-etapa no lleva ancho: las 11 etapas se reparten el resto en partes iguales */
+
+#Etapas th,
+#Etapas td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 6px 4px;
+    vertical-align: middle;
+}
+
+#Etapas thead tr.tnbi th {
+    height: 46px;
+    line-height: 1.25;
+    white-space: normal;      /* "Licitación Adjudicación" pasa a dos líneas (sin cortar palabras) */
+    word-break: normal;
+    overflow-wrap: normal;
+    padding: 6px 2px;
+    font-size: 9px;
+    letter-spacing: 0;
+    text-align: center;
+    cursor: default;
+}
+
+#Etapas thead tr.tnbi th[class*="et-"]:not(.et-label):not(.et-nbi):not(.et-total) {
+    cursor: pointer;
+}
+
+#Etapas tbody td {
+    white-space: nowrap;
+    text-align: center;
 }
 
 #Etapas thead tr.tnbi th.activo.header {
@@ -30,8 +79,9 @@ table{
 }
 
 .fa-circle{
-    font-size: 13px;
-    margin-left: 10px;
+    font-size: 11px;
+    margin-left: 4px;
+    vertical-align: middle;
 }
 
 tbody tr{
@@ -68,6 +118,8 @@ tbody tr{
     font-weight: bold;
     font-size: 0.9rem;
     vertical-align: middle;
+    text-align: left;
+    padding-left: 10px;
 }
 
 #Etapas tbody tr td.et-requerimiento { background-color: #ebf2e9; }
