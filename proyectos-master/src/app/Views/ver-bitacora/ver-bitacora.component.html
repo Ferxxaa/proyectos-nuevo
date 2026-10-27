@@ -46,6 +46,8 @@
           title="Descargar archivo adjunto" aria-label="Descargar archivo adjunto">
           <i class="fa fa-paperclip" aria-hidden="true"></i>
         </a>
+        <!-- Reserva el espacio del clip para que todas las tarjetas queden alineadas -->
+        <span class="link-placeholder" *ngIf="!Bitacora.NombreAdjunto" aria-hidden="true"></span>
       </article>
     </ng-container>
   </div>

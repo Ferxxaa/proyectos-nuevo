@@ -91,42 +91,61 @@ a{
   color: #a0aab3;
 }
 
+/* ***********************************Prioridad*********************************** */
+
 .bitacora-priority {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 6px;
+  min-width: 78px;
   margin-left: auto;
-  padding: 4px 8px;
-  border: 1px solid transparent;
+  padding: 5px 11px;
+  border: 1.5px solid transparent;
   border-radius: 20px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   line-height: 1;
   text-transform: uppercase;
-  letter-spacing: 0.035em;
+  letter-spacing: 0.06em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .bitacora-priority .fa {
-  font-size: 7px;
+  font-size: 8px;
 }
 
 .prioridad-baja {
-  border-color: #cce8d7;
-  background: #eff9f2;
-  color: #378153;
+  border-color: #7fcb9d;
+  background: #d6f3e1;
+  color: #1e7a46;
+}
+
+.prioridad-baja .fa {
+  color: #27a35c;
 }
 
 .prioridad-media {
-  border-color: #f4dfaa;
-  background: #fff8e7;
-  color: #a8750b;
+  border-color: #f2b84b;
+  background: #ffe9c2;
+  color: #8f5200;
+}
+
+.prioridad-media .fa {
+  color: #e58a16;
 }
 
 .prioridad-alta {
-  border-color: #f1c9c3;
-  background: #fff1ef;
-  color: #bd4b3e;
+  border-color: #e88a80;
+  background: #fde2e0;
+  color: #b02a1f;
 }
+
+.prioridad-alta .fa {
+  color: #d9382b;
+}
+
+/* ***********************************Descripción*********************************** */
 
 .bitacora-entry-description {
   padding: 9px 11px;
@@ -142,6 +161,8 @@ a{
 .bitacora-entry-description ::ng-deep p:last-child {
   margin-bottom: 0;
 }
+
+/* ***********************************Adjunto*********************************** */
 
 .link{
   display: inline-flex;
@@ -162,6 +183,14 @@ a{
   border-color: #e99b3e;
   background: #f59325;
   color: #fff;
+}
+
+/* Mismo ancho que el clip, invisible: mantiene alineados los badges */
+.link-placeholder {
+  display: inline-block;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
 }
 
 .glyphicon-glyph-paperclip{
