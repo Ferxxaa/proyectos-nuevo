@@ -111,6 +111,26 @@
             </li>
                 </ul>
             </li>
+            <li>
+                <a href="#sidebar-ReportesProyectos" data-toggle="collapse" data-parent="#sidebar-proyectos-accordion">
+                    Reportes
+                    <span class="icon">
+                        <i class="fa fa-bar-chart"></i>
+                    </span>
+                </a>
+                <ul class="collapse" id="sidebar-ReportesProyectos">
+                    <li>
+                        <a [routerLink]="['/Proyectos-ReportesHallazgos']" routerLinkActive="router-link-active">
+                            Hallazgos Consolidados
+                        </a>
+                    </li>
+                    <li>
+                        <a [routerLink]="['/Proyectos-ConsolidadoHallazgos']" routerLinkActive="router-link-active">
+                            Listado Consolidado
+                        </a>
+                    </li>
+                </ul>
+            </li>
                 </ul>
             </div>
         </div>

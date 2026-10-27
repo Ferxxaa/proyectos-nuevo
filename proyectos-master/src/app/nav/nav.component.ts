@@ -124,6 +124,7 @@ export class NavComponent implements OnInit {
                             normalized.includes('/Tablero-Control') ||
                             normalized.includes('/Proyecto-TableroControl') ||
                             normalized.includes('/Hallazgos-Operacionales') ||
+                            normalized.includes('/Proyectos-ReportesHallazgos') ||
                             normalized.includes('/Grafico-Estructural') ||
                             normalized.includes('/Validacion-Cierre');
     
@@ -140,7 +141,7 @@ export class NavComponent implements OnInit {
     const currentPath = window.location.pathname;
     
     // Detectar sección de Proyectos desde URL externa (incluye Tablero-Control y Gráfico Estructural)
-    if (currentPath.includes('/Proyectos-') || currentPath.includes('/Configuracion-') || currentPath.includes('/Tablero-Control') || currentPath.includes('/Proyecto-TableroControl') || currentPath.includes('/Hallazgos-Operacionales') || currentPath.includes('/Grafico-Estructural') || currentPath.includes('/Validacion-Cierre')) {
+    if (currentPath.includes('/Proyectos-') || currentPath.includes('/Configuracion-') || currentPath.includes('/Tablero-Control') || currentPath.includes('/Proyecto-TableroControl') || currentPath.includes('/Hallazgos-Operacionales') || currentPath.includes('/Proyectos-ReportesHallazgos') || currentPath.includes('/Grafico-Estructural') || currentPath.includes('/Validacion-Cierre')) {
       this.isProyectosRoute = true;
     }
     

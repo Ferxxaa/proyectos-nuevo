@@ -1,0 +1,235 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <section class="widget consolidado-pagina">
+      <header class="consolidado-cabecera">
+        <div class="consolidado-cabecera-titulo">
+          <span class="consolidado-cabecera-icono"><i class="fa fa-bar-chart" aria-hidden="true"></i></span>
+          <div>
+            <span class="consolidado-kicker">REPORTES DE PROYECTOS</span>
+            <h2>Consolidado de hallazgos</h2>
+            <p>Resumen general agrupado por proyecto y subproyecto.</p>
+          </div>
+        </div>
+        <a class="btn btn-volver-consolidado" [routerLink]="['/Proyectos-MisProyectos']">
+          <i class="fa fa-arrow-left" aria-hidden="true"></i>
+          <span>Volver a Mis Proyectos</span>
+        </a>
+      </header>
+
+      <div class="widget-body consolidado-pagina-cuerpo">
+        <section class="consolidado-hallazgos">
+          <div class="consolidado-mensaje" *ngIf="cargando">
+            <i class="fa fa-spinner fa-spin"></i> Cargando consolidado...
+          </div>
+
+          <div class="alert alert-danger" *ngIf="!cargando && error">
+            <i class="fa fa-exclamation-triangle"></i> {{error}}
+          </div>
+
+          <ng-container *ngIf="!cargando && !error">
+            <!-- Totales generales -->
+            <div class="consolidado-kpis">
+      <div class="kpi">
+        <span class="kpi-valor">{{totales.proyectos}}</span>
+        <span class="kpi-label">Proyectos</span>
+      </div>
+      <div class="kpi kpi-principal">
+        <span class="kpi-valor">{{totales.total}}</span>
+        <span class="kpi-label">Hallazgos</span>
+      </div>
+      <div class="kpi kpi-seguimiento">
+        <span class="kpi-valor">{{totales.abiertos}}</span>
+        <span class="kpi-label">En seguimiento</span>
+      </div>
+      <div class="kpi kpi-cerrados">
+        <span class="kpi-valor">{{totales.cerrados}}</span>
+        <span class="kpi-label">Cerrados</span>
+      </div>
+      <div class="kpi kpi-tipos">
+        <div class="kpi-tipos-chips">
+          <span class="tipo-chip" *ngFor="let t of columnasTipo; trackBy: trackByTipo" [ngClass]="t.clase"
+                [class.tipo-chip-cero]="!totales.tipos[t.key]" [class.tipo-chip-activo]="esTipoMarcado(t.key)"
+                [title]="t.label + ': ' + (totales.tipos[t.key] || 0)">
+            <b>{{t.sigla}}</b> {{totales.tipos[t.key] || 0}}
+          </span>
+        </div>
+        <span class="kpi-label">Por tipo de acción</span>
+      </div>
+            </div>
+
+            <!-- Marca que viene desde Reportes de hallazgos -->
+            <div class="filtro-marcado" *ngIf="filtroMarcado" [class.filtro-marcado-vacio]="totalMarcados === 0">
+              <span class="filtro-marcado-icono"><i class="fa fa-crosshairs" aria-hidden="true"></i></span>
+              <div class="filtro-marcado-texto">
+                <span class="filtro-marcado-kicker">Filtro activo</span>
+                <strong>{{etiquetaFiltro}}</strong>
+                <span *ngIf="totalMarcados > 0">
+                  <b>{{totalMarcados}}</b> hallazgo{{totalMarcados === 1 ? '' : 's'}} en
+                  <b>{{proyectosMarcados}}</b> proyecto{{proyectosMarcados === 1 ? '' : 's'}} · {{soloMarcados ? 'se muestran abajo' : 'están resaltados abajo'}}
+                </span>
+                <span *ngIf="totalMarcados === 0">No hay hallazgos que coincidan con esta selección.</span>
+              </div>
+              <div class="filtro-marcado-acciones">
+                <label class="check-filtro" *ngIf="totalMarcados > 0">
+                  <input type="checkbox" [ngModel]="soloMarcados" (ngModelChange)="onSoloMarcados($event)">
+                  Mostrar solo los marcados
+                </label>
+                <button type="button" class="btn-toolbar" (click)="quitarFiltro()">
+                  <i class="fa fa-times"></i> Quitar filtro
+                </button>
+              </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="consolidado-toolbar">
+      <div class="buscador">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <input type="text" class="form-control" placeholder="Buscar proyecto o subproyecto..."
+          [ngModel]="busqueda" (ngModelChange)="onBusqueda($event)">
+      </div>
+      <label class="check-filtro">
+        <input type="checkbox" [ngModel]="soloConHallazgos" (ngModelChange)="onSoloConHallazgos($event)">
+        Solo proyectos con hallazgos
+      </label>
+            </div>
+
+            <!-- Filtro por tipo de acción, quién detecta y año -->
+            <div class="consolidado-filtros-tipo">
+              <div class="filtro-tipo-fila">
+                <span class="filtro-tipo-label"><i class="fa fa-filter"></i> Tipo de acción</span>
+                <div class="filtro-tipo-chips">
+                  <button type="button" class="tipo-chip tipo-chip-boton tipo-chip-todos"
+                          [class.tipo-chip-activo]="!filtroMarcado || !filtroMarcado.tipo"
+                          (click)="filtrarPorTipo(null)">
+                    Todos <span class="tipo-chip-n">{{totalDisponibles}}</span>
+                  </button>
+                  <button type="button" class="tipo-chip tipo-chip-boton" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                          [ngClass]="t.clase" [class.tipo-chip-activo]="esTipoMarcado(t.key)"
+                          [class.tipo-chip-cero]="!tiposDisponibles[t.key] && !esTipoMarcado(t.key)"
+                          [title]="esTipoMarcado(t.key) ? 'Quitar filtro ' + t.label : 'Filtrar por ' + t.label"
+                          (click)="filtrarPorTipo(t)">
+                    <b>{{t.sigla}}</b> {{t.label}} <span class="tipo-chip-n">{{tiposDisponibles[t.key] || 0}}</span>
+                  </button>
+                </div>
+              </div>
+              <div class="filtro-tipo-selects">
+                <label>
+                  <span>Quién detecta</span>
+                  <select class="form-control" [ngModel]="filtroQuien" (ngModelChange)="filtrarPorQuien($event)">
+                    <option value="">Todos</option>
+                    <option *ngFor="let q of quienOpciones" [value]="q">{{q}}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Año</span>
+                  <select class="form-control" [ngModel]="filtroAnio" (ngModelChange)="filtrarPorAnio($event)">
+                    <option value="">Todos</option>
+                    <option *ngFor="let a of aniosDisponibles" [value]="a">{{a}}</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="consolidado-mensaje" *ngIf="proyectosVisibles.length === 0">
+              No hay proyectos que coincidan con el filtro.
+            </div>
+
+            <!-- Proyectos -->
+            <article class="proyecto" *ngFor="let proyecto of proyectosVisibles; trackBy: trackByProyecto"
+              [class.proyecto-actual]="esProyectoActual(proyecto)" [class.proyecto-abierto]="proyecto.abierto"
+              [class.proyecto-marcado]="esMarcado(proyecto)" [class.proyecto-atenuado]="esAtenuado(proyecto)">
+
+      <div class="proyecto-header" (click)="toggleProyecto(proyecto)">
+        <i class="fa proyecto-chevron" [ngClass]="proyecto.abierto ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+
+        <div class="proyecto-titulo">
+          <strong [class.coincidencia-filtro]="coincideBusqueda(proyecto.nombre)">{{proyecto.nombre}}</strong>
+          <span class="proyecto-sub">
+            {{proyecto.subProyectos.length}} subproyecto{{proyecto.subProyectos.length === 1 ? '' : 's'}}
+            <span class="badge-actual" *ngIf="esProyectoActual(proyecto)">Proyecto actual</span>
+          </span>
+        </div>
+
+        <div class="proyecto-resumen">
+          <span class="chip chip-marcado" *ngIf="esMarcado(proyecto)" [title]="proyecto.marcados + ' · ' + etiquetaFiltro">
+            <i class="fa fa-crosshairs"></i> <strong>{{proyecto.marcados}}</strong> {{etiquetaCorta}}
+          </span>
+          <span class="chip chip-total"><strong>{{proyecto.total}}</strong> total</span>
+          <span class="chip chip-seguimiento"><strong>{{proyecto.abiertos}}</strong> seguimiento</span>
+          <span class="chip chip-cerrados"><strong>{{proyecto.cerrados}}</strong> cerrados</span>
+          <ng-container *ngFor="let t of columnasTipo; trackBy: trackByTipo">
+            <span class="tipo-chip" *ngIf="proyecto.tipos[t.key] > 0" [ngClass]="t.clase"
+                  [class.tipo-chip-activo]="esTipoMarcado(t.key)" [title]="t.label + ': ' + proyecto.tipos[t.key]">
+              <b>{{t.sigla}}</b> {{proyecto.tipos[t.key]}}
+            </span>
+          </ng-container>
+        </div>
+
+        <div class="proyecto-avance" [title]="porcentajeCerrados(proyecto) + '% cerrados'">
+          <div class="barra">
+            <div class="barra-relleno" [style.width.%]="porcentajeCerrados(proyecto)"></div>
+          </div>
+          <span>{{porcentajeCerrados(proyecto)}}%</span>
+        </div>
+      </div>
+
+      <div class="proyecto-body" *ngIf="proyecto.abierto">
+        <div class="table-responsive">
+          <table class="table consolidado-tabla">
+            <thead>
+              <tr>
+                <th>Subproyecto</th>
+                <th class="numero col-marcado" *ngIf="filtroMarcado" [title]="etiquetaFiltro">
+                  <i class="fa fa-crosshairs"></i> {{etiquetaCorta}}
+                </th>
+                <th class="numero">En seguimiento</th>
+                <th class="numero">Cerrados</th>
+                <th class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                    [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)" [title]="t.label">{{t.sigla}}</th>
+                <th class="numero col-total">Total hallazgos</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of proyecto.subProyectos; trackBy: trackBySubProyecto"
+                [class.sin-hallazgos]="item.total === 0"
+                [class.fila-marcada]="esMarcado(item)" [class.fila-atenuada]="esAtenuado(item)">
+                <td>
+                  <i class="fa fa-crosshairs icono-marcado" *ngIf="esMarcado(item)"></i>
+                  <span [class.coincidencia-filtro]="coincideBusqueda(item.nombre)">{{item.nombre}}</span>
+                </td>
+                <td class="numero col-marcado" *ngIf="filtroMarcado">
+                  <span class="num-marcado" [class.cero]="!item.marcados">{{item.marcados}}</span>
+                </td>
+                <td class="numero">{{item.abiertos}}</td>
+                <td class="numero">{{item.cerrados}}</td>
+                <td class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                    [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)">
+                  <span class="num-tipo" [class.cero]="!item.tipos[t.key]" [title]="t.label + ': ' + (item.tipos[t.key] || 0)">{{item.tipos[t.key] || 0}}</span>
+                </td>
+                <td class="numero col-total"><span class="total-pill" [class.cero]="!item.total">{{item.total}}</span></td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th>Total proyecto</th>
+                <th class="numero col-marcado" *ngIf="filtroMarcado">{{proyecto.marcados}}</th>
+                <th class="numero">{{proyecto.abiertos}}</th>
+                <th class="numero">{{proyecto.cerrados}}</th>
+                <th class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                    [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)">{{proyecto.tipos[t.key] || 0}}</th>
+                <th class="numero col-total"><span class="total-pill">{{proyecto.total}}</span></th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+            </article>
+
+          </ng-container>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>

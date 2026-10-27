@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 
 export interface HallazgoItem {
   id?: string;
+  ambito?: string;
+  tipoRegistro?: string;
   fecha: string;
   anio: number;
   numero: number;
@@ -17,6 +19,7 @@ export interface HallazgoItem {
   accionInmediata: string;
   seguimientoResponsable: string;
   idSubProyecto: string;
+  prioridad?: string;
 }
 
 @Injectable()
@@ -27,6 +30,18 @@ export class sHallazgos {
       const unsubscribe = firestoreDB.collection('hallazgos')
         .where('idSubProyecto', '==', idSubProyecto)
         .orderBy('numero', 'desc')
+        .onSnapshot(snapshot => {
+          const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HallazgoItem));
+          observer.next(items);
+        }, error => observer.error(error));
+
+      return { unsubscribe };
+    });
+  }
+
+  getTodosLosHallazgos(): Observable<HallazgoItem[]> {
+    return new Observable(observer => {
+      const unsubscribe = firestoreDB.collection('hallazgos')
         .onSnapshot(snapshot => {
           const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HallazgoItem));
           observer.next(items);

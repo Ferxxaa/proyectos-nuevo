@@ -78,6 +78,8 @@ import { ControlAvanceComponent } from './Proyectos/control-avance/control-avanc
 import { ControlHallazgosComponent } from './Proyectos/control-hallazgos/control-hallazgos.component';
 import { HallazgoOperacionalComponent } from './Proyectos/hallazgo-operacional/hallazgo-operacional.component';
 import { GraficoEstructuralComponent } from './nav/estructura-matrices/grafico-estructural.component';
+import { ReportesHallazgosComponent } from './Proyectos/reportes-hallazgos/reportes-hallazgos.component';
+import { ConsolidadoHallazgosComponent } from './Proyectos/consolidado-hallazgos/consolidado-hallazgos.component';
 import { sVis_ProyectoMatriz } from './services/sVis_ProyectoMatriz.service';
 import { sVis_Proyectos } from './services/sVis_Proyectos.service';
 import { sVis_SubProyecto } from './services/sVis_SubProyecto.service';
@@ -127,6 +129,14 @@ const route = [
   {
     path: 'Proyectos-ControlHallazgosSeleccionados',
     component: HallazgosSeleccionadosComponent
+  },
+  {
+    path: 'Proyectos-ReportesHallazgos',
+    component: ReportesHallazgosComponent
+  },
+  {
+    path: 'Proyectos-ConsolidadoHallazgos',
+    component: ConsolidadoHallazgosComponent
   },
   {
     path: 'Configuracion-SubProyecto',
@@ -252,6 +262,8 @@ const route = [
     ControlHallazgosComponent,
     HallazgoOperacionalComponent,
     GraficoEstructuralComponent,
+    ReportesHallazgosComponent,
+    ConsolidadoHallazgosComponent,
   ],
   imports: [
     // FormsModule ya está importado aquí, lo que permite usar [(ngModel)] en los templates de este módulo.

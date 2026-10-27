@@ -1,0 +1,739 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <section class="widget reportes-hallazgos-widget">
+
+      <!-- ================= CABECERA ================= -->
+      <header class="reportes-cabecera">
+        <div class="reportes-cabecera-titulo">
+          <span class="reportes-cabecera-icono"><i class="fa fa-bar-chart"></i></span>
+          <div>
+            <span class="reportes-kicker">ANÁLISIS DE PROYECTOS</span>
+            <h2>Reportes de hallazgos</h2>
+            <p>Resumen anual de proyectos activos, inactivos y finalizados</p>
+          </div>
+        </div>
+        <div class="reportes-cabecera-acciones">
+          <span class="reportes-en-vivo" *ngIf="actualizando && !error">
+            <i class="fa fa-refresh fa-spin"></i> Actualizando...
+          </span>
+          <span class="reportes-en-vivo" *ngIf="!actualizando && !cargandoSubProyectos && !cargandoHallazgos && !error">
+            <span class="punto-en-vivo"></span> En tiempo real
+          </span>
+          <a class="btn btn-volver-reportes" [routerLink]="['/Proyectos-MisProyectos']">
+            <i class="fa fa-arrow-left"></i>
+            <span>Volver a Mis Proyectos</span>
+          </a>
+        </div>
+      </header>
+
+      <div class="widget-body reportes-body">
+        <div class="alert alert-danger reportes-alerta" *ngIf="error">
+          <i class="fa fa-exclamation-triangle"></i> {{error}}
+        </div>
+
+        <!-- ================= CARGANDO (esqueleto) ================= -->
+        <div class="reportes-cargando" *ngIf="cargandoSubProyectos || cargandoHallazgos">
+          <div class="skeleton-kpis">
+            <div class="skeleton skeleton-kpi" *ngFor="let s of [1,2,3,4]"></div>
+          </div>
+          <div class="skeleton-graficos">
+            <div class="skeleton skeleton-grafico"></div>
+            <div class="skeleton skeleton-grafico"></div>
+          </div>
+          <div class="reportes-cargando-texto">
+            <i class="fa fa-spinner fa-spin"></i>
+            {{cargandoSubProyectos ? 'Cargando proyectos...' : 'Cargando hallazgos...'}}
+          </div>
+        </div>
+
+        <div *ngIf="!cargandoSubProyectos && !cargandoHallazgos && !error">
+          <div class="reportes-vacio-total" *ngIf="subProyectos.length === 0">
+            <i class="fa fa-folder-open-o"></i>
+            <strong>No hay subproyectos disponibles</strong>
+            <span>No se encontraron proyectos para generar reportes.</span>
+          </div>
+
+          <div *ngIf="subProyectos.length > 0">
+
+            <!-- ================= FILTROS ================= -->
+            <!-- Separador: todo lo de aquí hasta el consolidado es del año elegido -->
+            <div class="bloque-separador bloque-anual">
+              <span><i class="fa fa-calendar-check-o"></i> Reporte anual · {{anioSeleccionado}}</span>
+            </div>
+
+            <section class="reportes-filtros">
+              <div class="filtro-grupo filtro-anios">
+                <span class="filtro-label">Año del reporte</span>
+                <div class="anios-chips">
+                  <button type="button" class="anio-chip" *ngFor="let anio of aniosDisponibles"
+                          [class.activo]="anio === anioSeleccionado"
+                          (click)="seleccionarAnio(anio)">
+                    {{anio}}
+                  </button>
+                  <span class="anio-chip activo" *ngIf="aniosDisponibles.length === 0">{{anioSeleccionado}}</span>
+                </div>
+              </div>
+
+              <div class="filtro-grupo filtro-busqueda">
+                <label class="filtro-label" for="buscarSubProyectoReporte">Buscar proyecto, subproyecto u obra</label>
+                <div class="busqueda-input">
+                  <i class="fa fa-search"></i>
+                  <input id="buscarSubProyectoReporte" type="text"
+                         [(ngModel)]="busqueda" (ngModelChange)="filtrarReportes()"
+                         placeholder="Escribe un nombre para filtrar...">
+                  <button type="button" class="busqueda-limpiar" *ngIf="busqueda" (click)="limpiarBusqueda()" title="Limpiar">
+                    <i class="fa fa-times"></i>
+                  </button>
+                </div>
+              </div>
+
+              <button type="button" class="toggle-filtro" [class.activo]="soloConHallazgos" (click)="toggleSoloConHallazgos()">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                Solo subproyectos con hallazgos
+              </button>
+            </section>
+
+            <!-- ================= 1. RESUMEN DEL AÑO + SUBPROYECTOS CON MÁS HALLAZGOS ================= -->
+            <div class="resumen-fila">
+              <section class="reportes-indicadores" aria-label="Indicadores del año seleccionado">
+                <article class="kpi kpi-total">
+                  <div class="kpi-top">
+                    <span class="kpi-icono"><i class="fa fa-exclamation-circle"></i></span>
+                    <span class="kpi-etiqueta">Hallazgos en {{anioSeleccionado}}</span>
+                  </div>
+                  <strong class="kpi-valor">{{hallazgosDelAnio.length}}</strong>
+                  <span class="kpi-pie" *ngIf="variacionAnual !== null"
+                        [class.kpi-sube]="variacionAnual > 0" [class.kpi-baja]="variacionAnual < 0">
+                    <i class="fa" [ngClass]="variacionAnual > 0 ? 'fa-arrow-up' : (variacionAnual < 0 ? 'fa-arrow-down' : 'fa-minus')"></i>
+                    {{variacionAnual > 0 ? '+' : ''}}{{variacionAnual}} vs {{anioSeleccionado - 1}}
+                  </span>
+                  <span class="kpi-pie" *ngIf="variacionAnual === null">
+                    En {{subProyectosConHallazgos}} de {{totalSubProyectos}} subproyectos
+                  </span>
+                </article>
+
+                <article class="kpi kpi-abiertos">
+                  <div class="kpi-top">
+                    <span class="kpi-icono"><i class="fa fa-clock-o"></i></span>
+                    <span class="kpi-etiqueta">En seguimiento</span>
+                  </div>
+                  <strong class="kpi-valor">{{totalAbiertos}}</strong>
+                  <div class="kpi-estados" *ngIf="porEstadoAbiertos.length > 0">
+                    <span *ngFor="let c of porEstadoAbiertos; trackBy: trackByNombre"
+                          [ngClass]="claseEstadoHallazgo(c.nombre)" [style.width.%]="c.pct"
+                          [title]="c.nombre + ': ' + c.total"></span>
+                  </div>
+                  <span class="kpi-pie kpi-pie-estados" *ngIf="porEstadoAbiertos.length > 0">
+                    <span *ngFor="let c of porEstadoAbiertos; trackBy: trackByNombre">
+                      <i [ngClass]="claseEstadoHallazgo(c.nombre)"></i>{{c.nombre | titlecase}} {{c.total}}
+                    </span>
+                  </span>
+                  <span class="kpi-pie" *ngIf="porEstadoAbiertos.length === 0">Todo cerrado</span>
+                </article>
+
+                <article class="kpi kpi-cerrados">
+                  <div class="kpi-top">
+                    <span class="kpi-icono"><i class="fa fa-check-circle"></i></span>
+                    <span class="kpi-etiqueta">Cerrados</span>
+                  </div>
+                  <strong class="kpi-valor">{{totalCerrados}}</strong>
+                  <div class="kpi-progreso" [title]="'Tasa de cierre: ' + tasaCierre + '%'">
+                    <span [style.width.%]="tasaCierre"></span>
+                  </div>
+                  <span class="kpi-pie">Tasa de cierre {{tasaCierre}}%</span>
+                </article>
+
+                <article class="kpi kpi-alta">
+                  <div class="kpi-top">
+                    <span class="kpi-icono"><i class="fa fa-bell"></i></span>
+                    <span class="kpi-etiqueta">Prioridad alta</span>
+                  </div>
+                  <strong class="kpi-valor">{{totalPrioridadAlta}}</strong>
+                  <div class="kpi-semaforo" *ngIf="hallazgosDelAnio.length > 0"
+                       [title]="'Alta ' + totalPrioridadAlta + ' · Media ' + totalPrioridadMedia + ' · Baja ' + totalPrioridadBaja">
+                    <span class="sem-alta" [style.width.%]="pctDelAnio(totalPrioridadAlta)"></span>
+                    <span class="sem-media" [style.width.%]="pctDelAnio(totalPrioridadMedia)"></span>
+                    <span class="sem-baja" [style.width.%]="pctDelAnio(totalPrioridadBaja)"></span>
+                  </div>
+                  <span class="kpi-pie">Media {{totalPrioridadMedia}} · Baja {{totalPrioridadBaja}}</span>
+                </article>
+              </section>
+
+                <!-- Top subproyectos -->
+                <article class="panel-grafico">
+                  <div class="panel-grafico-cabecera">
+                    <div>
+                      <h3><i class="fa fa-sitemap"></i> Subproyectos con más hallazgos</h3>
+                      <p>{{subProyectosConHallazgos}} de {{totalSubProyectos}} subproyectos tienen hallazgos en {{anioSeleccionado}}</p>
+                    </div>
+                    <div class="leyenda-mini">
+                      <span><i class="ley-abiertos"></i> Seguimiento</span>
+                      <span><i class="ley-cerrados"></i> Cerrados</span>
+                    </div>
+                  </div>
+                  <div class="grafico-subproyectos" *ngIf="topSubProyectos.length > 0">
+                    <div class="barra-subproyecto" *ngFor="let reporte of topSubProyectos; let i = index; trackBy: trackByReporte">
+                      <div class="barra-subproyecto-etiqueta" [title]="reporte.nombreSubProyecto + ' — ' + reporte.nombreProyecto">
+                        <span class="barra-ranking">{{i + 1}}</span>
+                        <span class="barra-nombre">{{reporte.nombreSubProyecto}}</span>
+                        <span class="barra-mandante" *ngIf="reporte.mandante > 0" [title]="reporte.mandante + ' generados desde el mandante'">
+                          <i class="fa fa-user-circle"></i> {{reporte.mandante}}
+                        </span>
+                        <strong>{{reporte.total}}</strong>
+                      </div>
+                      <div class="barra-subproyecto-fondo">
+                        <span class="barra-pila" [style.width.%]="anchoSubProyecto(reporte.total)">
+                          <span class="barra-abiertos" [style.flex-grow]="reporte.abiertos" [title]="reporte.abiertos + ' en seguimiento'"></span>
+                          <span class="barra-cerrados" [style.flex-grow]="reporte.cerrados" [title]="reporte.cerrados + ' cerrados'"></span>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="barra-mas" *ngIf="subProyectosConHallazgos > topSubProyectos.length">
+                      + {{subProyectosConHallazgos - topSubProyectos.length}} subproyectos más en el detalle
+                    </div>
+                  </div>
+                  <div class="grafico-vacio" *ngIf="topSubProyectos.length === 0">
+                    <i class="fa fa-check-circle-o"></i>
+                    {{busqueda ? 'No hay subproyectos que coincidan con la búsqueda.' : 'Sin hallazgos en ' + anioSeleccionado + '.'}}
+                  </div>
+                </article>
+            </div>
+
+            <!-- ================= 2. RELACIÓN CON EL MANDANTE ================= -->
+            <section class="seccion-mandante">
+              <div class="seccion-titulo">
+                <span class="seccion-titulo-icono"><i class="fa fa-handshake-o"></i></span>
+                <div>
+                  <h3>Relación con el mandante</h3>
+                  <p>Qué genera el mandante y cuántas NC, SW, Refuerzos Positivos y demás acciones hubo en {{anioSeleccionado}}</p>
+                </div>
+              </div>
+
+              <div class="grafico-vacio" *ngIf="hallazgosDelAnio.length === 0">
+                <i class="fa fa-handshake-o"></i>
+                Sin hallazgos en {{anioSeleccionado}}.
+              </div>
+
+              <div *ngIf="hallazgosDelAnio.length > 0">
+                <div class="mandante-grid">
+                  <!-- Mandante + quién detecta -->
+                  <article class="mandante-destacado" [class.mandante-destacado-link]="totalMandante > 0"
+                           (click)="totalMandante > 0 && irAConsolidado({ quienDetecta: 'Mandante' })"
+                           [title]="totalMandante > 0 ? 'Ver en el consolidado los hallazgos generados por el mandante' : ''">
+                    <span class="mandante-destacado-label"><i class="fa fa-user-circle"></i> Generados desde el mandante</span>
+                    <div class="mandante-destacado-valor">
+                      <strong>{{totalMandante}}</strong>
+                      <span>{{pctMandante}}% del año</span>
+                    </div>
+                    <div class="mandante-split">
+                      <span><i class="dot dot-abiertos"></i> {{mandanteAbiertos}} en seguimiento</span>
+                      <span><i class="dot dot-cerrados"></i> {{mandanteCerrados}} cerrados</span>
+                    </div>
+                    <span class="mandante-variacion" *ngIf="mandanteVariacion !== null"
+                          [class.kpi-sube]="mandanteVariacion > 0" [class.kpi-baja]="mandanteVariacion < 0">
+                      <i class="fa" [ngClass]="mandanteVariacion > 0 ? 'fa-arrow-up' : (mandanteVariacion < 0 ? 'fa-arrow-down' : 'fa-minus')"></i>
+                      {{mandanteVariacion > 0 ? '+' : ''}}{{mandanteVariacion}} vs {{anioSeleccionado - 1}}
+                    </span>
+
+                    <div class="detecta-bloque">
+                      <span class="mandante-subtitulo">¿Quién detecta?</span>
+                      <div class="detecta-pila">
+                        <span *ngFor="let d of detectaResumen; trackBy: trackByKey" [ngClass]="d.clase"
+                              [style.width.%]="d.pct" [title]="d.label + ': ' + d.total + ' (' + d.pct + '%)'"></span>
+                      </div>
+                      <div class="detecta-leyenda">
+                        <span *ngFor="let d of detectaResumen; trackBy: trackByKey" class="detecta-item"
+                              [class.detecta-item-link]="d.total > 0"
+                              (click)="d.total > 0 && irAConsolidado({ quienDetecta: d.label }, $event)"
+                              [title]="d.total > 0 ? 'Ver ' + d.total + ' detectados por ' + d.label : ''">
+                          <i [ngClass]="d.clase"></i> {{d.label}} <strong>{{d.total}}</strong>
+                        </span>
+                      </div>
+                      <div class="detecta-total">
+                        <span>Total hallazgos {{anioSeleccionado}}</span>
+                        <strong>{{hallazgosDelAnio.length}}</strong>
+                      </div>
+                    </div>
+                  </article>
+
+                  <!-- Tipos de acción: total y cuántos vienen del mandante -->
+                  <div class="tipos-grid">
+                    <article class="tipo-card" *ngFor="let t of tiposResumen; trackBy: trackByKey"
+                             [ngClass]="t.clase" [class.tipo-card-cero]="t.total === 0" [class.tipo-card-link]="t.total > 0"
+                             [attr.tabindex]="t.total > 0 ? 0 : null" [attr.role]="t.total > 0 ? 'button' : null"
+                             (click)="t.total > 0 && irAConsolidado({ tipoAccion: t.label })"
+                             (keyup.enter)="t.total > 0 && irAConsolidado({ tipoAccion: t.label })"
+                             [title]="t.total > 0 ? 'Ver los ' + t.total + ' ' + t.label + ' en el consolidado' : ''">
+                      <span class="tipo-card-ir" *ngIf="t.total > 0"><i class="fa fa-external-link"></i> Ver</span>
+                      <div class="tipo-card-top">
+                        <span class="tipo-sigla">{{t.sigla}}</span>
+                        <i class="fa" [ngClass]="t.icono"></i>
+                      </div>
+                      <strong class="tipo-total">{{t.total}}</strong>
+                      <span class="tipo-nombre" [title]="t.label">{{t.label}}</span>
+                      <div class="tipo-mandante" [class.tipo-mandante-link]="t.mandante > 0"
+                           (click)="t.mandante > 0 && irAConsolidado({ tipoAccion: t.label, quienDetecta: 'Mandante' }, $event)"
+                           [title]="t.mandante > 0 ? 'Ver los ' + t.mandante + ' ' + t.label + ' del mandante' : t.mandante + ' de ' + t.total + ' generados desde el mandante'">
+                        <div class="tipo-mandante-barra"><span [style.width.%]="pctDe(t.mandante, t.total)"></span></div>
+                        <span><i class="fa fa-user-circle"></i> {{t.mandante}} del mandante</span>
+                      </div>
+                    </article>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ================= 4. DETALLE (una tabla con pestañas) ================= -->
+            <section class="tabla-reportes">
+              <div class="tabla-reportes-cabecera">
+                <div class="detalle-tabs">
+                  <button type="button" class="detalle-tab" [class.activo]="vistaDetalle === 'subproyecto'" (click)="vistaDetalle = 'subproyecto'">
+                    <i class="fa fa-sitemap"></i> Por subproyecto
+                    <span class="detalle-tab-count">{{reportesSubProyectos.length}}</span>
+                  </button>
+                  <button type="button" class="detalle-tab" [class.activo]="vistaDetalle === 'obra'" (click)="vistaDetalle = 'obra'">
+                    <i class="fa fa-building"></i> Por obra
+                    <span class="detalle-tab-count">{{reportesObraFiltrados.length}}</span>
+                  </button>
+                </div>
+                <div class="tabla-reportes-acciones">
+                  <button type="button" class="btn-exportar" (click)="exportarExcel()"
+                          [disabled]="exportando || (hallazgosDelAnio.length === 0 && reportesSubProyectos.length === 0)"
+                          title="Descargar reporte en Excel (Resumen, Por subproyecto, Por obra y Consolidado general)">
+                    <i class="fa" [ngClass]="exportando ? 'fa-spinner fa-spin' : 'fa-file-excel-o'"></i>
+                    {{exportando ? 'Generando...' : 'Exportar Excel'}}
+                  </button>
+                </div>
+              </div>
+
+              <!-- ----- Por subproyecto ----- -->
+              <ng-container *ngIf="vistaDetalle === 'subproyecto'">
+                <div class="table-responsive" *ngIf="reportesSubProyectos.length > 0">
+                  <table class="table tabla-hallazgos">
+                    <thead>
+                      <tr>
+                        <th class="ordenable" (click)="ordenarPor('nombre')">Proyecto / Subproyecto <i class="fa" [ngClass]="iconoOrden('nombre')"></i></th>
+                        <th class="ordenable" (click)="ordenarPor('estado')">Estado <i class="fa" [ngClass]="iconoOrden('estado')"></i></th>
+                        <th class="ordenable numero-columna" (click)="ordenarPor('total')">Total <i class="fa" [ngClass]="iconoOrden('total')"></i></th>
+                        <th class="ordenable numero-columna" (click)="ordenarPor('abiertos')">Seguimiento <i class="fa" [ngClass]="iconoOrden('abiertos')"></i></th>
+                        <th class="ordenable col-cierre" (click)="ordenarPor('pctCierre')">% Cierre <i class="fa" [ngClass]="iconoOrden('pctCierre')"></i></th>
+                        <th class="ordenable numero-columna" (click)="ordenarPor('prioridadAlta')">Alta <i class="fa" [ngClass]="iconoOrden('prioridadAlta')"></i></th>
+                        <th class="ordenable numero-columna col-mandante" (click)="ordenarPor('mandante')">Mandante <i class="fa" [ngClass]="iconoOrden('mandante')"></i></th>
+                        <th class="ordenable numero-columna col-tipo" *ngFor="let t of columnasTipoDetalle; trackBy: trackByKey"
+                            [ngClass]="t.clase" [title]="t.label" (click)="ordenarPor('t_' + t.key)">
+                          {{t.sigla === '—' ? 'S/T' : t.sigla}} <i class="fa" [ngClass]="iconoOrden('t_' + t.key)"></i>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let reporte of reportesSubProyectos; trackBy: trackByReporte" [class.fila-sin-hallazgos]="reporte.total === 0">
+                        <td>
+                          <strong class="td-subproyecto">{{reporte.nombreSubProyecto}}</strong>
+                          <small>{{reporte.nombreProyecto}}</small>
+                        </td>
+                        <td><span class="estado-subproyecto" [ngClass]="reporte.estadoClase">{{reporte.estado}}</span></td>
+                        <td class="numero-columna"><span class="total-pill">{{reporte.total}}</span></td>
+                        <td class="numero-columna">
+                          <span class="num-abiertos" *ngIf="reporte.abiertos > 0">{{reporte.abiertos}}</span>
+                          <span class="num-cero" *ngIf="reporte.abiertos === 0">0</span>
+                        </td>
+                        <td class="col-cierre">
+                          <div class="cierre-celda" *ngIf="reporte.total > 0" [title]="reporte.cerrados + ' de ' + reporte.total + ' cerrados'">
+                            <div class="cierre-barra">
+                              <span [style.width.%]="reporte.pctCierre"
+                                    [class.cierre-bajo]="reporte.pctCierre < 40"
+                                    [class.cierre-medio]="reporte.pctCierre >= 40 && reporte.pctCierre < 80"
+                                    [class.cierre-alto]="reporte.pctCierre >= 80"></span>
+                            </div>
+                            <span class="cierre-pct">{{reporte.pctCierre}}%</span>
+                          </div>
+                          <span class="num-cero" *ngIf="reporte.total === 0">—</span>
+                        </td>
+                        <td class="numero-columna">
+                          <span class="alta-pill" *ngIf="reporte.prioridadAlta > 0"><i class="fa fa-bell"></i> {{reporte.prioridadAlta}}</span>
+                          <span class="num-cero" *ngIf="reporte.prioridadAlta === 0">0</span>
+                        </td>
+                        <td class="numero-columna col-mandante"><span class="cifra cifra-mandante" [class.cifra-cero]="!reporte.mandante">{{reporte.mandante}}</span></td>
+                        <td class="numero-columna col-tipo" *ngFor="let t of columnasTipoDetalle; trackBy: trackByKey" [ngClass]="t.clase">
+                          <span class="cifra cifra-tipo" [class.cifra-cero]="!reporte.tipos[t.key]"
+                                [title]="t.label + ': ' + (reporte.tipos[t.key] || 0)">{{reporte.tipos[t.key] || 0}}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="grafico-vacio" *ngIf="reportesSubProyectos.length === 0">
+                  <i class="fa fa-search"></i>
+                  <span *ngIf="busqueda">No hay subproyectos que coincidan con "{{busqueda}}".</span>
+                  <span *ngIf="!busqueda && soloConHallazgos">Ningún subproyecto tiene hallazgos en {{anioSeleccionado}}.</span>
+                  <span *ngIf="!busqueda && !soloConHallazgos">No hay subproyectos para mostrar.</span>
+                </div>
+              </ng-container>
+
+              <!-- ----- Por obra ----- -->
+              <ng-container *ngIf="vistaDetalle === 'obra'">
+                <div class="table-responsive" *ngIf="reportesObraFiltrados.length > 0">
+                  <table class="table tabla-hallazgos">
+                    <thead>
+                      <tr>
+                        <th>Obra</th>
+                        <th class="numero-columna">Total</th>
+                        <th class="numero-columna">Seguimiento</th>
+                        <th class="numero-columna col-mandante">Mandante</th>
+                        <th class="numero-columna col-tipo" *ngFor="let t of columnasTipoDetalle; trackBy: trackByKey"
+                            [ngClass]="t.clase" [title]="t.label">{{t.sigla === '—' ? 'S/T' : t.sigla}}</th>
+                        <th class="numero-columna" title="Origen del hallazgo: Hallazgos Positivos">Hallazgos positivos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let obra of reportesObraFiltrados; trackBy: trackByObra">
+                        <td><strong class="td-subproyecto">{{obra.nombre}}</strong></td>
+                        <td class="numero-columna"><span class="total-pill">{{obra.total}}</span></td>
+                        <td class="numero-columna">
+                          <span class="num-abiertos" *ngIf="obra.abiertos > 0">{{obra.abiertos}}</span>
+                          <span class="num-cero" *ngIf="obra.abiertos === 0">0</span>
+                        </td>
+                        <td class="numero-columna col-mandante"><span class="cifra cifra-mandante" [class.cifra-cero]="!obra.detectadosMandante">{{obra.detectadosMandante}}</span></td>
+                        <td class="numero-columna col-tipo" *ngFor="let t of columnasTipoDetalle; trackBy: trackByKey" [ngClass]="t.clase">
+                          <span class="cifra cifra-tipo" [class.cifra-cero]="!obra.tipos[t.key]"
+                                [title]="t.label + ': ' + (obra.tipos[t.key] || 0)">{{obra.tipos[t.key] || 0}}</span>
+                        </td>
+                        <td class="numero-columna"><span class="cifra cifra-rp" [class.cifra-cero]="!obra.hallazgosPositivos">{{obra.hallazgosPositivos}}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="grafico-vacio" *ngIf="reportesObraFiltrados.length === 0">
+                  <i class="fa fa-building"></i>
+                  <span *ngIf="busqueda">No hay obras que coincidan con "{{busqueda}}".</span>
+                  <span *ngIf="!busqueda">No hay hallazgos asociados a obras en {{anioSeleccionado}}.</span>
+                </div>
+              </ng-container>
+            </section>
+
+            <!-- ================= 5. CONSOLIDADO GENERAL (todos los años) ================= -->
+            <!-- Separador: desde aquí es histórico (todos los años) -->
+            <div class="bloque-separador bloque-historico">
+              <span><i class="fa fa-history"></i> Histórico · todos los años</span>
+            </div>
+
+            <section class="consolidado-general">
+              <div class="seccion-titulo cg-cabecera">
+                <span class="seccion-titulo-icono"><i class="fa fa-history"></i></span>
+                <div>
+                  <span class="cg-kicker">HISTÓRICO {{consolidadoAnios[0]}} – {{consolidadoAnios[consolidadoAnios.length - 1]}} · NO DEPENDE DEL AÑO ELEGIDO</span>
+                  <h3>Consolidado general</h3>
+                  <p>Todos los años · {{consolidadoAnios[0]}}–{{ultimoAnioHistorico}} desde el registro histórico, desde {{ultimoAnioHistorico + 1}} calculado con los datos del sistema</p>
+                </div>
+                <span class="cg-leyenda-vivo"><span class="punto-en-vivo"></span> Columnas en verde: tiempo real</span>
+              </div>
+
+              <!-- 5.0 Indicadores del consolidado -->
+              <div class="cg-kpis">
+                <article class="cg-kpi" *ngFor="let k of cgKpis; trackBy: trackByKey" [ngClass]="k.clase">
+                  <span class="cg-kpi-icono"><i class="fa" [ngClass]="k.icono"></i></span>
+                  <div class="cg-kpi-texto">
+                    <span class="cg-kpi-label">{{k.label}}</span>
+                    <strong class="cg-kpi-valor">{{k.valor}}</strong>
+                    <span class="cg-kpi-detalle">{{k.detalle}}</span>
+                  </div>
+                </article>
+              </div>
+
+              <!-- 5.0 Gráficos del consolidado -->
+              <div class="cg-graficos">
+
+                <!-- Hallazgos por año y tipo (columnas apiladas) -->
+                <article class="cg-panel cg-panel-ancho">
+                  <div class="cg-panel-cabecera">
+                    <div>
+                      <h4><i class="fa fa-bar-chart"></i> Hallazgos por año y tipo de acción</h4>
+                      <p>Cómo ha cambiado la mezcla de hallazgos año a año</p>
+                    </div>
+                    <span class="grafico-total">{{consolidadoTiposGranTotal}} en total</span>
+                  </div>
+                  <div class="cg-plot">
+                    <div class="cg-guias"><span></span><span></span><span></span><span></span></div>
+                    <div class="cg-col" *ngFor="let c of cgColumnasTipos; let i = index; trackBy: trackByAnio" [class.cg-col-viva]="c.vivo">
+                      <div class="cg-col-area">
+                        <div class="cg-pila" [style.height.%]="c.alto" [style.animation-delay]="(i * 60) + 'ms'">
+                          <span class="cg-pila-total" *ngIf="c.total > 0">{{c.total}}</span>
+                          <div class="cg-pila-barra" [title]="c.anio + ': ' + c.total + ' hallazgos'">
+                            <span *ngFor="let s of c.segmentos; trackBy: trackByIndex"
+                                  [style.background]="s.color" [style.flex-grow]="s.valor"
+                                  [title]="c.anio + ' · ' + s.label + ': ' + s.valor"></span>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="cg-col-anio">{{c.anio}}<i class="cg-dot-vivo" *ngIf="c.vivo"></i></span>
+                    </div>
+                  </div>
+                  <div class="cg-leyenda">
+                    <span *ngFor="let t of cgLeyendaTipos; trackBy: trackByIndex">
+                      <i [style.background]="t.color"></i>{{t.label}} <strong>{{t.total}}</strong>
+                    </span>
+                  </div>
+                </article>
+
+                <!-- Distribución histórica (dona) -->
+                <article class="cg-panel">
+                  <div class="cg-panel-cabecera">
+                    <div>
+                      <h4><i class="fa fa-pie-chart"></i> Distribución histórica</h4>
+                      <p>Participación de cada tipo en todos los años</p>
+                    </div>
+                  </div>
+                  <div class="cg-donut-cuerpo">
+                    <div class="cg-donut-wrap">
+                      <svg class="cg-donut" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="#eef3f6" stroke-width="13"></circle>
+                        <circle *ngFor="let s of cgDonut; trackBy: trackByIndex" class="cg-donut-seg"
+                                cx="50" cy="50" r="40" fill="none" stroke-width="13"
+                                transform="rotate(-90 50 50)"
+                                [attr.stroke]="s.color" [attr.stroke-dasharray]="s.dash" [attr.stroke-dashoffset]="s.offset">
+                          <title>{{s.label}}: {{s.valor}} ({{s.pct}}%)</title>
+                        </circle>
+                      </svg>
+                      <div class="cg-donut-centro">
+                        <strong>{{consolidadoTiposGranTotal}}</strong>
+                        <span>hallazgos</span>
+                      </div>
+                    </div>
+                    <ul class="cg-donut-leyenda">
+                      <li *ngFor="let s of cgDonut; trackBy: trackByIndex">
+                        <i [style.background]="s.color"></i>
+                        <span class="cg-donut-nombre">{{s.label}}</span>
+                        <strong>{{s.valor}}</strong>
+                        <em>{{s.pct}}%</em>
+                      </li>
+                    </ul>
+                  </div>
+                </article>
+
+                <!-- Eficacia de las mejoras (barras + línea de %) -->
+                <article class="cg-panel">
+                  <div class="cg-panel-cabecera">
+                    <div>
+                      <h4><i class="fa fa-check-square-o"></i> Eficacia de las mejoras</h4>
+                      <p>Mejoras realizadas vs efectivas y % de efectividad</p>
+                    </div>
+                    <div class="leyenda-mini">
+                      <span><i class="cg-ley-realizadas"></i> Realizadas</span>
+                      <span><i class="cg-ley-efectivas"></i> Efectivas</span>
+                      <span><i class="cg-ley-linea"></i> % efectividad</span>
+                    </div>
+                  </div>
+                  <div class="cg-plot cg-plot-combo">
+                    <div class="cg-guias"><span></span><span></span><span></span><span></span></div>
+                    <div class="cg-combo-capa">
+                      <svg class="cg-combo-linea" [attr.viewBox]="'0 0 ' + (cgColumnasEficacia.length * 10) + ' 100'" preserveAspectRatio="none">
+                        <polyline [attr.points]="cgPuntosEficacia" fill="none" stroke="#1f7a4d" stroke-width="2.5"
+                                  stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>
+                      </svg>
+                    </div>
+                    <div class="cg-col" *ngFor="let c of cgColumnasEficacia; let i = index; trackBy: trackByAnio" [class.cg-col-viva]="c.vivo">
+                      <div class="cg-col-area">
+                        <div class="cg-par">
+                          <span class="cg-barra cg-barra-realizadas" [style.height.%]="c.altoRealizadas"
+                                [style.animation-delay]="(i * 60) + 'ms'" [title]="c.anio + ': ' + c.realizadas + ' realizadas'"></span>
+                          <span class="cg-barra cg-barra-efectivas" [style.height.%]="c.altoEfectivas"
+                                [style.animation-delay]="(i * 60 + 30) + 'ms'" [title]="c.anio + ': ' + c.efectivas + ' efectivas'"></span>
+                        </div>
+                        <span class="cg-punto" *ngIf="c.pct !== null" [style.bottom.%]="c.pct"
+                              [ngClass]="clasePct(c.pct)" [title]="c.anio + ': ' + formatoPct(c.pct)">
+                          <em>{{c.pct | number:'1.0-0'}}%</em>
+                        </span>
+                      </div>
+                      <span class="cg-col-anio">{{c.anio}}<i class="cg-dot-vivo" *ngIf="c.vivo"></i></span>
+                    </div>
+                  </div>
+                </article>
+
+                <!-- Interacción con el mandante (barras agrupadas) -->
+                <article class="cg-panel">
+                  <div class="cg-panel-cabecera">
+                    <div>
+                      <h4><i class="fa fa-handshake-o"></i> Interacción con el mandante</h4>
+                      <p>Desviaciones vs refuerzos positivos por año</p>
+                    </div>
+                    <div class="leyenda-mini">
+                      <span><i class="cg-ley-desv"></i> Desviaciones</span>
+                      <span><i class="cg-ley-rp"></i> R. positivo</span>
+                    </div>
+                  </div>
+                  <div class="cg-plot">
+                    <div class="cg-guias"><span></span><span></span><span></span><span></span></div>
+                    <div class="cg-col" *ngFor="let c of cgColumnasMandante; let i = index; trackBy: trackByAnio" [class.cg-col-viva]="c.vivo">
+                      <div class="cg-col-area">
+                        <div class="cg-par">
+                          <span class="cg-barra cg-barra-desv" [style.height.%]="c.altoDesv"
+                                [style.animation-delay]="(i * 60) + 'ms'" [title]="c.anio + ': ' + c.desv + ' desviaciones'">
+                            <b *ngIf="c.desv > 0">{{c.desv}}</b>
+                          </span>
+                          <span class="cg-barra cg-barra-rp" [style.height.%]="c.altoRp"
+                                [style.animation-delay]="(i * 60 + 30) + 'ms'" [title]="c.anio + ': ' + c.rp + ' refuerzos positivos'">
+                            <b *ngIf="c.rp > 0">{{c.rp}}</b>
+                          </span>
+                        </div>
+                      </div>
+                      <span class="cg-col-anio">{{c.anio}}<i class="cg-dot-vivo" *ngIf="c.vivo"></i></span>
+                    </div>
+                  </div>
+                </article>
+              </div>
+
+              <!-- 5.1 NC y mejoras operacionales -->
+              <div class="cg-bloque">
+                <h4 class="cg-titulo"><i class="fa fa-th-list"></i> Cuadros de análisis · NC y mejoras operacionales</h4>
+                <div class="table-responsive">
+                  <table class="table tabla-hallazgos tabla-consolidado">
+                    <thead>
+                      <tr>
+                        <th>Tipo de acción</th>
+                        <th class="numero-columna" *ngFor="let a of consolidadoAnios" [class.cg-vivo]="esAnioVivo(a)">{{a}}</th>
+                        <th class="numero-columna cg-col-total">Totales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let f of consolidadoTipos; trackBy: trackByKey">
+                        <td><span class="cg-etiqueta" [ngClass]="f.clase">{{f.label}}</span></td>
+                        <td class="numero-columna" *ngFor="let v of f.valores; let i = index; trackBy: trackByIndex"
+                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])">
+                          <span [class.num-cero]="!v">{{v}}</span>
+                        </td>
+                        <td class="numero-columna cg-col-total"><span class="total-pill">{{f.total}}</span></td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td><strong>Total</strong></td>
+                        <td class="numero-columna" *ngFor="let v of consolidadoTiposTotales; let i = index; trackBy: trackByIndex"
+                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])"><strong>{{v}}</strong></td>
+                        <td class="numero-columna cg-col-total"><strong>{{consolidadoTiposGranTotal}}</strong></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 5.2 Eficacia de las mejoras -->
+              <div class="cg-bloque">
+                <h4 class="cg-titulo"><i class="fa fa-check-square-o"></i> Medición de la eficacia de las mejoras</h4>
+                <div class="table-responsive">
+                  <table class="table tabla-hallazgos tabla-consolidado">
+                    <thead>
+                      <tr>
+                        <th>Eficacia</th>
+                        <th class="numero-columna" *ngFor="let a of consolidadoAnios" [class.cg-vivo]="esAnioVivo(a)">{{a}}</th>
+                        <th class="numero-columna cg-col-total">Totales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let f of consolidadoEficacia; trackBy: trackByKey">
+                        <td><span class="cg-etiqueta" [ngClass]="f.clase">{{f.label}}</span></td>
+                        <td class="numero-columna" *ngFor="let v of f.valores; let i = index; trackBy: trackByIndex"
+                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])">
+                          <span [class.num-cero]="!v">{{v}}</span>
+                        </td>
+                        <td class="numero-columna cg-col-total"><span class="total-pill">{{f.total}}</span></td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td><strong>Total</strong></td>
+                        <td class="numero-columna" *ngFor="let v of consolidadoEficaciaTotales; let i = index; trackBy: trackByIndex"
+                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])"><strong>{{v}}</strong></td>
+                        <td class="numero-columna cg-col-total"><strong>{{consolidadoEficaciaGranTotal}}</strong></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 5.3 Mejoras operacionales -->
+              <div class="cg-bloque">
+                <h4 class="cg-titulo"><i class="fa fa-cogs"></i> Mejoras operacionales</h4>
+                <div class="table-responsive">
+                  <table class="table tabla-hallazgos tabla-consolidado">
+                    <thead>
+                      <tr>
+                        <th>Indicador</th>
+                        <th class="numero-columna" *ngFor="let a of consolidadoAnios" [class.cg-vivo]="esAnioVivo(a)">{{a}}</th>
+                        <th class="numero-columna cg-col-total">Totales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let f of consolidadoMejoras; trackBy: trackByKey">
+                        <td><span class="cg-etiqueta" [ngClass]="f.clase">{{f.label}}</span></td>
+                        <td class="numero-columna" *ngFor="let v of f.valores; let i = index; trackBy: trackByIndex"
+                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])">
+                          <span [class.num-cero]="!v">{{v}}</span>
+                        </td>
+                        <td class="numero-columna cg-col-total"><span class="total-pill">{{f.total}}</span></td>
+                      </tr>
+                      <tr class="cg-fila-pct">
+                        <td><strong>% efectividad del hallazgo</strong></td>
+                        <td class="numero-columna" *ngFor="let p of consolidadoPctMejoras; let i = index; trackBy: trackByIndex"
+                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])">
+                          <span class="cg-pct" [ngClass]="clasePct(p)">{{formatoPct(p)}}</span>
+                        </td>
+                        <td class="numero-columna cg-col-total">
+                          <span class="cg-pct" [ngClass]="clasePct(consolidadoPctMejorasTotal)">{{formatoPct(consolidadoPctMejorasTotal)}}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 5.4 Interacción con clientes -->
+              <div class="cg-bloque">
+                <h4 class="cg-titulo"><i class="fa fa-handshake-o"></i> Interacción con clientes (mandante)</h4>
+                <div class="table-responsive">
+                  <table class="table tabla-hallazgos tabla-consolidado">
+                    <thead>
+                      <tr>
+                        <th>Indicador</th>
+                        <th class="numero-columna" *ngFor="let a of consolidadoAnios" [class.cg-vivo]="esAnioVivo(a)">{{a}}</th>
+                        <th class="numero-columna cg-col-total">Totales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let f of consolidadoMandante; trackBy: trackByKey">
+                        <td><span class="cg-etiqueta" [ngClass]="f.clase">{{f.label}}</span></td>
+                        <td class="numero-columna" *ngFor="let v of f.valores; let i = index; trackBy: trackByIndex"
+                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])">
+                          <span [class.num-cero]="!v">{{v}}</span>
+                        </td>
+                        <td class="numero-columna cg-col-total"><span class="total-pill">{{f.total}}</span></td>
+                      </tr>
+                      <tr class="cg-fila-pct">
+                        <td><strong>% interacción positiva</strong> <small>R. positivo / total mandante</small></td>
+                        <td class="numero-columna" *ngFor="let p of consolidadoPctMandante; let i = index; trackBy: trackByIndex"
+                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])">
+                          <span class="cg-pct" [ngClass]="clasePct(p)">{{formatoPct(p)}}</span>
+                        </td>
+                        <td class="numero-columna cg-col-total">
+                          <span class="cg-pct" [ngClass]="clasePct(consolidadoPctMandanteTotal)">{{formatoPct(consolidadoPctMandanteTotal)}}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <p class="cg-nota">
+                <i class="fa fa-info-circle"></i>
+                {{consolidadoAnios[0]}}–{{ultimoAnioHistorico}}: registro histórico REG-10-B-24. Desde {{ultimoAnioHistorico + 1}} se cuenta con los hallazgos del sistema (no depende del año ni de la búsqueda de arriba).
+              </p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
