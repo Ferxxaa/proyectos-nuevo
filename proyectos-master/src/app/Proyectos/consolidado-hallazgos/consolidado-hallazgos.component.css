@@ -11,7 +11,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 22px 28px;
+  padding: 24px 30px;
   background: linear-gradient(115deg, #064f78 0%, #075f91 45%, #1089bd 100%);
   color: #fff;
 }
@@ -19,20 +19,28 @@
 .consolidado-cabecera-titulo {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
+  min-width: 0;
+}
+
+.consolidado-cabecera-titulo > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
 }
 
 .consolidado-cabecera-icono {
   display: inline-flex;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.16);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
-  font-size: 21px;
+  font-size: 22px;
 }
 
 .consolidado-kicker {
@@ -40,19 +48,22 @@
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 1.4px;
+  line-height: 1.2;
 }
 
 .consolidado-cabecera h2 {
-  margin: 3px 0;
+  margin: 4px 0 4px;
   color: #fff;
   font-size: 22px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .consolidado-cabecera p {
   margin: 0;
   color: rgba(255, 255, 255, 0.82);
   font-size: 13px;
+  line-height: 1.3;
 }
 
 .btn-volver-consolidado {
@@ -221,16 +232,6 @@
 
 /* *********************************** Toolbar *********************************** */
 
-.consolidado-cabecera {
-  align-items: flex-start;
-  flex-direction: column;
-  padding: 18px;
-}
-
-.consolidado-pagina-cuerpo {
-  padding: 14px;
-}
-
 .consolidado-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -315,16 +316,18 @@
 .proyecto {
   margin-bottom: 9px;
   overflow: hidden;
-  border: 1px solid #e1e8ed;
-  border-left: 4px solid #9fb3c1;
+  border: 1px solid #d6e8f4;
+  border-left: 4px solid #8fc3e3;
   border-radius: 7px;
-  background: #fff;
+  background: #f1f8fd;
   box-shadow: 0 1px 4px rgba(31, 45, 61, 0.05);
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .proyecto:hover {
-  box-shadow: 0 4px 12px rgba(31, 45, 61, 0.09);
+  border-color: #bcdcf0;
+  border-left-color: #4fa3d1;
+  box-shadow: 0 4px 12px rgba(7, 95, 145, 0.1);
 }
 
 .proyecto-abierto {
@@ -334,7 +337,7 @@
 .proyecto-actual {
   border-color: #b9d6e8;
   border-left-color: #075f91;
-  background: #f7fbfe;
+  background: #eaf4fb;
 }
 
 .proyecto-header {
@@ -345,6 +348,11 @@
   padding: 11px 14px;
   cursor: pointer;
   user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.proyecto-header:hover {
+  background: #e2f0fa;
 }
 
 .proyecto-chevron {
@@ -410,7 +418,8 @@
   gap: 4px;
   padding: 4px 8px;
   border-radius: 4px;
-  background: #f1f5f8;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #dbe8f1;
   color: #536673;
   font-size: 12px;
   white-space: nowrap;
@@ -447,7 +456,7 @@
   height: 7px;
   overflow: hidden;
   border-radius: 4px;
-  background: #e5ecf0;
+  background: #d9e7f0;
 }
 
 .barra-relleno {
@@ -459,7 +468,8 @@
 
 .proyecto-body {
   padding: 0 14px 12px;
-  border-top: 1px solid #eef2f5;
+  border-top: 1px solid #d6e8f4;
+  background: #fff;
 }
 
 /* *********************************** Tabla *********************************** */
@@ -490,7 +500,7 @@
 }
 
 .consolidado-tabla tbody tr:hover td {
-  background: #f8fbfd;
+  background: #eef6fc;
 }
 
 .consolidado-tabla tr.sin-hallazgos td {
@@ -541,6 +551,16 @@
 }
 
 @media (max-width: 767px) {
+  .consolidado-cabecera {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .consolidado-pagina-cuerpo {
+    padding: 14px;
+  }
+
   .toolbar-acciones {
     margin-left: 0;
   }
@@ -553,6 +573,7 @@
     flex: 1 1 100%;
   }
 }
+
 /* *********************************** Marca desde Reportes de hallazgos *********************************** */
 
 .filtro-marcado {
@@ -637,7 +658,7 @@
 .proyecto-marcado {
   border-color: #8cc6e3;
   border-left-color: #0879b2;
-  background: #f5fafd;
+  background: #e8f4fb;
   box-shadow: 0 0 0 2px rgba(8, 121, 178, 0.14), 0 4px 12px rgba(31, 45, 61, 0.08);
   scroll-margin-top: 80px;
 }
@@ -733,16 +754,6 @@
 
 /* *********************************** Tipos de acción (reemplaza Alta / Media / Baja) *********************************** */
 
-/* Colores por tipo (mismos que Reportes de hallazgos) */
-.ta-nc   { --tc: #d64545; --tc-suave: #fdecec; }
-.ta-sw   { --tc: #b4231f; --tc-suave: #fbe3e2; }
-.ta-rp   { --tc: #2f9e6a; --tc-suave: #e6f6ee; }
-.ta-om   { --tc: #1c7ed6; --tc-suave: #e7f1fc; }
-.ta-fr   { --tc: #7048e8; --tc-suave: #efebfd; }
-.ta-nm   { --tc: #e8890c; --tc-suave: #fdf1e1; }
-.ta-la   { --tc: #0c9488; --tc-suave: #e3f6f4; }
-.ta-otro { --tc: #8796a0; --tc-suave: #f1f4f6; }
-
 .kpi-tipos {
   grid-column: span 2;
   gap: 6px;
@@ -762,7 +773,6 @@
   border: 1px solid var(--tc);
   border-radius: 12px;
   background: var(--tc-suave);
-  color: var(--tc);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
@@ -779,18 +789,14 @@
 .tipo-chip-cero {
   border-color: #e1e8ed;
   background: transparent;
-  color: #b5c0c8;
 }
 
 .tipo-chip-activo {
-  background: var(--tc);
-  color: #fff;
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--tc);
 }
 
 /* Columnas de la tabla */
 .consolidado-tabla th.col-tipo {
-  color: var(--tc);
   font-weight: 800;
   min-width: 44px;
 }
@@ -804,17 +810,12 @@
   background: var(--tc-suave);
 }
 
-.consolidado-tabla tfoot th.col-tipo {
-  color: var(--tc);
-}
-
 .num-tipo {
   display: inline-block;
   min-width: 26px;
   padding: 2px 6px;
   border-radius: 10px;
   background: var(--tc-suave);
-  color: var(--tc);
   font-weight: 700;
   text-align: center;
 }
@@ -823,11 +824,6 @@
   background: transparent;
   color: #b5c0c8;
   font-weight: 400;
-}
-
-.col-tipo-activo .num-tipo:not(.cero) {
-  background: var(--tc);
-  color: #fff;
 }
 
 @media (max-width: 767px) {
@@ -966,18 +962,8 @@
   text-align: center;
 }
 
-.tipo-chip-activo .tipo-chip-n {
-  background: rgba(255, 255, 255, 0.25);
-  color: #fff;
-}
-
-.tipo-chip-todos {
-  --tc: #075f91;
-  --tc-suave: #eef6fb;
-}
-
 .tipo-chip-boton.tipo-chip-cero:hover {
-  color: var(--tc);
+  color: var(--tc-texto, var(--tc));
   border-color: var(--tc);
 }
 
@@ -1019,6 +1005,7 @@
 .ta-nm   { --tc: #7048E8; --tc-suave: #EFEBFD; --tc-texto: #5A36C9; --tc-sobre: #FFFFFF; }
 .ta-la   { --tc: #0C9488; --tc-suave: #E3F6F4; --tc-texto: #0A7A70; --tc-sobre: #FFFFFF; }
 .ta-otro { --tc: #8796A0; --tc-suave: #F1F4F6; --tc-texto: #5F707B; --tc-sobre: #FFFFFF; }
+
 .tipo-chip,
 .consolidado-tabla th.col-tipo,
 .consolidado-tabla tfoot th.col-tipo,

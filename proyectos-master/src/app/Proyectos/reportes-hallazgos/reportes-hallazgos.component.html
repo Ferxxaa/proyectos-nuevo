@@ -10,7 +10,7 @@
           <span class="reportes-cabecera-icono"><i class="fa fa-bar-chart"></i></span>
           <div>
             <span class="reportes-kicker">ANÁLISIS DE PROYECTOS</span>
-            <h2>Reportes de hallazgos</h2>
+            <h2>Reportes de Hallazgos</h2>
             <p>Resumen anual de proyectos activos, inactivos y finalizados</p>
           </div>
         </div>
@@ -66,17 +66,32 @@
             <section class="reportes-filtros">
               <div class="filtro-grupo filtro-anios">
                 <span class="filtro-label">Año del reporte</span>
-                <div class="anios-chips">
-                  <button type="button" class="anio-chip" *ngFor="let anio of aniosDisponibles"
-                          [class.activo]="anio === anioSeleccionado"
-                          (click)="seleccionarAnio(anio)">
-                    {{anio}}
+                <div class="anio-selector" [class.anio-selector-historico]="esAnioSoloHistorico(anioSeleccionado)">
+                  <button type="button" class="anio-flecha" (click)="moverAnio(-1)" [disabled]="!puedeMoverAnio(-1)" title="Año anterior">
+                    <i class="fa fa-chevron-left"></i>
                   </button>
-                  <span class="anio-chip activo" *ngIf="aniosDisponibles.length === 0">{{anioSeleccionado}}</span>
+                  <div class="anio-select-wrap">
+                    <i class="fa fa-calendar"></i>
+                    <select class="anio-select" [ngModel]="anioSeleccionado" (ngModelChange)="seleccionarAnio($event)">
+                      <optgroup label="Con datos del sistema" *ngIf="aniosSistema.length > 0">
+                        <option *ngFor="let a of aniosSistema" [ngValue]="a">{{a}}</option>
+                      </optgroup>
+                      <optgroup label="Registro histórico (solo vista)" *ngIf="aniosHistoricos.length > 0">
+                        <option *ngFor="let a of aniosHistoricos" [ngValue]="a">{{a}}</option>
+                      </optgroup>
+                    </select>
+                    <i class="fa fa-caret-down anio-caret"></i>
+                  </div>
+                  <button type="button" class="anio-flecha" (click)="moverAnio(1)" [disabled]="!puedeMoverAnio(1)" title="Año siguiente">
+                    <i class="fa fa-chevron-right"></i>
+                  </button>
+                  <span class="anio-tag" *ngIf="esAnioSoloHistorico(anioSeleccionado)" title="Este año no tiene hallazgos en el sistema">
+                    <i class="fa fa-history"></i> Histórico
+                  </span>
                 </div>
               </div>
 
-              <div class="filtro-grupo filtro-busqueda">
+              <div class="filtro-grupo filtro-busqueda" *ngIf="!vistaHistorica">
                 <label class="filtro-label" for="buscarSubProyectoReporte">Buscar proyecto, subproyecto u obra</label>
                 <div class="busqueda-input">
                   <i class="fa fa-search"></i>
@@ -89,12 +104,96 @@
                 </div>
               </div>
 
-              <button type="button" class="toggle-filtro" [class.activo]="soloConHallazgos" (click)="toggleSoloConHallazgos()">
+              <button type="button" class="toggle-filtro" *ngIf="!vistaHistorica"
+                      [class.activo]="soloConHallazgos" (click)="toggleSoloConHallazgos()">
                 <span class="toggle-track"><span class="toggle-thumb"></span></span>
                 Solo subproyectos con hallazgos
               </button>
             </section>
 
+            <!-- ================= VISTA HISTÓRICA (años sin hallazgos en el sistema) ================= -->
+            <section class="vista-historica" *ngIf="vistaHistorica">
+              <div class="vh-cabecera">
+                <span class="seccion-titulo-icono"><i class="fa fa-history"></i></span>
+                <div>
+                  <h3>Registro histórico {{anioSeleccionado}}</h3>
+                  <p>Datos del registro REG-10-B-24. Este año no tiene hallazgos cargados en el sistema, por eso se muestra solo como vista.</p>
+                </div>
+                <span class="vh-badge"><i class="fa fa-eye"></i> Solo vista</span>
+              </div>
+
+              <div class="grafico-vacio" *ngIf="!historicoConRegistro">
+                <i class="fa fa-folder-open-o"></i>
+                Sin datos registrados para {{anioSeleccionado}}.
+              </div>
+
+              <ng-container *ngIf="historicoConRegistro">
+                <div class="vh-kpis">
+                  <article class="vh-kpi vh-kpi-azul">
+                    <span class="vh-kpi-label">Hallazgos {{anioSeleccionado}}</span>
+                    <strong class="vh-kpi-valor">{{historicoTotal}}</strong>
+                    <span class="vh-kpi-detalle" *ngIf="historicoVariacion !== null"
+                          [class.kpi-sube]="historicoVariacion > 0" [class.kpi-baja]="historicoVariacion < 0">
+                      <i class="fa" [ngClass]="historicoVariacion > 0 ? 'fa-arrow-up' : (historicoVariacion < 0 ? 'fa-arrow-down' : 'fa-minus')"></i>
+                      {{historicoVariacion > 0 ? '+' : ''}}{{historicoVariacion}} vs {{anioSeleccionado - 1}}
+                    </span>
+                    <span class="vh-kpi-detalle" *ngIf="historicoVariacion === null">Primer año del registro</span>
+                  </article>
+                  <article class="vh-kpi vh-kpi-morado">
+                    <span class="vh-kpi-label">Mejoras realizadas</span>
+                    <strong class="vh-kpi-valor">{{historicoRealizadas}}</strong>
+                    <span class="vh-kpi-detalle">{{historicoEfectivas}} efectivas</span>
+                  </article>
+                  <article class="vh-kpi vh-kpi-verde">
+                    <span class="vh-kpi-label">% efectividad</span>
+                    <strong class="vh-kpi-valor" [ngClass]="clasePct(historicoPctEfectividad)">{{formatoPct(historicoPctEfectividad)}}</strong>
+                    <span class="vh-kpi-detalle">Efectivo + muy efectivo</span>
+                  </article>
+                  <article class="vh-kpi vh-kpi-mandante">
+                    <span class="vh-kpi-label">Interacción mandante</span>
+                    <strong class="vh-kpi-valor">{{historicoTotalMandante}}</strong>
+                    <span class="vh-kpi-detalle">{{formatoPct(historicoPctMandante)}} positiva</span>
+                  </article>
+                </div>
+
+                <div class="vh-grid">
+                  <article class="vh-panel">
+                    <h4><i class="fa fa-th-list"></i> Por tipo de acción</h4>
+                    <div class="vh-fila" *ngFor="let f of historicoTipos; trackBy: trackByKey" [class.vh-fila-cero]="!f.valor">
+                      <span class="vh-fila-label"><i [style.background]="f.color"></i>{{f.label}}</span>
+                      <div class="vh-barra"><span [style.width.%]="f.ancho" [style.background]="f.color"></span></div>
+                      <strong>{{f.valor}}</strong>
+                    </div>
+                    <div class="vh-total"><span>Total</span><strong>{{historicoTotal}}</strong></div>
+                  </article>
+
+                  <article class="vh-panel">
+                    <h4><i class="fa fa-check-square-o"></i> Eficacia de las mejoras</h4>
+                    <div class="vh-fila" *ngFor="let f of historicoEficacia; trackBy: trackByKey" [class.vh-fila-cero]="!f.valor">
+                      <span class="vh-fila-label"><i [style.background]="f.color"></i>{{f.label}}</span>
+                      <div class="vh-barra"><span [style.width.%]="f.ancho" [style.background]="f.color"></span></div>
+                      <strong>{{f.valor}}</strong>
+                    </div>
+                    <div class="vh-total"><span>Total</span><strong>{{historicoRealizadas}}</strong></div>
+                  </article>
+
+                  <article class="vh-panel">
+                    <h4><i class="fa fa-handshake-o"></i> Interacción con el mandante</h4>
+                    <div class="vh-fila" *ngFor="let f of historicoMandante; trackBy: trackByKey" [class.vh-fila-cero]="!f.valor">
+                      <span class="vh-fila-label"><i [style.background]="f.color"></i>{{f.label}}</span>
+                      <div class="vh-barra"><span [style.width.%]="f.ancho" [style.background]="f.color"></span></div>
+                      <strong>{{f.valor}}</strong>
+                    </div>
+                    <div class="vh-total">
+                      <span>% interacción positiva</span>
+                      <strong [ngClass]="clasePct(historicoPctMandante)">{{formatoPct(historicoPctMandante)}}</strong>
+                    </div>
+                  </article>
+                </div>
+              </ng-container>
+            </section>
+
+            <ng-container *ngIf="!vistaHistorica">
             <!-- ================= 1. RESUMEN DEL AÑO + SUBPROYECTOS CON MÁS HALLAZGOS ================= -->
             <div class="resumen-fila">
               <section class="reportes-indicadores" aria-label="Indicadores del año seleccionado">
@@ -414,6 +513,7 @@
                 </div>
               </ng-container>
             </section>
+            </ng-container>
 
             <!-- ================= 5. CONSOLIDADO GENERAL (todos los años) ================= -->
             <!-- Separador: desde aquí es histórico (todos los años) -->
@@ -426,7 +526,7 @@
                 <span class="seccion-titulo-icono"><i class="fa fa-history"></i></span>
                 <div>
                   <span class="cg-kicker">HISTÓRICO {{consolidadoAnios[0]}} – {{consolidadoAnios[consolidadoAnios.length - 1]}} · NO DEPENDE DEL AÑO ELEGIDO</span>
-                  <h3>Consolidado general</h3>
+                  <h3>Consolidado General</h3>
                   <p>Todos los años · {{consolidadoAnios[0]}}–{{ultimoAnioHistorico}} desde el registro histórico, desde {{ultimoAnioHistorico + 1}} calculado con los datos del sistema</p>
                 </div>
                 <span class="cg-leyenda-vivo"><span class="punto-en-vivo"></span> Columnas en verde: tiempo real</span>

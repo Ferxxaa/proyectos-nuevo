@@ -112,6 +112,15 @@ interface CgKpi {
   detalle: string;
 }
 
+/** Fila de la vista histórica de un año (años sin hallazgos en el sistema). */
+interface FilaHistorica {
+  key: string;
+  label: string;
+  color: string;
+  valor: number;
+  ancho: number;
+}
+
 /** Campos de orden de la tabla; para los tipos de acción se usa 't_' + clave (t_nc, t_sw, t_om...). */
 type CampoOrden = string;
 
@@ -122,6 +131,9 @@ declare var Swal: any;
 const LOGO_TRAZAS_URL = 'assets/img/logo-trazas.png';
 /** ExcelJS se carga solo al exportar (no hay que instalar nada con npm). */
 const EXCELJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js';
+
+/** Primer año que aparece en el selector del reporte anual (aunque no tenga datos en el sistema). */
+const PRIMER_ANIO_REPORTE = 2014;
 
 /** Paleta del reporte Excel (ARGB). */
 const XL = {
@@ -210,6 +222,11 @@ const CONSOLIDADO_EFICACIA: Array<{ key: string; label: string; clase: string }>
   { key: 'muy', label: 'Muy efectivo', clase: 'cg-ef-muy' }
 ];
 
+/** Colores de eficacia (Excel REG-10-B-24). */
+const CG_COLOR_EFICACIA: { [key: string]: string } = {
+  baja: '#FF0000', media: '#FFC000', efectivo: '#92D050', muy: '#00B050'
+};
+
 const CONSOLIDADO_MANDANTE: Array<{ key: string; label: string; clase: string }> = [
   { key: 'desvMandante', label: 'Mandante: desviaciones', clase: 'cg-desv' },
   { key: 'rpMandante', label: 'Mandante: refuerzo positivo', clase: 'cg-mrp' }
@@ -288,6 +305,25 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
   mandanteAbiertos: number = 0;
   mandanteCerrados: number = 0;
   mandanteVariacion: number | null = null;
+
+  // Vista histórica: años sin hallazgos en el sistema (solo vista, datos del REG-10-B-24)
+  vistaHistorica: boolean = false;
+  historicoConRegistro: boolean = false;
+  historicoTipos: FilaHistorica[] = [];
+  historicoTotal: number = 0;
+  historicoEficacia: FilaHistorica[] = [];
+  historicoRealizadas: number = 0;
+  historicoEfectivas: number = 0;
+  historicoPctEfectividad: number | null = null;
+  historicoMandante: FilaHistorica[] = [];
+  historicoTotalMandante: number = 0;
+  historicoPctMandante: number | null = null;
+  historicoVariacion: number | null = null;
+  /** Años del selector separados en grupos. */
+  aniosSistema: number[] = [];
+  aniosHistoricos: number[] = [];
+  /** Cuántos hallazgos tiene cada año en el sistema (para marcar los años que son solo históricos). */
+  private conteoAniosSistema: { [anio: string]: number } = {};
 
   // Consolidado general (todos los años: histórico + sistema)
   readonly ultimoAnioHistorico = CONSOLIDADO_ULTIMO_ANIO_HISTORICO;
@@ -613,27 +649,72 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
   }
 
   private actualizarAnios() {
-    const anios: number[] = [];
+    // Hallazgos por año en el sistema
+    const conDatos: { [anio: string]: number } = {};
     this.hallazgos.forEach(hallazgo => {
       const anio = this.obtenerAnio(hallazgo);
-      if (anio && anios.indexOf(anio) === -1) {
-        anios.push(anio);
+      if (anio) {
+        conDatos[String(anio)] = (conDatos[String(anio)] || 0) + 1;
       }
+    });
+    this.conteoAniosSistema = conDatos;
+
+    // Siempre se muestran desde PRIMER_ANIO_REPORTE hasta el año actual (aunque no haya datos),
+    // más cualquier otro año que venga en los hallazgos.
+    const anioActual = new Date().getFullYear();
+    const anios: number[] = [];
+    for (let a = PRIMER_ANIO_REPORTE; a <= anioActual; a++) {
+      anios.push(a);
+    }
+    Object.keys(conDatos).forEach(a => {
+      const n = Number(a);
+      if (anios.indexOf(n) === -1) { anios.push(n); }
     });
     this.aniosDisponibles = anios.sort((a, b) => b - a);
 
-    if (this.aniosDisponibles.length && this.aniosDisponibles.indexOf(this.anioSeleccionado) === -1) {
-      this.anioSeleccionado = this.aniosDisponibles[0];
+    if (this.aniosDisponibles.indexOf(this.anioSeleccionado) === -1) {
+      this.anioSeleccionado = anioActual;
     }
 
+    // Grupos del selector de año: con datos del sistema / solo registro histórico
+    this.aniosSistema = this.aniosDisponibles.filter(a => !this.esAnioSoloHistorico(a));
+    this.aniosHistoricos = this.aniosDisponibles.filter(a => this.esAnioSoloHistorico(a));
+
+    // Si el año no tiene datos en el sistema, se usa el total del registro histórico (para comparar)
     this.conteosAnuales = this.aniosDisponibles
       .map(anio => ({
         anio,
-        total: this.hallazgos.filter(hallazgo => this.obtenerAnio(hallazgo) === anio).length
+        total: conDatos[String(anio)] || this.totalHistorico(anio)
       }))
       .sort((a, b) => a.anio - b.anio);
     this.calcularConsolidado();
     this.actualizarResumenAnual();
+  }
+
+  /** Total de hallazgos de un año según el registro histórico REG-10-B-24 (0 si no existe). */
+  private totalHistorico(anio: number): number {
+    if (anio > CONSOLIDADO_ULTIMO_ANIO_HISTORICO) { return 0; }
+    const reg = CONSOLIDADO_HISTORICO[String(anio)];
+    if (!reg) { return 0; }
+    return CONSOLIDADO_TIPOS.reduce((t, d) => t + (reg[d.key] || 0), 0);
+  }
+
+  /** Flechas del selector de año: paso = -1 (más antiguo) o +1 (más reciente). */
+  moverAnio(paso: number) {
+    const i = this.aniosDisponibles.indexOf(this.anioSeleccionado);
+    // aniosDisponibles va de más reciente a más antiguo
+    const destino = this.aniosDisponibles[i - paso];
+    if (destino) { this.seleccionarAnio(destino); }
+  }
+
+  puedeMoverAnio(paso: number): boolean {
+    const i = this.aniosDisponibles.indexOf(this.anioSeleccionado);
+    return i !== -1 && !!this.aniosDisponibles[i - paso];
+  }
+
+  /** true si el año no tiene hallazgos en el sistema y es del período histórico (solo vista). */
+  esAnioSoloHistorico(anio: number): boolean {
+    return anio <= CONSOLIDADO_ULTIMO_ANIO_HISTORICO && !this.conteoAniosSistema[String(anio)];
   }
 
   private obtenerAnio(hallazgo: HallazgoItem): number {
@@ -860,7 +941,62 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
     this.totalSubProyectos = this.todosLosReportes.length;
     this.subProyectosConHallazgos = this.todosLosReportes.filter(reporte => reporte.total > 0).length;
 
+    this.calcularVistaHistorica();
     this.filtrarReportes();
+  }
+
+  /** Años sin hallazgos en el sistema: se muestran los números del registro histórico (solo vista). */
+  private calcularVistaHistorica() {
+    const anio = this.anioSeleccionado;
+    this.vistaHistorica = this.hallazgosDelAnio.length === 0 && anio <= CONSOLIDADO_ULTIMO_ANIO_HISTORICO;
+
+    const reg = this.vistaHistorica ? CONSOLIDADO_HISTORICO[String(anio)] : null;
+    this.historicoConRegistro = !!reg;
+    if (!reg) {
+      this.historicoTipos = [];
+      this.historicoEficacia = [];
+      this.historicoMandante = [];
+      this.historicoTotal = 0;
+      this.historicoRealizadas = 0;
+      this.historicoEfectivas = 0;
+      this.historicoPctEfectividad = null;
+      this.historicoTotalMandante = 0;
+      this.historicoPctMandante = null;
+      this.historicoVariacion = null;
+      return;
+    }
+
+    const filas = (lista: Array<{ key: string; label: string }>, color: (k: string) => string): FilaHistorica[] => {
+      const maximo = lista.reduce((m, d) => Math.max(m, reg[d.key] || 0), 0);
+      return lista.map(d => ({
+        key: d.key,
+        label: d.label,
+        color: color(d.key),
+        valor: reg[d.key] || 0,
+        ancho: maximo ? (reg[d.key] || 0) * 100 / maximo : 0
+      }));
+    };
+
+    this.historicoTipos = filas(
+      CONSOLIDADO_TIPOS.map(t => ({ key: t.key, label: CG_ESTILO_TIPO[t.key].corto })),
+      k => CG_ESTILO_TIPO[k].color
+    );
+    this.historicoTotal = this.historicoTipos.reduce((t, f) => t + f.valor, 0);
+
+    this.historicoEficacia = filas(CONSOLIDADO_EFICACIA, k => CG_COLOR_EFICACIA[k]);
+    this.historicoRealizadas = this.historicoEficacia.reduce((t, f) => t + f.valor, 0);
+    this.historicoEfectivas = (reg['efectivo'] || 0) + (reg['muy'] || 0);
+    this.historicoPctEfectividad = this.pctDecimal(this.historicoEfectivas, this.historicoRealizadas);
+
+    this.historicoMandante = filas(
+      [{ key: 'desvMandante', label: 'Desviaciones' }, { key: 'rpMandante', label: 'Refuerzo positivo' }],
+      k => k === 'rpMandante' ? '#00B050' : '#FF0000'
+    );
+    this.historicoTotalMandante = (reg['desvMandante'] || 0) + (reg['rpMandante'] || 0);
+    this.historicoPctMandante = this.pctDecimal(reg['rpMandante'] || 0, this.historicoTotalMandante);
+
+    const totalAnterior = this.totalHistorico(anio - 1);
+    this.historicoVariacion = CONSOLIDADO_HISTORICO[String(anio - 1)] ? this.historicoTotal - totalAnterior : null;
   }
 
   // ==========================================================
