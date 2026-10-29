@@ -4,28 +4,73 @@ import { Subscription } from 'rxjs/Subscription';
 import { HallazgoItem, sHallazgos } from '../../services/sHallazgos.service';
 import { sMis_Proyectos } from '../../services/sMis_Proyectos.service';
 
-interface ConsolidadoSubProyecto {
-  idSubProyecto: number;
-  nombre: string;
+/** Conteo de hallazgos (se usa por subproyecto, por año y por grupo). */
+interface Conteo {
   total: number;
   abiertos: number;
   cerrados: number;
   /** Conteo por tipo de acción (nc, sw, rp, om, fr, nm, la, otro). */
   tipos: { [tipo: string]: number };
-  /** Hallazgos que coinciden con el filtro que viene desde Reportes de hallazgos. */
+  /** Hallazgos que coinciden con el filtro activo. */
   marcados: number;
 }
 
-interface ConsolidadoProyecto {
+/** Adjunto del hallazgo (solo para ver / abrir). */
+interface AdjuntoDetalle {
+  nombre: string;
+  nombreCorto: string;
+  url: string;
+  icono: string;
+}
+
+/** Un hallazgo listo para mostrarse en el detalle desplegable (solo vista). */
+interface DetalleHallazgo {
+  id: string;
+  fecha: string;
+  orden: number;
+  anio: number;
+  tipoKey: string;
+  tipoSigla: string;
+  tipoLabel: string;
+  tipoClase: string;
+  prioridad: string;
+  prioridadClase: string;
+  estado: string;
+  estadoClase: string;
+  cerrado: boolean;
+  area: string;
+  quien: string;
+  origen: string;
+  archivos: AdjuntoDetalle[];
+  marcado: boolean;
+}
+
+interface ConsolidadoSubProyecto extends Conteo {
+  idSubProyecto: number;
+  nombre: string;
+  /** Desglose por año (clave = año, "0" = sin año). */
+  porAnio: { [anio: string]: Conteo };
+  /** Hallazgos del subproyecto (respetando el año elegido), más recientes primero. */
+  detalle: DetalleHallazgo[];
+  /** Hallazgos del subproyecto por año. */
+  detallePorAnio: { [anio: string]: DetalleHallazgo[] };
+}
+
+/** Un bloque de la tabla del proyecto: el año y sus subproyectos. */
+interface GrupoAnio {
+  anio: number;
+  conteo: Conteo;
+  filas: Array<{ sub: ConsolidadoSubProyecto; conteo: Conteo }>;
+}
+
+interface ConsolidadoProyecto extends Conteo {
   idProyecto: number;
   nombre: string;
   subProyectos: ConsolidadoSubProyecto[];
-  total: number;
-  abiertos: number;
-  cerrados: number;
-  /** Conteo por tipo de acción (nc, sw, rp, om, fr, nm, la, otro). */
-  tipos: { [tipo: string]: number };
-  marcados: number;
+  /** Tabla agrupada por año (más reciente arriba). */
+  grupos: GrupoAnio[];
+  /** Subproyectos sin ningún hallazgo (se muestran al final, atenuados). */
+  sinHallazgos: string[];
   abierto: boolean;
 }
 
@@ -38,9 +83,8 @@ interface Totales {
   tipos: { [tipo: string]: number };
 }
 
-/** Filtro recibido por queryParams: ?anio=2026&tipoAccion=Stop Work&quienDetecta=Mandante */
+/** Filtro recibido por queryParams: ?tipoAccion=Stop Work&quienDetecta=Mandante (el año va aparte: ?anio=2026 filtra todo) */
 interface FiltroMarcado {
-  anio: number;
   tipo: string;        // clave normalizada (nc, sw, rp, om, fr, nm, la, otro)
   tipoLabel: string;
   quien: string;       // clave normalizada (mandante, interno, vecinos, otros, sin)
@@ -52,14 +96,14 @@ const SIGLAS_TIPO: { [key: string]: string } = {
   nc: 'NC', sw: 'SW', rp: 'RP', om: 'OM', fr: 'FR', nm: 'NM', la: 'LA', otro: 'Sin tipo'
 };
 
-/** Columnas por tipo de acción (mismo orden y colores que Reportes de hallazgos). */
+/** Columnas por tipo de acción, ordenadas de más grave a menos grave. */
 const TIPOS_COLUMNAS: Array<{ key: string; sigla: string; label: string; clase: string }> = [
   { key: 'nc', sigla: 'NC', label: 'No Conformidad', clase: 'ta-nc' },
   { key: 'sw', sigla: 'SW', label: 'Stop Work', clase: 'ta-sw' },
-  { key: 'rp', sigla: 'RP', label: 'Refuerzo Positivo', clase: 'ta-rp' },
-  { key: 'om', sigla: 'OM', label: 'Oportunidad de Mejora', clase: 'ta-om' },
-  { key: 'fr', sigla: 'FR', label: 'Flash Report', clase: 'ta-fr' },
   { key: 'nm', sigla: 'NM', label: 'Near Miss', clase: 'ta-nm' },
+  { key: 'rp', sigla: 'RP', label: 'Refuerzo Positivo', clase: 'ta-rp' },
+  { key: 'fr', sigla: 'FR', label: 'Flash Report', clase: 'ta-fr' },
+  { key: 'om', sigla: 'OM', label: 'Oportunidad de Mejora', clase: 'ta-om' },
   { key: 'la', sigla: 'LA', label: 'Lección aprendida', clase: 'ta-la' },
   { key: 'otro', sigla: 'S/T', label: 'Sin tipo / Otro', clase: 'ta-otro' }
 ];
@@ -83,6 +127,8 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
 
   busqueda: string = '';
   soloConHallazgos: boolean = true;
+  /** Tabla de cada proyecto agrupada por año (siempre activa). */
+  agruparPorAnio: boolean = true;
 
   cargando: boolean = true;
   error: string = '';
@@ -94,10 +140,19 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
   readonly quienOpciones: string[] = ['Mandante', 'Interno', 'Vecinos', 'Otros', 'Sin registrar'];
   filtroQuien: string = '';
   filtroAnio: string = '';
+  /** Año que se está viendo (0 = todos). Con un año elegido, TODO el consolidado cuenta solo ese año (enero a diciembre). */
+  anioVista: number = 0;
   aniosDisponibles: number[] = [];
+  /** Hallazgos por año para las pestañas. */
+  conteoPorAnio: { [anio: string]: number } = {};
+  totalTodosLosAnios: number = 0;
   /** Cuántos hallazgos hay de cada tipo con el año / quién detecta elegidos (para los chips). */
   tiposDisponibles: { [tipo: string]: number } = {};
   totalDisponibles: number = 0;
+
+  /** Filas de subproyecto con el detalle de hallazgos desplegado (clave = idSub-año). */
+  detalleAbierto: { [clave: string]: boolean } = {};
+
   /** true cuando el filtro se eligió aquí (se ocultan los proyectos sin coincidencias). */
   private filtroManual: boolean = false;
   etiquetaFiltro: string = '';
@@ -110,7 +165,7 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
   private datosCargados: boolean = false;
   private subscriptionHallazgos: Subscription;
   private subscriptionRuta: Subscription;
-  /** Para abrir los proyectos marcados y hacer scroll solo la primera vez (no en cada actualización de Firestore). */
+  /** Para abrir los proyectos y hacer scroll solo la primera vez por filtro (no en cada actualización de Firestore). */
   private aperturaFiltroAplicada: boolean = false;
 
   constructor(
@@ -164,6 +219,9 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
 
   expandirTodos(valor: boolean) {
     this.proyectosVisibles.forEach(p => p.abierto = valor);
+    if (!valor) {
+      this.detalleAbierto = {};
+    }
   }
 
   onBusqueda(valor: string) {
@@ -191,7 +249,75 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
   }
 
   filtrarPorAnio(valor: string) {
-    this.navegarFiltro({ anio: valor || null, solo: '1' });
+    this.navegarFiltro({ anio: valor || null });
+  }
+
+  /** Clic en la fila del año en la tabla: ve el consolidado de ese año o vuelve a todos. */
+  toggleAnio(anio: number, evento?: any) {
+    if (evento && evento.stopPropagation) {
+      evento.stopPropagation();
+    }
+    if (!anio) {
+      return;
+    }
+    this.filtrarPorAnio(this.esAnioActivo(anio) ? '' : String(anio));
+  }
+
+  esAnioActivo(anio: number): boolean {
+    return !!this.filtroAnio && Number(this.filtroAnio) === anio;
+  }
+
+  //*************************************************** Detalle de hallazgos ***************************************************
+
+  private claveDetalle(sub: ConsolidadoSubProyecto, anio?: number): string {
+    return sub.idSubProyecto + '-' + (anio === undefined || anio === null ? 'todos' : anio);
+  }
+
+  /** Clic en un subproyecto: muestra / oculta sus hallazgos. */
+  toggleDetalle(sub: ConsolidadoSubProyecto, anio?: number, evento?: any) {
+    if (evento && evento.stopPropagation) {
+      evento.stopPropagation();
+    }
+    if (!sub) {
+      return;
+    }
+    const clave = this.claveDetalle(sub, anio);
+    this.detalleAbierto[clave] = !this.detalleAbierto[clave];
+  }
+
+  estaDetalleAbierto(sub: ConsolidadoSubProyecto, anio?: number): boolean {
+    return !!sub && !!this.detalleAbierto[this.claveDetalle(sub, anio)];
+  }
+
+  /** Hallazgos a mostrar en el detalle (con "solo marcados" se muestran solo los que coinciden). */
+  verDetalle(sub: ConsolidadoSubProyecto, anio?: number): DetalleHallazgo[] {
+    if (!sub) {
+      return [];
+    }
+    const lista = (anio === undefined || anio === null)
+      ? (sub.detalle || [])
+      : ((sub.detallePorAnio && sub.detallePorAnio[String(anio)]) || []);
+    if (this.filtroMarcado && this.soloMarcados) {
+      return lista.filter(h => h.marcado);
+    }
+    return lista;
+  }
+
+  trackByDetalle(index: number, h: DetalleHallazgo) {
+    return h && h.id ? h.id : index;
+  }
+
+  trackByAnio(index: number, r: { anio: number }) {
+    return r ? r.anio : index;
+  }
+
+  trackByFila(index: number, f: { sub: ConsolidadoSubProyecto }) {
+    return f && f.sub ? f.sub.idSubProyecto : index;
+  }
+
+  /** Cantidad de columnas de la tabla (para las filas de ancho completo). */
+  get columnasTabla(): number {
+    return 1 + (this.filtroMarcado ? 1 : 0) + 2 + this.columnasTipo.length + 1;
   }
 
   /** Mezcla los cambios con los queryParams actuales (así el filtro queda en la URL y se puede compartir). */
@@ -206,7 +332,7 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
         params[k] = cambios[k];
       }
     });
-    if (!params['tipoAccion'] && !params['quienDetecta'] && !params['anio']) {
+    if (!params['tipoAccion'] && !params['quienDetecta']) {
       delete params['solo'];
     }
     this._router.navigate([], { relativeTo: this._route, queryParams: params });
@@ -261,8 +387,9 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
     this.soloMarcados = this.filtroManual;
     this.filtroQuien = quienTxt;
     this.filtroAnio = anio ? String(anio) : '';
+    this.anioVista = anio;
 
-    if (!tipoTxt && !quienTxt && !anio) {
+    if (!tipoTxt && !quienTxt) {
       this.filtroMarcado = null;
       this.etiquetaFiltro = '';
       this.etiquetaCorta = '';
@@ -270,7 +397,6 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
     }
 
     const filtro: FiltroMarcado = {
-      anio: anio,
       tipo: tipoTxt ? this.claveTipoAccion(tipoTxt) : '',
       tipoLabel: tipoTxt,
       quien: quienTxt ? this.claveQuienParam(quienTxt) : '',
@@ -283,13 +409,11 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
     if (filtro.quienLabel) {
       partes.push(filtro.quien === 'sin' ? 'sin registrar quién detecta' : 'detectados por ' + filtro.quienLabel);
     }
-    if (filtro.anio) { partes.push(partes.length ? String(filtro.anio) : 'Año ' + filtro.anio); }
     this.etiquetaFiltro = partes.join(' · ');
 
     const corta: string[] = [];
     if (filtro.tipo) { corta.push(SIGLAS_TIPO[filtro.tipo] || filtro.tipoLabel); }
     if (filtro.quienLabel) { corta.push(filtro.quienLabel); }
-    if (!corta.length && filtro.anio) { corta.push(String(filtro.anio)); }
     this.etiquetaCorta = corta.join(' · ');
   }
 
@@ -298,7 +422,6 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
     const f = this.filtroMarcado;
     if (!hallazgo) { return false; }
     if (!f) { return true; }
-    if (f.anio && this.obtenerAnio(hallazgo) !== f.anio) { return false; }
     if (f.quien && this.claveQuienDetecta(hallazgo.quienDetecta) !== f.quien) { return false; }
     return true;
   }
@@ -309,9 +432,6 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
       return false;
     }
     // Los de oficina también se marcan (quedan en el proyecto "Operacional")
-    if (f.anio && this.obtenerAnio(hallazgo) !== f.anio) {
-      return false;
-    }
     if (f.tipo && this.claveTipoAccion(hallazgo.tipoAccion) !== f.tipo) {
       return false;
     }
@@ -321,18 +441,26 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
     return true;
   }
 
-  /** Abre los proyectos marcados y lleva la vista al primero (solo una vez por filtro). */
+  /**
+   * Cada vez que cambia un filtro (tipo, quién detecta o año) se abren los proyectos que
+   * tienen resultados para que los hallazgos queden a la vista. Solo una vez por filtro,
+   * así no se vuelven a abrir en cada actualización de Firestore si el usuario los cierra.
+   */
   private aplicarAperturaFiltro() {
-    if (!this.filtroMarcado || this.aperturaFiltroAplicada) {
+    if (this.aperturaFiltroAplicada) {
       return;
     }
     this.aperturaFiltroAplicada = true;
-    if (!this.totalMarcados) {
+
+    // Solo año elegido: se abren los proyectos con hallazgos ese año
+    if (!this.filtroMarcado) {
+      if (this.anioVista) {
+        this.proyectos.forEach(p => { if (p.total > 0) { p.abierto = true; } });
+      }
       return;
     }
-    // Filtro elegido aquí mismo: solo se abren, sin mover la pantalla
-    if (this.filtroManual) {
-      this.proyectos.forEach(p => { if (p.marcados > 0) { p.abierto = true; } });
+
+    if (!this.totalMarcados) {
       return;
     }
 
@@ -341,6 +469,11 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
         p.abierto = true;
       }
     });
+
+    // Filtro elegido aquí mismo: solo se abren, sin mover la pantalla
+    if (this.filtroManual) {
+      return;
+    }
 
     setTimeout(() => {
       const el: any = document.querySelector('.proyecto-marcado');
@@ -371,50 +504,19 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
       const clave = String(idProy);
 
       if (!mapa[clave]) {
-        mapa[clave] = {
-          idProyecto: idProy,
-          nombre: String(item.nombreProyecto || item.nombreProyectoMatriz || 'Proyecto sin nombre'),
-          subProyectos: [],
-          total: 0,
-          abiertos: 0,
-          cerrados: 0,
-          tipos: this.tiposVacios(),
-          marcados: 0,
-          abierto: !!this.idProyecto && idProy === Number(this.idProyecto)
-        };
+        mapa[clave] = this.proyectoVacio(
+          idProy,
+          String(item.nombreProyecto || item.nombreProyectoMatriz || 'Proyecto sin nombre'),
+          !!this.idProyecto && idProy === Number(this.idProyecto)
+        );
       }
 
-      mapa[clave].subProyectos.push({
-        idSubProyecto: idSub,
-        nombre: String(item.nombreSubProyecto || 'Subproyecto sin nombre'),
-        total: 0,
-        abiertos: 0,
-        cerrados: 0,
-        tipos: this.tiposVacios(),
-        marcados: 0
-      });
+      mapa[clave].subProyectos.push(this.subVacio(idSub, String(item.nombreSubProyecto || 'Subproyecto sin nombre')));
     });
 
-    const subOperacional: ConsolidadoSubProyecto = {
-      idSubProyecto: -1,
-      nombre: 'Hallazgos Operacionales',
-      total: 0,
-      abiertos: 0,
-      cerrados: 0,
-      tipos: this.tiposVacios(),
-      marcados: 0
-    };
-    mapa['operacional'] = {
-      idProyecto: -1,
-      nombre: 'Operacional',
-      subProyectos: [subOperacional],
-      total: 0,
-      abiertos: 0,
-      cerrados: 0,
-      tipos: this.tiposVacios(),
-      marcados: 0,
-      abierto: true
-    };
+    const operacional = this.proyectoVacio(-1, 'Operacional', true);
+    operacional.subProyectos.push(this.subVacio(-1, 'Hallazgos Operacionales'));
+    mapa['operacional'] = operacional;
 
     this.proyectos = Object.keys(mapa).map(k => mapa[k]);
   }
@@ -441,44 +543,54 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
     this.proyectos.forEach(proyecto => {
       proyecto.subProyectos.forEach(sub => {
         this.resetear(sub);
+        sub.porAnio = {};
+        sub.detalle = [];
+        sub.detallePorAnio = {};
         subPorId[String(sub.idSubProyecto)] = sub;
       });
     });
+
+    // Conteo por año para las pestañas (antes de recortar por el año elegido)
+    const porAnio: { [anio: string]: number } = {};
+    let totalTodos = 0;
 
     this.hallazgos.forEach(hallazgo => {
       if (!hallazgo) {
         return;
       }
 
-      if (hallazgo.ambito === 'oficina' || hallazgo.tipoRegistro === 'hallazgo-oficina') {
-        const operacional = subPorId['-1'];
-        if (operacional) {
-          this.acumularHallazgo(operacional, hallazgo);
-        }
+      const esOficina = hallazgo.ambito === 'oficina' || hallazgo.tipoRegistro === 'hallazgo-oficina';
+      const sub = esOficina ? subPorId['-1'] : subPorId[String(hallazgo.idSubProyecto)];
+      if (!sub) {
         return;
       }
 
-      const sub = subPorId[String(hallazgo.idSubProyecto)];
-      if (!sub) {
+      const anio = this.obtenerAnio(hallazgo);
+      porAnio[String(anio)] = (porAnio[String(anio)] || 0) + 1;
+      totalTodos++;
+
+      // Con un año elegido solo entra lo de ese año (1 de enero al 31 de diciembre)
+      if (this.anioVista && anio !== this.anioVista) {
         return;
       }
 
       this.acumularHallazgo(sub, hallazgo);
     });
 
+    this.conteoPorAnio = porAnio;
+    this.totalTodosLosAnios = totalTodos;
+
     this.proyectos.forEach(proyecto => {
       this.resetear(proyecto);
       proyecto.subProyectos.forEach(sub => {
-        proyecto.total += sub.total;
-        proyecto.abiertos += sub.abiertos;
-        proyecto.cerrados += sub.cerrados;
-        Object.keys(sub.tipos).forEach(k => proyecto.tipos[k] = (proyecto.tipos[k] || 0) + sub.tipos[k]);
-        proyecto.marcados += sub.marcados;
+        this.sumarConteo(proyecto, sub);
+        this.ordenarDetalle(sub);
       });
       // Con filtro activo, los subproyectos marcados van arriba
       proyecto.subProyectos.sort((a, b) =>
         (this.filtroMarcado ? b.marcados - a.marcados : 0) || a.nombre.localeCompare(b.nombre)
       );
+      this.armarGrupos(proyecto);
     });
 
     // Con filtro: marcados primero (más marcados arriba). Luego proyecto actual y alfabético.
@@ -502,12 +614,14 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
       if (!h) { return; }
       const a = this.obtenerAnio(h);
       if (a) { anios[String(a)] = true; }
+      if (this.anioVista && a !== this.anioVista) { return; }
       if (this.coincideSinTipo(h)) {
         const k = this.claveTipoAccion(h.tipoAccion);
         disponibles[k] = (disponibles[k] || 0) + 1;
         totalDisponibles++;
       }
     });
+    if (this.anioVista) { anios[String(this.anioVista)] = true; }
     this.aniosDisponibles = Object.keys(anios).map(a => Number(a)).sort((a, b) => b - a);
     this.tiposDisponibles = disponibles;
     this.totalDisponibles = totalDisponibles;
@@ -522,20 +636,185 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
     this.aplicarFiltro();
   }
 
+  /** Arma la tabla del proyecto agrupada por año: fila del año + sus subproyectos. */
+  private armarGrupos(proyecto: ConsolidadoProyecto) {
+    const grupos: { [anio: string]: GrupoAnio } = {};
+
+    proyecto.subProyectos.forEach(sub => {
+      Object.keys(sub.porAnio).forEach(k => {
+        const conteo = sub.porAnio[k];
+        if (!conteo || !conteo.total) {
+          return;
+        }
+        if (!grupos[k]) {
+          grupos[k] = { anio: Number(k), conteo: this.conteoVacio(), filas: [] };
+        }
+        grupos[k].filas.push({ sub: sub, conteo: conteo });
+        this.sumarConteo(grupos[k].conteo, conteo);
+      });
+    });
+
+    const lista = Object.keys(grupos)
+      .map(k => grupos[k])
+      .sort((a, b) => this.ordenAnio(a.anio, b.anio));
+
+    lista.forEach(g => g.filas.sort((a, b) =>
+      (this.filtroMarcado ? b.conteo.marcados - a.conteo.marcados : 0) || a.sub.nombre.localeCompare(b.sub.nombre)
+    ));
+
+    proyecto.grupos = lista;
+    proyecto.sinHallazgos = proyecto.subProyectos
+      .filter(s => !s.total)
+      .map(s => s.nombre);
+  }
+
   private acumularHallazgo(sub: ConsolidadoSubProyecto, hallazgo: HallazgoItem) {
-    sub.total++;
-    if (String(hallazgo.estado || '').toUpperCase().trim() === 'CERRADA') {
-      sub.cerrados++;
+    const marcado = this.coincideFiltro(hallazgo);
+    this.sumarHallazgo(sub, hallazgo, marcado);
+
+    const anio = this.obtenerAnio(hallazgo);
+    const k = String(anio);
+    if (!sub.porAnio[k]) {
+      sub.porAnio[k] = this.conteoVacio();
+    }
+    this.sumarHallazgo(sub.porAnio[k], hallazgo, marcado);
+
+    // Detalle para la fila desplegable
+    const detalle = this.armarDetalle(hallazgo, anio, marcado);
+    sub.detalle.push(detalle);
+    if (!sub.detallePorAnio[k]) {
+      sub.detallePorAnio[k] = [];
+    }
+    sub.detallePorAnio[k].push(detalle);
+  }
+
+  private armarDetalle(hallazgo: HallazgoItem, anio: number, marcado: boolean): DetalleHallazgo {
+    const h: any = hallazgo;
+    const tipoKey = this.claveTipoAccion(hallazgo.tipoAccion);
+    const col = TIPOS_COLUMNAS.filter(t => t.key === tipoKey)[0] || TIPOS_COLUMNAS[TIPOS_COLUMNAS.length - 1];
+    const fechaTxt = String(hallazgo.fecha || '').trim();
+    const estadoTxt = String(hallazgo.estado || '').trim().toUpperCase();
+    const cerrado = this.esCerrado(hallazgo);
+    const prioridad = this.prioridadDe(h);
+    const tipoTxt = String(hallazgo.tipoAccion || '').trim();
+
+    return {
+      id: String(h.id || ''),
+      fecha: this.formatearFecha(fechaTxt) || (anio ? String(anio) : '—'),
+      orden: this.ordenFecha(fechaTxt, anio),
+      anio: anio,
+      tipoKey: tipoKey,
+      tipoSigla: col.sigla,
+      tipoLabel: tipoTxt ? (tipoTxt === 'Near Miss' ? 'NEAR MISS' : tipoTxt) : col.label,
+      tipoClase: col.clase,
+      prioridad: prioridad,
+      prioridadClase: 'prio-' + prioridad.toLowerCase(),
+      estado: estadoTxt || '—',
+      estadoClase: this.claseEstado(estadoTxt),
+      cerrado: cerrado,
+      area: String(h.areaResponsable || '').trim() || '—',
+      quien: String(hallazgo.quienDetecta || '').trim() || 'Sin registrar',
+      origen: String(h.origenHallazgo || '').trim() || '—',
+      archivos: (Array.isArray(h.archivos) ? h.archivos : [])
+        .filter((a: any) => a && a.url)
+        .map((a: any) => {
+          const nombre = String(a.nombre || 'Archivo');
+          return {
+            nombre: nombre,
+            nombreCorto: nombre.length > 18 ? nombre.substring(0, 18).trim() + '...' : nombre,
+            url: String(a.url),
+            icono: this.iconoArchivo(nombre, String(a.url))
+          };
+        }),
+      marcado: marcado
+    };
+  }
+
+  /** Misma lógica que Control de Hallazgos: prioridad del hallazgo o de su última bitácora (por defecto MEDIA). */
+  private prioridadDe(h: any): string {
+    let p = String((h && h.prioridad) || '').trim().toUpperCase();
+    if (!p && h && Array.isArray(h.bitacoras) && h.bitacoras.length) {
+      let ultima = h.bitacoras[0];
+      h.bitacoras.forEach((b: any) => {
+        if (b && String(b.fechaRegistro || '') > String((ultima && ultima.fechaRegistro) || '')) { ultima = b; }
+      });
+      p = String((ultima && ultima.prioridad) || '').trim().toUpperCase();
+    }
+    return p === 'ALTA' || p === 'BAJA' ? p : 'MEDIA';
+  }
+
+  private claseEstado(estado: string): string {
+    switch (estado) {
+      case 'EN DESARROLLO': return 'estado-en-desarrollo';
+      case 'PENDIENTE': return 'estado-pendiente';
+      case 'ENVIADA': return 'estado-enviada';
+      case 'CERRADA': return 'estado-cerrada';
+      default: return '';
+    }
+  }
+
+  private iconoArchivo(nombre: string, url: string): string {
+    const ext = ((nombre || '').split('.').pop() || '').toLowerCase() ||
+      ((url || '').split('?')[0].split('.').pop() || '').toLowerCase();
+    switch (ext) {
+      case 'pdf': return 'fa-file-pdf-o adj-pdf';
+      case 'doc':
+      case 'docx': return 'fa-file-word-o adj-word';
+      case 'xls':
+      case 'xlsx': return 'fa-file-excel-o adj-excel';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return 'fa-file-image-o adj-imagen';
+      default: return 'fa-file-o adj-generico';
+    }
+  }
+
+  /** yyyy-mm-dd → dd-mm-yyyy (igual que se ve en Control de Hallazgos). */
+  private formatearFecha(fecha: string): string {
+    const iso = (fecha || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return iso ? iso[3] + '-' + iso[2] + '-' + iso[1] : fecha;
+  }
+
+  /** Detalle más reciente primero. */
+  private ordenarDetalle(sub: ConsolidadoSubProyecto) {
+    const orden = (a: DetalleHallazgo, b: DetalleHallazgo) => b.orden - a.orden;
+    sub.detalle.sort(orden);
+    Object.keys(sub.detallePorAnio).forEach(k => sub.detallePorAnio[k].sort(orden));
+  }
+
+  private sumarHallazgo(c: Conteo, hallazgo: HallazgoItem, marcado: boolean) {
+    c.total++;
+    if (this.esCerrado(hallazgo)) {
+      c.cerrados++;
     } else {
-      sub.abiertos++;
+      c.abiertos++;
     }
-
     const tipo = this.claveTipoAccion(hallazgo.tipoAccion);
-    sub.tipos[tipo] = (sub.tipos[tipo] || 0) + 1;
-
-    if (this.coincideFiltro(hallazgo)) {
-      sub.marcados++;
+    c.tipos[tipo] = (c.tipos[tipo] || 0) + 1;
+    if (marcado) {
+      c.marcados++;
     }
+  }
+
+  private sumarConteo(destino: Conteo, origen: Conteo) {
+    destino.total += origen.total;
+    destino.abiertos += origen.abiertos;
+    destino.cerrados += origen.cerrados;
+    destino.marcados += origen.marcados;
+    Object.keys(origen.tipos).forEach(k => destino.tipos[k] = (destino.tipos[k] || 0) + origen.tipos[k]);
+  }
+
+  private esCerrado(hallazgo: HallazgoItem): boolean {
+    return String(hallazgo.estado || '').toUpperCase().trim() === 'CERRADA';
+  }
+
+  /** Más reciente primero; el 0 ("Sin año") siempre al final. */
+  private ordenAnio(a: number, b: number): number {
+    if (!a && !b) { return 0; }
+    if (!a) { return 1; }
+    if (!b) { return -1; }
+    return b - a;
   }
 
   aplicarFiltro() {
@@ -577,12 +856,47 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
 
   //*************************************************** Helpers ***************************************************
 
-  private resetear(item: any) {
+  private resetear(item: Conteo) {
     item.total = 0;
     item.abiertos = 0;
     item.cerrados = 0;
     item.tipos = this.tiposVacios();
     item.marcados = 0;
+  }
+
+  private conteoVacio(): Conteo {
+    return { total: 0, abiertos: 0, cerrados: 0, tipos: this.tiposVacios(), marcados: 0 };
+  }
+
+  private subVacio(id: number, nombre: string): ConsolidadoSubProyecto {
+    return {
+      idSubProyecto: id,
+      nombre: nombre,
+      total: 0,
+      abiertos: 0,
+      cerrados: 0,
+      tipos: this.tiposVacios(),
+      marcados: 0,
+      porAnio: {},
+      detalle: [],
+      detallePorAnio: {}
+    };
+  }
+
+  private proyectoVacio(id: number, nombre: string, abierto: boolean): ConsolidadoProyecto {
+    return {
+      idProyecto: id,
+      nombre: nombre,
+      subProyectos: [],
+      grupos: [],
+      sinHallazgos: [],
+      total: 0,
+      abiertos: 0,
+      cerrados: 0,
+      tipos: this.tiposVacios(),
+      marcados: 0,
+      abierto: abierto
+    };
   }
 
   private totalesVacios(): Totales {
@@ -602,6 +916,19 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
 
   trackByTipo(index: number, t: { key: string }) {
     return t ? t.key : index;
+  }
+
+  /** Valor numérico para ordenar por fecha (acepta yyyy-mm-dd y dd-mm-yyyy). */
+  private ordenFecha(fecha: string, anio: number): number {
+    const iso = fecha.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (iso) {
+      return Number(iso[1]) * 10000 + Number(iso[2]) * 100 + Number(iso[3]);
+    }
+    const local = fecha.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (local) {
+      return Number(local[3]) * 10000 + Number(local[2]) * 100 + Number(local[1]);
+    }
+    return anio ? anio * 10000 : 0;
   }
 
   /** Mismo cálculo de año que Reportes de hallazgos (campo anio o la fecha). */

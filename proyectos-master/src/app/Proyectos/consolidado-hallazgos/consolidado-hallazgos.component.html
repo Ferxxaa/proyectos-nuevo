@@ -9,7 +9,7 @@
           <div>
             <span class="consolidado-kicker">REPORTES DE PROYECTOS</span>
             <h2>Consolidado de hallazgos</h2>
-            <p>Resumen general agrupado por proyecto y subproyecto.</p>
+            <p>Resumen general agrupado por proyecto, subproyecto y año.</p>
           </div>
         </div>
         <a class="btn btn-volver-consolidado" [routerLink]="['/Proyectos-MisProyectos']">
@@ -31,32 +31,32 @@
           <ng-container *ngIf="!cargando && !error">
             <!-- Totales generales -->
             <div class="consolidado-kpis">
-      <div class="kpi">
-        <span class="kpi-valor">{{totales.proyectos}}</span>
-        <span class="kpi-label">Proyectos</span>
-      </div>
-      <div class="kpi kpi-principal">
-        <span class="kpi-valor">{{totales.total}}</span>
-        <span class="kpi-label">Hallazgos</span>
-      </div>
-      <div class="kpi kpi-seguimiento">
-        <span class="kpi-valor">{{totales.abiertos}}</span>
-        <span class="kpi-label">En seguimiento</span>
-      </div>
-      <div class="kpi kpi-cerrados">
-        <span class="kpi-valor">{{totales.cerrados}}</span>
-        <span class="kpi-label">Cerrados</span>
-      </div>
-      <div class="kpi kpi-tipos">
-        <div class="kpi-tipos-chips">
-          <span class="tipo-chip" *ngFor="let t of columnasTipo; trackBy: trackByTipo" [ngClass]="t.clase"
-                [class.tipo-chip-cero]="!totales.tipos[t.key]" [class.tipo-chip-activo]="esTipoMarcado(t.key)"
-                [title]="t.label + ': ' + (totales.tipos[t.key] || 0)">
-            <b>{{t.sigla}}</b> {{totales.tipos[t.key] || 0}}
-          </span>
-        </div>
-        <span class="kpi-label">Por tipo de acción</span>
-      </div>
+              <div class="kpi">
+                <span class="kpi-valor">{{totales.proyectos}}</span>
+                <span class="kpi-label">Proyectos</span>
+              </div>
+              <div class="kpi kpi-principal">
+                <span class="kpi-valor">{{totales.total}}</span>
+                <span class="kpi-label">Hallazgos</span>
+              </div>
+              <div class="kpi kpi-seguimiento">
+                <span class="kpi-valor">{{totales.abiertos}}</span>
+                <span class="kpi-label">En seguimiento</span>
+              </div>
+              <div class="kpi kpi-cerrados">
+                <span class="kpi-valor">{{totales.cerrados}}</span>
+                <span class="kpi-label">Cerrados</span>
+              </div>
+              <div class="kpi kpi-tipos">
+                <div class="kpi-tipos-chips">
+                  <span class="tipo-chip" *ngFor="let t of columnasTipo; trackBy: trackByTipo" [ngClass]="t.clase"
+                        [class.tipo-chip-cero]="!totales.tipos[t.key]" [class.tipo-chip-activo]="esTipoMarcado(t.key)"
+                        [title]="t.label + ': ' + (totales.tipos[t.key] || 0)">
+                    <b>{{t.sigla}}</b> {{totales.tipos[t.key] || 0}}
+                  </span>
+                </div>
+                <span class="kpi-label">Por tipo de acción</span>
+              </div>
             </div>
 
             <!-- Marca que viene desde Reportes de hallazgos -->
@@ -84,18 +84,33 @@
 
             <!-- Filtros -->
             <div class="consolidado-toolbar">
-      <div class="buscador">
-        <i class="fa fa-search" aria-hidden="true"></i>
-        <input type="text" class="form-control" placeholder="Buscar proyecto o subproyecto..."
-          [ngModel]="busqueda" (ngModelChange)="onBusqueda($event)">
-      </div>
-      <label class="check-filtro">
-        <input type="checkbox" [ngModel]="soloConHallazgos" (ngModelChange)="onSoloConHallazgos($event)">
-        Solo proyectos con hallazgos
-      </label>
+              <div class="buscador">
+                <i class="fa fa-search" aria-hidden="true"></i>
+                <input type="text" class="form-control" placeholder="Buscar proyecto o subproyecto..."
+                  [ngModel]="busqueda" (ngModelChange)="onBusqueda($event)">
+              </div>
+              <label class="check-filtro">
+                <input type="checkbox" [ngModel]="soloConHallazgos" (ngModelChange)="onSoloConHallazgos($event)">
+                Solo proyectos con hallazgos
+              </label>
+              <div class="anio-tabs">
+                <span class="anio-tabs-label"><i class="fa fa-calendar" aria-hidden="true"></i> Año</span>
+                <button type="button" class="anio-tab" [class.activo]="!anioVista" (click)="filtrarPorAnio('')">
+                  Todos <span class="anio-tab-n">{{totalTodosLosAnios}}</span>
+                </button>
+                <button type="button" class="anio-tab" *ngFor="let a of aniosDisponibles" [class.activo]="esAnioActivo(a)"
+                        [title]="'Ver solo hallazgos de ' + a + ' (enero a diciembre)'"
+                        (click)="filtrarPorAnio(a + '')">
+                  {{a}} <span class="anio-tab-n">{{conteoPorAnio[a] || 0}}</span>
+                </button>
+              </div>
+              <div class="toolbar-acciones">
+                <button type="button" class="btn-toolbar" (click)="expandirTodos(true)"><i class="fa fa-expand"></i> Abrir todos</button>
+                <button type="button" class="btn-toolbar" (click)="expandirTodos(false)"><i class="fa fa-compress"></i> Cerrar todos</button>
+              </div>
             </div>
 
-            <!-- Filtro por tipo de acción, quién detecta y año -->
+            <!-- Filtro por tipo de acción y quién detecta -->
             <div class="consolidado-filtros-tipo">
               <div class="filtro-tipo-fila">
                 <span class="filtro-tipo-label"><i class="fa fa-filter"></i> Tipo de acción</span>
@@ -122,13 +137,6 @@
                     <option *ngFor="let q of quienOpciones" [value]="q">{{q}}</option>
                   </select>
                 </label>
-                <label>
-                  <span>Año</span>
-                  <select class="form-control" [ngModel]="filtroAnio" (ngModelChange)="filtrarPorAnio($event)">
-                    <option value="">Todos</option>
-                    <option *ngFor="let a of aniosDisponibles" [value]="a">{{a}}</option>
-                  </select>
-                </label>
               </div>
             </div>
 
@@ -136,95 +144,269 @@
               No hay proyectos que coincidan con el filtro.
             </div>
 
+            <!-- Detalle de hallazgos de un subproyecto (se reutiliza en las dos tablas) -->
+            <ng-template #tplDetalle let-lista>
+              <div class="detalle-hallazgos">
+                <div class="detalle-vacio" *ngIf="!lista.length">
+                  <i class="fa fa-info-circle"></i> No hay hallazgos para mostrar con este filtro.
+                </div>
+                <div class="table-responsive" *ngIf="lista.length">
+                  <table class="detalle-tabla">
+                    <thead>
+                      <tr>
+                        <th class="detalle-col-fecha">Fecha</th>
+                        <th class="detalle-col-tipo">Tipo de acción</th>
+                        <th class="detalle-col-prio">Prioridad</th>
+                        <th class="detalle-col-estado">Estado</th>
+                        <th class="detalle-col-area">Área responsable</th>
+                        <th class="detalle-col-quien">Quién detecta</th>
+                        <th class="detalle-col-origen">Origen</th>
+                        <th class="detalle-col-adj">Adjuntos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let h of lista; trackBy: trackByDetalle" [class.detalle-marcado]="h.marcado && !!filtroMarcado">
+                        <td class="detalle-fecha">
+                          <i class="fa fa-crosshairs icono-marcado" *ngIf="h.marcado && !!filtroMarcado"></i>{{h.fecha}}
+                        </td>
+                        <td>
+                          <span class="tipo-chip detalle-tipo" [ngClass]="h.tipoClase" [title]="h.tipoLabel">
+                            <b>{{h.tipoSigla}}</b> {{h.tipoLabel}}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="semaforo-detalle" [ngClass]="h.prioridadClase" [title]="'Prioridad ' + h.prioridad">
+                            <i class="fa fa-circle"></i> {{h.prioridad}}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="estado-pill" [ngClass]="h.estadoClase">{{h.estado}}</span>
+                        </td>
+                        <td>{{h.area}}</td>
+                        <td>{{h.quien}}</td>
+                        <td>{{h.origen}}</td>
+                        <td>
+                          <div class="detalle-adjuntos" *ngIf="h.archivos.length; else sinAdjuntos">
+                            <a class="detalle-adjunto" *ngFor="let a of h.archivos" [href]="a.url"
+                               target="_blank" rel="noopener" [title]="a.nombre" (click)="$event.stopPropagation()">
+                              <i class="fa" [ngClass]="a.icono"></i> {{a.nombreCorto}}
+                            </a>
+                          </div>
+                          <ng-template #sinAdjuntos><span class="detalle-sin-adj">—</span></ng-template>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </ng-template>
+
             <!-- Proyectos -->
             <article class="proyecto" *ngFor="let proyecto of proyectosVisibles; trackBy: trackByProyecto"
               [class.proyecto-actual]="esProyectoActual(proyecto)" [class.proyecto-abierto]="proyecto.abierto"
               [class.proyecto-marcado]="esMarcado(proyecto)" [class.proyecto-atenuado]="esAtenuado(proyecto)">
 
-      <div class="proyecto-header" (click)="toggleProyecto(proyecto)">
-        <i class="fa proyecto-chevron" [ngClass]="proyecto.abierto ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+              <div class="proyecto-header" (click)="toggleProyecto(proyecto)">
+                <i class="fa proyecto-chevron" [ngClass]="proyecto.abierto ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
 
-        <div class="proyecto-titulo">
-          <strong [class.coincidencia-filtro]="coincideBusqueda(proyecto.nombre)">{{proyecto.nombre}}</strong>
-          <span class="proyecto-sub">
-            {{proyecto.subProyectos.length}} subproyecto{{proyecto.subProyectos.length === 1 ? '' : 's'}}
-            <span class="badge-actual" *ngIf="esProyectoActual(proyecto)">Proyecto actual</span>
-          </span>
-        </div>
+                <div class="proyecto-titulo">
+                  <strong [class.coincidencia-filtro]="coincideBusqueda(proyecto.nombre)">{{proyecto.nombre}}</strong>
+                  <span class="proyecto-sub">
+                    {{proyecto.subProyectos.length}} subproyecto{{proyecto.subProyectos.length === 1 ? '' : 's'}}
+                    <span class="badge-actual" *ngIf="esProyectoActual(proyecto)">Proyecto actual</span>
+                  </span>
+                </div>
 
-        <div class="proyecto-resumen">
-          <span class="chip chip-marcado" *ngIf="esMarcado(proyecto)" [title]="proyecto.marcados + ' · ' + etiquetaFiltro">
-            <i class="fa fa-crosshairs"></i> <strong>{{proyecto.marcados}}</strong> {{etiquetaCorta}}
-          </span>
-          <span class="chip chip-total"><strong>{{proyecto.total}}</strong> total</span>
-          <span class="chip chip-seguimiento"><strong>{{proyecto.abiertos}}</strong> seguimiento</span>
-          <span class="chip chip-cerrados"><strong>{{proyecto.cerrados}}</strong> cerrados</span>
-          <ng-container *ngFor="let t of columnasTipo; trackBy: trackByTipo">
-            <span class="tipo-chip" *ngIf="proyecto.tipos[t.key] > 0" [ngClass]="t.clase"
-                  [class.tipo-chip-activo]="esTipoMarcado(t.key)" [title]="t.label + ': ' + proyecto.tipos[t.key]">
-              <b>{{t.sigla}}</b> {{proyecto.tipos[t.key]}}
-            </span>
-          </ng-container>
-        </div>
+                <div class="proyecto-resumen">
+                  <span class="chip chip-marcado" *ngIf="esMarcado(proyecto)" [title]="proyecto.marcados + ' · ' + etiquetaFiltro">
+                    <i class="fa fa-crosshairs"></i> <strong>{{proyecto.marcados}}</strong> {{etiquetaCorta}}
+                  </span>
+                  <span class="chip chip-total"><strong>{{proyecto.total}}</strong> total</span>
+                  <span class="chip chip-seguimiento"><strong>{{proyecto.abiertos}}</strong> seguimiento</span>
+                  <span class="chip chip-cerrados"><strong>{{proyecto.cerrados}}</strong> cerrados</span>
+                  <ng-container *ngFor="let t of columnasTipo; trackBy: trackByTipo">
+                    <span class="tipo-chip" *ngIf="proyecto.tipos[t.key] > 0" [ngClass]="t.clase"
+                          [class.tipo-chip-activo]="esTipoMarcado(t.key)" [title]="t.label + ': ' + proyecto.tipos[t.key]">
+                      <b>{{t.sigla}}</b> {{proyecto.tipos[t.key]}}
+                    </span>
+                  </ng-container>
+                </div>
 
-        <div class="proyecto-avance" [title]="porcentajeCerrados(proyecto) + '% cerrados'">
-          <div class="barra">
-            <div class="barra-relleno" [style.width.%]="porcentajeCerrados(proyecto)"></div>
-          </div>
-          <span>{{porcentajeCerrados(proyecto)}}%</span>
-        </div>
-      </div>
+                <div class="proyecto-avance" [title]="porcentajeCerrados(proyecto) + '% cerrados'">
+                  <div class="barra">
+                    <div class="barra-relleno" [style.width.%]="porcentajeCerrados(proyecto)"></div>
+                  </div>
+                  <span>{{porcentajeCerrados(proyecto)}}%</span>
+                </div>
+              </div>
 
-      <div class="proyecto-body" *ngIf="proyecto.abierto">
-        <div class="table-responsive">
-          <table class="table consolidado-tabla">
-            <thead>
-              <tr>
-                <th>Subproyecto</th>
-                <th class="numero col-marcado" *ngIf="filtroMarcado" [title]="etiquetaFiltro">
-                  <i class="fa fa-crosshairs"></i> {{etiquetaCorta}}
-                </th>
-                <th class="numero">En seguimiento</th>
-                <th class="numero">Cerrados</th>
-                <th class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
-                    [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)" [title]="t.label">{{t.sigla}}</th>
-                <th class="numero col-total">Total hallazgos</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of proyecto.subProyectos; trackBy: trackBySubProyecto"
-                [class.sin-hallazgos]="item.total === 0"
-                [class.fila-marcada]="esMarcado(item)" [class.fila-atenuada]="esAtenuado(item)">
-                <td>
-                  <i class="fa fa-crosshairs icono-marcado" *ngIf="esMarcado(item)"></i>
-                  <span [class.coincidencia-filtro]="coincideBusqueda(item.nombre)">{{item.nombre}}</span>
-                </td>
-                <td class="numero col-marcado" *ngIf="filtroMarcado">
-                  <span class="num-marcado" [class.cero]="!item.marcados">{{item.marcados}}</span>
-                </td>
-                <td class="numero">{{item.abiertos}}</td>
-                <td class="numero">{{item.cerrados}}</td>
-                <td class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
-                    [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)">
-                  <span class="num-tipo" [class.cero]="!item.tipos[t.key]" [title]="t.label + ': ' + (item.tipos[t.key] || 0)">{{item.tipos[t.key] || 0}}</span>
-                </td>
-                <td class="numero col-total"><span class="total-pill" [class.cero]="!item.total">{{item.total}}</span></td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr>
-                <th>Total proyecto</th>
-                <th class="numero col-marcado" *ngIf="filtroMarcado">{{proyecto.marcados}}</th>
-                <th class="numero">{{proyecto.abiertos}}</th>
-                <th class="numero">{{proyecto.cerrados}}</th>
-                <th class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
-                    [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)">{{proyecto.tipos[t.key] || 0}}</th>
-                <th class="numero col-total"><span class="total-pill">{{proyecto.total}}</span></th>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
+              <div class="proyecto-body" *ngIf="proyecto.abierto">
+
+                <!-- ===== Tabla agrupada por año ===== -->
+                <div class="table-responsive" *ngIf="agruparPorAnio">
+                  <table class="table consolidado-tabla tabla-por-anio">
+                    <thead>
+                      <tr>
+                        <th>Año / Subproyecto</th>
+                        <th class="numero col-marcado" *ngIf="filtroMarcado" [title]="etiquetaFiltro">
+                          <i class="fa fa-crosshairs"></i> {{etiquetaCorta}}
+                        </th>
+                        <th class="numero">En seguimiento</th>
+                        <th class="numero">Cerrados</th>
+                        <th class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                            [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)" [title]="t.label">{{t.sigla}}</th>
+                        <th class="numero col-total">Total hallazgos</th>
+                      </tr>
+                    </thead>
+
+                    <tbody *ngFor="let g of proyecto.grupos; trackBy: trackByAnio"
+                           class="grupo-anio"
+                           [class.grupo-anio-activo]="esAnioActivo(g.anio)"
+                           [class.grupo-anio-atenuado]="!!filtroAnio && !esAnioActivo(g.anio)">
+                      <!-- Fila del año (subtotal) -->
+                      <tr class="fila-grupo-anio"
+                          [title]="g.anio ? (esAnioActivo(g.anio) ? 'Quitar filtro ' + g.anio : 'Filtrar por ' + g.anio) : 'Hallazgos sin año registrado'"
+                          (click)="toggleAnio(g.anio, $event)">
+                        <td>
+                          <span class="anio-pill" [class.anio-pill-sin]="!g.anio">
+                            <i class="fa" [ngClass]="esAnioActivo(g.anio) ? 'fa-check-circle' : 'fa-calendar-o'"></i>
+                            {{g.anio || 'Sin año'}}
+                          </span>
+                          <span class="grupo-anio-n">{{g.filas.length}} subproyecto{{g.filas.length === 1 ? '' : 's'}}</span>
+                        </td>
+                        <td class="numero col-marcado" *ngIf="filtroMarcado">
+                          <span class="num-marcado" [class.cero]="!g.conteo.marcados">{{g.conteo.marcados}}</span>
+                        </td>
+                        <td class="numero">{{g.conteo.abiertos}}</td>
+                        <td class="numero">{{g.conteo.cerrados}}</td>
+                        <td class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                            [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)">
+                          <span class="num-tipo" [class.cero]="!g.conteo.tipos[t.key]">{{g.conteo.tipos[t.key] || 0}}</span>
+                        </td>
+                        <td class="numero col-total"><span class="total-pill total-pill-anio">{{g.conteo.total}}</span></td>
+                      </tr>
+
+                      <!-- Subproyectos de ese año: clic = ver sus hallazgos -->
+                      <ng-container *ngFor="let f of g.filas; trackBy: trackByFila">
+                        <tr class="fila-sub-anio fila-clic"
+                            [class.fila-marcada]="esMarcado(f.conteo)" [class.fila-atenuada]="esAtenuado(f.conteo)"
+                            [class.fila-detalle-abierta]="estaDetalleAbierto(f.sub, g.anio)"
+                            [title]="estaDetalleAbierto(f.sub, g.anio) ? 'Ocultar hallazgos' : 'Ver hallazgos'"
+                            (click)="toggleDetalle(f.sub, g.anio, $event)">
+                          <td class="celda-sub-anio">
+                            <i class="fa detalle-chevron" [ngClass]="estaDetalleAbierto(f.sub, g.anio) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                            <i class="fa fa-crosshairs icono-marcado" *ngIf="esMarcado(f.conteo)"></i>
+                            <span [class.coincidencia-filtro]="coincideBusqueda(f.sub.nombre)">{{f.sub.nombre}}</span>
+                          </td>
+                          <td class="numero col-marcado" *ngIf="filtroMarcado">
+                            <span class="num-marcado" [class.cero]="!f.conteo.marcados">{{f.conteo.marcados}}</span>
+                          </td>
+                          <td class="numero">{{f.conteo.abiertos}}</td>
+                          <td class="numero">{{f.conteo.cerrados}}</td>
+                          <td class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                              [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)">
+                            <span class="num-tipo" [class.cero]="!f.conteo.tipos[t.key]" [title]="t.label + ': ' + (f.conteo.tipos[t.key] || 0)">{{f.conteo.tipos[t.key] || 0}}</span>
+                          </td>
+                          <td class="numero col-total"><span class="total-pill" [class.cero]="!f.conteo.total">{{f.conteo.total}}</span></td>
+                        </tr>
+                        <tr class="fila-detalle" *ngIf="estaDetalleAbierto(f.sub, g.anio)">
+                          <td [attr.colspan]="columnasTabla">
+                            <ng-container *ngTemplateOutlet="tplDetalle; context: { $implicit: verDetalle(f.sub, g.anio) }"></ng-container>
+                          </td>
+                        </tr>
+                      </ng-container>
+                    </tbody>
+
+                    <tbody *ngIf="proyecto.grupos.length === 0">
+                      <tr class="sin-hallazgos">
+                        <td [attr.colspan]="columnasTabla" class="celda-vacia">Sin hallazgos registrados.</td>
+                      </tr>
+                    </tbody>
+
+                    <tbody *ngIf="proyecto.sinHallazgos.length && proyecto.grupos.length">
+                      <tr class="sin-hallazgos fila-sin-hallazgos">
+                        <td [attr.colspan]="columnasTabla">
+                          <i class="fa fa-minus-circle"></i>
+                          Sin hallazgos ({{proyecto.sinHallazgos.length}}): {{proyecto.sinHallazgos.join(', ')}}
+                        </td>
+                      </tr>
+                    </tbody>
+
+                    <tfoot>
+                      <tr>
+                        <th>Total proyecto</th>
+                        <th class="numero col-marcado" *ngIf="filtroMarcado">{{proyecto.marcados}}</th>
+                        <th class="numero">{{proyecto.abiertos}}</th>
+                        <th class="numero">{{proyecto.cerrados}}</th>
+                        <th class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                            [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)">{{proyecto.tipos[t.key] || 0}}</th>
+                        <th class="numero col-total"><span class="total-pill">{{proyecto.total}}</span></th>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <!-- ===== Tabla clásica por subproyecto ===== -->
+                <div class="table-responsive" *ngIf="!agruparPorAnio">
+                  <table class="table consolidado-tabla">
+                    <thead>
+                      <tr>
+                        <th>Subproyecto</th>
+                        <th class="numero col-marcado" *ngIf="filtroMarcado" [title]="etiquetaFiltro">
+                          <i class="fa fa-crosshairs"></i> {{etiquetaCorta}}
+                        </th>
+                        <th class="numero">En seguimiento</th>
+                        <th class="numero">Cerrados</th>
+                        <th class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                            [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)" [title]="t.label">{{t.sigla}}</th>
+                        <th class="numero col-total">Total hallazgos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <ng-container *ngFor="let item of proyecto.subProyectos; trackBy: trackBySubProyecto">
+                        <tr class="fila-clic"
+                          [class.sin-hallazgos]="item.total === 0"
+                          [class.fila-marcada]="esMarcado(item)" [class.fila-atenuada]="esAtenuado(item)"
+                          [class.fila-detalle-abierta]="estaDetalleAbierto(item)"
+                          [title]="estaDetalleAbierto(item) ? 'Ocultar hallazgos' : 'Ver hallazgos'"
+                          (click)="toggleDetalle(item, null, $event)">
+                          <td>
+                            <i class="fa detalle-chevron" [ngClass]="estaDetalleAbierto(item) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                            <i class="fa fa-crosshairs icono-marcado" *ngIf="esMarcado(item)"></i>
+                            <span [class.coincidencia-filtro]="coincideBusqueda(item.nombre)">{{item.nombre}}</span>
+                          </td>
+                          <td class="numero col-marcado" *ngIf="filtroMarcado">
+                            <span class="num-marcado" [class.cero]="!item.marcados">{{item.marcados}}</span>
+                          </td>
+                          <td class="numero">{{item.abiertos}}</td>
+                          <td class="numero">{{item.cerrados}}</td>
+                          <td class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                              [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)">
+                            <span class="num-tipo" [class.cero]="!item.tipos[t.key]" [title]="t.label + ': ' + (item.tipos[t.key] || 0)">{{item.tipos[t.key] || 0}}</span>
+                          </td>
+                          <td class="numero col-total"><span class="total-pill" [class.cero]="!item.total">{{item.total}}</span></td>
+                        </tr>
+                        <tr class="fila-detalle" *ngIf="estaDetalleAbierto(item)">
+                          <td [attr.colspan]="columnasTabla">
+                            <ng-container *ngTemplateOutlet="tplDetalle; context: { $implicit: verDetalle(item) }"></ng-container>
+                          </td>
+                        </tr>
+                      </ng-container>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <th>Total proyecto</th>
+                        <th class="numero col-marcado" *ngIf="filtroMarcado">{{proyecto.marcados}}</th>
+                        <th class="numero">{{proyecto.abiertos}}</th>
+                        <th class="numero">{{proyecto.cerrados}}</th>
+                        <th class="numero col-tipo" *ngFor="let t of columnasTipo; trackBy: trackByTipo"
+                            [ngClass]="t.clase" [class.col-tipo-activo]="esTipoMarcado(t.key)">{{proyecto.tipos[t.key] || 0}}</th>
+                        <th class="numero col-total"><span class="total-pill">{{proyecto.total}}</span></th>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
             </article>
 
           </ng-container>

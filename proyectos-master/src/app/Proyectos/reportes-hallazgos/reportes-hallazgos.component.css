@@ -1173,7 +1173,7 @@
   gap: 2px;
   padding: 12px 12px 10px;
   border: 1px solid #e3ebf1;
-  border-top: 3px solid var(--tc);
+  border-top: 4px solid var(--tc-suave);
   border-radius: 10px;
   background: #fff;
   transition: transform 0.15s, box-shadow 0.15s;
@@ -1191,17 +1191,19 @@
 }
 
 .tipo-card-top .fa {
-  color: var(--tc);
-  opacity: 0.55;
+  color: var(--tc-texto, var(--tc));
+  opacity: 0.85;
   font-size: 15px;
 }
 
+/* Sigla con el mismo fondo, texto y borde que el select de Control de Hallazgos */
 .tipo-sigla {
   font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.5px;
-  color: var(--tc);
+  color: var(--tc-sobre, #fff);
   background: var(--tc-suave);
+  box-shadow: inset 0 0 0 1px var(--tc);
   border-radius: 5px;
   padding: 2px 7px;
 }
@@ -1223,15 +1225,22 @@
   white-space: nowrap;
 }
 
-/* Colores por tipo de acción */
-.ta-nc   { --tc: #d64545; --tc-suave: #fdecec; }
-.ta-sw   { --tc: #b4231f; --tc-suave: #fbe3e2; }
-.ta-rp   { --tc: #2f9e6a; --tc-suave: #e6f6ee; }
-.ta-om   { --tc: #1c7ed6; --tc-suave: #e7f1fc; }
-.ta-fr   { --tc: #7048e8; --tc-suave: #efebfd; }
-.ta-nm   { --tc: #e8890c; --tc-suave: #fdf1e1; }
-.ta-la   { --tc: #0c9488; --tc-suave: #e3f6f4; }
-.ta-otro { --tc: #8796a0; --tc-suave: #f1f4f6; }
+/* ============================ COLORES DE TIPOS DE ACCIÓN (mismos que Control de Hallazgos) ============================ */
+/* --tc: borde · --tc-suave: fondo de la pastilla · --tc-texto: texto sobre blanco · --tc-sobre: texto encima de la pastilla */
+.ta-nc   { --tc: #dc3545; --tc-suave: #dc3545; --tc-texto: #c82333; --tc-sobre: #ffffff; }
+.ta-sw   { --tc: #dc3545; --tc-suave: #f8d7da; --tc-texto: #721c24; --tc-sobre: #721c24; }
+.ta-nm   { --tc: #FFB300; --tc-suave: #FFC107; --tc-texto: #a87900; --tc-sobre: #000000; }
+.ta-rp   { --tc: #45a049; --tc-suave: #528053; --tc-texto: #3e6b3f; --tc-sobre: #ffffff; }
+.ta-fr   { --tc: #28a745; --tc-suave: #d4edda; --tc-texto: #155724; --tc-sobre: #155724; }
+.ta-om   { --tc: #1976D2; --tc-suave: #2196F3; --tc-texto: #1976D2; --tc-sobre: #ffffff; }
+.ta-la   { --tc: #333333; --tc-suave: #d7c4b9; --tc-texto: #5c4a3f; --tc-sobre: #000000; }
+.ta-otro { --tc: #8796A0; --tc-suave: #F1F4F6; --tc-texto: #5F707B; --tc-sobre: #5F707B; }
+
+/* SW y FR tienen fondo pálido: la franja de arriba usa el color del borde para que se vea */
+.ta-sw.tipo-card,
+.ta-fr.tipo-card,
+.ta-la.tipo-card,
+.ta-otro.tipo-card { border-top-color: var(--tc); }
 
 .tipo-sigla-mini {
   display: inline-block;
@@ -1239,8 +1248,9 @@
   text-align: center;
   font-size: 10px;
   font-weight: 800;
-  color: var(--tc);
+  color: var(--tc-sobre, #fff);
   background: var(--tc-suave);
+  box-shadow: inset 0 0 0 1px var(--tc);
   border-radius: 4px;
   padding: 2px 5px;
   margin-right: 6px;
@@ -1362,14 +1372,22 @@
 }
 
 .cifra-mandante { background: #e5f2f9; color: #075f91; }
-.cifra-nc       { background: #fdecec; color: #c0392b; }
-.cifra-sw       { background: #fbe3e2; color: #a01d1a; }
-.cifra-rp       { background: #e6f6ee; color: #23804f; }
+.cifra-nc       { background: #dc3545; color: #ffffff; }
+.cifra-sw       { background: #f8d7da; color: #721c24; box-shadow: inset 0 0 0 1px #dc3545; }
+.cifra-rp       { background: #528053; color: #ffffff; }
+
+/* Cifras por tipo (columnas NC, SW, NM...): mismos colores que Control de Hallazgos */
+.cifra-tipo {
+  background: var(--tc-suave);
+  color: var(--tc-sobre);
+  box-shadow: inset 0 0 0 1px var(--tc);
+}
 
 .cifra.cifra-cero {
   background: transparent;
   color: #c3cdd4;
   font-weight: 400;
+  box-shadow: none;
 }
 
 @media (max-width: 1200px) {
@@ -1550,6 +1568,7 @@
 .tabla-reportes-cabecera {
   align-items: center;
 }
+
 /* ============================ CONSOLIDADO GENERAL ============================ */
 .consolidado-general {
   background: #fff;
@@ -1644,24 +1663,28 @@
   flex: 0 0 auto;
 }
 
-.cg-fr          { --cg: #92c94f; }
-.cg-rp          { --cg: #2f9e6a; }
-.cg-otros       { --cg: #a0adb6; }
-.cg-obs         { --cg: #e6c619; }
-.cg-sw          { --cg: #f0a43a; }
-.cg-nc          { --cg: #d64545; }
+/* Tipos de acción del cuadro de análisis (mismos colores que Control de Hallazgos) */
+.cg-nc    { --cg: #dc3545; }
+.cg-sw    { --cg: #f1a1a9; }
+.cg-nm    { --cg: #FFC107; }
+.cg-rp    { --cg: #528053; }
+.cg-fr    { --cg: #8fd19e; }
+.cg-obs   { --cg: #2196F3; }
+.cg-la    { --cg: #d7c4b9; }
+.cg-otros { --cg: #a0adb6; }
 
-.cg-ef-baja     { --cg: #d64545; }
-.cg-ef-media    { --cg: #f0a43a; }
-.cg-ef-efectivo { --cg: #5cb85c; }
-.cg-ef-muy      { --cg: #1f7a4d; }
+/* Eficacia (colores del registro REG-10-B-24) */
+.cg-ef-baja     { --cg: #FF0000; }
+.cg-ef-media    { --cg: #FFC000; }
+.cg-ef-efectivo { --cg: #92D050; }
+.cg-ef-muy      { --cg: #00B050; }
 
 .cg-hallazgos   { --cg: #0879b2; }
 .cg-realizadas  { --cg: #7048e8; }
 .cg-efectivas   { --cg: #2f9e6a; }
 
-.cg-desv        { --cg: #d64545; }
-.cg-mrp         { --cg: #2f9e6a; }
+.cg-desv        { --cg: #FF0000; }
+.cg-mrp         { --cg: #00B050; }
 
 .cg-fila-pct td { background: #fafcfd; }
 
@@ -1938,7 +1961,7 @@
   transition: filter 0.15s;
 }
 
-.cg-pila-barra span + span { box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.7); }
+.cg-pila-barra span + span { box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.85); }
 .cg-pila-barra span:hover { filter: brightness(1.08) saturate(1.1); }
 
 .cg-col-viva .cg-pila-barra { box-shadow: 0 0 0 2px #fff, 0 0 0 3px #7fd3a6, 0 4px 10px rgba(47, 158, 106, 0.25); }
@@ -2104,14 +2127,14 @@
 }
 
 .cg-barra-realizadas { background: linear-gradient(180deg, #b8a6f5, #9b84ef); }
-.cg-barra-efectivas  { background: linear-gradient(180deg, #4fc189, #2f9e6a); }
-.cg-barra-desv       { background: linear-gradient(180deg, #ee7b73, #d64545); }
-.cg-barra-rp         { background: linear-gradient(180deg, #4fc189, #2f9e6a); }
+.cg-barra-efectivas  { background: linear-gradient(180deg, #33C373, #00B050); }
+.cg-barra-desv       { background: linear-gradient(180deg, #FF4D4D, #FF0000); }
+.cg-barra-rp         { background: linear-gradient(180deg, #33C373, #00B050); }
 
 .cg-ley-realizadas { background: #9b84ef; }
-.cg-ley-efectivas  { background: #2f9e6a; }
-.cg-ley-desv       { background: #d64545; }
-.cg-ley-rp         { background: #2f9e6a; }
+.cg-ley-efectivas  { background: #00B050; }
+.cg-ley-desv       { background: #FF0000; }
+.cg-ley-rp         { background: #00B050; }
 
 .leyenda-mini i.cg-ley-linea {
   width: 14px;
@@ -2289,8 +2312,9 @@
   gap: 4px;
   font-size: 10.5px;
   font-weight: 700;
-  color: var(--tc);
+  color: var(--tc-sobre, #fff);
   background: var(--tc-suave);
+  box-shadow: inset 0 0 0 1px var(--tc);
   border-radius: 10px;
   padding: 1px 8px;
   opacity: 0;
@@ -2354,57 +2378,7 @@
   line-height: 1;
 }
 
-/* ============================ COLORES DE TIPOS DE ACCIÓN (Excel REG-10-B-24) ============================ */
-/* --tc: color del Excel · --tc-suave: fondo claro · --tc-texto: texto legible sobre blanco · --tc-sobre: texto encima del color */
-.ta-nc   { --tc: #FF0000; --tc-suave: #FFE5E5; --tc-texto: #C40000; --tc-sobre: #FFFFFF; }
-.ta-sw   { --tc: #FFC000; --tc-suave: #FFF4D6; --tc-texto: #A86A00; --tc-sobre: #3D2A00; }
-.ta-rp   { --tc: #00B050; --tc-suave: #E0F6EA; --tc-texto: #00803A; --tc-sobre: #FFFFFF; }
-.ta-om   { --tc: #FFFF00; --tc-suave: #FFFDCC; --tc-texto: #8A7A00; --tc-sobre: #3D3600; }
-.ta-fr   { --tc: #92D050; --tc-suave: #EEF8E4; --tc-texto: #4F8A1C; --tc-sobre: #23400A; }
-.ta-nm   { --tc: #7048E8; --tc-suave: #EFEBFD; --tc-texto: #5A36C9; --tc-sobre: #FFFFFF; }
-.ta-la   { --tc: #0C9488; --tc-suave: #E3F6F4; --tc-texto: #0A7A70; --tc-sobre: #FFFFFF; }
-.ta-otro { --tc: #8796A0; --tc-suave: #F1F4F6; --tc-texto: #5F707B; --tc-sobre: #FFFFFF; }
-.tipo-sigla,
-.tipo-sigla-mini,
-.tipo-card-top .fa,
-.tipo-card-ir {
-  color: var(--tc-texto, var(--tc));
-}
-
-.tipo-card-top .fa { opacity: 0.85; }
-
-/* Amarillo / naranjo / verde claro necesitan un borde un poco más oscuro para verse sobre blanco */
-.ta-om.tipo-card { border-top-color: #F2E200; }
-
-/* Cifras de la tabla por subproyecto / obra */
-.cifra-nc { background: #FFE5E5; color: #C40000; }
-.cifra-sw { background: #FFF4D6; color: #A86A00; }
-.cifra-rp { background: #E0F6EA; color: #00803A; }
-
-/* Consolidado general: etiquetas de filas con los colores del Excel */
-.cg-fr       { --cg: #92D050; }
-.cg-rp       { --cg: #00B050; }
-.cg-obs      { --cg: #FFFF00; }
-.cg-sw       { --cg: #FFC000; }
-.cg-nc       { --cg: #FF0000; }
-.cg-ef-baja     { --cg: #FF0000; }
-.cg-ef-media    { --cg: #FFC000; }
-.cg-ef-efectivo { --cg: #92D050; }
-.cg-ef-muy      { --cg: #00B050; }
-.cg-desv     { --cg: #FF0000; }
-.cg-mrp      { --cg: #00B050; }
-.cg-obs.cg-etiqueta::before { box-shadow: inset 0 0 0 1px #D6C800; }
-
-/* Gráficos: barras y leyendas con los mismos colores */
-.cg-barra-efectivas { background: linear-gradient(180deg, #33C373, #00B050); }
-.cg-barra-desv      { background: linear-gradient(180deg, #FF4D4D, #FF0000); }
-.cg-barra-rp        { background: linear-gradient(180deg, #33C373, #00B050); }
-.cg-ley-efectivas   { background: #00B050; }
-.cg-ley-desv        { background: #FF0000; }
-.cg-ley-rp          { background: #00B050; }
-.cg-pila-barra span + span { box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.85); }
-
-/* Detalle: una columna por cada tipo de acción, con los colores del Excel */
+/* Detalle: una columna por cada tipo de acción */
 .tabla-hallazgos th.col-tipo {
   color: var(--tc-texto, var(--tc));
   text-align: center;
@@ -2412,11 +2386,6 @@
 }
 
 .tabla-hallazgos td.col-tipo { text-align: center; }
-
-.cifra-tipo {
-  background: var(--tc-suave);
-  color: var(--tc-texto, var(--tc));
-}
 
 /* Consolidado general: las 4 tablas con las mismas columnas (años alineados uno bajo otro) */
 .tabla-consolidado {
@@ -2602,6 +2571,7 @@
 .consolidado-general .tabla-hallazgos thead th.cg-vivo {
   color: #23804f;
 }
+
 /* ============================ SELECTOR DE AÑO ============================ */
 .anio-selector {
   display: inline-flex;

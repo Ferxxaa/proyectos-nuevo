@@ -186,6 +186,7 @@
                        (dragstart)="onDragStart($event, t)"
                        (dragend)="onDragEnd()"
                        (click)="seleccionarTarea(t); $event.stopPropagation()"
+                       (dblclick)="abrirEditor(t); $event.stopPropagation()"
                        [title]="t.descripcion + ' — ' + t.responsableNombre">
                     <span class="cal-chip-status"></span>
                     <span class="cal-chip-text">{{t.descripcion}}</span>
@@ -214,7 +215,7 @@
             <span><i class="cal-ley-box" style="background:#edf2ff; border-color:#4466ff"></i> En Proceso</span>
             <span><i class="cal-ley-box" style="background:#eafaf1; border-color:#008844"></i> Terminada</span>
             <span><i class="fa fa-exclamation-circle" style="color:#d33d44"></i> Vencida</span>
-            <span class="cal-leyenda-hint"><i class="fa fa-hand-paper-o"></i> Arrastra una tarea a otro día para cambiar su fecha de compromiso</span>
+            <span class="cal-leyenda-hint"><i class="fa fa-hand-paper-o"></i> Arrastra para cambiar la fecha · doble clic para editar</span>
           </div>
         </div>
 
@@ -256,7 +257,8 @@
                  [attr.draggable]="t._editable ? 'true' : 'false'"
                  (dragstart)="onDragStart($event, t)"
                  (dragend)="onDragEnd()"
-                 (click)="seleccionarTarea(t)">
+                 (click)="seleccionarTarea(t)"
+                 (dblclick)="abrirEditor(t)">
               <div class="cal-item-top">
                 <span class="cal-estado-pill" [style.background]="colorEstado(t.estadoId)">{{t.estadoNombre}}</span>
                 <span class="cal-prio" *ngIf="t.prioridad"><i class="fa fa-flag" [style.color]="colorPrioridad(t.prioridad)"></i> {{t.prioridad}}</span>
@@ -286,7 +288,8 @@
                  [attr.draggable]="t._editable ? 'true' : 'false'"
                  (dragstart)="onDragStart($event, t)"
                  (dragend)="onDragEnd()"
-                 (click)="seleccionarTarea(t)">
+                 (click)="seleccionarTarea(t)"
+                 (dblclick)="abrirEditor(t)">
               <div class="cal-item-top">
                 <span class="cal-estado-pill" [style.background]="colorEstado(t.estadoId)">{{t.estadoNombre}}</span>
                 <span class="cal-prio" *ngIf="t.prioridad"><i class="fa fa-flag" [style.color]="colorPrioridad(t.prioridad)"></i> {{t.prioridad}}</span>
@@ -363,9 +366,11 @@
             </div>
 
             <div class="cal-detalle-actions">
-              <a class="cal-btn cal-btn-primary cal-btn-block" [routerLink]="['/Ver-Tareas']" [queryParams]="{ editarTarea: tareaSeleccionada.idTarea }">
-                <i class="fa fa-pencil"></i> Editar en Mis Tareas
-              </a>
+              <button type="button" class="cal-btn cal-btn-primary cal-btn-block"
+                      *ngIf="puedeAbrirEditor(tareaSeleccionada)"
+                      (click)="abrirEditor(tareaSeleccionada)">
+                <i class="fa fa-pencil"></i> Editar tarea
+              </button>
               <button type="button" class="cal-btn cal-btn-ghost cal-btn-block"
                       *ngIf="!estaResaltado(tareaSeleccionada) && resaltados.length < maxResaltados"
                       (click)="resaltarDesdeTarea(tareaSeleccionada)">
@@ -381,5 +386,95 @@
       </div>
 
     </div>
+
+    <!-- ================= MODAL EDITAR TAREA ================= -->
+    <div class="cal-modal-backdrop" *ngIf="editor" (mousedown)="onBackdropEditor($event)">
+      <div class="cal-modal" role="dialog">
+        <div class="cal-modal-head">
+          <div class="cal-modal-head-title">
+            <div class="cal-side-kicker">Editar tarea</div>
+            <div class="cal-modal-title">#{{editor.tarea.idTarea}} · {{editor.tarea.subProyecto}}</div>
+          </div>
+          <button type="button" class="cal-icon-btn" (click)="cerrarEditor()" [disabled]="editor.guardando" title="Cerrar">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+
+        <div class="cal-modal-body">
+          <div class="cal-modal-loading" *ngIf="editor.cargando">
+            <i class="fa fa-spinner fa-spin"></i> Cargando tarea...
+          </div>
+
+          <ng-container *ngIf="!editor.cargando">
+            <div class="cal-field">
+              <label>Descripción</label>
+              <textarea class="cal-input" rows="3" [(ngModel)]="editor.form.descripcion" [disabled]="editor.guardando"
+                        placeholder="¿Qué hay que hacer?"></textarea>
+            </div>
+
+            <div class="cal-field">
+              <label>Estado</label>
+              <div class="cal-estado-picker">
+                <button type="button" class="cal-estado-opt" *ngFor="let e of estadosEditor"
+                        [class.active]="editor.form.idEstado === e.value"
+                        [style.background]="editor.form.idEstado === e.value ? e.color : null"
+                        [style.border-color]="editor.form.idEstado === e.value ? e.color : null"
+                        [disabled]="editor.guardando"
+                        (click)="editor.form.idEstado = e.value">
+                  <span class="cal-dot" [style.background]="e.color"></span> {{e.label}}
+                </button>
+              </div>
+            </div>
+
+            <div class="cal-field-row">
+              <div class="cal-field">
+                <label>Responsable</label>
+                <select class="cal-input" [(ngModel)]="editor.form.idResponsable"
+                        [disabled]="editor.guardando || !puedeCambiarResponsable(editor.tarea)">
+                  <option *ngFor="let u of usuariosOpciones" [ngValue]="u.id">{{u.nombre}}</option>
+                </select>
+                <div class="cal-field-hint" *ngIf="!puedeCambiarResponsable(editor.tarea)">
+                  Solo quien creó la tarea o gerencia puede reasignarla.
+                </div>
+              </div>
+
+              <div class="cal-field">
+                <label>Fecha de compromiso</label>
+                <input type="date" class="cal-input" [(ngModel)]="editor.form.fecha" [disabled]="editor.guardando">
+                <div class="cal-fecha-rapida">
+                  <button type="button" class="cal-mini-btn" (click)="setFechaRapida(0)" [disabled]="editor.guardando">Hoy</button>
+                  <button type="button" class="cal-mini-btn" (click)="setFechaRapida(1)" [disabled]="editor.guardando">Mañana</button>
+                  <button type="button" class="cal-mini-btn" (click)="setFechaRapida(7)" [disabled]="editor.guardando">+1 semana</button>
+                  <button type="button" class="cal-mini-btn cal-mini-btn-danger" *ngIf="editor.form.fecha"
+                          (click)="editor.form.fecha = ''" [disabled]="editor.guardando">Sin fecha</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="cal-field">
+              <label>Observación</label>
+              <textarea class="cal-input" rows="2" [(ngModel)]="editor.form.observacion" [disabled]="editor.guardando"
+                        placeholder="Comentario para el historial (opcional)"></textarea>
+            </div>
+
+            <div class="cal-modal-info">
+              <span *ngIf="editor.tarea.creadorNombre"><i class="fa fa-user-plus"></i> Creada por <b>{{editor.tarea.creadorNombre}}</b></span>
+              <span *ngIf="editor.tarea.fechaCreacion"><i class="fa fa-clock-o"></i> {{fechaCorta(editor.tarea.fechaCreacion)}}</span>
+              <span *ngIf="editor.tarea.prioridad"><i class="fa fa-flag" [style.color]="colorPrioridad(editor.tarea.prioridad)"></i> {{editor.tarea.prioridad}}</span>
+              <span *ngIf="editor.tarea.area"><i class="fa fa-tag"></i> {{editor.tarea.area}}</span>
+            </div>
+          </ng-container>
+        </div>
+
+        <div class="cal-modal-foot">
+          <button type="button" class="cal-btn cal-btn-ghost" (click)="cerrarEditor()" [disabled]="editor.guardando">Cancelar</button>
+          <button type="button" class="cal-btn cal-btn-primary" (click)="guardarEditor()" [disabled]="editor.cargando || editor.guardando">
+            <i class="fa" [ngClass]="editor.guardando ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+            {{editor.guardando ? 'Guardando...' : 'Guardar cambios'}}
+          </button>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>

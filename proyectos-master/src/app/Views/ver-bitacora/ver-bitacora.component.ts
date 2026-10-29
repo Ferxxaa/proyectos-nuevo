@@ -1,4 +1,4 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input } from '@angular/core';
 
 //Share
 import { PopUps } from '../../Share/PopUps';
@@ -24,6 +24,8 @@ declare var jQuery: any;
 declare var $: any;
 declare var Swal: any;
 
+let contadorInstancias = 0;
+
 @Component({
   selector: 'app-ver-bitacora',
   templateUrl: './ver-bitacora.component.html',
@@ -38,7 +40,7 @@ declare var Swal: any;
     sOrdenBitacora
   ]
 })
-export class VerBitacoraComponent implements OnInit {
+export class VerBitacoraComponent implements OnInit, OnDestroy {
 
   @Input() TipoBitacora: number;
   @Input() soloLectura: boolean = false;
@@ -46,6 +48,12 @@ export class VerBitacoraComponent implements OnInit {
 
   // Base del Node de archivos antiguo (solo para bitácoras previas a Firebase)
   private readonly NODE_BASE: string = 'http://trazas-nbi.com:3800/api/';
+
+  // IDs únicos por instancia (Proyectos / SSOMA / Calidad están en la misma página)
+  private readonly uid: string = 'vb' + (++contadorInstancias);
+  readonly modalId: string = 'modalEditarBitacora_' + this.uid;
+  readonly fileId: string = 'fileuploadUPD_' + this.uid;
+  readonly nombreArchId: string = 'NombreArchUpd_' + this.uid;
 
   //Objetos
   SubProyecto: mSubProyecto;
@@ -60,6 +68,7 @@ export class VerBitacoraComponent implements OnInit {
   Loader: boolean;
   LoadingTabla: boolean;
   loading: boolean;
+  cargandoDetalle: boolean = false;
 
   //Indices
   IndexUpdate: number;
@@ -79,19 +88,41 @@ export class VerBitacoraComponent implements OnInit {
   ) {
     this.Loader = true;
     this.usuario = JSON.parse(localStorage.usuario);
-    this.Bitacora = new mBitacora(null, null, 0, null, null, new Date().toString(), true, null, this.usuario.idUsuario, null, null, null, null);
+    this.Bitacora = this.bitacoraVacia();
     this.url = this.NODE_BASE;
     this.loading = false;
   }
 
   ngOnInit() {
     this._sPrioridad.getPrioridad().subscribe(result => {
-      this.Prioridades = result;
+      // ids como número para que calcen con el select ([ngValue])
+      this.Prioridades = (result || []).map((p: any) => ({ ...p, idPrioridad: +p.idPrioridad }));
     });
     this.SubProyecto = JSON.parse(localStorage.SubProyecto);
     this.traeBitacora();
     this.url = this.NODE_BASE + (this.retUrl(this.TipoBitacora) || '');
   }
+
+  ngOnDestroy() {
+    try { this.$modal().modal('hide'); } catch (e) { }
+  }
+
+  private bitacoraVacia(): mBitacora {
+    return new mBitacora(null, null, 0, null, null, new Date().toString(), true, null, this.usuario.idUsuario, null, null, null, null);
+  }
+
+  //*************************************************** Helpers DOM (scoped a esta instancia) ***************************************************
+
+  private $modal(): any { return $('#' + this.modalId); }
+  private $file(): any { return $('#' + this.fileId); }
+  private $nombreArch(): any { return $('#' + this.nombreArchId); }
+
+  private archivoSeleccionado(): any {
+    const input = this.$file()[0];
+    return input && input.files && input.files.length > 0 ? input.files[0] : null;
+  }
+
+  //*************************************************** Carga ***************************************************
 
   private traeBitacora() {
     this.Loader = true;
@@ -103,7 +134,6 @@ export class VerBitacoraComponent implements OnInit {
       const filtradas = result.filter(element => { return element.TipoBitacora == this.TipoBitacora; });
 
       ordenPromise.then(orden => {
-        console.log('[ordenBitacora] orden leído al cargar', orden);
         this.Bitacoras = this.aplicarOrden(filtradas, orden);
         this.hayOrden = orden.length > 0;
         this.Loader = false;
@@ -130,21 +160,34 @@ export class VerBitacoraComponent implements OnInit {
 
   VerDetalle(i: number) {
     this.IndexUpdate = i;
-    this.Bitacora = new mBitacora(null, null, 0, null, null, new Date().toString(), true, null, this.usuario.idUsuario, null, null, null, null);
+    this.Bitacora = this.bitacoraVacia();
+    this.cargandoDetalle = true;
+    this.limpiarArchivoUpd();
+
+    this.$modal().modal('show');
 
     this._sBitacora.getBitacorabyID(this.Bitacoras[i].idBitacora).subscribe(result => {
+      if (!result) {
+        this.cargandoDetalle = false;
+        Swal.fire('Error', 'No se pudo cargar la bitácora', 'error');
+        return;
+      }
       this.Bitacora = result;
-      this.Bitacora.descripcion = result.descripcion.replace(/<br>/g, "\n");
-      $("#NombreArchUpd").html(this.Bitacora.NombreAdjunto);
+      this.Bitacora.idPrioridad = +result.idPrioridad || 0;
+      this.Bitacora.descripcion = (result.descripcion || '').replace(/<br\s*\/?>/gi, "\n");
+      this.$nombreArch().html(this.Bitacora.NombreAdjunto || '');
+      this.cargandoDetalle = false;
+    }, e => {
+      console.error('Error al cargar bitácora:', e);
+      this.cargandoDetalle = false;
+      Swal.fire('Error', 'No se pudo cargar la bitácora', 'error');
     });
-
-    this._PopUps.VerPopUpEditar();
   }
 
   OcultarPopUpEditar() {
     this.IndexUpdate = 0;
-    this._PopUps.OcultarPopUpEditar();
-    $("#NombreArchUpd").html("");
+    this.$modal().modal('hide');
+    this.$nombreArch().html("");
   }
 
   //*************************************************** Orden ***************************************************
@@ -171,7 +214,6 @@ export class VerBitacoraComponent implements OnInit {
     this.hayOrden = true;
     const ids = this.Bitacoras.map((b: any) => b.idBitacora);
     this._sOrdenBitacora.guardarOrden(this.SubProyecto.idSubProyecto, this.TipoBitacora, ids, this.usuario.idUsuario)
-      .then(() => console.log('[ordenBitacora] guardado en Firebase', ids))
       .catch(e => {
         console.error('Error al guardar orden en Firebase:', e);
         Swal.fire('Error', 'No se pudo guardar el orden para todos los usuarios', 'error');
@@ -243,7 +285,6 @@ export class VerBitacoraComponent implements OnInit {
     const adjunto: string = bitacora.Adjunto;
 
     // Nuevos: URL de Firebase Storage (o cualquier URL https absoluta) -> se abre directo.
-    // El PDF se muestra en la pestaña; Excel/PPT se descargan con su nombre (contentDisposition).
     if (adjunto && /^https:\/\//i.test(adjunto)) {
       window.open(adjunto, '_blank');
       return;
@@ -440,14 +481,13 @@ export class VerBitacoraComponent implements OnInit {
   //*************************************************** Archivo (editar) ***************************************************
 
   NombreArchivo() {
-    const input = $("#fileuploadUPD")[0];
+    const archivo = this.archivoSeleccionado();
 
-    if (!input.files || input.files.length === 0) {
-      $("#NombreArchUpd").html(this.Bitacora.NombreAdjunto || "");
+    if (!archivo) {
+      this.$nombreArch().html(this.Bitacora.NombreAdjunto || "");
       return;
     }
 
-    const archivo = input.files[0];
     const error = this._sBitacora.validarNombreArchivo(archivo.name);
 
     if (error) {
@@ -456,14 +496,14 @@ export class VerBitacoraComponent implements OnInit {
       return;
     }
 
-    $("#NombreArchUpd").html(archivo.name);
+    this.$nombreArch().html(archivo.name);
   }
 
   private limpiarArchivoUpd() {
-    const $input = $("#fileuploadUPD");
+    const $input = this.$file();
     $input.val('');
     $input.closest('.fileinput').removeClass('fileinput-exists').addClass('fileinput-new');
-    $("#NombreArchUpd").html(this.Bitacora.NombreAdjunto || "");
+    this.$nombreArch().html(this.Bitacora && this.Bitacora.NombreAdjunto ? this.Bitacora.NombreAdjunto : "");
   }
 
   private avisarNombreInvalido(mensaje: string) {
@@ -479,10 +519,25 @@ export class VerBitacoraComponent implements OnInit {
   //*************************************************** CRUD ***************************************************
 
   Actualizar() {
-    const tieneArchivo = $("#fileuploadUPD")[0].files.length > 0;
+    if (!this.Bitacora || !this.Bitacora.idBitacora) {
+      Swal.fire('Error', 'No hay ninguna bitácora cargada para editar', 'error');
+      return;
+    }
 
-    if (tieneArchivo) {
-      const error = this._sBitacora.validarNombreArchivo($("#fileuploadUPD")[0].files[0].name);
+    if (!this.Bitacora.idPrioridad || +this.Bitacora.idPrioridad === 0) {
+      Swal.fire('Falta la prioridad', 'Selecciona una prioridad para la bitácora', 'warning');
+      return;
+    }
+
+    if (!this.Bitacora.descripcion || !this.Bitacora.descripcion.trim()) {
+      Swal.fire('Falta la descripción', 'La bitácora no puede quedar vacía', 'warning');
+      return;
+    }
+
+    const archivo = this.archivoSeleccionado();
+
+    if (archivo) {
+      const error = this._sBitacora.validarNombreArchivo(archivo.name);
       if (error) {
         this.limpiarArchivoUpd();
         this.avisarNombreInvalido(error);
@@ -491,28 +546,22 @@ export class VerBitacoraComponent implements OnInit {
     }
 
     this.loading = true;
-    this.Bitacora.descripcion = this.Bitacora.descripcion.replace(/\n/g, "<br>");
 
-    if (tieneArchivo) {
-      this._sBitacora.SubirArchivo($("#fileuploadUPD")[0].files[0], this.SubProyecto.idSubProyecto, this.TipoBitacora).then(res => {
+    // Se arma una copia para no romper el textarea si falla
+    const payload: any = {
+      ...this.Bitacora,
+      idPrioridad: +this.Bitacora.idPrioridad,
+      descripcion: this.Bitacora.descripcion.replace(/\r?\n/g, "<br>")
+    };
 
-        this.Bitacora.NombreAdjunto = res.nombre;
-        this.Bitacora.Adjunto = res.url;
-
-        this._sBitacora.postUpdDelBitacora(this.Bitacora).success(result => {
-          this.OcultarPopUpEditar();
-          this.traeBitacora();
-          this.loading = false;
-        }).error(e => {
-          console.error('Error al actualizar:', e);
-          this.loading = false;
-          Swal.fire('Error', 'No se pudo actualizar la bitácora', 'error');
-        });
-
+    if (archivo) {
+      this._sBitacora.SubirArchivo(archivo, this.SubProyecto.idSubProyecto, this.TipoBitacora).then(res => {
+        payload.NombreAdjunto = res.nombre;
+        payload.Adjunto = res.url;
+        this.enviarActualizacion(payload);
       }).catch((e: any) => {
         console.error('Error al subir archivo:', e);
         this.loading = false;
-        this.Bitacora.descripcion = this.Bitacora.descripcion.replace(/<br>/g, "\n");
 
         if (e && e.nombreInvalido) {
           this.limpiarArchivoUpd();
@@ -522,16 +571,35 @@ export class VerBitacoraComponent implements OnInit {
         Swal.fire('Error', 'No se pudo subir el archivo adjunto' + (e && e.code ? ' (' + e.code + ')' : ''), 'error');
       });
     } else {
-      this._sBitacora.postUpdDelBitacora(this.Bitacora).success(result => {
-        this.OcultarPopUpEditar();
-        this.traeBitacora();
-        this.loading = false;
-      }).error(e => {
-        console.error('Error al actualizar:', e);
-        this.loading = false;
-        Swal.fire('Error', 'No se pudo actualizar la bitácora', 'error');
-      });
+      this.enviarActualizacion(payload);
     }
+  }
+
+  private enviarActualizacion(payload: any) {
+    console.log('[bitacora] actualizando', payload.idBitacora, payload);
+
+    const req: any = this._sBitacora.postUpdDelBitacora(payload);
+    if (!req || !req.success) {
+      this.loading = false;
+      Swal.fire('Error', 'No se pudo enviar la actualización', 'error');
+      return;
+    }
+
+    req.success(result => {
+      console.log('[bitacora] respuesta update', result);
+      this.loading = false;
+      this.OcultarPopUpEditar();
+      this.traeBitacora();
+      Swal.fire({ type: 'success', title: 'Bitácora actualizada', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end' });
+    });
+
+    const onError = e => {
+      console.error('Error al actualizar:', e);
+      this.loading = false;
+      Swal.fire('Error', 'No se pudo actualizar la bitácora', 'error');
+    };
+    if (req.error) req.error(onError);
+    else if (req.fail) req.fail(onError);
   }
 
   Eliminar() {
@@ -543,8 +611,13 @@ export class VerBitacoraComponent implements OnInit {
     this.Bitacora.idUsuarioRemovedor = this.usuario.idUsuario;
     this.LoadingTabla = true;
 
-    this._sBitacora.postUpdDelBitacora(this.Bitacora).success(result => {
-      $('#exampleModalLong').modal('hide');
+    const payload: any = {
+      ...this.Bitacora,
+      descripcion: (this.Bitacora.descripcion || '').replace(/\r?\n/g, "<br>")
+    };
+
+    this._sBitacora.postUpdDelBitacora(payload).success(result => {
+      this.$modal().modal('hide');
 
       Swal.fire({
         type: 'success',
@@ -559,6 +632,7 @@ export class VerBitacoraComponent implements OnInit {
     }).error(e => {
       console.error('Error al eliminar:', e);
       this.LoadingTabla = false;
+      this.Bitacora.idUsuarioRemovedor = null;
       Swal.fire('Error', 'No se pudo eliminar la bitácora', 'error');
     });
   }

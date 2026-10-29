@@ -35,7 +35,7 @@ interface ReporteSubProyecto {
   nc: number;
   sw: number;
   rp: number;
-  /** Conteo por cada tipo de acción (nc, sw, rp, om, fr, nm, la, otro). */
+  /** Conteo por cada tipo de acción (nc, sw, nm, rp, fr, om, la, otro). */
   tipos: { [tipo: string]: number };
 }
 
@@ -124,7 +124,6 @@ interface FilaHistorica {
 /** Campos de orden de la tabla; para los tipos de acción se usa 't_' + clave (t_nc, t_sw, t_om...). */
 type CampoOrden = string;
 
-/** Tipos de acción de Control de Hallazgos (misma lista y orden). */
 declare var Swal: any;
 
 /** Logo que va en la cabecera del Excel. Ruta relativa a la app (carpeta src/assets). */
@@ -154,13 +153,14 @@ const XL = {
   naranjoSuave: 'FFFDF3E3'
 };
 
+/** Tipos de acción ordenados de más grave a menos grave. */
 const TIPOS_ACCION: Array<{ key: string; label: string; sigla: string; clase: string; icono: string }> = [
   { key: 'nc', label: 'No Conformidad', sigla: 'NC', clase: 'ta-nc', icono: 'fa-times-circle' },
   { key: 'sw', label: 'Stop Work', sigla: 'SW', clase: 'ta-sw', icono: 'fa-hand-paper-o' },
-  { key: 'rp', label: 'Refuerzo Positivo', sigla: 'RP', clase: 'ta-rp', icono: 'fa-thumbs-up' },
-  { key: 'om', label: 'Oportunidad de Mejora', sigla: 'OM', clase: 'ta-om', icono: 'fa-lightbulb-o' },
-  { key: 'fr', label: 'Flash Report', sigla: 'FR', clase: 'ta-fr', icono: 'fa-bolt' },
   { key: 'nm', label: 'Near Miss', sigla: 'NM', clase: 'ta-nm', icono: 'fa-exclamation-triangle' },
+  { key: 'rp', label: 'Refuerzo Positivo', sigla: 'RP', clase: 'ta-rp', icono: 'fa-thumbs-up' },
+  { key: 'fr', label: 'Flash Report', sigla: 'FR', clase: 'ta-fr', icono: 'fa-bolt' },
+  { key: 'om', label: 'Oportunidad de Mejora', sigla: 'OM', clase: 'ta-om', icono: 'fa-lightbulb-o' },
   { key: 'la', label: 'Lección aprendida', sigla: 'LA', clase: 'ta-la', icono: 'fa-graduation-cap' },
   { key: 'otro', label: 'Sin tipo / Otro', sigla: '—', clase: 'ta-otro', icono: 'fa-question-circle' }
 ];
@@ -181,8 +181,10 @@ const QUIEN_DETECTA: Array<{ key: string; label: string; clase: string }> = [
 // ==========================================================
 const CONSOLIDADO_ULTIMO_ANIO_HISTORICO = 2025;
 
-const CAMPOS_CONSOLIDADO = ['fr', 'rp', 'otros', 'obs', 'sw', 'nc', 'baja', 'media', 'efectivo', 'muy', 'desvMandante', 'rpMandante'];
+const CAMPOS_CONSOLIDADO = ['fr', 'rp', 'otros', 'obs', 'sw', 'nc', 'nm', 'la',
+  'baja', 'media', 'efectivo', 'muy', 'desvMandante', 'rpMandante'];
 
+/** El Excel histórico no separa Near Miss ni Lección aprendida: esos años quedan en "Otros / sin tipo". */
 const CONSOLIDADO_HISTORICO: { [anio: string]: { [campo: string]: number } } = {
   '2017': { fr: 0,  rp: 0, otros: 9, obs: 2, sw: 0, nc: 0, baja: 0, media: 2, efectivo: 3, muy: 1, desvMandante: 1,  rpMandante: 0 },
   '2018': { fr: 0,  rp: 0, otros: 3, obs: 3, sw: 0, nc: 2, baja: 0, media: 0, efectivo: 3, muy: 2, desvMandante: 0,  rpMandante: 0 },
@@ -195,24 +197,32 @@ const CONSOLIDADO_HISTORICO: { [anio: string]: { [campo: string]: number } } = {
   '2025': { fr: 31, rp: 1, otros: 0, obs: 1, sw: 1, nc: 0, baja: 0, media: 0, efectivo: 0, muy: 1, desvMandante: 2,  rpMandante: 1 }
 };
 
+/** Filas del cuadro de análisis, de más grave a menos grave (cada tipo por separado). */
 const CONSOLIDADO_TIPOS: Array<{ key: string; label: string; clase: string }> = [
-  { key: 'fr', label: 'Flash Report', clase: 'cg-fr' },
-  { key: 'rp', label: 'Refuerzo Positivo', clase: 'cg-rp' },
-  { key: 'otros', label: 'Otros (Near Miss, Lección aprendida, sin tipo)', clase: 'cg-otros' },
-  { key: 'obs', label: 'Observación / Oportunidad de Mejora', clase: 'cg-obs' },
+  { key: 'nc', label: 'No Conformidad', clase: 'cg-nc' },
   { key: 'sw', label: 'Stop Work', clase: 'cg-sw' },
-  { key: 'nc', label: 'No Conformidad', clase: 'cg-nc' }
+  { key: 'nm', label: 'Near Miss', clase: 'cg-nm' },
+  { key: 'rp', label: 'Refuerzo Positivo', clase: 'cg-rp' },
+  { key: 'fr', label: 'Flash Report', clase: 'cg-fr' },
+  { key: 'obs', label: 'Oportunidad de Mejora / Observación', clase: 'cg-obs' },
+  { key: 'la', label: 'Lección aprendida', clase: 'cg-la' },
+  { key: 'otros', label: 'Otros / sin tipo', clase: 'cg-otros' }
 ];
 
-/** Nombre corto y color de cada tipo para los gráficos del consolidado. */
+/**
+ * Nombre corto y color de cada tipo para los gráficos del consolidado.
+ * Mismos colores que Control de Hallazgos. SW y FR usan un tono un poco más fuerte
+ * que su fondo pálido para que se vean en las barras y en la dona.
+ */
 const CG_ESTILO_TIPO: { [key: string]: { corto: string; color: string } } = {
-  // Colores del Excel REG-10-B-24
-  fr: { corto: 'Flash Report', color: '#92D050' },
-  rp: { corto: 'Refuerzo Positivo', color: '#00B050' },
-  otros: { corto: 'Otros', color: '#A0ADB6' },
-  obs: { corto: 'Observación / OM', color: '#FFFF00' },
-  sw: { corto: 'Stop Work', color: '#FFC000' },
-  nc: { corto: 'No Conformidad', color: '#FF0000' }
+  nc: { corto: 'No Conformidad', color: '#dc3545' },
+  sw: { corto: 'Stop Work', color: '#f1a1a9' },
+  nm: { corto: 'Near Miss', color: '#FFC107' },
+  rp: { corto: 'Refuerzo Positivo', color: '#528053' },
+  fr: { corto: 'Flash Report', color: '#8fd19e' },
+  obs: { corto: 'Oportunidad de Mejora', color: '#2196F3' },
+  la: { corto: 'Lección aprendida', color: '#d7c4b9' },
+  otros: { corto: 'Otros / sin tipo', color: '#A0ADB6' }
 };
 
 const CONSOLIDADO_EFICACIA: Array<{ key: string; label: string; clase: string }> = [
@@ -353,7 +363,7 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
 
   // Vista del detalle (una sola tabla con pestañas)
   vistaDetalle: 'subproyecto' | 'obra' = 'subproyecto';
-  /** Tipos de acción que se muestran como columnas en el detalle (todos, en el orden de Control de Hallazgos). */
+  /** Tipos de acción que se muestran como columnas en el detalle (de más grave a menos grave). */
   columnasTipoDetalle: Array<{ key: string; label: string; sigla: string; clase: string; icono: string }> =
     TIPOS_ACCION.filter(t => t.key !== 'otro');
   exportando: boolean = false;
@@ -1044,7 +1054,7 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
       return { key: def.key, label: def.label, clase: def.clase, valores: valores, total: this.sumar(valores) };
     };
 
-    // 1. NC y mejoras operacionales
+    // 1. NC y mejoras operacionales (cada tipo por separado, de más grave a menos grave)
     this.consolidadoTipos = CONSOLIDADO_TIPOS.map(d => fila(d));
     this.consolidadoTiposTotales = this.sumarColumnas(this.consolidadoTipos);
     this.consolidadoTiposGranTotal = this.sumar(this.consolidadoTiposTotales);
@@ -1183,14 +1193,16 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
     return vacio;
   }
 
-  /** Tipos del sistema → filas del Excel histórico. */
+  /** Tipos del sistema → filas del consolidado (Near Miss y Lección aprendida van por separado). */
   private campoTipoConsolidado(tipo: string): string {
     switch (tipo) {
-      case 'fr': return 'fr';
-      case 'rp': return 'rp';
-      case 'om': return 'obs';
-      case 'sw': return 'sw';
       case 'nc': return 'nc';
+      case 'sw': return 'sw';
+      case 'nm': return 'nm';
+      case 'rp': return 'rp';
+      case 'fr': return 'fr';
+      case 'om': return 'obs';
+      case 'la': return 'la';
       default: return 'otros';
     }
   }
@@ -1599,7 +1611,8 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
     fila += 1;
 
     const nota = ws.getCell('A' + fila);
-    nota.value = 'Años ' + (anios[0] || '') + '–' + this.ultimoAnioHistorico + ': registro histórico REG-10-B-24. ' +
+    nota.value = 'Años ' + (anios[0] || '') + '–' + this.ultimoAnioHistorico + ': registro histórico REG-10-B-24 ' +
+      '(Near Miss y Lección aprendida no venían separados, quedan en "Otros / sin tipo"). ' +
       '(*) Años calculados con los hallazgos registrados en el sistema.';
     nota.font = { name: 'Calibri', size: 9, italic: true, color: { argb: XL.grisClaro } };
   }
@@ -1950,11 +1963,11 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
     if (!t) { return 'otro'; }
     if (t === 'nc' || t.indexOf('no conformidad') !== -1) { return 'nc'; }
     if (t === 'sw' || t.indexOf('stop work') !== -1) { return 'sw'; }
+    if (t === 'nm' || t.indexOf('near miss') !== -1) { return 'nm'; }
     if (t === 'rp' || t.indexOf('refuerzo positivo') !== -1) { return 'rp'; }
+    if (t === 'fr' || t.indexOf('flash report') !== -1) { return 'fr'; }
     if (t === 'om' || t.indexOf('oportunidad de mejora') !== -1 || t.indexOf('observacion') !== -1) { return 'om'; }
-    if (t.indexOf('flash report') !== -1) { return 'fr'; }
-    if (t.indexOf('near miss') !== -1) { return 'nm'; }
-    if (t.indexOf('leccion aprendida') !== -1) { return 'la'; }
+    if (t === 'la' || t.indexOf('leccion aprendida') !== -1) { return 'la'; }
     return 'otro';
   }
 

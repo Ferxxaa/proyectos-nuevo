@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { Http, Response } from '@angular/http';
 import { Observable } from 'rxjs/Observable';
 import 'rxjs/add/operator/map';
@@ -27,6 +27,8 @@ const URL_VIS_CALENDARIO = 'http://trazas-nbi.com:1234/api/Vis_Calendario';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const DIAS_LARGOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+const NOMBRES_ESTADO: { [id: number]: string } = { 1: 'Pendiente', 2: 'En Proceso', 3: 'Cancelada', 5: 'Terminada' };
 
 // Colores para resaltar responsables (distintos a los de estado)
 const PALETA_RESALTE = ['#e8590c', '#0ca678', '#d6336c', '#1c7ed6', '#f59f00', '#7048e8', '#2f9e44', '#c2255c'];
@@ -77,6 +79,20 @@ export interface RespResaltado {
   id: number;
   nombre: string;
   color: string;
+}
+
+export interface EditorTarea {
+  tarea: CalTarea;
+  detalle: any;
+  cargando: boolean;
+  guardando: boolean;
+  form: {
+    descripcion: string;
+    idEstado: number;
+    idResponsable: number;
+    fecha: string;       // yyyy-mm-dd (input type=date)
+    observacion: string;
+  };
 }
 
 @Component({
@@ -137,6 +153,19 @@ export class CalendarioTareasComponent implements OnInit {
   arrastrando: CalTarea = null;
   diaDrop: string = null;
 
+  // Editor (modal en el mismo calendario)
+  editor: EditorTarea = null;
+  usuariosOpciones: Array<{ id: number; nombre: string }> = [];
+  private usuariosActivos: any[] = [];
+  private usuariosCargados: boolean = false;
+
+  readonly estadosEditor = [
+    { value: 1, label: 'Pendiente', color: '#87909e' },
+    { value: 2, label: 'En Proceso', color: '#4466ff' },
+    { value: 5, label: 'Terminada', color: '#008844' },
+    { value: 3, label: 'Cancelada', color: '#d33d44' }
+  ];
+
   private timerTexto: any;
   private timerResp: any;
 
@@ -176,6 +205,11 @@ export class CalendarioTareasComponent implements OnInit {
 
     this.reconstruir();
     this.cargarDatos();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeGlobal(): void {
+    if (this.editor && !this.editor.guardando) this.cerrarEditor();
   }
 
   //*************************************************** Carga de datos ***************************************************
@@ -219,8 +253,10 @@ export class CalendarioTareasComponent implements OnInit {
         }
       };
 
-      mis.forEach(agregar);
+      // Orden de prioridad: SP de Mis Tareas → Vis_Calendario → copia local de terminadas (puede estar desactualizada)
+      mis.filter(t => t && !t._desdeLocal).forEach(agregar);
       vis.forEach(agregar);
+      mis.filter(t => t && t._desdeLocal).forEach(agregar);
 
       this.tareas = orden
         .map(k => this.aCalTarea(porId[k]))
@@ -256,7 +292,7 @@ export class CalendarioTareasComponent implements OnInit {
         const stored = localStorage.getItem('tareasTerminadas_' + idUsuarioActual);
         const terminadas = stored ? JSON.parse(stored) : [];
         (terminadas || []).forEach(tt => {
-          if (tt && !base.some(x => x.idTarea === tt.idTarea)) base.push(tt);
+          if (tt && !base.some(x => x.idTarea === tt.idTarea)) base.push({ ...tt, _desdeLocal: true });
         });
       } catch (e) { }
       return base;
@@ -272,6 +308,10 @@ export class CalendarioTareasComponent implements OnInit {
     return this._sUsuario.getUsuariobyactivo(true)
       .catch(() => Observable.of([]))
       .switchMap(usuariosActivos => {
+        // Se aprovecha para dejar cacheados los usuarios para el editor
+        this.usuariosActivos = usuariosActivos || [];
+        this.usuariosCargados = true;
+
         const ids = (usuariosActivos || []).map(u => +u.idUsuario).filter(id => !!id && id > 0);
         if (idUsuarioActual > 0 && ids.indexOf(idUsuarioActual) === -1) ids.push(idUsuarioActual);
         if (!ids.length) return Observable.of([]);
@@ -296,7 +336,6 @@ export class CalendarioTareasComponent implements OnInit {
     const idResponsable = +raw.idUsuarioResponsable || 0;
 
     const estadoId = this.resolverEstado(raw);
-    const nombresEstado: { [id: number]: string } = { 1: 'Pendiente', 2: 'En Proceso', 3: 'Cancelada', 5: 'Terminada' };
 
     return {
       idTarea: idTarea,
@@ -308,7 +347,7 @@ export class CalendarioTareasComponent implements OnInit {
       respKey: this.claveResponsable(idResponsable, responsableNombre),
       iniciales: this.getIniciales(responsableNombre),
       estadoId: estadoId,
-      estadoNombre: nombresEstado[estadoId] || raw.nombreEstadoTarea || '',
+      estadoNombre: NOMBRES_ESTADO[estadoId] || raw.nombreEstadoTarea || '',
       prioridad: raw.prioridad || '',
       area: raw.area || '',
       subProyecto: raw.nombreSubProyecto || 'General',
@@ -515,11 +554,25 @@ export class CalendarioTareasComponent implements OnInit {
     return true;
   }
 
+  // Para arrastrar (solo pendientes / en proceso)
   private puedeEditar(t: CalTarea): boolean {
     if (t.estadoId !== 1 && t.estadoId !== 2) return false;
     if (this.esGerencia) return true;
     const yo = this.idYo();
     return t.idResponsable === yo || t.idCreador === yo;
+  }
+
+  // Para abrir el editor (cualquier estado, así se puede reabrir una terminada)
+  puedeAbrirEditor(t: CalTarea): boolean {
+    if (!t) return false;
+    if (this.esGerencia) return true;
+    const yo = this.idYo();
+    return t.idResponsable === yo || t.idCreador === yo;
+  }
+
+  puedeCambiarResponsable(t: CalTarea): boolean {
+    if (!t) return false;
+    return this.esGerencia || t.idCreador === this.idYo();
   }
 
   get tiposFiltro(): Array<{ value: string; label: string; icon: string }> {
@@ -796,6 +849,249 @@ export class CalendarioTareasComponent implements OnInit {
     this.tareaSeleccionada = null;
   }
 
+  //*************************************************** Editor de tarea (modal en el calendario) ***************************************************
+
+  abrirEditor(t: CalTarea): void {
+    if (!t || !this.puedeAbrirEditor(t) || t._guardando) return;
+
+    this.tareaSeleccionada = t;
+    if (this.panelModo !== 'dia') this.panelModo = 'tarea';
+
+    this.editor = {
+      tarea: t,
+      detalle: null,
+      cargando: true,
+      guardando: false,
+      form: {
+        descripcion: this.htmlATexto(t.raw && t.raw.descripcionTarea ? t.raw.descripcionTarea : t.descripcion),
+        idEstado: t.estadoId === 3 ? 1 : t.estadoId,
+        idResponsable: t.idResponsable,
+        fecha: t.fecha ? this.claveDia(t.fecha) : '',
+        observacion: ''
+      }
+    };
+
+    this.cargarUsuariosEditor();
+
+    const ed = this.editor;
+    this._sTarea.getTareabyID(t.idTarea).subscribe(detalle => {
+      if (this.editor !== ed) return; // se cerró mientras cargaba
+      if (!detalle) {
+        this.editor = null;
+        try { Swal.fire('Error', 'No se pudo cargar la tarea', 'error'); } catch (e) { }
+        return;
+      }
+      ed.detalle = detalle;
+      ed.form.descripcion = this.htmlATexto(detalle.descripcionTarea || ed.form.descripcion);
+      ed.form.observacion = detalle.observacionTarea || '';
+      if (detalle.idUsuarioResponsable) ed.form.idResponsable = +detalle.idUsuarioResponsable;
+      if (detalle.idEstadoTarea) ed.form.idEstado = +detalle.idEstadoTarea === 3 ? 1 : +detalle.idEstadoTarea;
+      ed.cargando = false;
+      this.asegurarResponsableEnOpciones(ed.form.idResponsable, t.responsableNombre);
+    }, () => {
+      if (this.editor !== ed) return;
+      this.editor = null;
+      try { Swal.fire('Error', 'No se pudo cargar la tarea', 'error'); } catch (e) { }
+    });
+  }
+
+  cerrarEditor(): void {
+    if (this.editor && this.editor.guardando) return;
+    this.editor = null;
+  }
+
+  onBackdropEditor(event: any): void {
+    if (event && event.target === event.currentTarget) this.cerrarEditor();
+  }
+
+  setFechaRapida(dias: number): void {
+    if (!this.editor) return;
+    const h = this.hoy();
+    this.editor.form.fecha = this.claveDia(new Date(h.getFullYear(), h.getMonth(), h.getDate() + dias));
+  }
+
+  guardarEditor(): void {
+    const ed = this.editor;
+    if (!ed || ed.cargando || ed.guardando || !ed.detalle) return;
+
+    const desc = (ed.form.descripcion || '').trim();
+    if (!desc) {
+      this.toast('La descripción no puede quedar vacía', 'warning');
+      return;
+    }
+
+    const det = ed.detalle;
+    const estado = +ed.form.idEstado || 1;
+    const nuevaFecha = ed.form.fecha ? this.parseFechaLocal(ed.form.fecha) : null;
+    const idResp = +ed.form.idResponsable || +det.idUsuarioResponsable;
+    const hoyBackend = this.fechaParaBackend(this.hoy());
+
+    const tareaNueva: any = {
+      ...det,
+      descripcionTarea: this.textoAHtml(desc),
+      idUsuarioResponsable: idResp,
+      idEstadoTarea: estado,
+      fechaTerminoProgramado: nuevaFecha ? this.fechaParaBackend(nuevaFecha) : null,
+      observacionTarea: ed.form.observacion || ''
+    };
+
+    // Fechas reales según el cambio de estado
+    if (estado === 2 && !det.fechaInicioReal) tareaNueva.fechaInicioReal = hoyBackend;
+    if (estado === 5) {
+      if (!det.fechaInicioReal) tareaNueva.fechaInicioReal = hoyBackend;
+      if (!det.fechaTerminoReal) tareaNueva.fechaTerminoReal = hoyBackend;
+    }
+    if ((estado === 1 || estado === 2) && det.fechaTerminoReal) tareaNueva.fechaTerminoReal = null; // reabierta
+
+    ed.guardando = true;
+
+    const fallo = () => {
+      ed.guardando = false;
+      try { Swal.fire('Error', 'No se pudieron guardar los cambios', 'error'); } catch (e) { }
+    };
+
+    this.registrarLog(tareaNueva);
+
+    const req: any = this._sTarea.postUpdDelTarea(tareaNueva);
+    if (!req || !req.success) { fallo(); return; }
+
+    req.success(() => {
+      ed.guardando = false;
+      this.aplicarCambiosLocales(ed.tarea, tareaNueva, nuevaFecha);
+      if (this.editor === ed) this.editor = null;
+      this.toast('Tarea #' + ed.tarea.idTarea + ' actualizada');
+    });
+    if (req.fail) req.fail(() => fallo());
+    else if (req.error) req.error(() => fallo());
+  }
+
+  private aplicarCambiosLocales(t: CalTarea, nueva: any, fecha: Date | null): void {
+    const estadoAnterior = t.estadoId;
+
+    t.descripcion = this.limpiarTexto(nueva.descripcionTarea) || 'Sin descripción';
+
+    const idResp = +nueva.idUsuarioResponsable || 0;
+    if (idResp && idResp !== t.idResponsable) {
+      const op = this.usuariosOpciones.filter(u => u.id === idResp)[0];
+      t.idResponsable = idResp;
+      if (op) t.responsableNombre = op.nombre;
+      t.respKey = this.claveResponsable(t.idResponsable, t.responsableNombre);
+      t.iniciales = this.getIniciales(t.responsableNombre);
+    }
+
+    t.estadoId = +nueva.idEstadoTarea;
+    t.estadoNombre = NOMBRES_ESTADO[t.estadoId] || '';
+    t.fecha = fecha ? this.soloFecha(fecha) : null;
+
+    // Mantener el raw sincronizado (se usa para las terminadas guardadas en localStorage)
+    const raw = t.raw || (t.raw = {});
+    raw.descripcionTarea = nueva.descripcionTarea;
+    raw.idUsuarioResponsable = t.idResponsable;
+    raw.UsuarioResponsable = t.responsableNombre;
+    raw.idEstadoTarea = t.estadoId;
+    raw.nombreEstadoTarea = t.estadoNombre;
+    raw.fechaTerminoProgramado = nueva.fechaTerminoProgramado;
+    if (raw.fechaCompromiso !== undefined) raw.fechaCompromiso = nueva.fechaTerminoProgramado;
+    raw.observacionTarea = nueva.observacionTarea;
+
+    // Terminada: siempre refrescar la copia local (aunque ya estuviera terminada), si no queda el texto viejo al recargar
+    if (t.estadoId === 5) this.guardarTerminadaLocal(raw);
+    if (t.estadoId !== 5 && estadoAnterior === 5) this.quitarTerminadaLocal(t.idTarea);
+
+    // Canceladas no se muestran en el calendario
+    if (t.estadoId === 3) {
+      this.quitarTerminadaLocal(t.idTarea);
+      this.tareas = this.tareas.filter(x => x !== t);
+      if (this.tareaSeleccionada === t) {
+        this.tareaSeleccionada = null;
+        this.panelModo = this.diaSeleccionadoKey ? 'dia' : 'sinfecha';
+      }
+    }
+
+    this.actualizarSugerencias();
+    this.reconstruir();
+  }
+
+  // Mismo almacenamiento que usa Mis Tareas para no perder las terminadas que el SP no devuelve
+  private guardarTerminadaLocal(raw: any): void {
+    try {
+      const clave = 'tareasTerminadas_' + this.idYo();
+      const lista = JSON.parse(localStorage.getItem(clave) || '[]') || [];
+      const filtrada = lista.filter(x => x && x.idTarea !== raw.idTarea);
+      const copia = { ...raw };
+      delete copia._desdeLocal;
+      filtrada.push(copia);
+      localStorage.setItem(clave, JSON.stringify(filtrada));
+    } catch (e) { }
+  }
+
+  private quitarTerminadaLocal(idTarea: number): void {
+    try {
+      const clave = 'tareasTerminadas_' + this.idYo();
+      const lista = JSON.parse(localStorage.getItem(clave) || '[]') || [];
+      localStorage.setItem(clave, JSON.stringify(lista.filter(x => x && x.idTarea !== idTarea)));
+    } catch (e) { }
+  }
+
+  private cargarUsuariosEditor(): void {
+    if (this.usuariosCargados) {
+      this.armarOpcionesUsuarios();
+      return;
+    }
+    this.armarOpcionesUsuarios(); // al menos los que vienen en las tareas
+    this._sUsuario.getUsuariobyactivo(true)
+      .catch(() => Observable.of([]))
+      .subscribe(us => {
+        this.usuariosActivos = us || [];
+        this.usuariosCargados = true;
+        this.armarOpcionesUsuarios();
+      });
+  }
+
+  private armarOpcionesUsuarios(): void {
+    const mapa: { [id: number]: { id: number; nombre: string } } = {};
+
+    (this.usuariosActivos || []).forEach(u => {
+      const id = +u.idUsuario;
+      if (!id) return;
+      mapa[id] = { id: id, nombre: this.nombreDeUsuario(u) };
+    });
+
+    // Se prefiere el nombre que muestra el SP para que coincida con el resto del calendario
+    this.tareas.forEach(t => {
+      if (t.idResponsable > 0 && t.responsableNombre && t.responsableNombre !== 'Sin responsable') {
+        mapa[t.idResponsable] = { id: t.idResponsable, nombre: t.responsableNombre };
+      }
+    });
+
+    if (this.editor) {
+      const actual = this.editor.form.idResponsable;
+      if (actual && !mapa[actual]) mapa[actual] = { id: actual, nombre: this.editor.tarea.responsableNombre };
+    }
+
+    this.usuariosOpciones = Object.keys(mapa)
+      .map(k => mapa[+k])
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }
+
+  private asegurarResponsableEnOpciones(id: number, nombre: string): void {
+    if (!id) return;
+    if (this.usuariosOpciones.some(u => u.id === id)) return;
+    this.usuariosOpciones = this.usuariosOpciones
+      .concat([{ id: id, nombre: nombre || ('Usuario #' + id) }])
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }
+
+  private nombreDeUsuario(u: any): string {
+    if (!u) return '';
+    if (u.nombreCompleto) return String(u.nombreCompleto).trim();
+    const partes = [u.nombre || u.nombres, u.apellidoPaterno || u.apellido, u.apellidoMaterno]
+      .filter(x => x !== null && x !== undefined && String(x).trim() !== '')
+      .map(x => String(x).trim());
+    if (partes.length) return partes.join(' ');
+    return u.nombreUsuario ? String(u.nombreUsuario) : 'Usuario #' + u.idUsuario;
+  }
+
   //*************************************************** Drag & drop (cambiar fecha de compromiso) ***************************************************
 
   onDragStart(event: any, t: CalTarea): void {
@@ -864,6 +1160,7 @@ export class CalendarioTareasComponent implements OnInit {
       req.success(() => {
         t._guardando = false;
         t.raw.fechaTerminoProgramado = tareaNueva.fechaTerminoProgramado;
+        if (t.raw.fechaCompromiso !== undefined) t.raw.fechaCompromiso = tareaNueva.fechaTerminoProgramado;
         this.reconstruir();
         this.toast('Tarea #' + t.idTarea + ' → ' + t.fecha.getDate() + ' ' + MESES_CORTOS[t.fecha.getMonth()]);
       });
@@ -1122,6 +1419,25 @@ export class CalendarioTareasComponent implements OnInit {
       .replace(/&nbsp;/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  // Para editar: <br> → salto de línea, sin tags
+  private htmlATexto(s: string): string {
+    return (s || '').toString()
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/[ \t]+\n/g, '\n')
+      .trim();
+  }
+
+  // Para guardar: salto de línea → <br> (mismo formato que viene del backend)
+  private textoAHtml(s: string): string {
+    return (s || '').toString().replace(/\r?\n/g, '<br>');
   }
 
   private normalizar(s: any): string {

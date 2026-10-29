@@ -807,7 +807,8 @@
 }
 
 .consolidado-tabla td.col-tipo-activo {
-  background: var(--tc-suave);
+  background: #f6f9fb;
+  box-shadow: inset 2px 0 0 var(--tc), inset -2px 0 0 var(--tc);
 }
 
 .num-tipo {
@@ -995,39 +996,479 @@
   box-shadow: 0 0 0 3px rgba(7, 95, 145, 0.14);
 }
 
-/* ============================ COLORES DE TIPOS DE ACCIÓN (Excel REG-10-B-24) ============================ */
-/* --tc: color del Excel · --tc-suave: fondo claro · --tc-texto: texto legible sobre blanco · --tc-sobre: texto encima del color */
-.ta-nc   { --tc: #FF0000; --tc-suave: #FFE5E5; --tc-texto: #C40000; --tc-sobre: #FFFFFF; }
-.ta-sw   { --tc: #FFC000; --tc-suave: #FFF4D6; --tc-texto: #A86A00; --tc-sobre: #3D2A00; }
-.ta-rp   { --tc: #00B050; --tc-suave: #E0F6EA; --tc-texto: #00803A; --tc-sobre: #FFFFFF; }
-.ta-om   { --tc: #FFFF00; --tc-suave: #FFFDCC; --tc-texto: #8A7A00; --tc-sobre: #3D3600; }
-.ta-fr   { --tc: #92D050; --tc-suave: #EEF8E4; --tc-texto: #4F8A1C; --tc-sobre: #23400A; }
-.ta-nm   { --tc: #7048E8; --tc-suave: #EFEBFD; --tc-texto: #5A36C9; --tc-sobre: #FFFFFF; }
-.ta-la   { --tc: #0C9488; --tc-suave: #E3F6F4; --tc-texto: #0A7A70; --tc-sobre: #FFFFFF; }
-.ta-otro { --tc: #8796A0; --tc-suave: #F1F4F6; --tc-texto: #5F707B; --tc-sobre: #FFFFFF; }
+/* ============================ COLORES DE TIPOS DE ACCIÓN (mismos que Control de Hallazgos) ============================ */
+/* --tc: borde · --tc-suave: fondo de la pastilla · --tc-texto: texto sobre blanco · --tc-sobre: texto encima de la pastilla */
+.ta-nc   { --tc: #dc3545; --tc-suave: #dc3545; --tc-texto: #c82333; --tc-sobre: #ffffff; }
+.ta-sw   { --tc: #dc3545; --tc-suave: #f8d7da; --tc-texto: #721c24; --tc-sobre: #721c24; }
+.ta-nm   { --tc: #FFB300; --tc-suave: #FFC107; --tc-texto: #a87900; --tc-sobre: #000000; }
+.ta-rp   { --tc: #45a049; --tc-suave: #528053; --tc-texto: #3e6b3f; --tc-sobre: #ffffff; }
+.ta-fr   { --tc: #28a745; --tc-suave: #d4edda; --tc-texto: #155724; --tc-sobre: #155724; }
+.ta-om   { --tc: #1976D2; --tc-suave: #2196F3; --tc-texto: #1976D2; --tc-sobre: #ffffff; }
+.ta-la   { --tc: #333333; --tc-suave: #d7c4b9; --tc-texto: #5c4a3f; --tc-sobre: #000000; }
+.ta-otro { --tc: #8796A0; --tc-suave: #F1F4F6; --tc-texto: #5F707B; --tc-sobre: #5F707B; }
 
-.tipo-chip,
-.consolidado-tabla th.col-tipo,
-.consolidado-tabla tfoot th.col-tipo,
-.num-tipo {
-  color: var(--tc-texto, var(--tc));
+/* Pastillas: mismo fondo, texto y borde que el select de Control de Hallazgos */
+.tipo-chip {
+  border-color: var(--tc);
+  background: var(--tc-suave);
+  color: var(--tc-sobre);
 }
 
-.tipo-chip-cero { color: #B5C0C8; }
+.num-tipo {
+  background: var(--tc-suave);
+  color: var(--tc-sobre);
+  box-shadow: inset 0 0 0 1px var(--tc);
+}
 
-.tipo-chip-activo,
+.consolidado-tabla th.col-tipo,
+.consolidado-tabla tfoot th.col-tipo {
+  color: var(--tc-texto);
+}
+
+.consolidado-tabla th.col-tipo-activo {
+  background: var(--tc-suave);
+  color: var(--tc-sobre);
+}
+
+.tipo-chip-cero {
+  border-color: #e1e8ed;
+  background: transparent;
+  color: #B5C0C8;
+}
+
+.tipo-chip-activo {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--tc);
+}
+
 .col-tipo-activo .num-tipo:not(.cero) {
-  background: var(--tc);
-  color: var(--tc-sobre, #fff);
+  box-shadow: 0 0 0 2px var(--tc);
 }
 
 .tipo-chip-activo .tipo-chip-n {
-  background: rgba(255, 255, 255, 0.45);
-  color: var(--tc-sobre, #fff);
+  background: rgba(255, 255, 255, 0.6);
+  color: #1f3646;
 }
 
 /* "Todos" mantiene el azul de la página */
-.tipo-chip-todos { --tc: #075f91; --tc-suave: #eef6fb; --tc-texto: #075f91; --tc-sobre: #fff; }
+.tipo-chip-todos { --tc: #075f91; --tc-suave: #eef6fb; --tc-texto: #075f91; --tc-sobre: #075f91; }
+.tipo-chip-todos.tipo-chip-activo { background: #075f91; color: #fff; }
 
-/* El amarillo necesita un borde más oscuro para verse sobre blanco */
-.ta-om.tipo-chip { border-color: #E6D200; }
+/* *********************************** Pastilla de año *********************************** */
+
+.anio-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: #e5f2f9;
+  color: #075f91;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.anio-pill .fa {
+  font-size: 11px;
+}
+
+.anio-pill-sin {
+  background: #f1f4f6;
+  color: #8796a0;
+  font-weight: 600;
+}
+
+/* *********************************** Tabla del proyecto agrupada por año *********************************** */
+
+/* Fila del año (subtotal del grupo) */
+.tabla-por-anio tr.fila-grupo-anio td {
+  border-top: 2px solid #cfe3f0;
+  background: #f1f8fd;
+  color: #24404f;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tabla-por-anio tbody.grupo-anio:first-of-type tr.fila-grupo-anio td {
+  border-top: none;
+}
+
+.tabla-por-anio tr.fila-grupo-anio:hover td {
+  background: #e2f0fa;
+}
+
+.tabla-por-anio tr.fila-grupo-anio td:first-child {
+  box-shadow: inset 3px 0 0 #075f91;
+}
+
+.grupo-anio-n {
+  margin-left: 8px;
+  color: #7b8b96;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.total-pill-anio {
+  background: #cfe6f4;
+}
+
+/* Subproyectos dentro del año: con sangría para que se lea la jerarquía */
+.tabla-por-anio tr.fila-sub-anio td.celda-sub-anio {
+  padding-left: 30px;
+  position: relative;
+}
+
+.tabla-por-anio tr.fila-sub-anio td.celda-sub-anio::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed #c4dbea;
+}
+
+.tabla-por-anio tr.fila-sub-anio td {
+  font-size: 12.5px;
+}
+
+/* Año elegido en el filtro */
+.tabla-por-anio tbody.grupo-anio-activo tr.fila-grupo-anio td {
+  background: #dcedf7;
+}
+
+.tabla-por-anio tbody.grupo-anio-activo .anio-pill {
+  background: #075f91;
+  color: #fff;
+}
+
+/* Otros años cuando hay un año filtrado */
+.tabla-por-anio tbody.grupo-anio-atenuado {
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.tabla-por-anio tbody.grupo-anio-atenuado:hover {
+  opacity: 1;
+}
+
+/* Subproyectos sin hallazgos / proyecto vacío */
+.tabla-por-anio tr.fila-sin-hallazgos td,
+.tabla-por-anio td.celda-vacia {
+  border-top: 2px solid #e1e8ed;
+  color: #a3b0b9;
+  font-size: 12px;
+  font-style: italic;
+  white-space: normal;
+}
+
+.tabla-por-anio td.celda-vacia {
+  text-align: center;
+  padding: 14px;
+}
+
+.tabla-por-anio tr.fila-sin-hallazgos .fa {
+  margin-right: 4px;
+}
+
+/* *********************************** Años en la barra de filtros *********************************** */
+
+.anio-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.anio-tabs-label {
+  margin-right: 2px;
+  color: #425765;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.anio-tabs-label .fa {
+  margin-right: 3px;
+  color: #075f91;
+}
+
+.anio-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid #cfe3f0;
+  border-radius: 14px;
+  background: #fff;
+  color: #075f91;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.anio-tab:hover {
+  background: #e2f0fa;
+}
+
+.anio-tab:focus {
+  outline: none;
+}
+
+.anio-tab.activo {
+  border-color: #075f91;
+  background: #075f91;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(7, 95, 145, 0.25);
+}
+
+.anio-tab-n {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #e5f2f9;
+  color: #075f91;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+
+.anio-tab.activo .anio-tab-n {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+/* *********************************** Clic en subproyecto: detalle de hallazgos *********************************** */
+
+.consolidado-tabla tr.fila-clic {
+  cursor: pointer;
+}
+
+.detalle-chevron {
+  width: 12px;
+  margin-right: 6px;
+  color: #075f91;
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.consolidado-tabla tr.fila-detalle-abierta td {
+  background: #e6f2fa;
+}
+
+.consolidado-tabla tr.fila-detalle-abierta td:first-child {
+  box-shadow: inset 3px 0 0 #075f91;
+  font-weight: 600;
+}
+
+/* Fila que contiene el detalle */
+.consolidado-tabla tr.fila-detalle > td {
+  padding: 0 !important;
+  border-top: none;
+  background: #fbfdfe;
+}
+
+.consolidado-tabla tbody tr.fila-detalle:hover > td {
+  background: #fbfdfe;
+}
+
+.detalle-hallazgos {
+  margin: 0 0 6px 30px;
+  padding: 10px 12px;
+  border-left: 3px solid #075f91;
+  background: #fbfdfe;
+  animation: marcaEntrada 0.2s ease both;
+}
+
+.detalle-vacio {
+  padding: 8px 4px;
+  color: #8796a0;
+  font-size: 12.5px;
+  font-style: italic;
+}
+
+.detalle-vacio .fa {
+  margin-right: 4px;
+}
+
+.detalle-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  background: #fff;
+  border: 1px solid #e1e8ed;
+  border-radius: 6px;
+}
+
+.consolidado-tabla .detalle-tabla th,
+.consolidado-tabla .detalle-tabla td {
+  width: auto;
+  padding: 6px 8px;
+  border-top: 1px solid #edf2f5;
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  word-break: normal;
+  box-shadow: none;
+}
+
+.consolidado-tabla .detalle-tabla th {
+  border-top: none;
+  background: #f3f7fa;
+  color: #5f707b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.consolidado-tabla .detalle-tabla td {
+  color: #36414c;
+  font-size: 12.5px;
+  font-weight: 400;
+}
+
+.consolidado-tabla .detalle-tabla tbody tr:hover td {
+  background: #f4f9fd;
+}
+
+.detalle-col-fecha { width: 95px; }
+.detalle-col-tipo { width: 170px; }
+.detalle-col-prio { width: 95px; }
+.detalle-col-estado { width: 120px; }
+.detalle-col-area { width: 130px; }
+.detalle-col-quien { width: 110px; }
+.detalle-col-origen { width: 150px; }
+
+.consolidado-tabla .detalle-tabla td.detalle-fecha {
+  white-space: nowrap;
+  color: #526571;
+}
+
+.detalle-tipo {
+  white-space: normal;
+}
+
+/* Semáforo de prioridad (solo vista) */
+.semaforo-detalle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.semaforo-detalle .fa {
+  font-size: 8px;
+}
+
+.semaforo-detalle.prio-alta {
+  border-color: #e88a80;
+  background: #fde2e0;
+  color: #b02a1f;
+}
+
+.semaforo-detalle.prio-media {
+  border-color: #f2b84b;
+  background: #ffe9c2;
+  color: #8f5200;
+}
+
+.semaforo-detalle.prio-baja {
+  border-color: #7fcb9d;
+  background: #d6f3e1;
+  color: #1e7a46;
+}
+
+/* Adjuntos (solo abrir) */
+.detalle-adjuntos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.detalle-adjunto {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid #dbe8f1;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #075f91;
+  font-size: 11.5px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.detalle-adjunto:hover,
+.detalle-adjunto:focus {
+  border-color: #075f91;
+  background: #eef6fb;
+  color: #064f78;
+  text-decoration: none;
+}
+
+.adj-pdf { color: #d93025; }
+.adj-word { color: #2b579a; }
+.adj-excel { color: #217346; }
+.adj-imagen { color: #7048e8; }
+.adj-generico { color: #8796a0; }
+
+.detalle-sin-adj {
+  color: #b5c0c8;
+}
+
+/* Hallazgo que coincide con el filtro activo */
+.consolidado-tabla .detalle-tabla tr.detalle-marcado td {
+  background: #eaf5fb;
+}
+
+.consolidado-tabla .detalle-tabla tr.detalle-marcado td:first-child {
+  box-shadow: inset 3px 0 0 #0879b2;
+}
+
+/* Estado (mismos estados que Control de Hallazgos) */
+.estado-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #f1f4f6;
+  color: #5f707b;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.estado-pill.estado-en-desarrollo {
+  background: #e5f2f9;
+  color: #075f91;
+}
+
+.estado-pill.estado-pendiente {
+  background: #fff1dc;
+  color: #a85d00;
+}
+
+.estado-pill.estado-enviada {
+  background: #efebfd;
+  color: #5a36c9;
+}
+
+.estado-pill.estado-cerrada {
+  background: #d6f3e1;
+  color: #1e7a46;
+}
+
+@media (max-width: 767px) {
+  .detalle-hallazgos {
+    margin-left: 0;
+  }
+}
