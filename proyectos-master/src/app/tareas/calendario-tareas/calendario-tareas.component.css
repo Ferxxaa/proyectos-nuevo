@@ -673,17 +673,50 @@
 }
 
 .cal-dia:first-child { border-left: none; }
-.cal-dia:hover { background: #fcfafc; }
 
 .cal-dia-finde { background: #fbf9fb; }
 .cal-dia-fuera { background: #f8f8fa; }
 .cal-dia-fuera .cal-dia-num { color: #b9bec6; }
 .cal-dia-fuera .cal-chip { opacity: 0.75; }
 
+/* ----- Día de hoy destacado ----- */
+.cal-dia.cal-dia-hoy { background: #f5edf7; }
+
+/* Borde morado con pseudo-elemento para no chocar con el box-shadow inline del resaltado */
+.cal-dia-hoy::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid #89658f;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Etiqueta "Hoy" en la cabecera del día (vista mes) */
+.cal-dia-hoy .cal-dia-head::after {
+    content: 'Hoy';
+    margin-left: 4px;
+    padding: 0 7px;
+    border-radius: 8px;
+    background: #89658f;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+/* ----- Hover: morado pastel claro (gana a finde/fuera y al tinte inline) ----- */
+.cal-dia:hover { background: #efe4f3 !important; }
+
 .cal-dia-sel { box-shadow: inset 0 0 0 2px #89658f !important; }
 
-.cal-dia-drop {
-    background: #f4eef5 !important;
+.cal-dia.cal-dia-drop {
+    background: #e6d6ec !important;
     box-shadow: inset 0 0 0 2px #89658f !important;
 }
 
@@ -909,6 +942,7 @@
     color: #89658f;
     background: rgba(255, 255, 255, 0.85);
     pointer-events: none;
+    z-index: 3;
 }
 
 .cal-grid-dragging .cal-chip { pointer-events: none; }
@@ -1263,6 +1297,7 @@
     .cal-dia { min-height: 90px; padding: 4px 3px; }
     .cal-chip-avatar, .cal-chip-status { display: none; }
     .cal-weekday { padding: 8px 4px; font-size: 10px; }
+    .cal-dia-hoy .cal-dia-head::after { display: none; }
 }
 
 ::ng-deep .cal-page {
