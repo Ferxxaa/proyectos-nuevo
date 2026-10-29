@@ -325,9 +325,9 @@
 }
 
 .proyecto:hover {
-  border-color: #bcdcf0;
-  border-left-color: #4fa3d1;
-  box-shadow: 0 4px 12px rgba(7, 95, 145, 0.1);
+  border-color: #f3d98c;
+  border-left-color: #f0b429;
+  box-shadow: 0 4px 12px rgba(240, 180, 41, 0.15);
 }
 
 .proyecto-abierto {
@@ -352,7 +352,7 @@
 }
 
 .proyecto-header:hover {
-  background: #e2f0fa;
+  background: #fff6d9;
 }
 
 .proyecto-chevron {
@@ -500,7 +500,7 @@
 }
 
 .consolidado-tabla tbody tr:hover td {
-  background: #eef6fc;
+  background: #fff8e1;
 }
 
 .consolidado-tabla tr.sin-hallazgos td {
@@ -583,10 +583,10 @@
   gap: 10px 16px;
   margin-bottom: 12px;
   padding: 12px 14px;
-  border: 1px solid #b9d9ec;
-  border-left: 4px solid #0879b2;
+  border: 1px solid #efd88a;
+  border-left: 4px solid #f0b429;
   border-radius: 7px;
-  background: linear-gradient(110deg, #eaf5fb 0%, #f6fbfe 100%);
+  background: linear-gradient(110deg, #fff3cd 0%, #fffbea 100%);
   animation: marcaEntrada 0.35s ease both;
 }
 
@@ -609,10 +609,10 @@
   align-items: center;
   justify-content: center;
   border-radius: 9px;
-  background: #0879b2;
-  color: #fff;
+  background: #f0b429;
+  color: #3d2a00;
   font-size: 16px;
-  box-shadow: 0 4px 10px rgba(8, 121, 178, 0.25);
+  box-shadow: 0 4px 10px rgba(240, 180, 41, 0.25);
 }
 
 .filtro-marcado-vacio .filtro-marcado-icono {
@@ -630,7 +630,7 @@
 }
 
 .filtro-marcado-kicker {
-  color: #0b6a9c;
+  color: #8f5200;
   font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
@@ -644,7 +644,7 @@
 }
 
 .filtro-marcado-texto b {
-  color: #075f91;
+  color: #6f5300;
 }
 
 .filtro-marcado-acciones {
@@ -656,15 +656,15 @@
 
 /* Proyecto con hallazgos marcados */
 .proyecto-marcado {
-  border-color: #8cc6e3;
-  border-left-color: #0879b2;
-  background: #e8f4fb;
-  box-shadow: 0 0 0 2px rgba(8, 121, 178, 0.14), 0 4px 12px rgba(31, 45, 61, 0.08);
+  border-color: #efd88a;
+  border-left-color: #f0b429;
+  background: #fff7d6;
+  box-shadow: 0 0 0 2px rgba(240, 180, 41, 0.14), 0 4px 12px rgba(31, 45, 61, 0.08);
   scroll-margin-top: 80px;
 }
 
 .proyecto-marcado .proyecto-titulo strong {
-  color: #075f91;
+  color: #7a5b00;
 }
 
 /* Proyecto sin coincidencias: se ve, pero atenuado */
@@ -678,45 +678,45 @@
 }
 
 .chip-marcado {
-  background: #0879b2;
-  color: #fff;
+  background: #f0b429;
+  color: #3d2a00;
   font-weight: 600;
-  box-shadow: 0 2px 6px rgba(8, 121, 178, 0.3);
+  box-shadow: 0 2px 6px rgba(240, 180, 41, 0.3);
   animation: pulsoMarca 1.6s ease-out 2;
 }
 
 .chip-marcado strong {
-  color: #fff;
+  color: #3d2a00;
 }
 
 @keyframes pulsoMarca {
-  0%   { box-shadow: 0 0 0 0 rgba(8, 121, 178, 0.55); }
-  70%  { box-shadow: 0 0 0 8px rgba(8, 121, 178, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(8, 121, 178, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(240, 180, 41, 0.55); }
+  70%  { box-shadow: 0 0 0 8px rgba(240, 180, 41, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(240, 180, 41, 0); }
 }
 
 /* Columna y filas marcadas en la tabla */
 .consolidado-tabla th.col-marcado {
-  background: #dcedf7;
-  color: #075f91;
+  background: #ffe8a3;
+  color: #7a5b00;
 }
 
 .consolidado-tabla td.col-marcado {
-  background: rgba(8, 121, 178, 0.05);
+  background: rgba(240, 180, 41, 0.05);
 }
 
 .consolidado-tabla tr.fila-marcada td {
-  background: #eaf5fb;
+  background: #fff3cd;
   color: #1f3646;
 }
 
 .consolidado-tabla tr.fila-marcada td:first-child {
-  box-shadow: inset 3px 0 0 #0879b2;
+  box-shadow: inset 3px 0 0 #f0b429;
   font-weight: 600;
 }
 
 .consolidado-tabla tbody tr.fila-marcada:hover td {
-  background: #ddeef8;
+  background: #ffeab0;
 }
 
 .consolidado-tabla tr.fila-atenuada td {
@@ -725,7 +725,7 @@
 
 .icono-marcado {
   margin-right: 6px;
-  color: #0879b2;
+  color: #d99a00;
   font-size: 11px;
 }
 
@@ -734,8 +734,8 @@
   min-width: 26px;
   padding: 2px 7px;
   border-radius: 10px;
-  background: #0879b2;
-  color: #fff;
+  background: #f0b429;
+  color: #3d2a00;
   font-weight: 700;
   text-align: center;
 }
@@ -1093,7 +1093,7 @@
 }
 
 .tabla-por-anio tr.fila-grupo-anio:hover td {
-  background: #e2f0fa;
+  background: #fff6d9;
 }
 
 .tabla-por-anio tr.fila-grupo-anio td:first-child {
@@ -1207,7 +1207,7 @@
 }
 
 .anio-tab:hover {
-  background: #e2f0fa;
+  background: #fff6d9;
 }
 
 .anio-tab:focus {
@@ -1269,7 +1269,7 @@
 }
 
 .consolidado-tabla tbody tr.fila-detalle:hover > td {
-  background: #fbfdfe;
+  background: #fffdf5;
 }
 
 .detalle-hallazgos {
@@ -1330,7 +1330,7 @@
 }
 
 .consolidado-tabla .detalle-tabla tbody tr:hover td {
-  background: #f4f9fd;
+  background: #fff8e1;
 }
 
 .detalle-col-fecha { width: 95px; }
@@ -1427,11 +1427,11 @@
 
 /* Hallazgo que coincide con el filtro activo */
 .consolidado-tabla .detalle-tabla tr.detalle-marcado td {
-  background: #eaf5fb;
+  background: #fff3cd;
 }
 
 .consolidado-tabla .detalle-tabla tr.detalle-marcado td:first-child {
-  box-shadow: inset 3px 0 0 #0879b2;
+  box-shadow: inset 3px 0 0 #f0b429;
 }
 
 /* Estado (mismos estados que Control de Hallazgos) */
