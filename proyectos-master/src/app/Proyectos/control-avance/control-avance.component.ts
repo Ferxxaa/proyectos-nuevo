@@ -4,6 +4,8 @@ import { sVis_UsuarioPersona } from '../../services/sVis_UsuarioPersona.service'
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
 import { sPerfil } from '../../services/sPerfil.service';
 import { sMail } from '../../services/sMail.service';
+import { sProyecto } from '../../services/sProyecto.service';
+import { sVis_DirectorProyectoMatriz } from '../../services/sVis_DirectorProyectoMatriz.service';
 import { firestoreDB, storageRef } from '../../firebase-init';
 import * as XlsxPopulate from 'xlsx-populate';
 import * as JSZip from 'jszip';
@@ -178,7 +180,7 @@ const SEGUNDOS_ENTRE_ENVIOS = 60;
   selector: 'app-control-avance',
   templateUrl: './control-avance.component.html',
   styleUrls: ['./control-avance.component.css'],
-  providers: [sUsuario, sVis_UsuarioPersona, sUsuariosPerfiles, sPerfil, sMail],
+  providers: [sUsuario, sVis_UsuarioPersona, sUsuariosPerfiles, sPerfil, sMail, sProyecto, sVis_DirectorProyectoMatriz],
   encapsulation: ViewEncapsulation.None
 })
 export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
@@ -197,6 +199,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   @Input() ocultarExportacion: boolean = false;
   @Input() vistaInicial: 'tabla' | 'gantt' = 'tabla';
   accesoEdicionConClave: boolean = false;
+  esDirectorProyectoMatriz: boolean = false;
+  private solicitudPermisoDirectorMatriz: number = 0;
 
   ControlesAvance: Array<ControlAvanceItem>;
 
@@ -399,6 +403,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     private _sUsuariosPerfiles: sUsuariosPerfiles,
     private _sPerfil: sPerfil,
     private _sMail: sMail,
+    private _sProyecto: sProyecto,
+    private _sVisDirectorProyectoMatriz: sVis_DirectorProyectoMatriz,
     private _ngZone: NgZone,
     private _elementRef: ElementRef
   ) {
@@ -421,7 +427,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   get puedeEditarAvance(): boolean {
-    return !this.soloLectura && this.accesoEdicionConClave;
+    return !this.soloLectura && this.esDirectorProyectoMatriz;
   }
 
   get modoSoloLectura(): boolean {
@@ -1085,6 +1091,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnInit() {
     this.vistaActiva = this.vistaInicial;
+    this.cargarPermisoDirectorProyectoMatriz();
     this.cargarUsuariosValidadores();
     this.cargarValidadoresSeleccionados();
     this.suscribirControlesAvance();
@@ -1094,6 +1101,52 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (this.detalleSeguimiento && this.detalleSeguimiento.length > 0) {
       this.calcularAvancesYValidaciones();
     }
+  }
+
+  private cargarPermisoDirectorProyectoMatriz() {
+    const solicitud = ++this.solicitudPermisoDirectorMatriz;
+    this.esDirectorProyectoMatriz = false;
+    const idUsuario = Number(this.usuario && this.usuario.idUsuario);
+    const idProyecto = Number(this.idProyecto);
+    if (this.soloLectura || !idUsuario || !idProyecto) { return; }
+
+    this._sProyecto.getProyectobyID(idProyecto).subscribe(
+      proyecto => {
+        if (solicitud !== this.solicitudPermisoDirectorMatriz) { return; }
+        const idProyectoMatriz = Number(proyecto && proyecto.idProyectoMatriz);
+        if (!idProyectoMatriz) {
+          console.error('No se pudo determinar el proyecto matriz del Control de Avance.', proyecto);
+          Swal.fire('Error', 'No se pudo verificar el permiso de edición del Control de Avance.', 'error');
+          return;
+        }
+
+        this._sVisDirectorProyectoMatriz.getVis_DirectorProyectoMatrizbyidProyectoMatriz(idProyectoMatriz).subscribe(
+          directores => {
+            if (solicitud !== this.solicitudPermisoDirectorMatriz) { return; }
+            if (!Array.isArray(directores)) {
+              console.error('La respuesta de directores del proyecto matriz no es válida.', directores);
+              Swal.fire('Error', 'No se pudo verificar el permiso de edición del Control de Avance.', 'error');
+              return;
+            }
+            this.esDirectorProyectoMatriz = directores.some((director: any) =>
+              Number(director.idUsuarioDirector) === idUsuario &&
+              Number(director.idProyectoMatriz) === idProyectoMatriz &&
+              (director.activo === true || director.activo === 'true' || director.activo === 1)
+            );
+          },
+          error => {
+            if (solicitud !== this.solicitudPermisoDirectorMatriz) { return; }
+            console.error('Error al consultar los directores del proyecto matriz.', error);
+            Swal.fire('Error', 'No se pudo verificar el permiso de edición del Control de Avance.', 'error');
+          }
+        );
+      },
+      error => {
+        if (solicitud !== this.solicitudPermisoDirectorMatriz) { return; }
+        console.error('Error al consultar el proyecto del Control de Avance.', error);
+        Swal.fire('Error', 'No se pudo verificar el permiso de edición del Control de Avance.', 'error');
+      }
+    );
   }
 
   private cargarPermisoGerencia() {
@@ -1168,6 +1221,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.suscribirControlesAvance();
       this.suscribirPlantillasPersonalizadas();
       this.cargarValidadoresSeleccionados();
+    }
+    if ((changes.idProyecto && !changes.idProyecto.firstChange) ||
+        (changes.soloLectura && !changes.soloLectura.firstChange)) {
+      this.cargarPermisoDirectorProyectoMatriz();
     }
   }
 

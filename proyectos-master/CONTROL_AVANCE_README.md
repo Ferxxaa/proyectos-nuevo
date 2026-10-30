@@ -7,6 +7,7 @@ Sistema de control de avance para gestión de documentos de proyectos con edici�
 ## ✨ Características
 
 - ✅ **Edición inline**: Modifica directamente en las celdas como en Excel
+- ✅ **Permisos de edición**: Solo los directores activos del proyecto matriz pueden editar; los demás usuarios tienen acceso de solo lectura
 - ✅ **Guardado automático**: Los cambios se guardan automáticamente después de 1.5 segundos
 - ✅ **Campos personalizables**: El usuario escribe manualmente la mayoría de campos
 - ✅ **Selectores para tipos**: Dropdown para Estado y Tipo de documento

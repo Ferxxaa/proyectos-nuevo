@@ -52,8 +52,13 @@ export class VerBitacoraComponent implements OnInit, OnDestroy {
   // IDs únicos por instancia (Proyectos / SSOMA / Calidad están en la misma página)
   private readonly uid: string = 'vb' + (++contadorInstancias);
   readonly modalId: string = 'modalEditarBitacora_' + this.uid;
+  readonly modalTitleId: string = 'modalEditarBitacoraTitle_' + this.uid;
   readonly fileId: string = 'fileuploadUPD_' + this.uid;
   readonly nombreArchId: string = 'NombreArchUpd_' + this.uid;
+  private modalParent: Node | null = null;
+  private modalNextSibling: Node | null = null;
+  private elementoFocoAnterior: HTMLElement | null = null;
+  private eventosModalRegistrados: boolean = false;
 
   //Objetos
   SubProyecto: mSubProyecto;
@@ -104,7 +109,14 @@ export class VerBitacoraComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    try { this.$modal().modal('hide'); } catch (e) { }
+    const modal = this.$modal();
+    const elemento = modal[0] as HTMLElement;
+    if (elemento && elemento.contains(document.activeElement)) {
+      (document.activeElement as HTMLElement).blur();
+    }
+    try { modal.modal('hide'); } catch (e) { }
+    this.restaurarModal();
+    modal.off('.verBitacora');
   }
 
   private bitacoraVacia(): mBitacora {
@@ -164,6 +176,7 @@ export class VerBitacoraComponent implements OnInit, OnDestroy {
     this.cargandoDetalle = true;
     this.limpiarArchivoUpd();
 
+    this.prepararModal();
     this.$modal().modal('show');
 
     this._sBitacora.getBitacorabyID(this.Bitacoras[i].idBitacora).subscribe(result => {
@@ -186,8 +199,50 @@ export class VerBitacoraComponent implements OnInit, OnDestroy {
 
   OcultarPopUpEditar() {
     this.IndexUpdate = 0;
+    const modal = this.$modal()[0] as HTMLElement;
+    if (modal && modal.contains(document.activeElement)) {
+      (document.activeElement as HTMLElement).blur();
+    }
     this.$modal().modal('hide');
     this.$nombreArch().html("");
+  }
+
+  private prepararModal() {
+    const modal = this.$modal();
+    const elemento = modal[0] as HTMLElement;
+    if (!elemento) { return; }
+
+    if (!this.modalParent) {
+      this.modalParent = elemento.parentNode;
+      this.modalNextSibling = elemento.nextSibling;
+    }
+    this.elementoFocoAnterior = document.activeElement as HTMLElement;
+
+    if (!this.eventosModalRegistrados) {
+      modal.on('hide.bs.modal.verBitacora', () => {
+        const foco = document.activeElement as HTMLElement;
+        if (foco && elemento.contains(foco)) { foco.blur(); }
+      });
+      modal.on('hidden.bs.modal.verBitacora', () => {
+        this.restaurarModal();
+        if (this.elementoFocoAnterior && document.body.contains(this.elementoFocoAnterior)) {
+          this.elementoFocoAnterior.focus();
+        }
+        this.elementoFocoAnterior = null;
+      });
+      this.eventosModalRegistrados = true;
+    }
+
+    document.body.appendChild(elemento);
+  }
+
+  private restaurarModal() {
+    const elemento = this.$modal()[0] as HTMLElement;
+    if (!elemento || !this.modalParent) { return; }
+    const siguiente = this.modalNextSibling && this.modalNextSibling.parentNode === this.modalParent
+      ? this.modalNextSibling
+      : null;
+    this.modalParent.insertBefore(elemento, siguiente);
   }
 
   //*************************************************** Orden ***************************************************

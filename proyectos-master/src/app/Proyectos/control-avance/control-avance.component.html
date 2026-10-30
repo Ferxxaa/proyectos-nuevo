@@ -42,18 +42,6 @@
         </button>
       </div>
 
-      <ng-container *ngIf="!soloLectura">
-        <button type="button" class="btn-codigo-excel" (click)="abrirAccesoEdicion()"
-                [title]="accesoEdicionConClave ? 'Bloquear las modificaciones' : 'Ingresar clave para modificar el Control de Avance'">
-          <i class="fa" [ngClass]="accesoEdicionConClave ? 'fa-unlock' : 'fa-lock'"></i>
-          {{accesoEdicionConClave ? 'Bloquear edición' : 'Habilitar edición'}}
-        </button>
-        <button type="button" class="btn-codigo-excel" *ngIf="accesoEdicionConClave"
-                (click)="cambiarClaveEdicion()" title="Cambiar la clave compartida">
-          <i class="fa fa-key"></i> Cambiar clave
-        </button>
-      </ng-container>
-
       <div class="plantillas-toggle" *ngIf="!LoadingTabla && !modoSoloLectura">
         <button type="button" class="btn-plantillas" (click)="abrirModalPlantillas()" title="Ver y usar plantillas de entregables">
           <i class="fa fa-clone"></i> Plantillas

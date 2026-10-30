@@ -61,13 +61,13 @@
 
 
 <!-- Editar (IDs únicos por instancia: Proyectos / SSOMA / Calidad conviven en la misma página) -->
-<div class="modal fade" [attr.id]="modalId" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade" [attr.id]="modalId" tabindex="-1" role="dialog" [attr.aria-labelledby]="modalTitleId" aria-hidden="true">
   <div class="modal-dialog editar" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <div class="form-group row">
           <div class="col-md-11">
-            <h4 class="modal-title">Editar</h4>
+            <h4 class="modal-title" [attr.id]="modalTitleId">Editar</h4>
           </div>
           <div class="col-md-1">
             <button type="button" class="close" aria-label="Close" (click)="OcultarPopUpEditar()">
