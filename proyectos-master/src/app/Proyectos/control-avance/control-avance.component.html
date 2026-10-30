@@ -7,6 +7,19 @@
       </strong>
     </h5>
     <div class="header-acciones">
+      <!-- Avance total del control: promedio de las láminas, programado vs real -->
+      <div class="avance-total-resumen" *ngIf="!LoadingTabla"
+           [title]="'Avance total del control (promedio de ' + totalLaminasAvance + ' lámina(s))'">
+        <span class="avance-total-item avance-total-prog">
+          <span class="avance-total-label">Programado</span>
+          <strong>{{avanceDocumentosProgramado}}%</strong>
+        </span>
+        <span class="avance-total-item avance-total-real" [ngClass]="claseAvanceTotalReal">
+          <span class="avance-total-label">Real</span>
+          <strong>{{avanceDocumentosReal}}%</strong>
+        </span>
+      </div>
+
       <!-- Resumen / filtro de bitácora: clic en un número filtra la tabla y el gantt por esa prioridad -->
       <div class="bitacora-resumen" *ngIf="!LoadingTabla && !ocultarFiltros">
         <button type="button" class="bitacora-resumen-item bitacora-resumen-alta"
@@ -306,11 +319,11 @@
         <tr class="fila-subgrupos-thead">
           <th class="col-fecha sub-programado">F. inicio</th>
           <th class="col-plazo sub-programado">Plazo</th>
-          <th class="col-fecha-auto sub-programado">F. término<br>(auto)</th>
+          <th class="col-fecha-auto sub-programado">F. término</th>
           <th class="col-avance sub-programado">% avance</th>
           <th class="col-fecha sub-real">F. inicio</th>
           <th class="col-plazo sub-real">Plazo</th>
-          <th class="col-fecha-auto sub-real">F. término<br>(auto)</th>
+          <th class="col-fecha-auto sub-real">F. término</th>
           <th class="col-avance sub-real">% avance</th>
         </tr>
       </thead>
@@ -421,7 +434,7 @@
           </td>
           <td>
             <input type="number" [(ngModel)]="fila.item.plazoProgramado"
-                   (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
+                   (ngModelChange)="onCambioPlazoProgramado(fila.item, fila.indexOriginal)"
                    [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                    title="Días de plazo (como plazo contrato del Excel)"
                    min="0" class="input-numero input-small" placeholder="días">
@@ -434,7 +447,7 @@
                      [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                      (input)="onInputFechaTabla($event.target, fila.item, 'fechaTerminoProgramada', fila.indexOriginal)"
                      (blur)="restaurarFechaTabla($event.target, fila.item, 'fechaTerminoProgramada')"
-                     title="Por defecto usa el inicio de la siguiente actividad; también puede editarse">
+                     title="Por defecto: inicio + plazo. Si escribes la fecha, se respeta la tuya">
               <span class="btn-calendario-tabla" *ngIf="!modoSoloLectura && filaEnEdicion === fila.indexOriginal" title="Elegir en el calendario">
                 <i class="fa fa-calendar"></i>
                 <input type="date" class="picker-fecha-oculto" tabindex="-1"
@@ -468,14 +481,30 @@
           </td>
           <td>
             <input type="number" [(ngModel)]="fila.item.plazoReal"
-                   (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
+                   (ngModelChange)="onCambioPlazoReal(fila.item, fila.indexOriginal)"
                    [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal"
                    title="Días de plazo real (como plazo real del Excel)"
                    min="0" class="input-numero input-small" placeholder="días">
           </td>
           <td>
-            <input type="text" [value]="fechaVista(fila.item.fechaTermino)" [disabled]="true"
-                   class="input-fecha input-compact input-calculado" title="Calculado: fecha inicio real + plazo real">
+            <div class="celda-fecha">
+              <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
+                     class="input-fecha input-compact"
+                     [class.input-calculado]="!fila.item.fechaTerminoManual && filaEnEdicion !== fila.indexOriginal"
+                     [value]="fechaVista(fila.item.fechaTermino)"
+                     [disabled]="modoSoloLectura || filaEnEdicion !== fila.indexOriginal || (fila.item.esTitulo && fila.tieneHijos)"
+                     (input)="onInputFechaTabla($event.target, fila.item, 'fechaTermino', fila.indexOriginal)"
+                     (blur)="restaurarFechaTabla($event.target, fila.item, 'fechaTermino')"
+                     title="Por defecto: inicio real + plazo real. Si escribes la fecha, se respeta la tuya">
+              <span class="btn-calendario-tabla"
+                    *ngIf="!modoSoloLectura && filaEnEdicion === fila.indexOriginal && !(fila.item.esTitulo && fila.tieneHijos)"
+                    title="Elegir en el calendario">
+                <i class="fa fa-calendar"></i>
+                <input type="date" class="picker-fecha-oculto" tabindex="-1"
+                       [value]="fila.item.fechaTermino || ''"
+                       (change)="onPickerFechaTabla($event.target.value, fila.item, 'fechaTermino', fila.indexOriginal)">
+              </span>
+            </div>
           </td>
           <td>
             <div class="celda-porcentaje">

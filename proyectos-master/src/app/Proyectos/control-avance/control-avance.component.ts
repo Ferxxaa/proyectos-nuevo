@@ -57,7 +57,8 @@ interface ControlAvanceItem {
   avanceProgramado: number;
   fechaInicio: string;
   plazoReal: number;            // duración en días (como "plazo real" del Excel)
-  fechaTermino: string;         // calculado = fechaInicio + plazoReal
+  fechaTermino: string;         // por defecto = fechaInicio + plazoReal (o la que escriba el usuario)
+  fechaTerminoManual?: boolean; // true si el usuario escribió a mano la fecha de término real
   avanceReal: number;
   observaciones?: string;       // columna de observaciones, igual que en el Excel
   bitacora: NotaBitacora[];     // notas de bitácora con semáforo de prioridad
@@ -432,6 +433,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   get modoSoloLectura(): boolean {
     return !this.puedeEditarAvance;
+  }
+
+  /** Clase de semáforo del avance real total vs el programado total. */
+  get claseAvanceTotalReal(): string {
+    return this.getClaseAvanceReal(this.avanceDocumentosReal, this.avanceDocumentosProgramado) || 'avance-sin-datos';
+  }
+
+  /** Cantidad de láminas (no títulos) que entran al promedio del avance total. */
+  get totalLaminasAvance(): number {
+    return this.ControlesAvance.filter(doc => doc.activo !== false && !doc.esTitulo).length;
   }
 
   async abrirAccesoEdicion() {
@@ -1430,7 +1441,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       }
       return sum + (doc.avanceReal || 0);
     }, 0);
-    this.avanceDocumentosReal = Math.round(sumaAvanceReal / documentosActivos.length);
+    this.avanceDocumentosReal = Math.min(100, Math.round(sumaAvanceReal / documentosActivos.length));
   }
 
   // =========================================================================
@@ -1488,14 +1499,28 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return { inicio, fin };
   }
 
+  /**
+   * Sincroniza el plazo desde las fechas en las láminas:
+   * - Programado: el plazo siempre refleja inicio → término.
+   * - Real: solo si el término real lo escribió el usuario (si no, el término sale del plazo).
+   */
   private sincronizarPlazoDesdeFechas(item: ControlAvanceItem): void {
-    if (item.esTitulo || !item.fechaInicioProgramada || !item.fechaTerminoProgramada) {
+    if (item.esTitulo) {
       return;
     }
 
-    const plazo = this.diasEntreFechasISO(item.fechaInicioProgramada, item.fechaTerminoProgramada);
-    if (plazo > 0) {
-      item.plazoProgramado = plazo;
+    if (item.fechaInicioProgramada && item.fechaTerminoProgramada) {
+      const plazo = this.diasEntreFechasISO(item.fechaInicioProgramada, item.fechaTerminoProgramada);
+      if (plazo > 0) {
+        item.plazoProgramado = plazo;
+      }
+    }
+
+    if (item.fechaTerminoManual && item.fechaInicio && item.fechaTermino) {
+      const plazoReal = this.diasEntreFechasISO(item.fechaInicio, item.fechaTermino);
+      if (plazoReal > 0) {
+        item.plazoReal = plazoReal;
+      }
     }
   }
 
@@ -2919,6 +2944,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     this.tiempoRecalculo = setTimeout(() => {
       this.recalcularJerarquiaYAgregados();
       this.actualizarDatosGantt();
+      this.calcularTotalesDocumentos();
     }, 300);
 
     if (this.tiempoGuardado[index]) {
@@ -2940,9 +2966,31 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     this.OnCambio(item, index);
   }
 
+  /** Término programado escrito a mano: se respeta. Si se borra, vuelve a calcularse desde inicio + plazo. */
   onCambioFechaTerminoProgramada(item: ControlAvanceItem, index: number) {
     if (!this.puedeEditarAvance) { return; }
-    item.fechaTerminoProgramadaManual = true;
+    item.fechaTerminoProgramadaManual = !!item.fechaTerminoProgramada;
+    this.OnCambio(item, index);
+  }
+
+  /** Término real escrito a mano: se respeta tal cual y el plazo real se ajusta a las fechas. */
+  onCambioFechaTerminoReal(item: ControlAvanceItem, index: number) {
+    if (!this.puedeEditarAvance) { return; }
+    item.fechaTerminoManual = !!item.fechaTermino;
+    this.OnCambio(item, index);
+  }
+
+  /** Al cambiar el plazo programado, el término vuelve a calcularse desde inicio + plazo. */
+  onCambioPlazoProgramado(item: ControlAvanceItem, index: number) {
+    if (!this.puedeEditarAvance) { return; }
+    item.fechaTerminoProgramadaManual = false;
+    this.OnCambio(item, index);
+  }
+
+  /** Al cambiar el plazo real, el término real vuelve a calcularse desde inicio + plazo. */
+  onCambioPlazoReal(item: ControlAvanceItem, index: number) {
+    if (!this.puedeEditarAvance) { return; }
+    item.fechaTerminoManual = false;
     this.OnCambio(item, index);
   }
 
@@ -3182,6 +3230,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     this.filaEnEdicion = null;
     this.copiaEdicion = null;
     this.recalcularJerarquiaYAgregados();
+    this.calcularTotalesDocumentos();
   }
 
   confirmarEdicion(item: ControlAvanceItem, index: number) {
@@ -3214,6 +3263,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
     this.recalcularJerarquiaYAgregados();
     this.actualizarDatosGantt();
+    this.calcularTotalesDocumentos();
 
     const esTituloConPrefijoEditado = item.esTitulo;
     const idTituloEditado = item.id;
@@ -3444,12 +3494,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return this.formatearFechaISO(fechaTermino);
   }
 
-  /** Recalcula fechaTerminoProgramada/fechaTermino a partir de fecha inicio + plazo en días (solo para items sin hijos). */
+  /** Recalcula fechaTerminoProgramada/fechaTermino a partir de fecha inicio + plazo en días, salvo que el término se haya escrito a mano. */
   recalcularFechasDesdePlazo(item: ControlAvanceItem) {
     if (!item.fechaTerminoProgramadaManual && item.fechaInicioProgramada && item.plazoProgramado) {
       item.fechaTerminoProgramada = this.calcularFechaTerminoDesdePlazo(item.fechaInicioProgramada, Number(item.plazoProgramado));
     }
-    if (item.fechaInicio && item.plazoReal) {
+    if (!item.fechaTerminoManual && item.fechaInicio && item.plazoReal) {
       item.fechaTermino = this.calcularFechaTerminoDesdePlazo(item.fechaInicio, Number(item.plazoReal));
     }
   }
@@ -4388,13 +4438,15 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return this.isoADdmmaaaa(iso);
   }
 
-  /** Avisa el cambio de fecha con el mismo flujo que usaba el input date de cada columna. */
+  /** Avisa el cambio de fecha con el flujo que corresponde a cada columna. */
   private notificarCambioFechaTabla(item: ControlAvanceItem, campo: string, index: number) {
     if (index < 0) { return; } // formulario de creación: solo se asigna el valor, no hay fila que recalcular
     if (campo === 'fechaInicioProgramada') {
       this.onCambioFechaInicioProgramada(item, index);
     } else if (campo === 'fechaTerminoProgramada') {
       this.onCambioFechaTerminoProgramada(item, index);
+    } else if (campo === 'fechaTermino') {
+      this.onCambioFechaTerminoReal(item, index);
     } else {
       this.OnCambio(item, index);
     }
@@ -5146,11 +5198,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // a diferencia de ExcelJS que no es compatible con este bundler.
   // =========================================================================
 
-// =========================================================================
-  // MÉTODO 1: exportarCartaGanttAExcel — reemplaza el método completo existente
-  // FIX "igual que la plantilla de referencia": el bloque de encabezado (logo +
+  // =========================================================================
+  // exportarCartaGanttAExcel: el bloque de encabezado (logo +
   // Mandante/Contacto/Dirección/Fecha/Código + caja de Registro/Versión arriba a
-  // la derecha) ahora se dibuja igual que en la plantilla Excel de referencia:
+  // la derecha) se dibuja igual que en la plantilla Excel de referencia:
   // columna A = margen, columna B = logo (también columna "Ítem"), etiquetas en
   // la columna D, valor en un bloque fijo I:X, y la caja REG./VERSIÓN pegada al
   // borde derecho de la tabla (últimas 6 columnas). También se agrega el mismo
@@ -5161,13 +5212,13 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       Swal.fire('Sin datos', 'No hay fechas cargadas para exportar la Carta Gantt.', 'info');
       return;
     }
- 
+
     try {
       const workbook = await (XlsxPopulate as any).fromBlankAsync();
       const hoja = workbook.sheet(0);
       hoja.name('Carta Gantt');
       hoja.gridLinesVisible(false);
- 
+
       // ---- Columnas: A = margen, B..E = fijas (Ítem/Actividad/Plazo/%Avance), F+ = días ----
       const COL_MARGEN = 1;
       const COL_FIJAS = 4;
@@ -5182,12 +5233,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         semanasExport.push({ etiqueta: semana.etiqueta, dias });
         diasRestantesExport -= dias.length;
       });
- 
+
       const COL_ETIQUETA = COL_MARGEN + 3;       // D
       const COL_VALOR_INICIO = COL_MARGEN + 8;   // I
       const COL_VALOR_FIN = COL_MARGEN + 23;     // X
       const ANCHO_CAJA_REG = 6;
- 
+
       // El encabezado sigue el ancho de la tabla de días, pero con límites:
       // - mínimo AE: espacio para el valor (I:X) + caja REG/VERSIÓN, aunque el proyecto sea corto.
       // - máximo BB (~7 semanas de días): si la Carta Gantt es muy larga, el encabezado se corta
@@ -5197,7 +5248,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const COL_MAX_ENCABEZADO = COL_DIA_INICIO + 48;                // BB
       const colUltimaEncabezado = Math.min(Math.max(ultimaColumnaDias, COL_MIN_ENCABEZADO), COL_MAX_ENCABEZADO);
       const ultimaColumnaSheet = Math.max(ultimaColumnaDias, colUltimaEncabezado);
- 
+
       const FILA_ENCAB_INICIO = 2;
       const FILA_ENCAB_FIN = 6;
       const FILA_ESPACIADOR = 7;
@@ -5205,7 +5256,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const FILA_SEMANA = 9;           // semanas + Ítem/Actividad/Plazo/%Avance
       const FILA_DIAS = 10;            // días
       const FILA_PRIMER_DATO = 11;
- 
+
       // ---- Paleta ----
       const BORDE_SUAVE = { style: 'thin', color: 'D0D5DB' };
       const BORDE_BARRA = { style: 'thin', color: 'D7DCE1' };
@@ -5223,7 +5274,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const COLOR_ENCAB_TABLA = 'F2F2F2';
       const COLOR_TEXTO_TITULO = '000000';
       const COLOR_TEXTO_LAMINA = '000000';
- 
+
       // ---- Anchos de columna ----
       hoja.column(COL_MARGEN).width(7.71);      // A
       hoja.column(COL_MARGEN + 1).width(14.85); // B: Ítem / logo
@@ -5233,7 +5284,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       for (let c = COL_DIA_INICIO; c <= ultimaColumnaSheet; c++) {
         hoja.column(c).width(3.29);
       }
- 
+
       // ==== BLOQUE DE ENCABEZADO ====
       const subProyecto: any = this.subProyectoActual || {};
       const mandante = this.nombreMandante || subProyecto.nombreMandante || subProyecto.mandante || this.nombreProyectoVisible || 'Proyecto';
@@ -5241,7 +5292,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const direccion = subProyecto.direccion || subProyecto.direccionProyecto || '-';
       const codigoProyecto = (subProyecto.codigo || subProyecto.codigoProyecto || '').trim() ||
         `Proyecto ${this.getIdProyectoActual()} - Subproyecto ${this.getIdSubProyectoActual()}`;
- 
+
       const datosEncabezado = [
         ['MANDANTE:', mandante],
         ['CONTACTO:', contacto],
@@ -5249,7 +5300,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         ['FECHA:', this.fechaDocumento],
         ['CÓDIGO:', codigoProyecto]
       ];
- 
+
       this.dibujarEncabezadoExcel(hoja, {
         filaInicio: FILA_ENCAB_INICIO,
         filaFin: FILA_ENCAB_FIN,
@@ -5263,18 +5314,18 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         registro: this.registro,
         version: this.version
       });
- 
+
       // Fila espaciadora bajita entre el encabezado y la tabla
       hoja.row(FILA_ESPACIADOR).height(6);
       hoja.row(FILA_ENCABEZADO_TABLA).height(15);
       hoja.row(FILA_SEMANA).height(15);
       hoja.row(FILA_DIAS).height(15);
- 
+
       // ---- Fila de meses sobre las columnas fijas: gris con borde, como el resto del encabezado ----
       for (let c = COL_MARGEN + 1; c <= COL_MARGEN + 4; c++) {
         hoja.cell(FILA_ENCABEZADO_TABLA, c).style({ fill: COLOR_ENCAB_TABLA, border: BORDE_SUAVE });
       }
- 
+
       // ---- Encabezado de tabla: columnas fijas combinadas verticalmente (filas 9-10) ----
       const titulosFijos = ['Ítem', 'Actividad', 'Plazo', '% Avance'];
       titulosFijos.forEach((titulo, i) => {
@@ -5293,7 +5344,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         });
         hoja.cell(FILA_SEMANA, c).value(titulo);
       });
- 
+
       // ---- Meses (fila 8) ----
       const meses: Array<{ nombre: string; inicioCol: number; finCol: number }> = [];
       let mesActual = '';
@@ -5330,14 +5381,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         }
         hoja.cell(FILA_ENCABEZADO_TABLA, mes.inicioCol).value(mes.nombre);
       });
- 
+
       // ---- Semanas (fila 9) y días (fila 10) ----
       const esHoyFilaDias = (col: number) => this.ganttHoyOffset >= 0 && col === COL_DIA_INICIO + this.ganttHoyOffset;
       let colCursor = COL_DIA_INICIO;
       semanasExport.forEach(semana => {
         const inicioCol = colCursor;
         const finCol = colCursor + semana.dias.length - 1;
- 
+
         if (finCol > inicioCol) {
           hoja.range(FILA_SEMANA, inicioCol, FILA_SEMANA, finCol).merged(true);
         }
@@ -5353,7 +5404,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           });
         }
         hoja.cell(FILA_SEMANA, inicioCol).value(semana.etiqueta);
- 
+
         semana.dias.forEach((dia, idx) => {
           const col = inicioCol + idx;
           // La celda del día "hoy" se estila completa aquí (una sola llamada .style()),
@@ -5378,10 +5429,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
                 : BORDE_SUAVE
             });
         });
- 
+
         colCursor = finCol + 1;
       });
- 
+
       // ---- Filas de datos ----
       const colHoy = this.ganttHoyOffset >= 0 ? COL_DIA_INICIO + this.ganttHoyOffset : -1;
       const bordeHoy = { style: 'medium', color: COLOR_HOY_TEXTO };
@@ -5393,22 +5444,22 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           : { top: borde, bottom: borde, left: borde, right: borde };
         return Object.assign({}, base, { left: bordeHoy, right: bordeHoy });
       };
- 
+
       let filaActual = FILA_PRIMER_DATO;
- 
+
       this.ganttBarras.forEach((barra, indice) => {
         const item = barra.item;
         const esTitulo = !!item.esTitulo;
         const filaTablaCorrespondiente = this.filasTabla[indice];
         const numeroItem = filaTablaCorrespondiente ? filaTablaCorrespondiente.numero : (item.codigo || '');
- 
+
         hoja.cell(filaActual, COL_MARGEN + 1).value(numeroItem);
         hoja.cell(filaActual, COL_MARGEN + 2).value('   '.repeat(barra.nivel) + (item.descripcion || ''));
         hoja.cell(filaActual, COL_MARGEN + 3).value(item.plazoProgramado || '');
         hoja.cell(filaActual, COL_MARGEN + 4).value(item.avanceReal != null ? `${item.avanceReal}%` : '');
- 
+
         const colorTitulo = barra.nivel === 0 ? COLOR_TITULO_NIVEL0 : COLOR_TITULO_SUBNIVEL;
- 
+
         for (let c = COL_MARGEN + 1; c <= COL_MARGEN + 4; c++) {
           const estilo: any = {
             bold: esTitulo,
@@ -5421,18 +5472,18 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           if (esTitulo) { estilo.fill = colorTitulo; }
           hoja.cell(filaActual, c).style(estilo);
         }
- 
+
         for (let d = 0; d < totalDias; d++) {
           const col = COL_DIA_INICIO + d;
- 
+
           if (esTitulo) {
             hoja.cell(filaActual, col).style({ fill: colorTitulo, border: conLineaHoy(col, BORDE_SUAVE) });
             continue;
           }
- 
+
           const esHitoAqui = barra.esHito && d === barra.offsetHito;
           const enBarra = !barra.esHito && barra.ancho > 0 && d >= barra.offset && d < barra.offset + barra.ancho;
- 
+
           if (esHitoAqui) {
             hoja.cell(filaActual, col).value('◆').style({
               bold: true,
@@ -5460,17 +5511,17 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
             hoja.cell(filaActual, col).style({ border: conLineaHoy(col, BORDE_SUAVE) });
           }
         }
- 
+
         hoja.row(filaActual).height(16);
         filaActual++;
       });
- 
+
       // =====================================================================
       // HOJA "Tabla": tabla completa del control de avance, igual a la plantilla
       // =====================================================================
       const hojaTabla = workbook.addSheet('Tabla');
       hojaTabla.gridLinesVisible(false);
- 
+
       const COL_MARGEN_TABLA = 1;
       const encabezadosTabla = [
         'N°', 'Código', 'Tipo', 'Descripción', 'Rev.', 'Estado',
@@ -5483,7 +5534,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const IDX_DESCRIPCION = 3;
       const IDX_AVANCE_PROG = 9;
       const FILA_ENCABEZADO_TABLA_HOJA2 = FILA_ENCABEZADO_TABLA; // fila 8, igual que la Carta Gantt
- 
+
       // Colores de Tipo: los mismos de los select de la tabla en la app
       const COLOR_TIPO: { [prefijo: string]: string } = {
         'ET': 'E3FBE8', // verde menta
@@ -5499,18 +5550,18 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         const prefijo = tipo.split(' -')[0].trim();
         return COLOR_TIPO[prefijo] || '';
       };
- 
+
       // Semáforo pastel para % Avance Programado (mismo criterio que la tabla de la app)
       const COLOR_AVANCE_TABLA: { [clase: string]: string } = {
         'avance-verde': 'E2EFDA',
         'avance-amarillo': 'FFF2CC',
         'avance-rojo': 'FCE4D6'
       };
- 
+
       hojaTabla.column(COL_MARGEN_TABLA).width(7.71);
       hojaTabla.row(FILA_ESPACIADOR).height(6);
       hojaTabla.row(FILA_ENCABEZADO_TABLA_HOJA2).height(30);
- 
+
       encabezadosTabla.forEach((titulo, index) => {
         const col = COL_MARGEN_TABLA + 1 + index;
         hojaTabla.column(col).width(columnasTablaAncho[index]);
@@ -5525,7 +5576,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           border: BORDE_SUAVE
         });
       });
- 
+
       const ultimaColumnaTabla = COL_MARGEN_TABLA + encabezadosTabla.length;
       this.dibujarEncabezadoExcel(hojaTabla, {
         filaInicio: FILA_ENCAB_INICIO,
@@ -5541,7 +5592,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         registro: this.registro,
         version: this.version
       });
- 
+
       const formatearFechaExcel = (fecha: string) => {
         if (!fecha) return '';
         const date = this.parsearFechaLocal(fecha);
@@ -5551,7 +5602,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         const d = String(date.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
       };
- 
+
       this.filasTabla.forEach((fila, idx) => {
         const filaExcel = FILA_ENCABEZADO_TABLA_HOJA2 + 1 + idx;
         const item = fila.item;
@@ -5572,10 +5623,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           formatearFechaExcel(item.fechaTermino),
           item.avanceReal != null ? item.avanceReal : ''
         ];
- 
+
         const colorTituloFila = fila.nivel === 0 ? COLOR_TITULO_NIVEL0 : COLOR_TITULO_SUBNIVEL;
         const claseAvance = this.getClaseAvanceReal(item.avanceReal, item.avanceProgramado);
- 
+
         datos.forEach((valor, colIdx) => {
           let fill = 'FFFFFF';
           if (esTitulo) {
@@ -5585,7 +5636,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           } else if (colIdx === IDX_AVANCE_PROG) {
             fill = COLOR_AVANCE_TABLA[claseAvance] || 'FFFFFF';
           }
- 
+
           hojaTabla.cell(filaExcel, COL_MARGEN_TABLA + 1 + colIdx).value(valor).style({
             bold: esTitulo,
             fontSize: 9,
@@ -5596,19 +5647,19 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
             border: BORDE_SUAVE
           });
         });
- 
+
         hojaTabla.row(filaExcel).height(esTitulo ? 16 : 15);
       });
- 
+
       // ---- Congela todo el encabezado ----
       hoja.freezePanes(0, FILA_PRIMER_DATO - 1);
       hojaTabla.freezePanes(0, FILA_ENCABEZADO_TABLA_HOJA2);
- 
+
       // ---- Descargar ----
       const nombreProyecto = (this.nombreProyectoVisible || 'Proyecto').replace(/[\\/:*?"<>|]/g, '-');
       const fechaArchivo = this.formatearFechaISO(new Date());
       const nombreArchivo = `CartaGantt_${nombreProyecto}_${fechaArchivo}.xlsx`;
- 
+
       const blob = await workbook.outputAsync();
       const excelConLogo = await this.insertarLogoEnExcel(blob, [
         { nombreHoja: 'Carta Gantt', fila: FILA_ENCAB_INICIO, col: COL_MARGEN + 1 },
@@ -5626,7 +5677,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       Swal.fire('Error', 'No se pudo generar el Excel: ' + error.message, 'error');
     }
   }
- 
+
   /**
    * Bloque de encabezado igual a la plantilla: logo combinado en colLogo (filaInicio..filaFin),
    * etiquetas en colEtiqueta, valores combinados colValorInicio..colValorFin, fondo gris,
@@ -5643,16 +5694,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const { filaInicio, filaFin, colLogo, colEtiqueta, colValorInicio, colValorFin, colUltima, datos, registro, version } = opciones;
     const colEtiquetaFin = opciones.colEtiquetaFin || colEtiqueta;
     const anchoCajaReg = opciones.anchoCajaReg || 6;
- 
+
     const COLOR_BORDE = 'BFBFBF';
     const COLOR_FONDO = 'F2F2F2';
     const COLOR_TEXTO = '222222';
     const lineaBorde = { style: 'thin', color: COLOR_BORDE };
- 
+
     const filaMedia = filaInicio + Math.ceil((filaFin - filaInicio + 1) / 2) - 1;
     const colRegInicio = Math.max(colValorFin + 2, colUltima - anchoCajaReg + 1);
     const hayCajaReg = colRegInicio < colUltima;
- 
+
     // ---- Merges ----
     hoja.range(filaInicio, colLogo, filaFin, colLogo).merged(true);
     datos.forEach((dato, indice) => {
@@ -5667,7 +5718,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       hoja.range(filaInicio, colRegInicio, filaMedia, colUltima).merged(true);
       hoja.range(filaMedia + 1, colRegInicio, filaFin, colUltima).merged(true);
     }
- 
+
     // ---- Bordes acumulados por celda: contorno del bloque + contorno de la caja REG/VERSIÓN ----
     const bordes: { [clave: string]: any } = {};
     const agregarLado = (f: number, c: number, lado: 'top' | 'bottom' | 'left' | 'right') => {
@@ -5684,7 +5735,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       contornear(filaInicio, colRegInicio, filaMedia, colUltima);
       contornear(filaMedia + 1, colRegInicio, filaFin, colUltima);
     }
- 
+
     // ---- Textos por celda (etiqueta, valor, REG, VERSIÓN) ----
     const textos: { [clave: string]: { valor: any; estilo: any } } = {};
     datos.forEach((dato, indice) => {
@@ -5704,7 +5755,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       textos[`${filaInicio}_${colRegInicio}`] = { valor: registro || '', estilo: estiloCaja };
       textos[`${filaMedia + 1}_${colRegInicio}`] = { valor: version || '', estilo: estiloCaja };
     }
- 
+
     // ---- Una sola llamada .style() por celda del bloque ----
     for (let f = filaInicio; f <= filaFin; f++) {
       for (let c = colLogo; c <= colUltima; c++) {
@@ -5718,7 +5769,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       hoja.row(f).height(15.75);
     }
   }
- 
+
   /** Busca en workbook.xml + sus relaciones la ruta del XML de una hoja por su nombre (ej: 'Tabla' -> 'xl/worksheets/sheet2.xml'). */
   private resolverRutaHojaExcel(workbookXml: string, workbookRels: string, nombreHoja: string): string {
     let rId: string = null;
@@ -5728,7 +5779,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       if (nombre === nombreHoja && id) { rId = id; }
     });
     if (!rId) { return null; }
- 
+
     let target: string = null;
     (workbookRels.match(/<Relationship\b[^>]*>/g) || []).forEach(rel => {
       const id = (rel.match(/\bId="([^"]*)"/) || [])[1];
@@ -5736,11 +5787,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       if (id === rId && t) { target = t; }
     });
     if (!target) { return null; }
- 
+
     if (target.charAt(0) === '/') { return target.substring(1); }
     return 'xl/' + target.replace(/^\.\//, '');
   }
- 
+
   /**
    * Inserta el logo en cada hoja indicada, anclado en (fila, col) con tamaño fijo
    * (el mismo en todas las hojas, para que se vea igual aunque la columna sea más angosta).
@@ -5752,16 +5803,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (!respuesta.ok) {
       throw new Error('No se pudo cargar el logo de Trazas.');
     }
- 
+
     const imagen = await respuesta.arrayBuffer();
     const zip = await (JSZip as any).loadAsync(blob);
     zip.file('xl/media/image1.jpg', imagen);
- 
+
     const leer = async (ruta: string): Promise<string> => {
       const archivo = zip.file(ruta);
       return archivo ? archivo.async('string') : null;
     };
- 
+
     let tipos = await leer('[Content_Types].xml');
     const workbookXml = await leer('xl/workbook.xml');
     const workbookRels = await leer('xl/_rels/workbook.xml.rels');
@@ -5771,25 +5822,25 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (tipos.indexOf('Extension="jpg"') === -1) {
       tipos = tipos.replace('</Types>', '<Default Extension="jpg" ContentType="image/jpeg"/></Types>');
     }
- 
+
     // Tamaño fijo del logo: ~109 x 105 px (lo que mide la celda B2:B6 de la Carta Gantt)
     const LOGO_CX = 1038225;
     const LOGO_CY = 1000125;
     const NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
- 
+
     for (let i = 0; i < destinos.length; i++) {
       const destino = destinos[i];
       const rutaHoja = this.resolverRutaHojaExcel(workbookXml, workbookRels, destino.nombreHoja);
       if (!rutaHoja) { continue; }
- 
+
       let xmlHoja = await leer(rutaHoja);
       if (!xmlHoja) { continue; }
- 
+
       const numDrawing = i + 1;
       const carpetaHoja = rutaHoja.substring(0, rutaHoja.lastIndexOf('/'));
       const archivoHoja = rutaHoja.substring(rutaHoja.lastIndexOf('/') + 1);
       const rutaRelsHoja = `${carpetaHoja}/_rels/${archivoHoja}.rels`;
- 
+
       // Relación hoja -> drawing
       let relsHoja = (await leer(rutaRelsHoja)) ||
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
@@ -5799,13 +5850,13 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         '</Relationships>',
         `<Relationship Id="rIdLogo" Type="${NS_REL}/drawing" Target="../drawings/drawing${numDrawing}.xml"/></Relationships>`
       ));
- 
+
       // Referencia al drawing dentro de la hoja
       if (xmlHoja.indexOf('xmlns:r=') === -1) {
         xmlHoja = xmlHoja.replace(/<worksheet\b/, `<worksheet xmlns:r="${NS_REL}"`);
       }
       zip.file(rutaHoja, xmlHoja.replace('</worksheet>', '<drawing r:id="rIdLogo"/></worksheet>'));
- 
+
       // Content type del drawing
       if (tipos.indexOf(`/xl/drawings/drawing${numDrawing}.xml`) === -1) {
         tipos = tipos.replace(
@@ -5813,10 +5864,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           `<Override PartName="/xl/drawings/drawing${numDrawing}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`
         );
       }
- 
+
       const colXml = Math.max(destino.col - 1, 0);
       const filaXml = Math.max(destino.fila - 1, 0);
- 
+
       zip.file(`xl/drawings/drawing${numDrawing}.xml`,
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
@@ -5835,7 +5886,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         '</Relationships>'
       );
     }
- 
+
     zip.file('[Content_Types].xml', tipos);
     return zip.generateAsync({ type: 'blob' });
   }
