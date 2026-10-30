@@ -100,12 +100,10 @@
                     <li>
                         <a href="http://proyectos.trazas-nbi.com/Proyectos-MisProyectos">Mis Proyectos</a>
                     </li>
-                    <li>
-                        <a [routerLink]="['/Grafico-Estructural']" routerLinkActive="router-link-active">Gráfico Estructural</a>
-                    </li>
+                    
                     <li>
                 <a [routerLink]="['/Hallazgos-Operacionales']" routerLinkActive="router-link-active">
-                    Hallazgos Operacional
+                    Operacional
                     
                 </a>
             </li>
@@ -120,13 +118,16 @@
                 </a>
                 <ul class="collapse" id="sidebar-ReportesProyectos">
                     <li>
+                        <a [routerLink]="['/Grafico-Estructural']" routerLinkActive="router-link-active">Gráfico Estructural</a>
+                    </li>
+                    <li>
                         <a [routerLink]="['/Proyectos-ReportesHallazgos']" routerLinkActive="router-link-active">
                             Hallazgos Consolidados
                         </a>
                     </li>
                     <li>
                         <a [routerLink]="['/Proyectos-ConsolidadoHallazgos']" routerLinkActive="router-link-active">
-                            Listado Consolidado
+                            Hallazgos Anuales
                         </a>
                     </li>
                 </ul>
