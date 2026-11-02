@@ -68,6 +68,18 @@ export class SeguimientoComponent implements OnInit, OnChanges {
   DetalleSubProyecto: Array<mDetalleSubProyecto>;
   EtapasPrevias: Array<mDetalleSubProyecto>;
 
+  get nombreEtapaDisplay(): string {
+    if (this.Etapa) {
+      switch (Number(this.Etapa.idEtapa)) {
+        case 9:
+          return 'Regularización';
+        case 10:
+          return 'Licitación';
+      }
+    }
+    return this.Etapa ? this.Etapa.nombreEtapa : '';
+  }
+
   //Fechas
   fechaInicio: Date;
   fechaTermino: Date;
@@ -190,22 +202,24 @@ export class SeguimientoComponent implements OnInit, OnChanges {
     this.texto = "";
     this.msg = false;
 
-    const etapaFinalizada = this.EtapaActual.vistoBuenoEtapa || this.EtapaActual.avanceReal >= 100;
+    const etapaVigente = this.EtapaActual.vigente === true;
+    const etapaFinalizada = this.EtapaActual.vistoBuenoEtapa === true &&
+      this.EtapaActual.vistoBuenoRitmo === true;
     const idEtapaActual = Number(this.EtapaActual.idEtapa);
 
-    if (etapaFinalizada) {
+    if (etapaFinalizada && etapaVigente) {
       this.EtapaActual.avanceReal = 100;
       this.EtapaActual.vigente = false;
     }
 
     // El proyecto termina al cerrar Cierre mantención (17)
-    if (idEtapaActual == ULTIMA_ETAPA && etapaFinalizada) {
+    if (idEtapaActual == ULTIMA_ETAPA && etapaFinalizada && etapaVigente) {
       this.SubProyecto.idEstadoProyecto = 5;
       this._sSubProyecto.postUpdDelSubProyecto(this.SubProyecto);
     }
 
     this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(this.EtapaActual).success(result => {
-      if (!this.EtapaActual.vigente) {
+      if (etapaFinalizada && etapaVigente) {
 
         const idSiguiente = this.retEtapa(idEtapaActual);
         const siguiente = idSiguiente <= ULTIMA_ETAPA

@@ -481,3 +481,37 @@ fieldset > div.form-group.row > [class*="col-"] > input.form-control,
   background-color: #e9f1f7;
   color: #6e9dbf;
 }
+
+/* ===== Porcentaje de avance real: el % es fijo, el valor sigue siendo solo el número ===== */
+.input-porcentaje {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.input-porcentaje .form-control {
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+  padding-right: 28px;
+  border: 1px solid #d3e1ec;
+  border-radius: 6px;
+  background-color: #fff;
+  box-shadow: none;
+  color: #2f363d;
+  font-size: 13px;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-porcentaje-simbolo {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  color: #6e9dbf;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}

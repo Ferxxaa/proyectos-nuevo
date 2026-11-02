@@ -164,5 +164,18 @@
       </tbody>
     </table>
     </div>
+
+    <!-- Solo sub-gerente: corrige la etapa vigente cuando se pasó de etapa por error -->
+    <div class="cambio-etapa" *ngIf="puedeCambiarEtapa">
+      <span class="cambio-etapa-texto">
+        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+        Estás viendo <strong>{{nombreEtapa(etapaSeleccionada)}}</strong>.
+        La etapa actual es <strong>{{nombreEtapa(idEtapaVigenteReal)}}</strong>.
+      </span>
+      <button type="button" class="cambio-etapa-boton" [disabled]="cambiandoEtapa" (click)="confirmarCambioEtapa()">
+        <i class="fa" [ngClass]="cambiandoEtapa ? 'fa-spinner fa-spin' : 'fa-exchange'" aria-hidden="true"></i>
+        Dejar como etapa actual
+      </button>
+    </div>
   </div>
 </div>

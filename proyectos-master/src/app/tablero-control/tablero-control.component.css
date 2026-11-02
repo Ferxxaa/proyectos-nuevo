@@ -18,7 +18,7 @@
 .nav-tabs .nav-link.active {
   border-color: transparent !important;
   font-weight: 700;
-  box-shadow: inset 0 -5px 0 #f59325;
+  box-shadow: inset 0 -5px 0 #B5C7BC;
 }
 
 #TabControlAvance {
@@ -184,7 +184,7 @@ h2{
   color: white !important;
 }
 
-/* Pestaña activa: gris verdoso oscuro con la línea naranja de .nav-tabs .nav-link.active */
+/* Pestaña activa: gris verdoso oscuro con la línea gris verdosa de .nav-tabs .nav-link.active */
 #TabSeguimiento.active,
 #TabGantt.active,
 #TabControlHallazgos.active,

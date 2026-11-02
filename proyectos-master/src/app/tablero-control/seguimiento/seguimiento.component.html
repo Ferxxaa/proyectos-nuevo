@@ -1,11 +1,11 @@
 <section class="widget">
   <header class="seguimiento-header">
     <h5 class="seguimiento-heading"
-      [title]="'Sub-Proyecto ' + SubProyecto.nombreSubProyecto + ' en Etapa de ' + Etapa.nombreEtapa">
+      [title]="'Sub-Proyecto ' + SubProyecto.nombreSubProyecto + ' en Etapa de ' + nombreEtapaDisplay">
       <strong>Sub-Proyecto</strong>
       <span class="seguimiento-heading-accent">{{SubProyecto.nombreSubProyecto}}</span>
       <strong> en Etapa de </strong>
-      <span class="seguimiento-heading-accent">{{Etapa.nombreEtapa}}</span>
+      <span class="seguimiento-heading-accent">{{nombreEtapaDisplay}}</span>
     </h5>
   </header>
   <div class="widget-body">
@@ -64,7 +64,10 @@
           <label class="col-md-2 form-control-label">Porcentaje de avance:</label>
           <span class="col-md-5 form-control-label">{{AvanceProgramado}}%</span>
           <div class="col-md-5">
-            <input name="tbxPorcenAct" type="text" [(ngModel)]="EtapaActual.avanceReal" class="form-control" style="z-index: 0;" [disabled]="soloLectura">
+            <div class="input-porcentaje" style="position: relative; display: block; flex: 1 1 auto; width: 100%; min-width: 0;">
+              <input name="tbxPorcenAct" type="text" [(ngModel)]="EtapaActual.avanceReal" class="form-control" style="z-index: 0; width: 100%; padding-right: 28px;" [disabled]="soloLectura">
+              <span class="input-porcentaje-simbolo" aria-hidden="true" style="position: absolute; top: 50%; right: 10px; z-index: 3; transform: translateY(-50%); color: #6e9dbf; font-size: 13px; font-weight: 600; pointer-events: none;">%</span>
+            </div>
           </div>
         </div>
         <div class="form-group row fila-vobo">

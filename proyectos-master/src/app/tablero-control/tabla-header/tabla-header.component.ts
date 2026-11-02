@@ -1,6 +1,11 @@
 import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
 import { mDetalleSubProyecto } from '../../models/mDetalleSubProyecto';
 import { mSubProyecto } from '../../models/mSubProyecto';
+import { sDetalleSubProyecto } from '../../services/sDetalleSubProyecto.service';
+import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
+import { sPerfil } from '../../services/sPerfil.service';
+
+declare var Swal: any;
 
 /*
  * ✅ MODELO DE ETAPAS = CATÁLOGO DE LA BD (tabla Etapa). NO CAMBIAR LOS idEtapa.
@@ -8,10 +13,27 @@ import { mSubProyecto } from '../../models/mSubProyecto';
  * 12 Construcción | 13 Habilitación | 14 NBI6 | 15-17 Cierres | 18 NBI7
  */
 
+const NOMBRES_ETAPA: { [idEtapa: number]: string } = {
+  1: 'Requerimiento',
+  3: 'Factibilidad',
+  5: 'Layout',
+  7: 'Proyecto',
+  9: 'Regularización',
+  10: 'Licitación Adjudicación',
+  12: 'Construcción',
+  13: 'Habilitación',
+  15: 'Cierre contratista',
+  16: 'Cierre cliente',
+  17: 'Cierre mantención'
+};
+
+const ESTADO_PROYECTO_FINALIZADO: number = 5;
+
 @Component({
   selector: 'app-tabla-header',
   templateUrl: './tabla-header.component.html',
-  styleUrls: ['./tabla-header.component.css']
+  styleUrls: ['./tabla-header.component.css'],
+  providers: [sDetalleSubProyecto, sUsuariosPerfiles, sPerfil]
 })
 export class TablaHeaderComponent implements OnInit {
 
@@ -19,9 +41,11 @@ export class TablaHeaderComponent implements OnInit {
   @Input() SubProyecto: mSubProyecto;
   @Input() result;
   @Input() usuario: any;
+  @Input() soloLectura: boolean = false;
 
   @Output() emitEtapa = new EventEmitter();
   @Output() firstEtapa = new EventEmitter();
+  @Output() etapaCambiada = new EventEmitter();
 
   Requerimiento: mDetalleSubProyecto;  // 1
   NBI1: mDetalleSubProyecto;           // 2
@@ -45,7 +69,19 @@ export class TablaHeaderComponent implements OnInit {
   //TablaFechas
   Terminos: Array<any>;
 
-  constructor() {
+  //Cambio de etapa (solo sub-gerente)
+  esSubGerente: boolean = false;
+  cambiandoEtapa: boolean = false;
+  etapaSeleccionada: number = null;
+  idEtapaVigenteReal: number = null; // viewEtapa solo mueve la marca en pantalla; esta es la de la BD
+  private idsPerfilesUsuario: number[] = [];
+  private idsPerfilesSubGerente: number[] = [];
+
+  constructor(
+    private _sDetalleSubProyecto: sDetalleSubProyecto,
+    private _sUsuariosPerfiles: sUsuariosPerfiles,
+    private _sPerfil: sPerfil
+  ) {
     this.Terminos = [null, null, null, null, null, null, null, null, null, null, null];
   }
 
@@ -53,6 +89,10 @@ export class TablaHeaderComponent implements OnInit {
     this.setValoresIniciales();
     this.AsignaValorEtapas();
     this.CalculaTerminos();
+
+    const vigente = (this.result || []).find(d => d.vigente == true);
+    this.idEtapaVigenteReal = vigente ? Number(vigente.idEtapa) : null;
+    this.cargarPerfilSubGerente();
   }
 
   private porEtapa(idEtapa: number): mDetalleSubProyecto {
@@ -138,16 +178,148 @@ export class TablaHeaderComponent implements OnInit {
   }
 
   viewEtapa(idEtapa) {
-    this.result = this.result.map(el => {
-      if (el.vigente == true)
-        return { ...el, vigente: false }
-      else if (el.idEtapa == idEtapa)
-        return { ...el, vigente: true }
-      else
-        return { ...el }
-    });
+    this.etapaSeleccionada = Number(idEtapa);
+    this.result = this.result.map(el => ({ ...el, vigente: el.idEtapa == idEtapa }));
     this.AsignaValorEtapas()
     this.emitEtapa.emit({ idEtapa })
+  }
+
+  //*************************************************** Cambio de etapa (solo sub-gerente) ***************************************************
+
+  get puedeCambiarEtapa(): boolean {
+    const finalizado = !!this.SubProyecto && Number(this.SubProyecto.idEstadoProyecto) === ESTADO_PROYECTO_FINALIZADO;
+    return this.esSubGerente && !this.soloLectura && !finalizado &&
+      this.etapaSeleccionada !== null && this.etapaSeleccionada !== this.idEtapaVigenteReal;
+  }
+
+  nombreEtapa(idEtapa: number): string {
+    return NOMBRES_ETAPA[idEtapa] || 'sin etapa vigente';
+  }
+
+  confirmarCambioEtapa() {
+    if (!this.puedeCambiarEtapa || this.cambiandoEtapa) {
+      return;
+    }
+
+    const idDestino = this.etapaSeleccionada;
+
+    Swal.fire({
+      title: '¿Dejar ' + this.nombreEtapa(idDestino) + ' como etapa actual?',
+      text: 'Se desmarcarán sus VºBº Etapa y NBI y se borrará su fecha de término real.',
+      type: 'warning',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, cambiar etapa',
+      cancelButtonText: 'Cancelar'
+    }).then(respuesta => {
+      if (respuesta.value) {
+        this.aplicarCambioEtapa(idDestino);
+      }
+    });
+  }
+
+  private aplicarCambioEtapa(idDestino: number) {
+    this.cambiandoEtapa = true;
+
+    // Se lee de nuevo la BD: this.result puede tener la marca movida por viewEtapa
+    this._sDetalleSubProyecto.getDetalleSubProyectobyidSubProyecto(this.SubProyecto.idSubProyecto).subscribe(result => {
+      const detalles: any[] = result || [];
+      const destino = detalles.find(d => Number(d.idEtapa) === idDestino);
+
+      if (!destino) {
+        this.cambiandoEtapa = false;
+        Swal.fire('Error', 'No se encontró la etapa seleccionada', 'error');
+        return;
+      }
+
+      const anteriores = detalles.filter(d => d.vigente == true && Number(d.idEtapa) !== idDestino);
+
+      destino.vigente = true;
+      destino.vistoBuenoEtapa = false; // Si quedan marcados, el próximo Guardar la vuelve a pasar de etapa
+      destino.vistoBuenoRitmo = false;
+      destino.fechaTerminoReal = null;
+      if (Number(destino.avanceReal) >= 100) {
+        destino.avanceReal = 99;
+      }
+
+      // Primero se activa la nueva: si algo falla, el proyecto nunca queda sin etapa vigente
+      let guardado: Promise<any> = this.guardarDetalle(destino);
+      anteriores.forEach(anterior => {
+        guardado = guardado.then(() => this.guardarDetalle({ ...anterior, vigente: false }));
+      });
+
+      guardado.then(() => {
+        this.cambiandoEtapa = false;
+        this.etapaCambiada.emit({ idEtapa: idDestino });
+        Swal.fire({ type: 'success', icon: 'success', title: 'Etapa actualizada', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end' });
+      }).catch(e => {
+        console.error('Error al cambiar de etapa:', e);
+        this.cambiandoEtapa = false;
+        this.etapaCambiada.emit({ idEtapa: idDestino }); // Recarga para mostrar lo que quedó guardado
+        Swal.fire('Error', 'No se pudo completar el cambio de etapa', 'error');
+      });
+    }, e => {
+      console.error('Error al leer las etapas:', e);
+      this.cambiandoEtapa = false;
+      Swal.fire('Error', 'No se pudieron leer las etapas del proyecto', 'error');
+    });
+  }
+
+  private guardarDetalle(detalle: any): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const req: any = this._sDetalleSubProyecto.postUpdDelDetalleSubProyecto(detalle);
+      if (!req || !req.success) {
+        reject('No se pudo enviar la actualización');
+        return;
+      }
+      req.success(resolve);
+      if (req.error) req.error(reject);
+      else if (req.fail) req.fail(reject);
+    });
+  }
+
+  // Misma regla que Control de Hallazgos: perfil activo cuyo nombre sea SUB-GERENTE
+  private cargarPerfilSubGerente() {
+    if (!this.usuario) {
+      return;
+    }
+
+    this._sUsuariosPerfiles.getUsuariosPerfilesbyidUsuario(Number(this.usuario.idUsuario)).subscribe(
+      (perfiles: any) => {
+        this.idsPerfilesUsuario = (Array.isArray(perfiles) ? perfiles : [])
+          .filter((perfil: any) => perfil.activo !== false && !perfil.fechaRemocion)
+          .map((perfil: any) => Number(perfil.idPerfil));
+        this.actualizarEsSubGerente();
+      },
+      () => {
+        this.idsPerfilesUsuario = [];
+        this.actualizarEsSubGerente();
+      }
+    );
+
+    this._sPerfil.getPerfil().subscribe(
+      (perfiles: any) => {
+        this.idsPerfilesSubGerente = (Array.isArray(perfiles) ? perfiles : [])
+          .filter((perfil: any) => this.esNombreSubGerente(perfil.nombrePerfil))
+          .map((perfil: any) => Number(perfil.idPerfil));
+        this.actualizarEsSubGerente();
+      },
+      () => {
+        this.idsPerfilesSubGerente = [];
+        this.actualizarEsSubGerente();
+      }
+    );
+  }
+
+  private esNombreSubGerente(nombre: string): boolean {
+    const limpio = (nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+    return limpio.indexOf('SUBGERENTE') === 0;
+  }
+
+  private actualizarEsSubGerente() {
+    this.esSubGerente = this.idsPerfilesUsuario.some(id => this.idsPerfilesSubGerente.indexOf(id) >= 0);
   }
 
 }

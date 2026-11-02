@@ -15,8 +15,9 @@
 
     <!-- ****************************************** Tabla configuracion de fecha ******************************************-->
     <app-tabla-header *ngIf="detalleSeguimiento && SubProyecto && usuario" [usuario]="usuario"
-      [result]="detalleSeguimiento" [SubProyecto]="SubProyecto" (emitEtapa)="loadEtapa($event)"
-      (firstEtapa)="setInicioReal($event)"></app-tabla-header>
+      [result]="detalleSeguimiento" [SubProyecto]="SubProyecto" [soloLectura]="esCliente"
+      (emitEtapa)="loadEtapa($event)" (firstEtapa)="setInicioReal($event)"
+      (etapaCambiada)="ActualizaEtapaVigente()"></app-tabla-header>
 
     <app-desplegable-tablero-control [Seguimiento]="SubProyecto"
       *ngIf="cargaDesplegable"></app-desplegable-tablero-control>

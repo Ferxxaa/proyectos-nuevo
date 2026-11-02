@@ -267,6 +267,19 @@ export class TableroControlComponent implements OnInit {
     this.ngOnInit();
   }
 
+  // El sub-gerente cambió la etapa vigente: se recrea Seguimiento para que no quede con la etapa vieja en memoria
+  ActualizaEtapaVigente() {
+    const enSeguimiento = this.rowSeguimiento;
+    this.idEtapa = null;
+    this.rowSeguimiento = false;
+    setTimeout(() => {
+      this.ActualizaSP();
+      if (enSeguimiento) {
+        this.rowSeguimiento = true;
+      }
+    });
+  }
+
   ActualizaDoc() {
     this.verDoc = false;
     setTimeout(() => {
@@ -436,7 +449,9 @@ export class TableroControlComponent implements OnInit {
   }
 
   setInicioReal(e: mDetalleSubProyecto) {
-    this.desplegable.agregaDuracionProyecto(e)
+    if (this.desplegable) {
+      this.desplegable.agregaDuracionProyecto(e);
+    }
   }
 
   cargaPerfiles(): Observable<any> {

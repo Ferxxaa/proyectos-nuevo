@@ -151,3 +151,46 @@ tbody tr{
     border-bottom: 0;
     box-shadow: inset 2px 0 0 white, inset -2px 0 0 white, inset 0 -2px 0 white;
 }
+
+/* ---------------- Cambio de etapa (sub-gerente) ---------------- */
+
+.cambio-etapa {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    border: 1px solid #f3d19c;
+    border-left: 4px solid #f59325;
+    border-radius: 6px;
+    background: #fff8ec;
+    color: #6b4a1f;
+    font-size: 13px;
+}
+
+.cambio-etapa-texto .fa {
+    margin-right: 4px;
+    color: #f59325;
+}
+
+.cambio-etapa-boton {
+    flex: 0 0 auto;
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 6px;
+    background: #f59325;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cambio-etapa-boton:hover:not(:disabled) {
+    background: #de8016;
+}
+
+.cambio-etapa-boton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
