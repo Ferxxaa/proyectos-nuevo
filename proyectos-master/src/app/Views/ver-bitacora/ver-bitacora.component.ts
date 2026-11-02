@@ -26,6 +26,13 @@ declare var Swal: any;
 
 let contadorInstancias = 0;
 
+// Proyectos / SSOMA / Calidad
+const TIPOS_BITACORA: number[] = [1, 2, 3];
+
+// Vive fuera del componente para sobrevivir cuando la pestaña lo destruye y lo vuelve a crear.
+// El backend entrega todas las bitácoras del subproyecto, así que la primera carga deja listas las 3 pestañas.
+const cacheBitacoras: { [idSubProyecto: string]: { todas: any[], ordenes: { [tipo: string]: any[] } } } = {};
+
 @Component({
   selector: 'app-ver-bitacora',
   templateUrl: './ver-bitacora.component.html',
@@ -83,6 +90,10 @@ export class VerBitacoraComponent implements OnInit, OnDestroy {
   dragOverIndex: number = null;
   hayOrden: boolean = false;
 
+  //Refresco silencioso
+  private idCarga: number = 0;
+  private firmaLista: string = null;
+
   constructor(
     private _PopUps: PopUps,
     private _Comunes: Comunes,
@@ -136,25 +147,78 @@ export class VerBitacoraComponent implements OnInit, OnDestroy {
 
   //*************************************************** Carga ***************************************************
 
-  private traeBitacora() {
-    this.Loader = true;
+  private claveCache(): string {
+    return String(this.SubProyecto.idSubProyecto);
+  }
 
-    // El orden se pide en paralelo con las bitácoras
-    const ordenPromise = this._sOrdenBitacora.getOrden(this.SubProyecto.idSubProyecto, this.TipoBitacora);
+  // Si ya hay datos se pintan al tiro y se refresca por debajo, sin loader
+  private traeBitacora() {
+    const clave = this.claveCache();
+    const idCarga = ++this.idCarga;
+    const cache = cacheBitacoras[clave];
+    const enCache = !!cache && cache.ordenes[this.TipoBitacora] !== undefined;
+
+    if (!this.Bitacoras) {
+      if (enCache) {
+        this.pintarDesdeCache();
+      } else {
+        this.Loader = true;
+      }
+    }
+
+    // Sin caché se piden los órdenes de las 3 pestañas para que las otras abran instantáneas
+    const tipos: number[] = enCache ? [this.TipoBitacora] : TIPOS_BITACORA;
+    const ordenesPromise = Promise.all(tipos.map(tipo =>
+      Promise.resolve<any>(this._sOrdenBitacora.getOrden(this.SubProyecto.idSubProyecto, tipo)).catch(() => null)
+    ));
 
     this._sVis_VerBitacora.getVis_VerBitacorabyidSubProyecto(this.SubProyecto.idSubProyecto).subscribe(result => {
-      const filtradas = result.filter(element => { return element.TipoBitacora == this.TipoBitacora; });
+      ordenesPromise.then((ordenes: any[]) => {
+        // Se reordenó mientras venía la respuesta: esta carga ya quedó vieja
+        if (idCarga !== this.idCarga) {
+          return;
+        }
 
-      ordenPromise.then(orden => {
-        this.Bitacoras = this.aplicarOrden(filtradas, orden);
-        this.hayOrden = orden.length > 0;
-        this.Loader = false;
-      }).catch(() => {
-        this.Bitacoras = filtradas;
-        this.hayOrden = false;
-        this.Loader = false;
+        const ordenesPrevias = cacheBitacoras[clave] ? cacheBitacoras[clave].ordenes : {};
+        const ordenesNuevas = { ...ordenesPrevias };
+        tipos.forEach((tipo, idx) => {
+          ordenesNuevas[tipo] = ordenes[idx] || ordenesPrevias[tipo] || [];
+        });
+
+        cacheBitacoras[clave] = { todas: result || [], ordenes: ordenesNuevas };
+        this.pintarDesdeCache();
       });
+    }, e => {
+      console.error('Error al cargar bitácoras:', e);
+      this.Loader = false;
     });
+  }
+
+  private pintarDesdeCache() {
+    // No mover la lista mientras alguien está arrastrando
+    if (this.dragIndex !== null) {
+      return;
+    }
+
+    const cache = cacheBitacoras[this.claveCache()];
+    const orden = cache.ordenes[this.TipoBitacora] || [];
+    const filtradas = cache.todas.filter(element => { return element.TipoBitacora == this.TipoBitacora; });
+    const lista = this.aplicarOrden(filtradas, orden);
+
+    // Si nada cambió no se toca la lista
+    const firma = JSON.stringify(lista);
+    if (firma !== this.firmaLista) {
+      this.firmaLista = firma;
+      this.Bitacoras = lista;
+    }
+
+    this.hayOrden = orden.length > 0;
+    this.Loader = false;
+  }
+
+  // Reutiliza las tarjetas ya dibujadas cuando llega la lista refrescada
+  trackBitacora(index: number, bitacora: any) {
+    return bitacora.idBitacora;
   }
 
   retUrl(tipo): string {
@@ -268,6 +332,14 @@ export class VerBitacoraComponent implements OnInit, OnDestroy {
   private guardarOrden() {
     this.hayOrden = true;
     const ids = this.Bitacoras.map((b: any) => b.idBitacora);
+
+    // Invalida cualquier refresco en curso para que no pise el orden recién hecho
+    this.idCarga++;
+    const cache = cacheBitacoras[this.claveCache()];
+    if (cache) {
+      cache.ordenes[this.TipoBitacora] = ids;
+    }
+
     this._sOrdenBitacora.guardarOrden(this.SubProyecto.idSubProyecto, this.TipoBitacora, ids, this.usuario.idUsuario)
       .catch(e => {
         console.error('Error al guardar orden en Firebase:', e);
@@ -289,6 +361,10 @@ export class VerBitacoraComponent implements OnInit, OnDestroy {
       .catch(e => console.error('Error al borrar orden en Firebase:', e))
       .then(() => {
         this.hayOrden = false;
+        const cache = cacheBitacoras[this.claveCache()];
+        if (cache) {
+          cache.ordenes[this.TipoBitacora] = [];
+        }
         this.traeBitacora();
       });
   }

@@ -5,7 +5,7 @@
     </a>
   </div>
   <div class="list-group list-group-lg" *ngIf="!Loader">
-    <ng-container *ngFor="let Bitacora of Bitacoras; let i = index">
+    <ng-container *ngFor="let Bitacora of Bitacoras; let i = index; trackBy: trackBitacora">
       <article class="linea"
         [attr.draggable]="!soloLectura"
         [attr.title]="!soloLectura ? 'Arrastra para cambiar el orden' : null"

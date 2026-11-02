@@ -18,7 +18,7 @@
 .nav-tabs .nav-link.active {
   border-color: transparent !important;
   font-weight: 700;
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 -5px 0 #f59325;
 }
 
 #TabControlAvance {
@@ -164,92 +164,38 @@ h2{
 
 /* *********************************** Colores de Pestañas Personalizadas *********************************** */
 
-/* Seguimiento Proyecto - Grafito con letras blancas */
+/* Todas gris verdoso con letras blancas */
 #TabSeguimiento,
 #TabGantt,
-#TabBitDoc,
+#TabControlHallazgos,
 #TabTareas,
-#TabControlHallazgos {
-  background-color: #808080 !important;
+#TabControlAvance {
+  background-color: #7C8C82 !important;
   color: white !important;
-}
-
-#TabSeguimiento.active,
-#TabGantt.active,
-#TabBitDoc.active,
-#TabTareas.active,
-#TabControlHallazgos.active {
-  color: white !important;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 #TabSeguimiento:hover,
 #TabGantt:hover,
-#TabBitDoc:hover,
+#TabControlHallazgos:hover,
 #TabTareas:hover,
-#TabControlHallazgos:hover {
-  background-color: #9A9A9A !important; /* Grafito intermedio al hover */
-  color: white !important;
-}
-
-/* Bitacora SSO-MA y Bitacora Calidad - color #fc0 con letras blancas */
-#TabSSOMA,
-#TabPac {
-  background-color: #fc0 !important;
-  color: rgb(0, 0, 0) !important;
-}
-
-#TabSSOMA.active,
-#TabPac.active {
-  color: rgb(0, 0, 0) !important;
-}
-
-#TabSSOMA:hover,
-#TabPac:hover {
-  background-color: #ffd633 !important;
-  color: rgb(0, 0, 0) !important;
-}
-
-/* Control de Avance - color #069 */
-#TabControlAvance {
-  background-color: #069 !important;
-  color: white !important;
-}
-
-#TabControlAvance.active {
-  color: white !important;
-}
-
 #TabControlAvance:hover {
-  background-color: rgb(47, 122, 160) !important;
+  background-color: #95A49B !important; /* Gris verdoso intermedio al hover */
   color: white !important;
 }
 
-/* Tareas y Control de Hallazgos */
-#TabTareas {
-  background-color: #E2CEF6 !important;
-  color: #2f2140 !important;
-}
-
-#TabTareas.active {
-  color: #2f2140 !important;
-}
-
-#TabTareas:hover {
-  background-color: #d2b8ee !important;
-  color: #2f2140 !important;
-}
-
-#TabControlHallazgos {
-  background-color: #069 !important;
-  color: white !important;
-}
-
-#TabControlHallazgos.active {
-  color: white !important;
-}
-
-#TabControlHallazgos:hover {
-  background-color: rgb(47, 122, 160) !important;
+/* Pestaña activa: gris verdoso oscuro con la línea naranja de .nav-tabs .nav-link.active */
+#TabSeguimiento.active,
+#TabGantt.active,
+#TabControlHallazgos.active,
+#TabTareas.active,
+#TabControlAvance.active,
+#TabSeguimiento.active:hover,
+#TabGantt.active:hover,
+#TabControlHallazgos.active:hover,
+#TabTareas.active:hover,
+#TabControlAvance.active:hover {
+  background-color: #36443C !important;
   color: white !important;
 }
 

@@ -193,6 +193,7 @@
             <th class="col-obra">OBRA</th>
             <th class="col-detecta">QUIÉN DETECTA</th>
             <th class="col-origen">ORIGEN</th>
+            <th class="col-descripcion">DESCRIPCIÓN</th>
             <th class="col-bitacora">BITÁCORA</th>
             <th class="col-adjuntos">ADJUNTOS</th>
             <th class="col-acciones">ACCIONES</th>
@@ -200,7 +201,7 @@
         </thead>
         <tbody>
           <tr *ngIf="hallazgosFiltrados.length === 0">
-            <td colspan="12" class="tabla-vacia">
+            <td colspan="13" class="tabla-vacia">
               <div class="mensaje-vacio">
                 <strong *ngIf="hallazgos.length === 0">No hay hallazgos registrados</strong>
                 <strong *ngIf="hallazgos.length > 0">No hay hallazgos para el filtro seleccionado</strong>
@@ -302,6 +303,9 @@
                   <option value="">-</option>
                   <option *ngFor="let origen of origenesHallazgo" [value]="origen">{{origen}}</option>
                 </select>
+              </td>
+              <td class="descripcion-celda">
+                <div class="descripcion-texto" [title]="item.descripcion || ''">{{item.descripcion || '-'}}</div>
               </td>
               <td class="bitacora-toggle-celda">
                 <button class="btn-accion btn-bitacora btn-bitacora-icon"
