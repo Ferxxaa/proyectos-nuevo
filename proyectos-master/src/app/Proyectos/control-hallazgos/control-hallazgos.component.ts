@@ -1092,13 +1092,13 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
   recalcularReporte() {
     // El resumen mide el año y tipo elegidos; Estado y Buscar solo acotan la tabla
-    const delPeriodo = this.reporteRegistros.filter(item => {
-      if (this.reporteAnio !== 'todos' && this.getAnioReporte(item) !== this.reporteAnio) { return false; }
+    const delTipo = this.reporteRegistros.filter(item => {
       if (this.reporteTipo === 'mejora') { return this.esTipoMejora(item.tipoAccion); }
       if (this.reporteTipo === 'leccion') { return this.esTipoLeccion(item.tipoAccion); }
       return true;
     });
 
+    const delPeriodo = delTipo.filter(item => this.reporteAnio === 'todos' || this.getAnioReporte(item) === this.reporteAnio);
     const busqueda = this.normalizarTexto(this.reporteBusqueda);
 
     this.reporteFilas = delPeriodo.filter(item => {
@@ -1111,7 +1111,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     this.reporteKpi = this.calcularKpiReporte(delPeriodo);
     this.reporteEficacia = this.calcularEficaciaReporte(delPeriodo);
     this.reporteGruposAnio = this.agruparFilasPorAnio(this.reporteFilas);
-    this.reporteGraficoAnios = this.calcularGraficoAnios(delPeriodo);
+    this.reporteGraficoAnios = this.calcularGraficoAnios(delTipo); // Siempre todos los años, para poder cambiar de uno a otro
 
     // Los históricos no traen área ni obra: sumarlos taparía el resumen real
     const conGrupo = delPeriodo.filter(item => !item.historico || !!item.areaResponsable || !!item.obra);
@@ -1152,7 +1152,12 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
   seleccionarAnioReporte(anio: string) {
     if (anio === 'Sin fecha') { return; }
-    this.reporteAnio = anio;
+    this.reporteAnio = this.reporteAnio === anio ? 'todos' : anio; // Clic en el año elegido vuelve a todos
+    this.recalcularReporte();
+  }
+
+  verTodosLosAniosReporte() {
+    this.reporteAnio = 'todos';
     this.recalcularReporte();
   }
 

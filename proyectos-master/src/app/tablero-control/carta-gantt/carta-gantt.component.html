@@ -1,16 +1,16 @@
-<section class="widget">
-  <header style="background-color: #555555">
-    <h5 style="color: white;">
-      <strong><i class="fa fa-bar-chart"></i> Carta Gantt
-        <span *ngIf="nombreProyectoVisible" style="color: #F59325">{{nombreProyectoVisible}}</span>
-      </strong>
-    </h5>
+<section class="cg">
+  <header class="cg-encabezado">
+    <span class="cg-icono"><i class="fa fa-bar-chart" aria-hidden="true"></i></span>
+    <div class="cg-titulo">
+      <h5>Carta Gantt</h5>
+      <p *ngIf="nombreProyectoVisible">{{nombreProyectoVisible}}</p>
+    </div>
   </header>
-  <div class="widget-body" style="overflow-x: auto; padding: 10px;">
-    
-    <div *ngIf="!detalleSeguimiento || detalleSeguimiento.length === 0" class="alert alert-info text-center">
-      <i class="fa fa-info-circle fa-2x mb-2"></i>
-      <h5>No hay datos disponibles para mostrar el diagrama de Gantt</h5>
+  <div class="cg-cuerpo">
+
+    <div *ngIf="!detalleSeguimiento || detalleSeguimiento.length === 0" class="cg-vacio">
+      <i class="fa fa-info-circle" aria-hidden="true"></i>
+      <strong>No hay datos disponibles para mostrar el diagrama de Gantt</strong>
     </div>
 
     <div *ngIf="etapas.length > 0" class="gantt-container-modern">
@@ -97,7 +97,7 @@
         <div class="gantt-scroll-container">
           <!-- Encabezado con Meses -->
           <div class="gantt-header-modern">
-            <div class="gantt-label-column">ETAPA</div>
+            <div class="gantt-label-column">Etapa</div>
             <div class="gantt-timeline-header" [style.width.px]="totalDias * escala">
               <div class="gantt-month-modern" 
                    *ngFor="let mes of obtenerMeses()" 
@@ -207,8 +207,8 @@
 
       <!-- Tabla de Resumen -->
       <div class="resumen-tabla mt-4">
-        <h5><i class="fa fa-table"></i> <strong>Resumen de Etapas</strong></h5>
-        <table class="table table-hover table-bordered">
+        <h6>Resumen de Etapas</h6>
+        <table class="tabla-resumen-etapas">
           <thead>
             <tr>
               <th width="12%">Etapa</th>
@@ -253,7 +253,7 @@
                        [style.width.%]="etapa.avanceReal"
                        [style.background]="obtenerColorBarraReal(etapa)"
                        role="progressbar">
-                    <strong style="color: #fff; font-size: 9px;">{{ etapa.avanceReal }}%</strong>
+                    <strong>{{ etapa.avanceReal }}%</strong>
                   </div>
                 </div>
               </td>

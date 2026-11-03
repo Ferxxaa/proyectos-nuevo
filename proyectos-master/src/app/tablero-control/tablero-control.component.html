@@ -72,6 +72,7 @@
             <section class="widget bitacora-selector" [class.archivos-abiertos]="mostrarArchivosEstandares">
               <header>
                 <h5 class="bitacora-selector-title">
+                  <span class="bitacora-selector-icono"><i class="fa fa-book" aria-hidden="true"></i></span>
                   <strong><span class="title-initial">B</span>itácora <span class="title-initial">N</span>otas
                     <span class="title-initial">I</span>mportantes</strong>
                 </h5>
@@ -182,58 +183,51 @@
             <app-tareas (crearTarea)="recargarTareas()"></app-tareas>
           </div>
           <div class="col-lg-7">
-            <section class="widget">
-              <header style="background-color: #555555; display: flex; justify-content: space-between; align-items: center; padding: 10px;margin-left: 2px;
-    margin-right: 2px;">
-                <h5 style="color: white; margin: 0;">
-                  <strong>Tareas del Sub-Proyecto</strong>
-                </h5>
-                <a class="btn btn-inverse btn-sm" [routerLink]="['/Ver-Tareas']">Volver a mis tareas</a>
+            <section class="tareas-proyecto">
+              <header class="tareas-proyecto-encabezado">
+                <div class="tareas-proyecto-titulo">
+                  <span class="tareas-proyecto-icono"><i class="fa fa-list-ul" aria-hidden="true"></i></span>
+                  <div>
+                    <h5>Tareas del Sub-Proyecto</h5>
+                    <p>{{SubProyecto.nombreSubProyecto}}</p>
+                  </div>
+                </div>
+                <a class="tareas-proyecto-volver" [routerLink]="['/Ver-Tareas']">Volver a mis tareas</a>
               </header>
-              <div class="widget-body">
-                <table class="table table-bordered table-striped table-hover no-footer tabla-tareas-proyecto" style="table-layout: fixed; width: 100%;">
+              <div class="tareas-proyecto-marco">
+                <table class="tabla-tareas-proyecto">
                   <thead>
                     <tr>
-                      <td style="width: 5%;">Tarea</td>
-                      <td style="width: 10%;">Tipo</td>
-                      <td style="width: 22%;">Descripción</td>
-                      <td style="width: 10%;">Estado</td>
-                      <td style="width: 12%;">Para Quién</td>
-                      <td class="align-center" style="width: 8%;">Prioridad</td>
-                      <td style="width: 10%;">Fecha Compromiso</td>
-                      <td style="width: 10%;">Creador</td>
-                      <td style="width: 10%;">Fecha Creación</td>
+                      <th style="width: 6%;">Tarea</th>
+                      <th style="width: 11%;">Tipo</th>
+                      <th style="width: 22%;">Descripción</th>
+                      <th style="width: 10%;">Estado</th>
+                      <th style="width: 11%;">Para Quién</th>
+                      <th style="width: 9%;">Prioridad</th>
+                      <th style="width: 11%;">Fecha Compromiso</th>
+                      <th style="width: 10%;">Creador</th>
+                      <th style="width: 10%;">Fecha Creación</th>
                     </tr>
-                  </thead>  <!-- ✅ CORREGIDO: se agregó cierre de thead -->
+                  </thead>
                   <tbody>
-                    <tr *ngIf="sinTareasProyecto">
-                      <td colspan="9" class="text-center">
-                        <div class="alert alert-info" style="margin: 20px;">
-                          <i class="fa fa-tasks fa-2x mb-2"></i>
-                          <br>
+                    <tr class="tareas-fila-vacia" *ngIf="sinTareasProyecto">
+                      <td colspan="9">
+                        <div class="tareas-vacio">
+                          <i class="fa fa-tasks" aria-hidden="true"></i>
                           <strong>No hay tareas específicas de este proyecto</strong>
-                          <br><br>
-                          <p class="mb-2">
-                            <i class="fa fa-lightbulb-o text-warning"></i>
-                            <strong>Para crear tareas de este proyecto:</strong>
-                          </p>
-                          <ol class="text-left" style="display: inline-block;">
-                            <li>Usa el formulario <strong>"Crear Tarea"</strong> arriba ⬆️</li>
-                            <li>Las tareas creadas aquí quedarán asociadas solo a este proyecto</li>
-                            <li>No aparecerán en otros proyectos</li>
+                          <ol>
+                            <li>Usa el formulario <b>Asignar Tareas</b> de la izquierda.</li>
+                            <li>Las tareas creadas aquí quedarán asociadas solo a este proyecto.</li>
+                            <li>No aparecerán en otros proyectos.</li>
                           </ol>
-                          <br>
-                          <small class="text-muted">
-                            <i class="fa fa-info-circle"></i>
-                            Las tareas generales (sin proyecto específico) se pueden ver en <strong>"Mis Tareas"</strong>
-                          </small>
+                          <small>Las tareas generales, sin proyecto específico, se pueden ver en <b>Mis Tareas</b>.</small>
                         </div>
                       </td>
                     </tr>
                     <tr *ngFor="let Tarea of Tareas; let i = index"
                         [class]="obtenerClasesFila(Tarea)"
                         [id]="'tarea-' + Tarea.idTarea">
-                      <td>{{Tarea.idTarea}}</td>
+                      <td class="tareas-numero">{{Tarea.idTarea}}</td>
                       <td class="col-tipo-tarea">
                         <span class="badge badge-primary" *ngIf="Tarea.idUsuarioResponsable == usuario.idUsuario && Tarea.idUsuarioCreador != usuario.idUsuario">
                           <i class="fa fa-user"></i> Asignada
@@ -252,25 +246,21 @@
                         <div [innerHTML]="Tarea.descripcionTarea"></div>
                       </td>
                       <td>{{Tarea.nombreEstadoTarea}}</td>
+                      <td>{{Tarea.UsuarioResponsable}}</td>
                       <td>
-                        <span style="font-family: inherit; font-size: inherit;">{{Tarea.UsuarioResponsable}}</span>
+                        <span class="tareas-prioridad" [class.prioridad-alta]="Tarea.prioridad == 'Alta'"
+                              [class.prioridad-media]="Tarea.prioridad == 'Media'" [class.prioridad-baja]="Tarea.prioridad == 'Baja'">
+                          <i class="fa fa-circle" aria-hidden="true"></i>{{Tarea.prioridad}}
+                        </span>
                       </td>
-                      <td class="align-center">
-                        <i class="fa fa-circle icono" style="color:red" *ngIf="Tarea.prioridad == 'Alta'"></i>
-                        <i class="fa fa-circle icono" style="color:yellow" *ngIf="Tarea.prioridad == 'Media'"></i>
-                        <i class="fa fa-circle icono" style="color:green" *ngIf="Tarea.prioridad == 'Baja'"></i>
-                      </td>
-                      <td>{{Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy'}}</td>
-                      <td>
-                        <i class="fa fa-user-plus"></i>
-                        <span style="font-family: inherit; font-size: inherit;">{{Tarea.UsuarioCreador}}</span>
-                      </td>
-                      <td class="center">{{Tarea.fechaCreacion | date:'dd/MM/yyyy'}}</td>
+                      <td class="tareas-nowrap">{{Tarea.fechaTerminoProgramado | date:'dd/MM/yyyy'}}</td>
+                      <td>{{Tarea.UsuarioCreador}}</td>
+                      <td class="tareas-nowrap">{{Tarea.fechaCreacion | date:'dd/MM/yyyy'}}</td>
                     </tr>
                   </tbody>
                 </table>
-              </div>        <!-- ✅ cierra widget-body -->
-            </section>      <!-- ✅ cierra section.widget -->
+              </div>
+            </section>
           </div>            <!-- ✅ cierra col-lg-7 -->
         </div>              <!-- ✅ cierra row rowTareas -->
 

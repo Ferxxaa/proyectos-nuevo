@@ -10,11 +10,11 @@
   </div>
 
   <!-- Encabezado -->
-  <header class="hallazgos-header" style="background-color: #555555">
-    <h5 style="color: white; margin: 0;">
-      <i class="fa fa-info-circle"></i>
+  <header class="hallazgos-header">
+    <h5 class="hallazgos-titulo">
+      <span class="hallazgos-titulo-icono"><i class="fa fa-info-circle" aria-hidden="true"></i></span>
       <strong>Control de Hallazgos
-        <span *ngIf="nombreProyectoVisible" style="color: #F59325">{{nombreProyectoVisible}}</span>
+        <span *ngIf="nombreProyectoVisible" class="hallazgos-titulo-proyecto">{{nombreProyectoVisible}}</span>
       </strong>
     </h5>
 
@@ -194,18 +194,18 @@
         <thead>
           <tr>
             <th class="col-numero">N°</th>
-            <th class="col-fecha">FECHA</th>
-            <th class="col-tipo">TIPO DE ACCIÓN</th>
-            <th class="col-prioridad">PRIORIDAD</th>
-            <th class="col-estado">ESTADO</th>
-            <th class="col-area">ÁREA RESPONSABLE</th>
-            <th class="col-obra">OBRA</th>
-            <th class="col-detecta">QUIÉN DETECTA</th>
-            <th class="col-origen">ORIGEN</th>
-            <th class="col-descripcion">DESCRIPCIÓN</th>
-            <th class="col-bitacora">BITÁCORA</th>
-            <th class="col-adjuntos">ADJUNTOS</th>
-            <th class="col-acciones">ACCIONES</th>
+            <th class="col-fecha">Fecha</th>
+            <th class="col-tipo">Tipo de acción</th>
+            <th class="col-prioridad">Prioridad</th>
+            <th class="col-estado">Estado</th>
+            <th class="col-area">Área responsable</th>
+            <th class="col-obra">Obra</th>
+            <th class="col-detecta">Quién detecta</th>
+            <th class="col-origen">Origen</th>
+            <th class="col-descripcion">Descripción</th>
+            <th class="col-bitacora">Bitácora</th>
+            <th class="col-adjuntos">Adjuntos</th>
+            <th class="col-acciones">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -475,7 +475,12 @@
             </section>
 
             <section class="reporte-om-panel" *ngIf="reporteKpi.total">
-              <h6>Evaluación de eficacia {{reporteAnio === 'todos' ? '(todos los años)' : reporteAnio}}</h6>
+              <h6 class="reporte-om-panel-titulo">
+                <span>Evaluación de eficacia {{reporteAnio === 'todos' ? '(todos los años)' : reporteAnio}}</span>
+                <button type="button" class="reporte-om-ver-todos" *ngIf="reporteAnio !== 'todos'" (click)="verTodosLosAniosReporte()">
+                  <i class="fa fa-arrow-left" aria-hidden="true"></i> Ver todos los años
+                </button>
+              </h6>
               <div class="reporte-om-panel-cuerpo">
                 <div class="reporte-om-barra" role="img"
                      [attr.aria-label]="reporteKpi.evaluadas + ' evaluadas de ' + reporteKpi.total + ' registros'">
@@ -489,10 +494,11 @@
                 </ul>
 
                 <!-- Evolución anual: cada columna filtra su año -->
-                <div class="reporte-om-anios" *ngIf="reporteAnio === 'todos' && reporteGraficoAnios.length > 1">
+                <div class="reporte-om-anios" [class.con-seleccion]="reporteAnio !== 'todos'" *ngIf="reporteGraficoAnios.length > 1">
                   <button type="button" class="reporte-om-anio-col" *ngFor="let columna of reporteGraficoAnios; trackBy: trackAnioReporte"
+                          [class.activa]="reporteAnio === columna.anio" [attr.aria-pressed]="reporteAnio === columna.anio"
                           (click)="seleccionarAnioReporte(columna.anio)"
-                          [title]="'Ver ' + columna.anio + ': ' + columna.total + ' registros'">
+                          [title]="(reporteAnio === columna.anio ? 'Volver a todos los años' : 'Ver ' + columna.anio + ': ' + columna.total + ' registros')">
                     <span class="reporte-om-anio-area">
                       <b>{{columna.total}}</b>
                       <span class="reporte-om-anio-pila" [style.height.%]="columna.alto">

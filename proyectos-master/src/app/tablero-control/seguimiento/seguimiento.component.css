@@ -515,3 +515,112 @@ fieldset > div.form-group.row > [class*="col-"] > input.form-control,
   font-weight: 600;
   pointer-events: none;
 }
+
+/* ===================================================================
+   LÍNEA DE DISEÑO DEL TABLERO
+   =================================================================== */
+.widget {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.widget header {
+  flex: 0 0 auto;
+  gap: 12px;
+  height: auto;
+  min-height: 40px;
+  margin: 0 0 12px;
+  padding: 0;
+  border-left: 0;
+  background: transparent;
+}
+
+.seguimiento-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #075f91;
+  color: #fff;
+  font-size: 18px;
+}
+
+.seguimiento-titulo {
+  min-width: 0;
+}
+
+.widget .seguimiento-heading {
+  color: #24404f;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.seguimiento-titulo p {
+  margin: 1px 0 0;
+  overflow: hidden;
+  color: #626b75;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.widget-body {
+  border: 1px solid #cfd6dc;
+  border-radius: 8px;
+}
+
+fieldset > div.form-group.row:first-of-type > label {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+fieldset > div.form-group.row:not(:first-of-type):hover {
+  background-color: #f4f8fb;
+}
+
+fieldset input.form-control:focus {
+  border-color: #075f91;
+  box-shadow: 0 0 0 2px rgba(7, 95, 145, 0.25);
+}
+
+.input-group.date:hover .input-group-addon {
+  color: #075f91;
+}
+
+.vobo-check input[type="checkbox"]:focus + .vobo-circulo {
+  box-shadow: 0 0 0 2px rgba(7, 95, 145, 0.25);
+}
+
+.form-actions {
+  border-radius: 0 0 7px 7px;
+}
+
+.form-actions .btn-primary {
+  border-color: #075f91;
+  background-color: #075f91;
+}
+
+.form-actions .btn-primary:hover:not(:disabled) {
+  border-color: #064f78;
+  background-color: #064f78;
+  box-shadow: none;
+}
+
+@media (max-width: 767px) {
+  .widget header {
+    padding: 0;
+  }
+
+  .widget .seguimiento-heading {
+    font-size: 15px;
+  }
+}

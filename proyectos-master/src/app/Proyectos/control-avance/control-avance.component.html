@@ -1,9 +1,10 @@
 <div class="control-avance-container">
   <!-- Encabezado simple estilo Carta Gantt -->
-  <header class="control-avance-header" style="background-color: #555555">
-    <h5 *ngIf="!ocultarTitulo" style="color: white; margin: 0;">
+  <header class="control-avance-header">
+    <h5 *ngIf="!ocultarTitulo" class="avance-titulo">
+      <span class="avance-titulo-icono"><i class="fa fa-tasks" aria-hidden="true"></i></span>
       <strong>Control de Avance
-        <span *ngIf="nombreProyectoVisible" style="color: #F59325">{{nombreProyectoVisible}}</span>
+        <span *ngIf="nombreProyectoVisible" class="avance-titulo-proyecto">{{nombreProyectoVisible}}</span>
       </strong>
     </h5>
     <div class="header-acciones">
@@ -527,6 +528,7 @@
             </button>
           </td>
           <td class="archivos-celda">
+            <div class="archivos-fila">
             <div class="archivos-lista" *ngIf="fila.item.archivos && fila.item.archivos.length > 0">
               <div class="archivo-chip" *ngFor="let archivo of fila.item.archivos">
                 <a [href]="archivo.url" target="_blank" [title]="archivo.nombre" class="archivo-link">
@@ -539,13 +541,15 @@
                 </button>
               </div>
             </div>
-            <label class="btn-adjuntar" *ngIf="!modoSoloLectura && filaEnEdicion === fila.indexOriginal" [class.subiendo]="subiendoArchivos[fila.indexOriginal]">
+            <label class="btn-adjuntar" *ngIf="puedeEditarAvance && fila.item.id" [class.subiendo]="subiendoArchivos[fila.indexOriginal]"
+                   [title]="(fila.item.archivos && fila.item.archivos.length > 0) ? 'Agregar otro archivo' : 'Adjuntar archivo'">
               <i class="fa" [ngClass]="subiendoArchivos[fila.indexOriginal] ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
               <span>{{subiendoArchivos[fila.indexOriginal] ? 'Subiendo...' : ((fila.item.archivos && fila.item.archivos.length > 0) ? 'Agregar' : 'Adjuntar')}}</span>
               <input type="file" multiple accept=".pdf,.xls,.xlsx" style="display:none"
                      [disabled]="subiendoArchivos[fila.indexOriginal]"
                      (change)="onArchivosFilaSeleccionados($event, fila.item, fila.indexOriginal)">
             </label>
+            </div>
           </td>
           <td class="validadores-celda">
             <div *ngIf="cargandoValidadores" class="sin-validadores">
