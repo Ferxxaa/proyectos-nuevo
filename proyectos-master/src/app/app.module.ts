@@ -47,6 +47,8 @@ import { sProyectoMatriz } from './services/sProyectoMatriz.service';
 import { sProyecto } from './services/sProyecto.service';
 import { sSubProyecto } from './services/sSubProyecto.service';
 import { sCorreo } from './services/Personalizados/sCorreo.service';
+import { EstadisticasHhComponent } from './Proyectos/estadisticas-hh/estadisticas-hh.component';
+import { EstadisticasSsoComponent } from './Proyectos/estadisticas-sso/estadisticas-sso.component';
 
 //Material
 import { MaterialModule } from './material';
@@ -269,6 +271,8 @@ const route = [
     GraficoEstructuralComponent,
     ReportesHallazgosComponent,
     ConsolidadoHallazgosComponent,
+    EstadisticasHhComponent,
+    EstadisticasSsoComponent,
   ],
   imports: [
     // FormsModule ya está importado aquí, lo que permite usar [(ngModel)] en los templates de este módulo.

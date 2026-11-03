@@ -1,0 +1,69 @@
+<section class="ehh">
+  <div class="ehh-encabezado">
+    <div class="ehh-titulo">
+      <span class="ehh-icono"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
+      <div>
+        <h5>Estadísticas mensuales de HH</h5>
+        <p>{{nombreSubProyecto}}</p>
+      </div>
+    </div>
+    <div class="ehh-acciones">
+      <span class="ehh-estado" [ngClass]="estadoGuardado" *ngIf="estadoGuardado" role="status">
+        <ng-container *ngIf="estadoGuardado === 'guardando'"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Guardando...</ng-container>
+        <ng-container *ngIf="estadoGuardado === 'guardado'"><i class="fa fa-check" aria-hidden="true"></i> Guardado</ng-container>
+        <ng-container *ngIf="estadoGuardado === 'error'"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> No se pudo guardar</ng-container>
+      </span>
+      <label for="ehh-anio">Año</label>
+      <select id="ehh-anio" class="ehh-anio" [(ngModel)]="anio" (ngModelChange)="seleccionarAnio()" [disabled]="cargando || errorCarga">
+        <option *ngFor="let opcion of anios" [ngValue]="opcion">{{opcion}}</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="ehh-mensaje" *ngIf="cargando"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando estadísticas...</div>
+  <div class="ehh-mensaje" *ngIf="errorCarga">
+    No se pudieron cargar las estadísticas.
+    <button type="button" (click)="cargar()">Reintentar</button>
+  </div>
+
+  <ng-container *ngIf="!cargando && !errorCarga">
+    <div class="ehh-marco">
+      <table class="ehh-tabla">
+        <thead>
+          <tr>
+            <th class="ehh-col-indicador">Indicador</th>
+            <th *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">{{mes.nombre}}</th>
+            <th class="ehh-col-total">Total año</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let indicador of indicadores; trackBy: trackCampo">
+            <tr class="ehh-fila-subtotal" *ngIf="indicador.inicioCapacitacion">
+              <th scope="row" class="ehh-col-indicador">HH capacitadas</th>
+              <td *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">{{getCapacitacionMes(mes.numero)}}</td>
+              <td class="ehh-col-total">{{getCapacitacionTotal()}}</td>
+            </tr>
+            <tr [class.ehh-fila-detalle]="indicador.capacitacion">
+              <th scope="row" class="ehh-col-indicador">{{indicador.etiqueta}}</th>
+              <td *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">
+                <input type="text" inputmode="decimal" autocomplete="off"
+                       [value]="getTextoCelda(mes.numero, indicador.campo)" [disabled]="soloLectura"
+                       (change)="guardarCelda(mes.numero, indicador, $event.target)"
+                       [attr.aria-label]="indicador.etiqueta + ' de ' + mes.nombre">
+              </td>
+              <td class="ehh-col-total">{{getTotal(indicador.campo)}}</td>
+            </tr>
+          </ng-container>
+          <tr class="ehh-fila-indice" *ngFor="let indice of indices; trackBy: trackCampo">
+            <th scope="row" class="ehh-col-indicador" [title]="indice.titulo">{{indice.etiqueta}} <small>{{indice.titulo}}</small></th>
+            <td *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">{{getIndiceMes(mes.numero, indice)}}</td>
+            <td class="ehh-col-total">{{getIndiceAnual(indice)}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="ehh-nota">
+      IF = accidentes con baja × 1.000.000 / HH. IS = días perdidos × 1.000 / HH. Se calculan solos cuando el mes tiene HH.
+    </p>
+  </ng-container>
+</section>
