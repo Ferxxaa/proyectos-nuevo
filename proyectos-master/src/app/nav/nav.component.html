@@ -130,6 +130,11 @@
                             Hallazgos Anuales
                         </a>
                     </li>
+                    <li *ngIf="SubGerenteProy || DirectorProy || GerenteAdmin">
+                        <a [routerLink]="['/Proyectos-MejorasConsolidadas']" routerLinkActive="router-link-active">
+                            Mejoras Consolidadas
+                        </a>
+                    </li>
                 </ul>
             </li>
                 </ul>

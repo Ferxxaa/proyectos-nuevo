@@ -1,4 +1,5 @@
 import { Component, Input, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { sProyecto } from '../../services/sProyecto.service';
 import { sVis_SubProyNoValidado } from '../../services/sVis_SubProyNoValidado.service';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
@@ -6,6 +7,7 @@ import { sPerfil } from '../../services/sPerfil.service';
 import { sMail } from '../../services/sMail.service';
 import { mProyecto } from '../../models/mProyecto';
 import { firestoreDB, storageRef } from '../../firebase-init';
+import { MEJORAS_HISTORICAS } from './mejoras-historicas';
 
 declare var Swal: any;
 
@@ -40,6 +42,11 @@ interface HallazgoItem {
   notaEficacia?: number;
   fechaControlEvaluacion?: string;
   resultadoMejora?: string;
+  /** Fila del registro histórico: solo lectura, no existe en Firestore. */
+  historico?: boolean;
+  ordenHistorico?: number;
+  /** N° correlativo del reporte: el histórico mantiene el suyo y lo nuevo continúa después. */
+  numeroReporte?: number;
 }
 
 interface BitacoraHallazgo {
@@ -199,15 +206,21 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   accesoTemporalBloqueo: { [id: string]: boolean } = {};
 
   /** Reporte anual consolidado (todas las obras) de oportunidades de mejora y lecciones aprendidas. */
+  reporteSolo: boolean = false;
+  reportePermisosCargados: boolean = false;
+  reporteSinPermiso: boolean = false;
   modalReporteAbierto: boolean = false;
   cargandoReporte: boolean = false;
   errorReporte: boolean = false;
   reporteAnios: string[] = [];
-  reporteAnio: string = '';
+  reporteAnio: string = 'todos';
   reporteTipo: string = 'todos';
   reporteEstado: string = 'todos';
   reporteBusqueda: string = '';
   reporteFilas: HallazgoItem[] = [];
+  reporteGruposAnio: any[] = [];
+  reporteGraficoAnios: any[] = [];
+  reporteHistoricosSinGrupo: number = 0;
   reporteKpi: any = this.calcularKpiReporte([]);
   reporteEficacia: any[] = [];
   reportePorArea: any[] = [];
@@ -218,13 +231,16 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
   private unsubscribeHallazgos: (() => void) | null = null;
   private unsubscribePermisoCoordinador: (() => void) | null = null;
+  private perfilesUsuarioReporteCargados: boolean = false;
+  private perfilesMaestroReporteCargados: boolean = false;
 
   constructor(
     private _sProyecto: sProyecto,
     private _sVisSubProyNoValidado: sVis_SubProyNoValidado,
     private _sUsuariosPerfiles: sUsuariosPerfiles,
     private _sPerfil: sPerfil,
-    private _sMail: sMail
+    private _sMail: sMail,
+    private route: ActivatedRoute
   ) {
     const subProyecto = JSON.parse(localStorage.getItem('SubProyecto') || 'null');
     this.subProyectoActual = subProyecto;
@@ -265,7 +281,13 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.reporteSolo = this.route.snapshot.data['reporteSolo'] === true;
     this.usuario = JSON.parse(localStorage.usuario || 'null');
+    if (this.reporteSolo) {
+      this.cargarPermisoEliminacion();
+      return;
+    }
+
     if (this.subProyectoSeleccionado) {
       this.subProyectoActual = this.subProyectoSeleccionado;
       this.nombreProyectoLocal = this.subProyectoSeleccionado.nombreSubProyecto || '';
@@ -977,7 +999,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   puedeEvaluarMejora(item: HallazgoItem): boolean {
-    return this.puedeVerReporteMejoras && !this.estaBloqueadoParaMi(item);
+    return this.puedeVerReporteMejoras && !item.historico && !this.estaBloqueadoParaMi(item);
   }
 
   abrirReporteMejoras() {
@@ -990,7 +1012,9 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   cerrarReporteMejoras() {
-    this.modalReporteAbierto = false;
+    if (!this.reporteSolo) {
+      this.modalReporteAbierto = false;
+    }
   }
 
   private cargarReporteMejoras() {
@@ -1016,7 +1040,23 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
           } as HallazgoItem);
         });
 
-        this.reporteRegistros = registros.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+        MEJORAS_HISTORICAS.forEach((mejora, index) => {
+          registros.push({
+            ...mejora,
+            id: 'historico-' + index,
+            historico: true,
+            ordenHistorico: index,
+            bitacoras: []
+          } as any);
+        });
+
+        this.reporteRegistros = registros.sort((a, b) => this.compararReporte(a, b));
+
+        let siguienteNumero = MEJORAS_HISTORICAS.reduce((maximo, mejora) => Math.max(maximo, mejora.numero), 0);
+        this.reporteRegistros.forEach(item => {
+          item.numeroReporte = item.historico ? item.numero : ++siguienteNumero;
+        });
+        this.reporteRegistros.reverse(); // Lo más reciente, que es lo que falta evaluar, queda arriba
 
         const anios: string[] = [];
         registros.forEach(item => {
@@ -1027,8 +1067,8 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
         });
         this.reporteAnios = anios.sort().reverse();
 
-        if (this.reporteAnios.indexOf(this.reporteAnio) === -1) {
-          this.reporteAnio = this.reporteAnios[0] || '';
+        if (this.reporteAnio !== 'todos' && this.reporteAnios.indexOf(this.reporteAnio) === -1) {
+          this.reporteAnio = 'todos';
         }
 
         this.cargandoReporte = false;
@@ -1041,10 +1081,19 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
       });
   }
 
+  // Por año; dentro del año, el histórico mantiene el orden de su cuadro
+  private compararReporte(a: HallazgoItem, b: HallazgoItem): number {
+    const porAnio = this.getAnioReporte(a).localeCompare(this.getAnioReporte(b));
+    if (porAnio !== 0) { return porAnio; }
+    if (a.historico && b.historico) { return a.ordenHistorico - b.ordenHistorico; }
+    if (a.historico !== b.historico) { return a.historico ? -1 : 1; }
+    return (a.fecha || '').localeCompare(b.fecha || '');
+  }
+
   recalcularReporte() {
     // El resumen mide el año y tipo elegidos; Estado y Buscar solo acotan la tabla
     const delPeriodo = this.reporteRegistros.filter(item => {
-      if (this.getAnioReporte(item) !== this.reporteAnio) { return false; }
+      if (this.reporteAnio !== 'todos' && this.getAnioReporte(item) !== this.reporteAnio) { return false; }
       if (this.reporteTipo === 'mejora') { return this.esTipoMejora(item.tipoAccion); }
       if (this.reporteTipo === 'leccion') { return this.esTipoLeccion(item.tipoAccion); }
       return true;
@@ -1053,7 +1102,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     const busqueda = this.normalizarTexto(this.reporteBusqueda);
 
     this.reporteFilas = delPeriodo.filter(item => {
-      const texto = this.normalizarTexto([item.obra, item.areaResponsable, this.getDetalleReporte(item)].join(' '));
+      const texto = this.normalizarTexto([item.numeroReporte, this.getAnioReporte(item), item.obra, item.areaResponsable, this.getDetalleReporte(item)].join(' '));
       if (busqueda && texto.indexOf(busqueda) === -1) { return false; }
       // La fila abierta no desaparece mientras se evalúa
       return item.id === this.filaReporteAbierta || this.cumpleEstadoReporte(item);
@@ -1061,8 +1110,60 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
     this.reporteKpi = this.calcularKpiReporte(delPeriodo);
     this.reporteEficacia = this.calcularEficaciaReporte(delPeriodo);
-    this.reportePorArea = this.agruparReporte(delPeriodo, item => item.areaResponsable || 'Sin área');
-    this.reportePorObra = this.agruparReporte(delPeriodo, item => item.obra || 'Sin obra');
+    this.reporteGruposAnio = this.agruparFilasPorAnio(this.reporteFilas);
+    this.reporteGraficoAnios = this.calcularGraficoAnios(delPeriodo);
+
+    // Los históricos no traen área ni obra: sumarlos taparía el resumen real
+    const conGrupo = delPeriodo.filter(item => !item.historico || !!item.areaResponsable || !!item.obra);
+    this.reporteHistoricosSinGrupo = delPeriodo.length - conGrupo.length;
+    this.reportePorArea = this.agruparReporte(conGrupo, item => item.areaResponsable || 'Sin área');
+    this.reportePorObra = this.agruparReporte(conGrupo, item => item.obra || 'Sin obra');
+  }
+
+  private agruparFilasPorAnio(filas: HallazgoItem[]): any[] {
+    const grupos: any[] = [];
+
+    filas.forEach(item => {
+      const anio = this.getAnioReporte(item) || 'Sin fecha';
+      const ultimo = grupos[grupos.length - 1];
+      if (ultimo && ultimo.anio === anio) {
+        ultimo.filas.push(item);
+      } else {
+        grupos.push({ anio: anio, filas: [item] });
+      }
+    });
+
+    return grupos.map(grupo => ({ ...grupo, kpi: this.calcularKpiReporte(grupo.filas) }));
+  }
+
+  /** Columnas apiladas por año, de más antiguo a más reciente. */
+  private calcularGraficoAnios(filas: HallazgoItem[]): any[] {
+    const anios = this.agruparFilasPorAnio(filas).reverse();
+    const maximo = anios.reduce((mayor, grupo) => Math.max(mayor, grupo.filas.length), 0);
+
+    return anios.map(grupo => ({
+      anio: grupo.anio,
+      total: grupo.filas.length,
+      porcentajeEficacia: grupo.kpi.porcentajeEficacia,
+      alto: maximo ? grupo.filas.length * 100 / maximo : 0,
+      tramos: this.calcularEficaciaReporte(grupo.filas).filter(tramo => tramo.cantidad > 0)
+    }));
+  }
+
+  seleccionarAnioReporte(anio: string) {
+    if (anio === 'Sin fecha') { return; }
+    this.reporteAnio = anio;
+    this.recalcularReporte();
+  }
+
+  trackAnioReporte(index: number, grupo: any) {
+    return grupo.anio;
+  }
+
+  getAccionReporte(item: HallazgoItem): string {
+    if (this.filaReporteAbierta === item.id) { return 'Cerrar'; }
+    if (item.historico) { return 'Ver'; }
+    return Number(item.notaEficacia) ? 'Editar' : 'Evaluar';
   }
 
   private cumpleEstadoReporte(item: HallazgoItem): boolean {
@@ -1182,6 +1283,9 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   getClaseTipoReporte(item: HallazgoItem): string {
+    if (item.historico && !this.esTipoMejora(item.tipoAccion)) {
+      return item.tipoAccion ? 'chip-accion' : 'chip-otro';
+    }
     return this.esTipoLeccion(item.tipoAccion) ? 'chip-leccion' : 'chip-mejora';
   }
 
@@ -1196,11 +1300,16 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   getTipoReporte(item: HallazgoItem): string {
+    if (item.historico && !this.esTipoMejora(item.tipoAccion)) { return item.tipoAccion || 'Sin tipo'; }
     return this.esTipoLeccion(item.tipoAccion) ? 'Lección aprendida' : 'Oportunidad de mejora';
   }
 
   getFechaReporte(item: HallazgoItem): string {
-    return this.formatearFechaTexto(item.fecha);
+    return this.formatearFechaTexto(item.fecha) || '-';
+  }
+
+  getTextoFechaControl(fecha: string): string {
+    return this.formatearFechaTexto(fecha) || '-';
   }
 
   getDetalleReporte(item: HallazgoItem): string {
@@ -1217,10 +1326,10 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
       'Fecha control implementación', 'Seguimiento', 'Nota', 'Evaluación de eficacia', 'Estado',
       'Fecha control evaluación', 'Resultados'];
 
-    const filas = this.reporteFilas.map((item, index) => [
-      index + 1,
+    const filas = this.reporteFilas.map(item => [
+      item.numeroReporte,
       this.getFechaReporte(item),
-      this.reporteAnio,
+      this.getAnioReporte(item),
       this.getTipoReporte(item),
       item.obra,
       item.areaResponsable,
@@ -1242,7 +1351,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     const blob = new Blob(['\ufeff' + contenido], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = window.URL.createObjectURL(blob);
-    link.download = 'Reporte-mejoras-y-lecciones-' + this.reporteAnio + '.csv';
+    link.download = 'Reporte-mejoras-y-lecciones-' + (this.reporteAnio === 'todos' ? 'todos-los-anios' : this.reporteAnio) + '.csv';
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1266,7 +1375,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   // Sale del texto de la fecha: new Date('2026-01-01') en Chile daría 2025
-  private getAnioReporte(item: HallazgoItem): string {
+  getAnioReporte(item: HallazgoItem): string {
     const fecha = (item.fecha || '').trim();
     return /^\d{4}/.test(fecha) ? fecha.substring(0, 4) : String(item.anio || '');
   }
@@ -2165,10 +2274,16 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   private cargarPermisoEliminacion() {
     if (!this.usuario || !this.usuario.idUsuario) {
       this.puedeEliminarHallazgo = false;
+      if (this.reporteSolo) {
+        this.reportePermisosCargados = true;
+        this.reporteSinPermiso = true;
+      }
       return;
     }
 
-    this.cargarPermisoCoordinador();
+    if (!this.reporteSolo) {
+      this.cargarPermisoCoordinador();
+    }
     this.actualizarPermisoEliminacion();
 
     const idUsuarioActual = Number(this.usuario.idUsuario);
@@ -2183,12 +2298,16 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
           .map((perfil: any) => Number(perfil.idPerfil));
         this.actualizarEsSubGerente();
         this.actualizarPermisoEliminacion();
+        this.perfilesUsuarioReporteCargados = true;
+        this.abrirReporteSoloSiTienePermiso();
       },
       () => {
         this.esGerencia = false;
         this.idsPerfilesUsuario = [];
         this.actualizarEsSubGerente();
         this.actualizarPermisoEliminacion();
+        this.perfilesUsuarioReporteCargados = true;
+        this.abrirReporteSoloSiTienePermiso();
       }
     );
 
@@ -2200,10 +2319,14 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
           .filter((perfil: any) => this.esNombrePerfilSubGerente(perfil.nombrePerfil))
           .map((perfil: any) => Number(perfil.idPerfil));
         this.actualizarEsSubGerente();
+        this.perfilesMaestroReporteCargados = true;
+        this.abrirReporteSoloSiTienePermiso();
       },
       () => {
         this.idsPerfilesSubGerente = [];
         this.actualizarEsSubGerente();
+        this.perfilesMaestroReporteCargados = true;
+        this.abrirReporteSoloSiTienePermiso();
       }
     );
 
@@ -2236,6 +2359,21 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
         this.actualizarPermisoEliminacion();
       }
     );
+  }
+
+  private abrirReporteSoloSiTienePermiso() {
+    if (!this.reporteSolo || !this.perfilesUsuarioReporteCargados || !this.perfilesMaestroReporteCargados) {
+      return;
+    }
+
+    this.reportePermisosCargados = true;
+    if (!this.puedeVerReporteMejoras) {
+      this.reporteSinPermiso = true;
+      return;
+    }
+
+    this.modalReporteAbierto = true;
+    this.cargarReporteMejoras();
   }
 
   private esNombrePerfilSubGerente(nombre: string): boolean {

@@ -139,6 +139,11 @@ const route = [
     component: ConsolidadoHallazgosComponent
   },
   {
+    path: 'Proyectos-MejorasConsolidadas',
+    component: ControlHallazgosComponent,
+    data: { reporteSolo: true }
+  },
+  {
     path: 'Configuracion-SubProyecto',
     component: ConfiguracionSubProyectoComponent
   },

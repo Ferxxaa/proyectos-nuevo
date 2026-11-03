@@ -1,4 +1,13 @@
-<div class="control-hallazgos-container">
+<app-main *ngIf="reporteSolo"></app-main>
+
+<div class="control-hallazgos-container" [class.reporte-solo]="reporteSolo" [class.content-wrap]="reporteSolo" [class.content]="reporteSolo">
+
+  <div class="reporte-solo-mensaje" *ngIf="reporteSolo && !reportePermisosCargados">
+    <i class="fa fa-spinner fa-spin"></i> Verificando permisos...
+  </div>
+  <div class="reporte-solo-mensaje" *ngIf="reporteSolo && reportePermisosCargados && reporteSinPermiso">
+    No tienes permisos para ver este reporte.
+  </div>
 
   <!-- Encabezado -->
   <header class="hallazgos-header" style="background-color: #555555">
@@ -51,15 +60,6 @@
         (click)="cambiarClaveGerencia()"
         title="Definir o cambiar la clave de los hallazgos bloqueados">
         <i class="fa fa-key"></i> Cambiar clave
-      </button>
-
-      <button
-        *ngIf="puedeVerReporteMejoras"
-        type="button"
-        class="hallazgos-header-permission"
-        (click)="abrirReporteMejoras()"
-        title="Consolidado anual de oportunidades de mejora y lecciones aprendidas">
-        <i class="fa fa-line-chart"></i> Reporte OM y lecciones
       </button>
 
       <button
@@ -410,15 +410,30 @@
     <!-- Reporte anual consolidado de todas las obras -->
     <div class="reporte-om-overlay" *ngIf="modalReporteAbierto" (click)="cerrarReporteMejoras()">
       <div class="reporte-om-dialog" (click)="$event.stopPropagation()">
+        <!-- Mismo encabezado que los demás reportes -->
         <div class="reporte-om-header">
-          <h5 class="modal-title">Mejoras y lecciones aprendidas</h5>
-          <select class="reporte-om-anio" [(ngModel)]="reporteAnio" (ngModelChange)="recalcularReporte()"
-                  [disabled]="cargandoReporte || !reporteAnios.length" aria-label="Año del reporte">
-            <option *ngFor="let anio of reporteAnios" [value]="anio">{{anio}}</option>
-          </select>
-          <button type="button" class="close" aria-label="Cerrar" (click)="cerrarReporteMejoras()">
-            <span aria-hidden="true">&times;</span>
-          </button>
+          <div class="reporte-om-header-titulo">
+            <span class="reporte-om-header-icono"><i class="fa fa-line-chart" aria-hidden="true"></i></span>
+            <div>
+              <span class="reporte-om-kicker">ANÁLISIS DE PROYECTOS</span>
+              <h2>Mejoras y lecciones aprendidas</h2>
+              <p>Mejoras consolidadas de todas las obras, con medición de eficacia</p>
+            </div>
+          </div>
+          <div class="reporte-om-header-acciones">
+            <select class="reporte-om-anio" [(ngModel)]="reporteAnio" (ngModelChange)="recalcularReporte()"
+                    [disabled]="cargandoReporte || !reporteAnios.length" aria-label="Año del reporte">
+              <option value="todos">Todos los años</option>
+              <option *ngFor="let anio of reporteAnios" [value]="anio">{{anio}}</option>
+            </select>
+            <a *ngIf="reporteSolo" class="btn reporte-om-volver" [routerLink]="['/Proyectos-MisProyectos']">
+              <i class="fa fa-arrow-left" aria-hidden="true"></i>
+              <span>Volver a Mis Proyectos</span>
+            </a>
+            <button *ngIf="!reporteSolo" type="button" class="close" aria-label="Cerrar" (click)="cerrarReporteMejoras()">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
         </div>
 
         <div class="reporte-om-scroll">
@@ -431,36 +446,36 @@
           </div>
 
           <ng-container *ngIf="!cargandoReporte && !errorReporte && reporteAnios.length">
-            <section class="reporte-om-tiles">
-              <div class="reporte-om-tile tile-azul">
+            <section class="reporte-om-tiles" *ngIf="reporteKpi.total">
+              <div class="reporte-om-tile">
                 <span>Registros</span>
                 <strong>{{reporteKpi.total}}</strong>
-                <small>Mejoras {{reporteKpi.mejoras}}, lecciones {{reporteKpi.lecciones}}</small>
+                <small>{{reporteKpi.mejoras}} {{reporteKpi.mejoras === 1 ? 'oportunidad' : 'oportunidades'}} · {{reporteKpi.lecciones}} {{reporteKpi.lecciones === 1 ? 'lección' : 'lecciones'}}</small>
               </div>
-              <div class="reporte-om-tile tile-verde">
+              <div class="reporte-om-tile">
                 <span>Cerradas</span>
-                <strong>{{reporteKpi.cerradas}}</strong>
-                <small>{{reporteKpi.porcentajeCerradas === null ? 'Sin registros' : reporteKpi.porcentajeCerradas + '% del total'}}</small>
+                <strong>{{reporteKpi.porcentajeCerradas}}%</strong>
+                <small>{{reporteKpi.cerradas}} de {{reporteKpi.total}}</small>
               </div>
-              <div class="reporte-om-tile tile-naranjo">
+              <div class="reporte-om-tile tile-destacado">
+                <span>Eficacia</span>
+                <strong>{{reporteKpi.porcentajeEficacia === null ? '-' : reporteKpi.porcentajeEficacia + '%'}}</strong>
+                <small>{{reporteKpi.eficaces}} de {{reporteKpi.evaluadas}} evaluadas con nota 3 o 4</small>
+              </div>
+              <div class="reporte-om-tile">
+                <span>Nota promedio</span>
+                <strong>{{reporteKpi.notaPromedio === null ? '-' : (reporteKpi.notaPromedio + '').replace('.', ',')}}</strong>
+                <small>en escala de 1 a 4</small>
+              </div>
+              <div class="reporte-om-tile" [class.tile-alerta]="reporteKpi.porEvaluar">
                 <span>Por evaluar</span>
                 <strong>{{reporteKpi.porEvaluar}}</strong>
-                <small>Evaluadas {{reporteKpi.evaluadas}}</small>
-              </div>
-              <div class="reporte-om-tile tile-grafito">
-                <span>Eficacia</span>
-                <strong>{{reporteKpi.porcentajeEficacia === null ? '—' : reporteKpi.porcentajeEficacia + '%'}}</strong>
-                <small>Eficaces {{reporteKpi.eficaces}} de {{reporteKpi.evaluadas}} evaluadas</small>
-              </div>
-              <div class="reporte-om-tile tile-grafito">
-                <span>Nota promedio</span>
-                <strong>{{reporteKpi.notaPromedio === null ? '—' : reporteKpi.notaPromedio}}</strong>
-                <small>En escala de 1 a 4</small>
+                <small>sin nota de eficacia</small>
               </div>
             </section>
 
             <section class="reporte-om-panel" *ngIf="reporteKpi.total">
-              <h6>Evaluación de eficacia {{reporteAnio}}</h6>
+              <h6>Evaluación de eficacia {{reporteAnio === 'todos' ? '(todos los años)' : reporteAnio}}</h6>
               <div class="reporte-om-panel-cuerpo">
                 <div class="reporte-om-barra" role="img"
                      [attr.aria-label]="reporteKpi.evaluadas + ' evaluadas de ' + reporteKpi.total + ' registros'">
@@ -472,10 +487,27 @@
                     <i [ngClass]="tramo.clase"></i>{{tramo.etiqueta}} <b>{{tramo.cantidad}}</b>
                   </li>
                 </ul>
+
+                <!-- Evolución anual: cada columna filtra su año -->
+                <div class="reporte-om-anios" *ngIf="reporteAnio === 'todos' && reporteGraficoAnios.length > 1">
+                  <button type="button" class="reporte-om-anio-col" *ngFor="let columna of reporteGraficoAnios; trackBy: trackAnioReporte"
+                          (click)="seleccionarAnioReporte(columna.anio)"
+                          [title]="'Ver ' + columna.anio + ': ' + columna.total + ' registros'">
+                    <span class="reporte-om-anio-area">
+                      <b>{{columna.total}}</b>
+                      <span class="reporte-om-anio-pila" [style.height.%]="columna.alto">
+                        <i *ngFor="let tramo of columna.tramos" [ngClass]="tramo.clase" [style.flex-grow]="tramo.cantidad"
+                           [title]="tramo.etiqueta + ': ' + tramo.cantidad"></i>
+                      </span>
+                    </span>
+                    <span class="reporte-om-anio-nombre">{{columna.anio}}</span>
+                    <small>{{columna.porcentajeEficacia === null ? 'Sin nota' : columna.porcentajeEficacia + '%'}}</small>
+                  </button>
+                </div>
               </div>
             </section>
 
-            <section class="reporte-om-grupos" *ngIf="reporteKpi.total">
+            <section class="reporte-om-grupos" *ngIf="reporteKpi.total && reportePorArea.length">
               <div class="reporte-om-panel" *ngFor="let grupo of [{titulo: 'Resumen por área', filas: reportePorArea}, {titulo: 'Resumen por obra', filas: reportePorObra}]">
                 <h6>{{grupo.titulo}}</h6>
                 <div class="reporte-om-grupo-lista">
@@ -500,6 +532,9 @@
                 </div>
               </div>
             </section>
+            <p class="reporte-om-nota-grupos" *ngIf="reporteHistoricosSinGrupo && reportePorArea.length">
+              Estos resúmenes consideran los registros del sistema. Los {{reporteHistoricosSinGrupo}} históricos no tienen área ni obra.
+            </p>
 
             <div class="reporte-om-filtros">
               <select class="form-control" [(ngModel)]="reporteTipo" (ngModelChange)="recalcularReporte()" aria-label="Tipo">
@@ -516,6 +551,7 @@
               </select>
               <input type="text" class="form-control reporte-om-buscar" [(ngModel)]="reporteBusqueda" (ngModelChange)="recalcularReporte()"
                      placeholder="Buscar por obra, área o detalle" aria-label="Buscar">
+              <span class="reporte-om-contador">{{reporteFilas.length}} {{reporteFilas.length === 1 ? 'registro' : 'registros'}}</span>
               <button type="button" class="reporte-om-exportar" (click)="exportarReporteMejoras()" [disabled]="!reporteFilas.length">
                 <i class="fa fa-file-excel-o" aria-hidden="true"></i> Exportar a Excel
               </button>
@@ -530,8 +566,7 @@
                     <th>N°</th>
                     <th>Fecha</th>
                     <th>Tipo</th>
-                    <th>Obra</th>
-                    <th>Área</th>
+                    <th>Obra / Área</th>
                     <th>Detalle</th>
                     <th>Estado</th>
                     <th>Eficacia</th>
@@ -539,35 +574,56 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <ng-container *ngFor="let fila of reporteFilas; let i = index; trackBy: trackReporte">
+                  <ng-container *ngFor="let grupoAnio of reporteGruposAnio; trackBy: trackAnioReporte">
+                    <tr class="reporte-om-fila-anio">
+                      <td colspan="8">
+                        <b>{{grupoAnio.anio}}</b>
+                        <span>{{grupoAnio.kpi.total}} {{grupoAnio.kpi.total === 1 ? 'registro' : 'registros'}}</span>
+                        <span *ngIf="grupoAnio.kpi.porcentajeEficacia !== null">Eficacia {{grupoAnio.kpi.porcentajeEficacia}}%</span>
+                        <span *ngIf="grupoAnio.kpi.porEvaluar">{{grupoAnio.kpi.porEvaluar}} por evaluar</span>
+                      </td>
+                    </tr>
+                    <ng-container *ngFor="let fila of grupoAnio.filas; trackBy: trackReporte">
                     <tr class="reporte-om-fila" [class.abierta]="filaReporteAbierta === fila.id" (click)="toggleFilaReporte(fila)">
-                      <td>{{i + 1}}</td>
+                      <td class="reporte-om-numero">{{fila.numeroReporte}}</td>
                       <td class="reporte-om-nowrap">{{getFechaReporte(fila)}}</td>
-                      <td><span class="reporte-om-chip" [ngClass]="getClaseTipoReporte(fila)">{{getTipoReporte(fila)}}</span></td>
-                      <td>{{fila.obra || '-'}}</td>
-                      <td>{{fila.areaResponsable || '-'}}</td>
+                      <td class="reporte-om-nowrap"><span class="reporte-om-chip" [ngClass]="getClaseTipoReporte(fila)">{{getTipoReporte(fila)}}</span></td>
+                      <td class="reporte-om-obra">
+                        <ng-container *ngIf="fila.obra || fila.areaResponsable; else sinObra">
+                          <div [title]="fila.obra || ''">{{fila.obra || 'Sin obra'}}</div>
+                          <small *ngIf="fila.areaResponsable">{{fila.areaResponsable}}</small>
+                        </ng-container>
+                        <ng-template #sinObra><small>Histórico</small></ng-template>
+                      </td>
                       <td class="reporte-om-detalle"><div [title]="getDetalleReporte(fila)">{{getDetalleReporte(fila)}}</div></td>
-                      <td class="reporte-om-nowrap"><span class="reporte-om-chip" [ngClass]="getEstadoClass(fila.estado)">{{getEstadoReporte(fila)}}</span></td>
+                      <td class="reporte-om-nowrap"><span class="reporte-om-chip" [ngClass]="getEstadoClass(fila.estado) || 'chip-otro'">{{getEstadoReporte(fila)}}</span></td>
                       <td class="reporte-om-nowrap">
                         <span class="reporte-om-pill" [ngClass]="getClaseNotaEficacia(fila)">
                           <b *ngIf="fila.notaEficacia">{{fila.notaEficacia}}</b> {{getEtiquetaEficacia(fila)}}
                         </span>
                       </td>
                       <td class="reporte-om-accion">
-                        <button type="button" (click)="$event.stopPropagation(); toggleFilaReporte(fila)"
+                        <button type="button" [class.accion-pendiente]="getAccionReporte(fila) === 'Evaluar'"
+                                (click)="$event.stopPropagation(); toggleFilaReporte(fila)"
                                 [attr.aria-expanded]="filaReporteAbierta === fila.id"
-                                [attr.aria-label]="'Evaluar registro ' + (i + 1)">
-                          {{filaReporteAbierta === fila.id ? 'Cerrar' : 'Evaluar'}}
+                                [attr.aria-label]="getAccionReporte(fila) + ' registro ' + fila.numeroReporte">
+                          {{getAccionReporte(fila)}}
                         </button>
                       </td>
                     </tr>
                     <tr class="reporte-om-evaluar" *ngIf="filaReporteAbierta === fila.id">
-                      <td colspan="9">
+                      <td colspan="8">
                         <div class="reporte-om-aviso" *ngIf="estaBloqueadoParaMi(fila)">
                           <i class="fa fa-lock" aria-hidden="true"></i> Hallazgo bloqueado: solo lectura.
                           <button type="button" *ngIf="esSubGerente" (click)="pedirAccesoHallazgoBloqueado(fila)">Desbloquear con clave</button>
                         </div>
-                        <div class="reporte-om-form">
+                        <dl class="reporte-om-lectura" *ngIf="fila.historico">
+                          <div class="reporte-om-campo-ancho"><dt>Seguimiento de la mejora o acción</dt><dd>{{fila.seguimientoMejora || '-'}}</dd></div>
+                          <div class="reporte-om-campo-ancho"><dt>Resultados</dt><dd>{{fila.resultadoMejora || '-'}}</dd></div>
+                          <div><dt>Control de implementación</dt><dd>{{getTextoFechaControl(fila.fechaControlImplementacion)}}</dd></div>
+                          <div><dt>Control de evaluación</dt><dd>{{getTextoFechaControl(fila.fechaControlEvaluacion)}}</dd></div>
+                        </dl>
+                        <div class="reporte-om-form" *ngIf="!fila.historico">
                           <div class="reporte-om-campo reporte-om-campo-ancho">
                             <label [attr.for]="'seguimiento-' + fila.id">Seguimiento de la mejora o acción</label>
                             <textarea class="form-control" rows="3" [attr.id]="'seguimiento-' + fila.id" [(ngModel)]="fila.seguimientoMejora"
@@ -607,6 +663,7 @@
                         </div>
                       </td>
                     </tr>
+                    </ng-container>
                   </ng-container>
                 </tbody>
               </table>
