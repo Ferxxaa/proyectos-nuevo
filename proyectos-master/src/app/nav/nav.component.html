@@ -130,6 +130,11 @@
                             Hallazgos Anuales
                         </a>
                     </li>
+                    <li *ngIf="!Cliente">
+                        <a [routerLink]="['/Proyectos-ConsolidadoSSO']" routerLinkActive="router-link-active">
+                            Consolidado SSO
+                        </a>
+                    </li>
                     <li *ngIf="SubGerenteProy || DirectorProy || GerenteAdmin">
                         <a [routerLink]="['/Proyectos-MejorasConsolidadas']" routerLinkActive="router-link-active">
                             Mejoras Consolidadas

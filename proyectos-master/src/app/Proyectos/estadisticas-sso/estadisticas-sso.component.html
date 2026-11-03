@@ -1,83 +1,38 @@
-<section class="sso">
+<app-main *ngIf="consolidadoHistorico"></app-main>
+
+<!-- En la ruta del consolidado, mismo contenedor que las demás pantallas (respeta la barra y el menú) -->
+<div [class.content-wrap]="consolidadoHistorico">
+<div [class.content]="consolidadoHistorico" [class.sso-pagina]="consolidadoHistorico">
+<section class="sso" [class.sso-consolidado]="consolidadoHistorico">
   <div class="sso-encabezado">
     <div class="sso-titulo">
       <span class="sso-icono"><i class="fa fa-shield" aria-hidden="true"></i></span>
       <div>
-        <h5>Estadísticas SSO/MA</h5>
-        <p>{{nombreSubProyecto}}</p>
+        <span class="sso-kicker" *ngIf="consolidadoHistorico">ANÁLISIS DE PROYECTOS</span>
+        <h5>{{consolidadoHistorico ? 'Consolidado SSO' : 'Seguimiento de accidentes'}}</h5>
+        <p *ngIf="consolidadoHistorico">Histórico de accidentes de toda la empresa</p>
+        <p *ngIf="!consolidadoHistorico">{{nombreSubProyecto}}</p>
       </div>
     </div>
-    <button type="button" class="sso-boton-principal" *ngIf="!soloLectura && !cargando && !errorCarga && !verHistorico" (click)="abrirNuevo()">
+    <button type="button" class="sso-boton-principal" *ngIf="!consolidadoHistorico && !soloLectura && !cargando && !errorCarga" (click)="abrirNuevo()">
       <i class="fa fa-plus" aria-hidden="true"></i> Registrar accidente
     </button>
+    <a *ngIf="consolidadoHistorico" class="btn sso-volver" [routerLink]="['/Proyectos-MisProyectos']">
+      <i class="fa fa-arrow-left" aria-hidden="true"></i>
+      <span>Volver a Mis Proyectos</span>
+    </a>
   </div>
 
   <div class="sso-mensaje" *ngIf="cargando"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando accidentes...</div>
+  <div class="sso-mensaje" *ngIf="!cargando && sinPermisoConsolidado" role="alert">
+    No tienes permisos para ver el consolidado SSO.
+  </div>
   <div class="sso-mensaje" *ngIf="errorCarga">
     No se pudieron cargar los accidentes.
-    <button type="button" (click)="cargar()">Reintentar</button>
+    <button type="button" (click)="consolidadoHistorico ? cargarConsolidadoSso() : cargar()">Reintentar</button>
   </div>
 
-  <ng-template #cuadrosGrado let-datos let-ancho="ancho">
-    <div class="sso-grilla" [class.sso-grilla-ancha]="ancho">
-      <section class="sso-panel">
-        <h6>Clasificación por grado</h6>
-        <div class="sso-tabla-scroll">
-          <table class="sso-tabla-grados">
-            <thead>
-              <tr>
-                <th>N° grado</th>
-                <th *ngFor="let anio of datos.anios">{{anio}}</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let fila of datos.tablaGrados">
-                <th scope="row" [ngClass]="'grado-' + fila.numero">Grado {{fila.numero}}</th>
-                <td *ngFor="let cantidad of fila.cantidades" [class.con-datos]="cantidad">{{cantidad}}</td>
-                <td class="sso-total">{{fila.total}}</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr>
-                <th scope="row">Total por año</th>
-                <td *ngFor="let total of datos.totalesAnio">{{total}}</td>
-                <td>{{datos.total}}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </section>
-
-      <section class="sso-panel">
-        <h6>Gráfico por grado</h6>
-        <div class="sso-grafico" role="img" aria-label="Accidentes por grado y año">
-          <div class="sso-grafico-anio" *ngFor="let columna of datos.grafico">
-            <div class="sso-grafico-barras">
-              <div class="sso-grafico-barra" *ngFor="let barra of columna.barras"
-                   [title]="'Grado ' + barra.numero + ' en ' + columna.anio + ': ' + barra.cantidad">
-                <b *ngIf="barra.cantidad">{{barra.cantidad}}</b>
-                <i [ngClass]="'grado-' + barra.numero" [style.height.%]="barra.alto"></i>
-              </div>
-            </div>
-            <span>{{columna.anio}}</span>
-          </div>
-        </div>
-        <ul class="sso-leyenda">
-          <li><i class="grado-1"></i>Grado 1 y 2, menor</li>
-          <li><i class="grado-3"></i>Grado 3 y 4, intermedio</li>
-          <li><i class="grado-5"></i>Grado 5 y 6, grave</li>
-        </ul>
-      </section>
-    </div>
-  </ng-template>
-
-  <ng-container *ngIf="!cargando && !errorCarga">
-    <div class="sso-vistas" role="group" aria-label="Datos a mostrar" *ngIf="!soloLectura">
-      <button type="button" [class.activa]="!verHistorico" [attr.aria-pressed]="!verHistorico" (click)="cambiarVista('subproyecto')">Este subproyecto</button>
-      <button type="button" [class.activa]="verHistorico" [attr.aria-pressed]="verHistorico" (click)="cambiarVista('historico')">Histórico empresa</button>
-    </div>
-
+  <ng-container *ngIf="!cargando && !errorCarga && !sinPermisoConsolidado">
     <ng-container *ngIf="!verHistorico">
     <form class="sso-panel sso-formulario" *ngIf="formularioAbierto" (ngSubmit)="guardar()">
       <h6>{{editandoId ? 'Editar accidente' : 'Registrar accidente'}}</h6>
@@ -127,26 +82,9 @@
       </div>
     </form>
 
-    <div class="sso-tiles">
-      <div class="sso-tile"><span>Accidentes</span><strong>{{resumen.total}}</strong></div>
-      <div class="sso-tile"><span>Días perdidos</span><strong>{{resumen.diasPerdidos}}</strong></div>
-      <div class="sso-tile" [class.tile-grave]="resumen.graves"><span>Graves (grado 5 y 6)</span><strong>{{resumen.graves}}</strong></div>
-      <div class="sso-tile" [class.tile-abierto]="resumen.abiertos"><span>Abiertos</span><strong>{{resumen.abiertos}}</strong></div>
-    </div>
-
     <div class="sso-mensaje" *ngIf="!accidentes.length">Aún no hay accidentes registrados en este subproyecto.</div>
 
-    <ng-container *ngIf="accidentes.length">
-      <ng-container *ngTemplateOutlet="cuadrosGrado; context: { $implicit: estadisticas, ancho: false }"></ng-container>
-
-      <div class="sso-tipos">
-        <div class="sso-tipo" *ngFor="let tipo of porTipo" [ngClass]="tipo.clase">
-          <strong>{{tipo.cantidad}}</strong>
-          <span>{{tipo.nombre}}</span>
-        </div>
-      </div>
-
-      <section class="sso-panel">
+    <section class="sso-panel">
         <h6>Seguimiento de accidentes</h6>
         <div class="sso-tabla-scroll">
           <table class="sso-tabla">
@@ -184,8 +122,7 @@
             </tbody>
           </table>
         </div>
-      </section>
-    </ng-container>
+    </section>
     </ng-container>
 
     <ng-container *ngIf="verHistorico">
@@ -198,7 +135,57 @@
 
       <div class="sso-aviso" *ngIf="errorHistoricoSistema" role="alert">No se pudieron cargar los accidentes de 2026 en adelante. Lo que ves llega hasta 2025.</div>
 
-      <ng-container *ngTemplateOutlet="cuadrosGrado; context: { $implicit: historicoEstadisticas, ancho: true }"></ng-container>
+      <div class="sso-grilla sso-grilla-ancha">
+        <section class="sso-panel">
+          <h6>Clasificación por grado</h6>
+          <div class="sso-tabla-scroll">
+            <table class="sso-tabla-grados">
+              <thead>
+                <tr>
+                  <th>N° grado</th>
+                  <th *ngFor="let anio of historicoEstadisticas.anios">{{anio}}</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let fila of historicoEstadisticas.tablaGrados">
+                  <th scope="row" [ngClass]="'grado-' + fila.numero">Grado {{fila.numero}}</th>
+                  <td *ngFor="let cantidad of fila.cantidades" [class.con-datos]="cantidad">{{cantidad}}</td>
+                  <td class="sso-total">{{fila.total}}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">Total por año</th>
+                  <td *ngFor="let total of historicoEstadisticas.totalesAnio">{{total}}</td>
+                  <td>{{historicoEstadisticas.total}}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+
+        <section class="sso-panel">
+          <h6>Gráfico por grado</h6>
+          <div class="sso-grafico" role="img" aria-label="Accidentes por grado y año">
+            <div class="sso-grafico-anio" *ngFor="let columna of historicoEstadisticas.grafico">
+              <div class="sso-grafico-barras">
+                <div class="sso-grafico-barra" *ngFor="let barra of columna.barras"
+                     [title]="'Grado ' + barra.numero + ' en ' + columna.anio + ': ' + barra.cantidad">
+                  <b *ngIf="barra.cantidad">{{barra.cantidad}}</b>
+                  <i [ngClass]="'grado-' + barra.numero" [style.height.%]="barra.alto"></i>
+                </div>
+              </div>
+              <span>{{columna.anio}}</span>
+            </div>
+          </div>
+          <ul class="sso-leyenda">
+            <li><i class="grado-1"></i>Grado 1 y 2, menor</li>
+            <li><i class="grado-3"></i>Grado 3 y 4, intermedio</li>
+            <li><i class="grado-5"></i>Grado 5 y 6, grave</li>
+          </ul>
+        </section>
+      </div>
 
       <section class="sso-panel">
         <h6>Registro histórico de accidentes</h6>
@@ -246,31 +233,7 @@
         </div>
       </section>
     </ng-container>
-
-    <section class="sso-panel">
-      <h6>Clasificación de grados</h6>
-      <div class="sso-tabla-scroll">
-        <table class="sso-tabla-clasificacion">
-          <thead>
-            <tr>
-              <th>Clasificación</th>
-              <th>N° grado</th>
-              <th>Descripción del grado</th>
-              <th>Medidas de control</th>
-            </tr>
-          </thead>
-          <tbody>
-            <ng-container *ngFor="let nivel of clasificacion">
-              <tr *ngFor="let grado of nivel.grados; let primero = first">
-                <th scope="rowgroup" *ngIf="primero" [attr.rowspan]="nivel.grados.length">{{nivel.nombre}}</th>
-                <td class="sso-numero-grado" [ngClass]="nivel.clase">{{grado.numero}}</td>
-                <td>{{grado.descripcion}}</td>
-                <td *ngIf="primero" [attr.rowspan]="nivel.grados.length">{{nivel.medidas}}</td>
-              </tr>
-            </ng-container>
-          </tbody>
-        </table>
-      </div>
-    </section>
   </ng-container>
 </section>
+</div>
+</div>

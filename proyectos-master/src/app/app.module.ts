@@ -146,6 +146,11 @@ const route = [
     data: { reporteSolo: true }
   },
   {
+    path: 'Proyectos-ConsolidadoSSO',
+    component: EstadisticasSsoComponent,
+    data: { consolidadoSSO: true }
+  },
+  {
     path: 'Configuracion-SubProyecto',
     component: ConfiguracionSubProyectoComponent
   },

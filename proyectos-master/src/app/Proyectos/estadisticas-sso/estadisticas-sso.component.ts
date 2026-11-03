@@ -1,5 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { firestoreDB } from '../../firebase-init';
+import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
 import { ACCIDENTES_HISTORICOS, AccidenteHistorico } from './accidentes-historicos';
 
 declare var Swal: any;
@@ -37,6 +39,7 @@ export class EstadisticasSsoComponent implements OnInit {
   @Input() idProyecto: any = null;
   @Input() nombreSubProyecto: string = '';
   @Input() soloLectura: boolean = false;
+  consolidadoHistorico: boolean = false;
 
   readonly tipos = [
     { nombre: 'Incidente menor', clase: 'tipo-incidente' },
@@ -57,30 +60,6 @@ export class EstadisticasSsoComponent implements OnInit {
     { numero: 6, clasificacion: 'Grave', medidas: MEDIDAS_GRAVE }
   ];
 
-  readonly clasificacion = [
-    {
-      nombre: 'Grado Menor', clase: 'grado-1', medidas: MEDIDAS_MENOR,
-      grados: [
-        { numero: 1, descripcion: 'Incidentes menores, ej. golpes, tirones, entre otros (enviados a Mutual), sin días perdidos, y accidentes de trayecto.' },
-        { numero: 2, descripcion: 'Incidentes menores, ej. golpes, tirones, entre otros (enviados a Mutual), con días perdidos.' }
-      ]
-    },
-    {
-      nombre: 'Grado Intermedio', clase: 'grado-3', medidas: MEDIDAS_INTERMEDIO,
-      grados: [
-        { numero: 3, descripcion: 'Incidentes intermedios, ej. cortes con herramientas manuales y eléctricas, golpes de corriente, esguinces, caídas, fracturas, quemaduras de 1er grado, entre otros, con días perdidos.' },
-        { numero: 4, descripcion: 'Incidentes intermedios, ej. cortes con herramientas manuales y eléctricas, golpes de corriente, esguinces, caídas, fracturas, quemaduras de 1er grado, entre otros, con días perdidos.' }
-      ]
-    },
-    {
-      nombre: 'Grave', clase: 'grado-5', medidas: MEDIDAS_GRAVE,
-      grados: [
-        { numero: 5, descripcion: 'Incidentes de carácter grave, ej. amputaciones, cortes y fracturas expuestas, quemaduras de 1er y 2do grado, entre otros.' },
-        { numero: 6, descripcion: 'Incidentes de carácter fatal, ej. atropellos, caídas al vacío, que terminen en invalidez o muerte.' }
-      ]
-    }
-  ];
-
   readonly hoy: string = this.getFechaHoy();
 
   accidentes: AccidenteSSO[] = [];
@@ -92,12 +71,7 @@ export class EstadisticasSsoComponent implements OnInit {
   errorFormulario: string = '';
   formulario: AccidenteSSO = this.getFormularioVacio();
 
-  resumen: any = { total: 0, diasPerdidos: 0, graves: 0, abiertos: 0 };
-  porTipo: any[] = [];
-  estadisticas: any = this.calcularEstadisticas([], []);
-
-  // Histórico de toda la empresa: no se muestra a clientes
-  vista: string = 'subproyecto';
+  sinPermisoConsolidado: boolean = false;
   historicoAnio: string = 'todos';
   historicoBusqueda: string = '';
   historicoAnios: string[] = [];
@@ -109,12 +83,24 @@ export class EstadisticasSsoComponent implements OnInit {
   private idUsuario: any = null;
   private accidentesSistema: AccidenteHistorico[] = [];
 
+  constructor(
+    private route: ActivatedRoute,
+    private _sUsuariosPerfiles: sUsuariosPerfiles
+  ) {}
+
   ngOnInit() {
+    this.consolidadoHistorico = this.route.snapshot.data['consolidadoSSO'] === true;
     try {
       this.idUsuario = JSON.parse(localStorage.getItem('usuario') || '{}').idUsuario || null;
     } catch (error) {
       this.idUsuario = null;
     }
+
+    if (this.consolidadoHistorico) {
+      this.cargarConsolidadoSso();
+      return;
+    }
+
     this.cargar();
   }
 
@@ -145,27 +131,6 @@ export class EstadisticasSsoComponent implements OnInit {
 
   private recalcular() {
     this.accidentes.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-
-    this.resumen = {
-      total: this.accidentes.length,
-      diasPerdidos: this.accidentes.reduce((suma, item) => suma + (Number(item.diasPerdidos) || 0), 0),
-      graves: this.accidentes.filter(item => Number(item.grado) >= 5).length,
-      abiertos: this.accidentes.filter(item => item.estado !== 'Cerrado').length
-    };
-
-    this.porTipo = this.tipos.map(tipo => ({
-      ...tipo,
-      cantidad: this.accidentes.filter(item => item.tipo === tipo.nombre).length
-    }));
-
-    const anios: { [anio: string]: boolean } = {};
-    anios[this.hoy.substring(0, 4)] = true;
-    this.accidentes.forEach(item => anios[this.getAnio(item)] = true);
-
-    this.estadisticas = this.calcularEstadisticas(
-      this.accidentes.map(item => ({ anio: this.getAnio(item), grado: Number(item.grado) })),
-      Object.keys(anios).sort()
-    );
   }
 
   private calcularEstadisticas(registros: { anio: string, grado: number }[], anios: string[]) {
@@ -197,20 +162,47 @@ export class EstadisticasSsoComponent implements OnInit {
   }
 
   get verHistorico(): boolean {
-    return this.vista === 'historico' && !this.soloLectura;
+    return this.consolidadoHistorico;
   }
 
-  cambiarVista(vista: string) {
-    this.vista = vista;
-    if (vista === 'historico' && !this.soloLectura) {
-      this.prepararHistorico();
-      this.cargarAccidentesSistema();
+  cargarConsolidadoSso() {
+    this.cargando = true;
+    this.errorCarga = false;
+    this.sinPermisoConsolidado = false;
+
+    if (!this.idUsuario) {
+      this.cargando = false;
+      this.sinPermisoConsolidado = true;
+      return;
     }
+
+    this._sUsuariosPerfiles.getUsuariosPerfilesbyidUsuario(Number(this.idUsuario)).subscribe(
+      (perfiles: any) => {
+        const esCliente = Array.isArray(perfiles) && perfiles.some((perfil: any) =>
+          perfil.idPerfil == 5 || perfil.idPerfil === 'Clientes'
+        );
+        if (esCliente) {
+          this.sinPermisoConsolidado = true;
+          this.cargando = false;
+          return;
+        }
+
+        this.cargarAccidentesSistema().then(() => {
+          this.prepararHistorico();
+          this.cargando = false;
+        });
+      },
+      (error: any) => {
+        console.error('Error al verificar acceso al consolidado SSO:', error);
+        this.errorCarga = true;
+        this.cargando = false;
+      }
+    );
   }
 
   /** Desde 2026 los datos salen solos de lo registrado en todos los subproyectos. */
-  private cargarAccidentesSistema() {
-    firestoreDB.collection(COLECCION).get()
+  private cargarAccidentesSistema(): Promise<void> {
+    return firestoreDB.collection(COLECCION).get()
       .then((snapshot: any) => {
         const registros: AccidenteHistorico[] = [];
         snapshot.forEach((doc: any) => {
@@ -237,7 +229,6 @@ export class EstadisticasSsoComponent implements OnInit {
         });
         this.accidentesSistema = registros;
         this.errorHistoricoSistema = false;
-        this.prepararHistorico();
       })
       .catch((error: any) => {
         console.error('Error al cargar los accidentes del sistema:', error);
@@ -306,10 +297,6 @@ export class EstadisticasSsoComponent implements OnInit {
       case 'Enf. Profesional': return 'tipo-enf-prof';
       default: return '';
     }
-  }
-
-  private getAnio(item: AccidenteSSO): string {
-    return (item.fecha || '').substring(0, 4) || 'Sin fecha';
   }
 
   // Del texto local: toISOString() en la noche de Chile daría el día siguiente

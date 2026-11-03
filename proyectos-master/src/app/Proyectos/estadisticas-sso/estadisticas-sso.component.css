@@ -668,7 +668,95 @@
   text-align: center;
 }
 
+/* Página del Consolidado SSO: mismo encabezado que los demás reportes */
+.sso-pagina {
+  padding: 70px 40px 60px;
+}
+
+.sso.sso-consolidado {
+  margin: 0;
+}
+
+.sso-consolidado .sso-encabezado {
+  position: relative;
+  overflow: hidden;
+  gap: 20px;
+  margin-bottom: 16px;
+  padding: 22px 28px;
+  border-radius: 10px;
+  background: linear-gradient(115deg, #064f78 0%, #075f91 45%, #1089bd 100%);
+}
+
+.sso-consolidado .sso-encabezado::after {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -60px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.sso-consolidado .sso-titulo,
+.sso-consolidado .sso-volver {
+  position: relative;
+  z-index: 1;
+}
+
+.sso-consolidado .sso-titulo {
+  gap: 16px;
+}
+
+.sso-consolidado .sso-icono {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  font-size: 21px;
+}
+
+.sso-kicker {
+  color: #bfe6f8;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+}
+
+.sso-consolidado .sso-titulo h5 {
+  margin: 3px 0;
+  color: #fff;
+  font-size: 22px;
+}
+
+.sso-consolidado .sso-titulo p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+}
+
+.sso-volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sso-volver:hover,
+.sso-volver:focus {
+  background: #fff;
+  color: #075f91;
+}
+
 @media (max-width: 991px) {
+  .sso-pagina { padding: 70px 15px 40px; }
   .sso-grilla { grid-template-columns: minmax(0, 1fr); }
   .sso-tipos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .sso-formulario-campos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
