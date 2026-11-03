@@ -3019,3 +3019,205 @@
 .tabla-consolidado td.cg-col-total {
   width: 90px;
 }
+
+/* ============================ HALLAZGOS POR ÁREA ============================ */
+.seccion-areas {
+  background: #fff;
+  border: 1px solid #e3ebf1;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(16, 40, 60, 0.04);
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.areas-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.area-panel {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid #e3ebf1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.area-panel-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 20px;
+  margin-bottom: 10px;
+}
+
+.area-panel h4 {
+  margin: 0;
+  color: #24404f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.area-fila {
+  display: grid;
+  grid-template-columns: minmax(110px, 160px) minmax(0, 1fr) 62px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12px;
+  color: #3f5563;
+}
+
+.area-nombre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.area-barra {
+  height: 16px;
+  border-radius: 4px;
+  background: #eef3f6;
+  overflow: hidden;
+}
+
+.area-barra .barra-pila {
+  border-radius: 4px;
+}
+
+.area-barra .area-seg { flex-basis: 0; }
+
+.area-total {
+  color: #8796a0;
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.area-total strong {
+  color: #24404f;
+  font-size: 13px;
+}
+
+.area-fila-cero { color: #a9b6bf; }
+.area-fila-cero .area-total strong { color: #c3cdd4; }
+
+/* Mismos colores por tipo que el gráfico del Consolidado Histórico */
+.area-seg-nc   { background: #dc3545; }
+.area-seg-sw   { background: #f1a1a9; }
+.area-seg-nm   { background: #ffc107; }
+.area-seg-rp   { background: #528053; }
+.area-seg-fr   { background: #8fd19e; }
+.area-seg-om   { background: #2196f3; }
+.area-seg-la   { background: #d7c4b9; }
+.area-seg-otro { background: #a0adb6; }
+
+.area-barra .area-seg + .area-seg { box-shadow: inset 1px 0 0 #fff; }
+
+.area-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f0f4f7;
+  font-size: 11.5px;
+  color: #4b5b66;
+}
+
+.area-leyenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.area-leyenda i {
+  display: inline-block;
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.area-leyenda strong { color: #24404f; }
+
+@media (max-width: 991px) {
+  .areas-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .area-fila { grid-template-columns: 100px minmax(0, 1fr) 56px; gap: 6px; }
+}
+
+/* ============================ CONSOLIDADO · INTERNO Y MANDANTE (PUNTOS) ============================ */
+.cg-panel-completo { grid-column: span 6; }
+
+.cg-origen-totales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12px;
+  color: #4b5b66;
+}
+
+.cg-origen-totales span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cg-origen-totales strong { color: #24404f; }
+
+.cg-origen-totales i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+
+.cg-origen-interno  { background: #e8890c; }
+.cg-origen-mandante { background: #0879b2; }
+
+.cg-origen-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 280px;
+  margin-top: 10px;
+}
+
+.cg-origen-vivo { fill: rgba(47, 158, 106, 0.07); }
+.cg-origen-oculto { display: none; }
+.cg-origen-guia { stroke: #edf2f5; stroke-dasharray: 4 4; }
+.cg-origen-eje { stroke: #dce5ea; stroke-width: 2; }
+
+.cg-origen-linea {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.cg-linea-interno  { stroke: #e8890c; }
+.cg-linea-mandante { stroke: #0879b2; }
+
+.cg-punto-interno,
+.cg-punto-mandante {
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+
+.cg-punto-interno  { fill: #e8890c; }
+.cg-punto-mandante { fill: #0879b2; }
+
+.cg-texto-interno,
+.cg-texto-mandante,
+.cg-texto-anio {
+  font-size: 13px;
+  text-anchor: middle;
+}
+
+.cg-texto-interno  { fill: #b56a06; font-weight: 700; }
+.cg-texto-mandante { fill: #075f91; font-weight: 700; }
+.cg-texto-anio { fill: #758691; }
+.cg-texto-anio-vivo { fill: #23804f; font-weight: 700; }

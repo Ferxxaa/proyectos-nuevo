@@ -54,6 +54,15 @@
       </button>
 
       <button
+        *ngIf="puedeVerReporteMejoras"
+        type="button"
+        class="hallazgos-header-permission"
+        (click)="abrirReporteMejoras()"
+        title="Consolidado anual de oportunidades de mejora y lecciones aprendidas">
+        <i class="fa fa-line-chart"></i> Reporte OM y lecciones
+      </button>
+
+      <button
         *ngIf="!soloLectura && !ocultarFormulario"
         type="button"
         class="hallazgos-header-toggle"
@@ -396,6 +405,215 @@
           </ng-container>
         </tbody>
       </table>
+    </div>
+
+    <!-- Reporte anual consolidado de todas las obras -->
+    <div class="reporte-om-overlay" *ngIf="modalReporteAbierto" (click)="cerrarReporteMejoras()">
+      <div class="reporte-om-dialog" (click)="$event.stopPropagation()">
+        <div class="reporte-om-header">
+          <h5 class="modal-title">Mejoras y lecciones aprendidas</h5>
+          <select class="reporte-om-anio" [(ngModel)]="reporteAnio" (ngModelChange)="recalcularReporte()"
+                  [disabled]="cargandoReporte || !reporteAnios.length" aria-label="Año del reporte">
+            <option *ngFor="let anio of reporteAnios" [value]="anio">{{anio}}</option>
+          </select>
+          <button type="button" class="close" aria-label="Cerrar" (click)="cerrarReporteMejoras()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+
+        <div class="reporte-om-scroll">
+          <div class="reporte-om-mensaje" *ngIf="cargandoReporte">
+            <i class="fa fa-spinner fa-spin"></i> Cargando el consolidado de todas las obras...
+          </div>
+          <div class="reporte-om-mensaje" *ngIf="errorReporte">No se pudo cargar el reporte. Ciérralo y vuelve a abrirlo.</div>
+          <div class="reporte-om-mensaje" *ngIf="!cargandoReporte && !errorReporte && !reporteAnios.length">
+            Aún no hay oportunidades de mejora ni lecciones aprendidas registradas en los hallazgos.
+          </div>
+
+          <ng-container *ngIf="!cargandoReporte && !errorReporte && reporteAnios.length">
+            <section class="reporte-om-tiles">
+              <div class="reporte-om-tile tile-azul">
+                <span>Registros</span>
+                <strong>{{reporteKpi.total}}</strong>
+                <small>Mejoras {{reporteKpi.mejoras}}, lecciones {{reporteKpi.lecciones}}</small>
+              </div>
+              <div class="reporte-om-tile tile-verde">
+                <span>Cerradas</span>
+                <strong>{{reporteKpi.cerradas}}</strong>
+                <small>{{reporteKpi.porcentajeCerradas === null ? 'Sin registros' : reporteKpi.porcentajeCerradas + '% del total'}}</small>
+              </div>
+              <div class="reporte-om-tile tile-naranjo">
+                <span>Por evaluar</span>
+                <strong>{{reporteKpi.porEvaluar}}</strong>
+                <small>Evaluadas {{reporteKpi.evaluadas}}</small>
+              </div>
+              <div class="reporte-om-tile tile-grafito">
+                <span>Eficacia</span>
+                <strong>{{reporteKpi.porcentajeEficacia === null ? '—' : reporteKpi.porcentajeEficacia + '%'}}</strong>
+                <small>Eficaces {{reporteKpi.eficaces}} de {{reporteKpi.evaluadas}} evaluadas</small>
+              </div>
+              <div class="reporte-om-tile tile-grafito">
+                <span>Nota promedio</span>
+                <strong>{{reporteKpi.notaPromedio === null ? '—' : reporteKpi.notaPromedio}}</strong>
+                <small>En escala de 1 a 4</small>
+              </div>
+            </section>
+
+            <section class="reporte-om-panel" *ngIf="reporteKpi.total">
+              <h6>Evaluación de eficacia {{reporteAnio}}</h6>
+              <div class="reporte-om-panel-cuerpo">
+                <div class="reporte-om-barra" role="img"
+                     [attr.aria-label]="reporteKpi.evaluadas + ' evaluadas de ' + reporteKpi.total + ' registros'">
+                  <span *ngFor="let tramo of reporteEficacia" [ngClass]="tramo.clase" [style.width.%]="tramo.porcentaje"
+                        [title]="tramo.etiqueta + ': ' + tramo.cantidad">{{tramo.cantidad || ''}}</span>
+                </div>
+                <ul class="reporte-om-leyenda">
+                  <li *ngFor="let tramo of reporteEficacia">
+                    <i [ngClass]="tramo.clase"></i>{{tramo.etiqueta}} <b>{{tramo.cantidad}}</b>
+                  </li>
+                </ul>
+              </div>
+            </section>
+
+            <section class="reporte-om-grupos" *ngIf="reporteKpi.total">
+              <div class="reporte-om-panel" *ngFor="let grupo of [{titulo: 'Resumen por área', filas: reportePorArea}, {titulo: 'Resumen por obra', filas: reportePorObra}]">
+                <h6>{{grupo.titulo}}</h6>
+                <div class="reporte-om-grupo-lista">
+                  <table>
+                    <thead>
+                      <tr><th></th><th>Registros</th><th>Cerradas</th><th>Evaluadas</th><th>Eficacia</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let fila of grupo.filas">
+                        <td [title]="fila.nombre">{{fila.nombre}}</td>
+                        <td>{{fila.total}}</td>
+                        <td>{{fila.cerradas}}</td>
+                        <td>{{fila.evaluadas}}</td>
+                        <td>
+                          <span class="reporte-om-pill" [ngClass]="getClaseEficaciaGrupo(fila.porcentajeEficacia)">
+                            {{fila.porcentajeEficacia === null ? 'Sin nota' : fila.porcentajeEficacia + '%'}}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <div class="reporte-om-filtros">
+              <select class="form-control" [(ngModel)]="reporteTipo" (ngModelChange)="recalcularReporte()" aria-label="Tipo">
+                <option value="todos">Mejoras y lecciones</option>
+                <option value="mejora">Solo oportunidades de mejora</option>
+                <option value="leccion">Solo lecciones aprendidas</option>
+              </select>
+              <select class="form-control" [(ngModel)]="reporteEstado" (ngModelChange)="recalcularReporte()" aria-label="Estado">
+                <option value="todos">Todos los estados</option>
+                <option value="por-evaluar">Por evaluar</option>
+                <option value="evaluadas">Evaluadas</option>
+                <option value="abiertas">Abiertas</option>
+                <option value="cerradas">Cerradas</option>
+              </select>
+              <input type="text" class="form-control reporte-om-buscar" [(ngModel)]="reporteBusqueda" (ngModelChange)="recalcularReporte()"
+                     placeholder="Buscar por obra, área o detalle" aria-label="Buscar">
+              <button type="button" class="reporte-om-exportar" (click)="exportarReporteMejoras()" [disabled]="!reporteFilas.length">
+                <i class="fa fa-file-excel-o" aria-hidden="true"></i> Exportar a Excel
+              </button>
+            </div>
+
+            <div class="reporte-om-mensaje" *ngIf="!reporteFilas.length">Ningún registro coincide con estos filtros.</div>
+
+            <div class="reporte-om-tabla-marco" *ngIf="reporteFilas.length">
+              <table class="reporte-om-tabla">
+                <thead>
+                  <tr>
+                    <th>N°</th>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Obra</th>
+                    <th>Área</th>
+                    <th>Detalle</th>
+                    <th>Estado</th>
+                    <th>Eficacia</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <ng-container *ngFor="let fila of reporteFilas; let i = index; trackBy: trackReporte">
+                    <tr class="reporte-om-fila" [class.abierta]="filaReporteAbierta === fila.id" (click)="toggleFilaReporte(fila)">
+                      <td>{{i + 1}}</td>
+                      <td class="reporte-om-nowrap">{{getFechaReporte(fila)}}</td>
+                      <td><span class="reporte-om-chip" [ngClass]="getClaseTipoReporte(fila)">{{getTipoReporte(fila)}}</span></td>
+                      <td>{{fila.obra || '-'}}</td>
+                      <td>{{fila.areaResponsable || '-'}}</td>
+                      <td class="reporte-om-detalle"><div [title]="getDetalleReporte(fila)">{{getDetalleReporte(fila)}}</div></td>
+                      <td class="reporte-om-nowrap"><span class="reporte-om-chip" [ngClass]="getEstadoClass(fila.estado)">{{getEstadoReporte(fila)}}</span></td>
+                      <td class="reporte-om-nowrap">
+                        <span class="reporte-om-pill" [ngClass]="getClaseNotaEficacia(fila)">
+                          <b *ngIf="fila.notaEficacia">{{fila.notaEficacia}}</b> {{getEtiquetaEficacia(fila)}}
+                        </span>
+                      </td>
+                      <td class="reporte-om-accion">
+                        <button type="button" (click)="$event.stopPropagation(); toggleFilaReporte(fila)"
+                                [attr.aria-expanded]="filaReporteAbierta === fila.id"
+                                [attr.aria-label]="'Evaluar registro ' + (i + 1)">
+                          {{filaReporteAbierta === fila.id ? 'Cerrar' : 'Evaluar'}}
+                        </button>
+                      </td>
+                    </tr>
+                    <tr class="reporte-om-evaluar" *ngIf="filaReporteAbierta === fila.id">
+                      <td colspan="9">
+                        <div class="reporte-om-aviso" *ngIf="estaBloqueadoParaMi(fila)">
+                          <i class="fa fa-lock" aria-hidden="true"></i> Hallazgo bloqueado: solo lectura.
+                          <button type="button" *ngIf="esSubGerente" (click)="pedirAccesoHallazgoBloqueado(fila)">Desbloquear con clave</button>
+                        </div>
+                        <div class="reporte-om-form">
+                          <div class="reporte-om-campo reporte-om-campo-ancho">
+                            <label [attr.for]="'seguimiento-' + fila.id">Seguimiento de la mejora o acción</label>
+                            <textarea class="form-control" rows="3" [attr.id]="'seguimiento-' + fila.id" [(ngModel)]="fila.seguimientoMejora"
+                                      [disabled]="!puedeEvaluarMejora(fila)"
+                                      (change)="guardarCampoMejora(fila, 'seguimientoMejora', fila.seguimientoMejora || '')"></textarea>
+                          </div>
+                          <div class="reporte-om-campo reporte-om-campo-ancho">
+                            <label [attr.for]="'resultado-' + fila.id">Resultados</label>
+                            <textarea class="form-control" rows="3" [attr.id]="'resultado-' + fila.id" [(ngModel)]="fila.resultadoMejora"
+                                      [disabled]="!puedeEvaluarMejora(fila)"
+                                      (change)="guardarCampoMejora(fila, 'resultadoMejora', fila.resultadoMejora || '')"></textarea>
+                          </div>
+                          <div class="reporte-om-campo">
+                            <label [attr.for]="'control-impl-' + fila.id">Control de implementación</label>
+                            <input type="date" class="form-control" [attr.id]="'control-impl-' + fila.id" [(ngModel)]="fila.fechaControlImplementacion"
+                                   [disabled]="!puedeEvaluarMejora(fila)"
+                                   (change)="guardarCampoMejora(fila, 'fechaControlImplementacion', fila.fechaControlImplementacion || '')">
+                          </div>
+                          <div class="reporte-om-campo">
+                            <label [attr.for]="'control-eval-' + fila.id">Control de evaluación</label>
+                            <input type="date" class="form-control" [attr.id]="'control-eval-' + fila.id" [(ngModel)]="fila.fechaControlEvaluacion"
+                                   [disabled]="!puedeEvaluarMejora(fila)"
+                                   (change)="guardarCampoMejora(fila, 'fechaControlEvaluacion', fila.fechaControlEvaluacion || '')">
+                          </div>
+                          <div class="reporte-om-campo reporte-om-campo-nota">
+                            <span class="reporte-om-etiqueta">Evaluación de eficacia</span>
+                            <div class="reporte-om-notas">
+                              <button type="button" *ngFor="let nota of notasEficacia"
+                                      [ngClass]="esNotaActiva(fila, nota) ? 'activa nota-eficacia-' + nota : ''"
+                                      [attr.aria-pressed]="esNotaActiva(fila, nota)"
+                                      [disabled]="!puedeEvaluarMejora(fila)"
+                                      (click)="cambiarNotaEficacia(fila, nota)">
+                                <b>{{nota}}</b> {{getEtiquetaNota(nota)}}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </ng-container>
+                </tbody>
+              </table>
+            </div>
+          </ng-container>
+        </div>
+      </div>
     </div>
 
     <div class="bitacora-modal-overlay" *ngIf="modalBitacoraAbierto" (click)="cerrarBitacoraPopup()">

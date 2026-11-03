@@ -34,6 +34,12 @@ interface HallazgoItem {
   bloqueadoPor?: number;
   bloqueadoPorNombre?: string;
   fechaBloqueo?: string;
+  // Reporte anual de mejoras y lecciones
+  fechaControlImplementacion?: string;
+  seguimientoMejora?: string;
+  notaEficacia?: number;
+  fechaControlEvaluacion?: string;
+  resultadoMejora?: string;
 }
 
 interface BitacoraHallazgo {
@@ -87,6 +93,13 @@ const EMAILJS_PUBLIC_KEY = 'eU69rwXxt1sceIIXr';
 const MINUTOS_VIGENCIA_CODIGO = 15;
 const MAX_INTENTOS_CODIGO = 5;
 const SEGUNDOS_ENTRE_ENVIOS = 60;
+/** Nota del reporte anual de mejoras: la misma escala del cuadro Excel. */
+const EVALUACION_POR_NOTA: { [nota: number]: string } = {
+  4: 'MUY EFECTIVO',
+  3: 'EFECTIVO',
+  2: 'EFECTIVIDAD MEDIA',
+  1: 'NO EFECTIVO'
+};
 
 @Component({
   selector: 'app-control-hallazgos',
@@ -184,6 +197,24 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
 
   /** Hallazgos bloqueados que el gerente desbloqueó con la clave en esta sesión (solo en memoria). */
   accesoTemporalBloqueo: { [id: string]: boolean } = {};
+
+  /** Reporte anual consolidado (todas las obras) de oportunidades de mejora y lecciones aprendidas. */
+  modalReporteAbierto: boolean = false;
+  cargandoReporte: boolean = false;
+  errorReporte: boolean = false;
+  reporteAnios: string[] = [];
+  reporteAnio: string = '';
+  reporteTipo: string = 'todos';
+  reporteEstado: string = 'todos';
+  reporteBusqueda: string = '';
+  reporteFilas: HallazgoItem[] = [];
+  reporteKpi: any = this.calcularKpiReporte([]);
+  reporteEficacia: any[] = [];
+  reportePorArea: any[] = [];
+  reportePorObra: any[] = [];
+  filaReporteAbierta: string | null = null;
+  notasEficacia: number[] = [4, 3, 2, 1];
+  private reporteRegistros: HallazgoItem[] = [];
 
   private unsubscribeHallazgos: (() => void) | null = null;
   private unsubscribePermisoCoordinador: (() => void) | null = null;
@@ -939,6 +970,307 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   // ==========================================================
 
   /** true si el hallazgo está bloqueado y el usuario actual no lo ha desbloqueado con la clave. */
+  //*************************************************** Reporte anual de mejoras y lecciones ***************************************************
+
+  get puedeVerReporteMejoras(): boolean {
+    return !this.soloLectura && (this.esGerencia || this.esSubGerente);
+  }
+
+  puedeEvaluarMejora(item: HallazgoItem): boolean {
+    return this.puedeVerReporteMejoras && !this.estaBloqueadoParaMi(item);
+  }
+
+  abrirReporteMejoras() {
+    if (!this.puedeVerReporteMejoras) {
+      return;
+    }
+    this.modalReporteAbierto = true;
+    this.filaReporteAbierta = null;
+    this.cargarReporteMejoras();
+  }
+
+  cerrarReporteMejoras() {
+    this.modalReporteAbierto = false;
+  }
+
+  private cargarReporteMejoras() {
+    this.cargandoReporte = true;
+    this.errorReporte = false;
+
+    firestoreDB.collection('hallazgos').get()
+      .then((snapshot: any) => {
+        const registros: HallazgoItem[] = [];
+        snapshot.forEach((doc: any) => {
+          const data = doc.data() || {};
+          if (data.ambito === 'oficina' && data.tipoRegistro && data.tipoRegistro !== 'hallazgo-oficina') {
+            return;
+          }
+          if (!this.esTipoMejora(data.tipoAccion) && !this.esTipoLeccion(data.tipoAccion)) {
+            return;
+          }
+          registros.push({
+            id: doc.id,
+            ...data,
+            bitacoras: Array.isArray(data.bitacoras) ? data.bitacoras : [],
+            bloqueado: data.bloqueado === true
+          } as HallazgoItem);
+        });
+
+        this.reporteRegistros = registros.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+
+        const anios: string[] = [];
+        registros.forEach(item => {
+          const anio = this.getAnioReporte(item);
+          if (anio && anios.indexOf(anio) === -1) {
+            anios.push(anio);
+          }
+        });
+        this.reporteAnios = anios.sort().reverse();
+
+        if (this.reporteAnios.indexOf(this.reporteAnio) === -1) {
+          this.reporteAnio = this.reporteAnios[0] || '';
+        }
+
+        this.cargandoReporte = false;
+        this.recalcularReporte();
+      })
+      .catch((error: any) => {
+        console.error('Error al cargar el reporte de mejoras:', error);
+        this.cargandoReporte = false;
+        this.errorReporte = true;
+      });
+  }
+
+  recalcularReporte() {
+    // El resumen mide el año y tipo elegidos; Estado y Buscar solo acotan la tabla
+    const delPeriodo = this.reporteRegistros.filter(item => {
+      if (this.getAnioReporte(item) !== this.reporteAnio) { return false; }
+      if (this.reporteTipo === 'mejora') { return this.esTipoMejora(item.tipoAccion); }
+      if (this.reporteTipo === 'leccion') { return this.esTipoLeccion(item.tipoAccion); }
+      return true;
+    });
+
+    const busqueda = this.normalizarTexto(this.reporteBusqueda);
+
+    this.reporteFilas = delPeriodo.filter(item => {
+      const texto = this.normalizarTexto([item.obra, item.areaResponsable, this.getDetalleReporte(item)].join(' '));
+      if (busqueda && texto.indexOf(busqueda) === -1) { return false; }
+      // La fila abierta no desaparece mientras se evalúa
+      return item.id === this.filaReporteAbierta || this.cumpleEstadoReporte(item);
+    });
+
+    this.reporteKpi = this.calcularKpiReporte(delPeriodo);
+    this.reporteEficacia = this.calcularEficaciaReporte(delPeriodo);
+    this.reportePorArea = this.agruparReporte(delPeriodo, item => item.areaResponsable || 'Sin área');
+    this.reportePorObra = this.agruparReporte(delPeriodo, item => item.obra || 'Sin obra');
+  }
+
+  private cumpleEstadoReporte(item: HallazgoItem): boolean {
+    const evaluada = !!Number(item.notaEficacia);
+    const cerrada = (item.estado || '').toUpperCase() === 'CERRADA';
+
+    switch (this.reporteEstado) {
+      case 'por-evaluar': return !evaluada;
+      case 'evaluadas': return evaluada;
+      case 'abiertas': return !cerrada;
+      case 'cerradas': return cerrada;
+      default: return true;
+    }
+  }
+
+  private calcularKpiReporte(filas: HallazgoItem[]) {
+    const evaluadas = filas.filter(item => !!Number(item.notaEficacia));
+    const eficaces = evaluadas.filter(item => Number(item.notaEficacia) >= 3);
+    const cerradas = filas.filter(item => (item.estado || '').toUpperCase() === 'CERRADA');
+    const sumaNotas = evaluadas.reduce((suma, item) => suma + Number(item.notaEficacia), 0);
+
+    return {
+      total: filas.length,
+      mejoras: filas.filter(item => this.esTipoMejora(item.tipoAccion)).length,
+      lecciones: filas.filter(item => this.esTipoLeccion(item.tipoAccion)).length,
+      cerradas: cerradas.length,
+      evaluadas: evaluadas.length,
+      eficaces: eficaces.length,
+      porEvaluar: filas.length - evaluadas.length,
+      porcentajeCerradas: filas.length ? Math.round(cerradas.length * 100 / filas.length) : null,
+      porcentajeEficacia: evaluadas.length ? Math.round(eficaces.length * 100 / evaluadas.length) : null,
+      notaPromedio: evaluadas.length ? Math.round(sumaNotas * 10 / evaluadas.length) / 10 : null
+    };
+  }
+
+  private calcularEficaciaReporte(filas: HallazgoItem[]): any[] {
+    const tramos = this.notasEficacia.map(nota => ({
+      etiqueta: this.getEtiquetaNota(nota),
+      clase: 'nota-eficacia-' + nota,
+      cantidad: filas.filter(item => Number(item.notaEficacia) === nota).length
+    }));
+
+    tramos.push({
+      etiqueta: 'Por evaluar',
+      clase: 'nota-sin-evaluar',
+      cantidad: filas.filter(item => !Number(item.notaEficacia)).length
+    });
+
+    return tramos.map(tramo => ({
+      ...tramo,
+      porcentaje: filas.length ? tramo.cantidad * 100 / filas.length : 0
+    }));
+  }
+
+  private agruparReporte(filas: HallazgoItem[], clave: (item: HallazgoItem) => string): any[] {
+    const grupos: { [nombre: string]: HallazgoItem[] } = {};
+
+    filas.forEach(item => {
+      const nombre = clave(item);
+      grupos[nombre] = (grupos[nombre] || []).concat(item);
+    });
+
+    return Object.keys(grupos)
+      .map(nombre => ({ nombre: nombre, ...this.calcularKpiReporte(grupos[nombre]) }))
+      .sort((a, b) => b.total - a.total || a.nombre.localeCompare(b.nombre));
+  }
+
+  toggleFilaReporte(item: HallazgoItem) {
+    const estabaAbierta = this.filaReporteAbierta === item.id;
+    this.filaReporteAbierta = estabaAbierta ? null : item.id;
+    if (estabaAbierta) {
+      this.recalcularReporte(); // Recién al cerrarla se aplica el filtro de Estado
+    }
+  }
+
+  guardarCampoMejora(item: HallazgoItem, campo: string, valor: any) {
+    if (!item.id || !this.puedeEvaluarMejora(item)) {
+      return;
+    }
+
+    firestoreDB.collection('hallazgos').doc(item.id).update({ [campo]: valor })
+      .then(() => this.recalcularReporte())
+      .catch((error: any) => {
+        Swal.fire('Error', 'No se pudo guardar el dato: ' + error.message, 'error');
+      });
+  }
+
+  // Volver a tocar la misma nota la quita
+  cambiarNotaEficacia(item: HallazgoItem, nota: any) {
+    if (!this.puedeEvaluarMejora(item)) {
+      return;
+    }
+    item.notaEficacia = Number(item.notaEficacia) === Number(nota) ? null : Number(nota) || null;
+    this.guardarCampoMejora(item, 'notaEficacia', item.notaEficacia);
+  }
+
+  esNotaActiva(item: HallazgoItem, nota: number): boolean {
+    return Number(item.notaEficacia) === nota;
+  }
+
+  getEvaluacionEficacia(item: HallazgoItem): string {
+    return EVALUACION_POR_NOTA[Number(item.notaEficacia)] || 'SIN EVALUAR';
+  }
+
+  getEtiquetaNota(nota: number): string {
+    const etiqueta = (EVALUACION_POR_NOTA[nota] || '').toLowerCase();
+    return etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1);
+  }
+
+  getEtiquetaEficacia(item: HallazgoItem): string {
+    return this.getEtiquetaNota(Number(item.notaEficacia)) || 'Por evaluar';
+  }
+
+  getEstadoReporte(item: HallazgoItem): string {
+    const estado = (item.estado || '').toLowerCase();
+    return estado ? estado.charAt(0).toUpperCase() + estado.slice(1) : '-';
+  }
+
+  getClaseTipoReporte(item: HallazgoItem): string {
+    return this.esTipoLeccion(item.tipoAccion) ? 'chip-leccion' : 'chip-mejora';
+  }
+
+  getClaseEficaciaGrupo(porcentaje: number): string {
+    if (porcentaje === null) { return 'nota-sin-evaluar'; }
+    if (porcentaje >= 75) { return 'nota-eficacia-4'; }
+    return porcentaje >= 50 ? 'nota-eficacia-2' : 'nota-eficacia-1';
+  }
+
+  getClaseNotaEficacia(item: HallazgoItem): string {
+    return EVALUACION_POR_NOTA[Number(item.notaEficacia)] ? 'nota-eficacia-' + Number(item.notaEficacia) : 'nota-sin-evaluar';
+  }
+
+  getTipoReporte(item: HallazgoItem): string {
+    return this.esTipoLeccion(item.tipoAccion) ? 'Lección aprendida' : 'Oportunidad de mejora';
+  }
+
+  getFechaReporte(item: HallazgoItem): string {
+    return this.formatearFechaTexto(item.fecha);
+  }
+
+  getDetalleReporte(item: HallazgoItem): string {
+    const ultima = this.getUltimaBitacora(item);
+    return item.descripcion || (ultima && ultima.descripcionHallazgo) || '-';
+  }
+
+  trackReporte(index: number, item: HallazgoItem) {
+    return item.id;
+  }
+
+  exportarReporteMejoras() {
+    const encabezados = ['N°', 'Fecha', 'Año', 'Tipo', 'Obra', 'Área responsable', 'Detalle de mejora o acción',
+      'Fecha control implementación', 'Seguimiento', 'Nota', 'Evaluación de eficacia', 'Estado',
+      'Fecha control evaluación', 'Resultados'];
+
+    const filas = this.reporteFilas.map((item, index) => [
+      index + 1,
+      this.getFechaReporte(item),
+      this.reporteAnio,
+      this.getTipoReporte(item),
+      item.obra,
+      item.areaResponsable,
+      this.getDetalleReporte(item),
+      this.formatearFechaTexto(item.fechaControlImplementacion),
+      item.seguimientoMejora,
+      item.notaEficacia,
+      this.getEvaluacionEficacia(item),
+      item.estado,
+      this.formatearFechaTexto(item.fechaControlEvaluacion),
+      item.resultadoMejora
+    ]);
+
+    // Punto y coma y BOM: así Excel en español separa las columnas y respeta las tildes
+    const contenido = [encabezados].concat(filas as any[])
+      .map(fila => fila.map(valor => this.celdaCsv(valor)).join(';'))
+      .join('\r\n');
+
+    const blob = new Blob(['\ufeff' + contenido], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = 'Reporte-mejoras-y-lecciones-' + this.reporteAnio + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => window.URL.revokeObjectURL(link.href), 60000);
+  }
+
+  private celdaCsv(valor: any): string {
+    let texto = valor === null || valor === undefined ? '' : String(valor);
+    if (/^[=+\-@]/.test(texto)) {
+      texto = "'" + texto; // Evita que Excel lo interprete como fórmula
+    }
+    return '"' + texto.replace(/"/g, '""') + '"';
+  }
+
+  private esTipoMejora(tipo: string): boolean {
+    return this.normalizarTexto(tipo).indexOf('MEJORA') >= 0;
+  }
+
+  private esTipoLeccion(tipo: string): boolean {
+    return this.normalizarTexto(tipo).indexOf('LECCI') >= 0;
+  }
+
+  // Sale del texto de la fecha: new Date('2026-01-01') en Chile daría 2025
+  private getAnioReporte(item: HallazgoItem): string {
+    const fecha = (item.fecha || '').trim();
+    return /^\d{4}/.test(fecha) ? fecha.substring(0, 4) : String(item.anio || '');
+  }
+
   estaBloqueadoParaMi(item: HallazgoItem | null): boolean {
     if (!item || !item.bloqueado) { return false; }
     return !(item.id && this.esSubGerente && this.accesoTemporalBloqueo[item.id]);

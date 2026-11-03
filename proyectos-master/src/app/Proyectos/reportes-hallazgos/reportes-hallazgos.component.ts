@@ -57,6 +57,17 @@ interface ReporteObra {
   tipos: { [tipo: string]: number };
 }
 
+/** Hallazgos del año de un área responsable (gráficos "Hallazgos por área"). */
+interface ReporteArea {
+  key: string;
+  nombre: string;
+  total: number;
+  abiertos: number;
+  cerrados: number;
+  pct: number;
+  segmentos: Array<{ key: string; label: string; valor: number }>;
+}
+
 /** Fila de las tablas del Consolidado general (un valor por año + total). */
 interface FilaConsolidado {
   key: string;
@@ -242,6 +253,49 @@ const CONSOLIDADO_MANDANTE: Array<{ key: string; label: string; clase: string }>
   { key: 'rpMandante', label: 'Mandante: refuerzo positivo', clase: 'cg-mrp' }
 ];
 
+/** Mismas áreas que el formulario de Control de Hallazgos: se muestran aunque tengan 0 en el año. */
+const AREAS_RESPONSABLES: string[] = [
+  'Arquitectura',
+  'Construcción',
+  'Administración',
+  'Calidad',
+  'Seguridad',
+  'Medio Ambiente',
+  'Medio Ambiente-Calidad'
+];
+
+/** Color fijo de cada área en los gráficos del Consolidado Histórico. */
+const CG_COLOR_AREA: { [area: string]: string } = {
+  'Construcción': '#0879b2',
+  'Seguridad': '#e8890c',
+  'Calidad': '#2f9e6a',
+  'Medio Ambiente': '#8bbf3f',
+  'Medio Ambiente-Calidad': '#14a3a0',
+  'Administración': '#7048e8',
+  'Arquitectura': '#c2417c',
+  'Sin área': '#a0adb6'
+};
+const CG_COLOR_AREA_OTRA = '#6b7a84';
+
+/** Consolidado por área del registro (cerrado). De 2026 en adelante se calcula con los hallazgos del sistema. */
+const CONSOLIDADO_AREAS_HISTORICO: { [anio: string]: { [area: string]: number } } = {
+  '2023': { 'Seguridad': 14, 'Medio Ambiente': 3, 'Calidad': 0, 'Administración': 0 },
+  '2024': { 'Seguridad': 36, 'Medio Ambiente': 28, 'Calidad': 1, 'Administración': 2 },
+  '2025': { 'Seguridad': 22, 'Medio Ambiente': 10, 'Calidad': 1, 'Administración': 1 }
+};
+
+/** Consolidado interno / mandante del registro (cerrado). De 2026 en adelante se calcula con los hallazgos del sistema. */
+const CONSOLIDADO_ORIGEN_HISTORICO: { [anio: string]: { interno: number; mandante: number } } = {
+  '2023': { interno: 12, mandante: 3 },
+  '2024': { interno: 51, mandante: 16 },
+  '2025': { interno: 31, mandante: 3 }
+};
+
+/** Medidas del gráfico de puntos interno / mandante (unidades del viewBox del SVG). */
+const CG_PUNTOS_ANCHO = 1000;
+const CG_PUNTOS_BASE = 205;
+const CG_PUNTOS_ALTO = 165;
+
 interface ResumenTipoAccion {
   key: string;
   label: string;
@@ -306,6 +360,11 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
   reportesObra: ReporteObra[] = [];
   reportesObraFiltrados: ReporteObra[] = [];
 
+  // Hallazgos por área
+  reportesArea: ReporteArea[] = [];
+  tiposEnAreas: Array<{ key: string; label: string; total: number }> = [];
+  maximoArea: number = 0;
+
   // Relación con el mandante
   readonly columnasDetecta = QUIEN_DETECTA;
   tiposResumen: ResumenTipoAccion[] = [];
@@ -345,6 +404,8 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
   consolidadoEficaciaTotales: number[] = [];
   consolidadoEficaciaGranTotal: number = 0;
   consolidadoMejoras: FilaConsolidado[] = [];
+  /** Cuadro único de Mejoras operacionales: total de hallazgos, eficacia y totales de mejoras. */
+  consolidadoMejorasUnidas: FilaConsolidado[] = [];
   consolidadoPctMejoras: Array<number | null> = [];
   consolidadoPctMejorasTotal: number | null = null;
   consolidadoMandante: FilaConsolidado[] = [];
@@ -357,6 +418,19 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
   cgColumnasTipos: CgColumnaTipo[] = [];
   cgLeyendaTipos: Array<{ label: string; color: string; total: number }> = [];
   cgDonut: CgSegmentoDonut[] = [];
+  // Por área: solo hallazgos del sistema (el registro histórico no trae el área)
+  cgColumnasArea: CgColumnaTipo[] = [];
+  cgLeyendaArea: Array<{ label: string; color: string; total: number }> = [];
+  cgDonutArea: CgSegmentoDonut[] = [];
+  cgAreaTotal: number = 0;
+  // Interno vs mandante (gráfico de puntos)
+  cgPuntosOrigen: any[] = [];
+  cgLineaInterno: string = '';
+  cgLineaMandante: string = '';
+  cgGuiasOrigen: number[] = [];
+  cgTotalInterno: number = 0;
+  cgTotalMandante: number = 0;
+  cgPctMandante: number = 0;
   cgColumnasEficacia: CgColumnaEficacia[] = [];
   cgPuntosEficacia: string = '';
   cgColumnasMandante: CgColumnaMandante[] = [];
@@ -951,8 +1025,67 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
     this.totalSubProyectos = this.todosLosReportes.length;
     this.subProyectosConHallazgos = this.todosLosReportes.filter(reporte => reporte.total > 0).length;
 
+    this.calcularAreas();
     this.calcularVistaHistorica();
     this.filtrarReportes();
+  }
+
+  /** Área del hallazgo con el nombre del catálogo (sin importar tildes ni mayúsculas). */
+  private nombreArea(hallazgo: HallazgoItem): string {
+    const nombre = String((hallazgo as any).areaResponsable || '').trim();
+    const delCatalogo = AREAS_RESPONSABLES.filter(area => this.normalizar(area) === this.normalizar(nombre))[0];
+    return delCatalogo || nombre || 'Sin área';
+  }
+
+  /** Agrupa los hallazgos del año por área responsable, para los gráficos por área. */
+  private calcularAreas() {
+    const areas: { [clave: string]: { nombre: string; total: number; abiertos: number; cerrados: number; tipos: { [tipo: string]: number } } } = {};
+
+    const obtenerArea = (nombre: string) => {
+      const clave = this.normalizar(nombre);
+      if (!areas[clave]) {
+        areas[clave] = { nombre: nombre, total: 0, abiertos: 0, cerrados: 0, tipos: this.tiposAccionVacios() };
+      }
+      return areas[clave];
+    };
+
+    AREAS_RESPONSABLES.forEach(nombre => obtenerArea(nombre));
+
+    this.hallazgosDelAnio.forEach(hallazgo => {
+      const area = obtenerArea(this.nombreArea(hallazgo));
+      const cerrado = (hallazgo.estado || '').toUpperCase().trim() === 'CERRADA';
+
+      area.total++;
+      if (cerrado) { area.cerrados++; } else { area.abiertos++; }
+      area.tipos[this.claveTipoAccion(hallazgo.tipoAccion)]++;
+    });
+
+    const totalAnio = this.hallazgosDelAnio.length;
+
+    this.reportesArea = Object.keys(areas)
+      .map(clave => ({
+        key: clave,
+        nombre: areas[clave].nombre,
+        total: areas[clave].total,
+        abiertos: areas[clave].abiertos,
+        cerrados: areas[clave].cerrados,
+        pct: totalAnio ? Math.round(areas[clave].total * 100 / totalAnio) : 0,
+        segmentos: TIPOS_ACCION
+          .map(tipo => ({ key: tipo.key, label: tipo.label, valor: areas[clave].tipos[tipo.key] || 0 }))
+          .filter(segmento => segmento.valor > 0)
+      }))
+      .sort((a, b) => b.total - a.total || a.nombre.localeCompare(b.nombre));
+
+    this.maximoArea = this.reportesArea.reduce((maximo, area) => Math.max(maximo, area.total), 0);
+
+    this.tiposEnAreas = TIPOS_ACCION
+      .map(tipo => ({
+        key: tipo.key,
+        label: tipo.label,
+        total: this.reportesArea.reduce((suma, area) =>
+          suma + area.segmentos.filter(s => s.key === tipo.key).reduce((s, x) => s + x.valor, 0), 0)
+      }))
+      .filter(tipo => tipo.total > 0);
   }
 
   /** Años sin hallazgos en el sistema: se muestran los números del registro histórico (solo vista). */
@@ -1077,6 +1210,9 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
       { key: 'efectivas', label: 'Total mejoras efectivas', clase: 'cg-efectivas',
         valores: efectivas, total: totalEfectivas }
     ];
+    this.consolidadoMejorasUnidas = this.consolidadoMejoras.slice(0, 1)
+      .concat(this.consolidadoEficacia)
+      .concat(this.consolidadoMejoras.slice(1));
     this.consolidadoPctMejoras = efectivas.map((e, i) => this.pctDecimal(e, this.consolidadoEficaciaTotales[i]));
     this.consolidadoPctMejorasTotal = this.pctDecimal(totalEfectivas, this.consolidadoEficaciaGranTotal);
 
@@ -1088,6 +1224,146 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
     this.consolidadoPctMandanteTotal = this.pctDecimal(rp.total, rp.total + desv.total);
 
     this.calcularGraficosConsolidado();
+    this.calcularGraficosArea();
+    this.calcularGraficoOrigen();
+  }
+
+  /** Puntos interno / mandante por año: la tabla del registro y, desde 2026, los hallazgos del sistema. */
+  private calcularGraficoOrigen() {
+    const porAnio: { [anio: string]: { interno: number; mandante: number } } = {};
+    const primerAnio = Math.min.apply(null, Object.keys(CONSOLIDADO_ORIGEN_HISTORICO).map(clave => Number(clave)));
+
+    this.consolidadoAnios.filter(anio => anio >= primerAnio).forEach(anio => {
+      porAnio[String(anio)] = { interno: 0, mandante: 0 };
+    });
+
+    this.hallazgos.forEach(hallazgo => {
+      const anio = this.obtenerAnio(hallazgo);
+      if (!anio || anio < primerAnio || CONSOLIDADO_ORIGEN_HISTORICO[String(anio)]) { return; }
+
+      const clave = String(anio);
+      porAnio[clave] = porAnio[clave] || { interno: 0, mandante: 0 };
+      if (this.claveQuienDetecta(hallazgo.quienDetecta) === 'mandante') {
+        porAnio[clave].mandante++;
+      } else {
+        porAnio[clave].interno++;
+      }
+    });
+
+    Object.keys(CONSOLIDADO_ORIGEN_HISTORICO).forEach(clave => {
+      porAnio[clave] = CONSOLIDADO_ORIGEN_HISTORICO[clave];
+    });
+
+    const anios = Object.keys(porAnio).map(clave => Number(clave)).sort((a, b) => a - b);
+    const maximo = anios.reduce((m, anio) => Math.max(m, porAnio[String(anio)].interno, porAnio[String(anio)].mandante), 1);
+    const posicionY = (valor: number) => CG_PUNTOS_BASE - valor * CG_PUNTOS_ALTO / maximo;
+    const anchoColumna = CG_PUNTOS_ANCHO / (anios.length || 1);
+
+    this.cgPuntosOrigen = anios.map((anio, i) => {
+      const { interno, mandante } = porAnio[String(anio)];
+      const yInterno = posicionY(interno);
+      const yMandante = posicionY(mandante);
+      const cerca = Math.abs(yInterno - yMandante) < 22; // Si se topan, la etiqueta del menor va bajo su punto
+
+      return {
+        anio: anio,
+        vivo: this.esAnioVivo(anio),
+        x: (i + 0.5) * anchoColumna,
+        inicioColumna: i * anchoColumna,
+        anchoColumna: anchoColumna,
+        interno: interno,
+        mandante: mandante,
+        yInterno: yInterno,
+        yMandante: yMandante,
+        yTextoInterno: cerca && interno < mandante ? yInterno + 22 : yInterno - 13,
+        yTextoMandante: cerca && mandante <= interno ? yMandante + 22 : yMandante - 13
+      };
+    });
+
+    this.cgLineaInterno = this.cgPuntosOrigen.map(p => p.x + ',' + p.yInterno).join(' ');
+    this.cgLineaMandante = this.cgPuntosOrigen.map(p => p.x + ',' + p.yMandante).join(' ');
+    this.cgGuiasOrigen = [0, 1, 2, 3].map(i => CG_PUNTOS_BASE - (i + 1) * CG_PUNTOS_ALTO / 4);
+
+    this.cgTotalInterno = anios.reduce((suma, anio) => suma + porAnio[String(anio)].interno, 0);
+    this.cgTotalMandante = anios.reduce((suma, anio) => suma + porAnio[String(anio)].mandante, 0);
+    this.cgPctMandante = this.pctDe(this.cgTotalMandante, this.cgTotalInterno + this.cgTotalMandante);
+  }
+
+  /**
+   * Gráficos por área del consolidado, desde el primer año con detalle por área. Los años de
+   * CONSOLIDADO_AREAS_HISTORICO salen de esa tabla (no se les suma el sistema, para no contar doble);
+   * los años siguientes, del sistema.
+   */
+  private calcularGraficosArea() {
+    const porAnio: { [anio: string]: { [area: string]: number } } = {};
+    const totales: { [area: string]: number } = {};
+    const primerAnio = Math.min.apply(null, Object.keys(CONSOLIDADO_AREAS_HISTORICO).map(clave => Number(clave)));
+
+    this.hallazgos.forEach(hallazgo => {
+      const anio = this.obtenerAnio(hallazgo);
+      if (!anio || anio < primerAnio || CONSOLIDADO_AREAS_HISTORICO[String(anio)]) { return; }
+
+      const area = this.nombreArea(hallazgo);
+      const clave = String(anio);
+      porAnio[clave] = porAnio[clave] || {};
+      porAnio[clave][area] = (porAnio[clave][area] || 0) + 1;
+      totales[area] = (totales[area] || 0) + 1;
+    });
+
+    Object.keys(CONSOLIDADO_AREAS_HISTORICO).forEach(clave => {
+      const tabla = CONSOLIDADO_AREAS_HISTORICO[clave];
+      porAnio[clave] = {};
+      Object.keys(tabla).filter(area => tabla[area] > 0).forEach(area => {
+        porAnio[clave][area] = tabla[area];
+        totales[area] = (totales[area] || 0) + tabla[area];
+      });
+    });
+
+    const areas = Object.keys(totales).sort((a, b) => totales[b] - totales[a] || a.localeCompare(b));
+    const colorArea = (area: string) => CG_COLOR_AREA[area] || CG_COLOR_AREA_OTRA;
+    const totalDelAnio = (clave: string) => Object.keys(porAnio[clave] || {}).reduce((suma, area) => suma + porAnio[clave][area], 0);
+
+    this.cgAreaTotal = Object.keys(totales).reduce((suma, area) => suma + totales[area], 0);
+
+    const anios = this.consolidadoAnios.filter(anio => anio >= primerAnio);
+    Object.keys(porAnio).map(clave => Number(clave)).forEach(anio => {
+      if (anios.indexOf(anio) === -1) { anios.push(anio); }
+    });
+
+    const maxAnual = anios.reduce((maximo, anio) => Math.max(maximo, totalDelAnio(String(anio))), 0);
+
+    this.cgColumnasArea = anios.sort((a, b) => a - b).map(anio => {
+      const clave = String(anio);
+      const total = totalDelAnio(clave);
+      return {
+        anio: anio,
+        total: total,
+        vivo: this.esAnioVivo(anio),
+        alto: total ? Math.max(3, total * 100 / maxAnual) : 0,
+        segmentos: areas
+          .filter(area => (porAnio[clave] || {})[area] > 0)
+          .map(area => ({ label: area, color: colorArea(area), valor: porAnio[clave][area] }))
+      };
+    });
+
+    this.cgLeyendaArea = areas.map(area => ({ label: area, color: colorArea(area), total: totales[area] }));
+
+    const C = this.cgCircunferencia;
+    let acumulado = 0;
+    this.cgDonutArea = areas.map(area => {
+      const largo = totales[area] * C / this.cgAreaTotal;
+      const visible = largo > 2 ? largo - 1.2 : largo;
+      const segmento: CgSegmentoDonut = {
+        label: area,
+        color: colorArea(area),
+        valor: totales[area],
+        pct: Math.round(totales[area] * 1000 / this.cgAreaTotal) / 10,
+        dash: visible.toFixed(2) + ' ' + (C - visible).toFixed(2),
+        offset: -acumulado
+      };
+      acumulado += largo;
+      return segmento;
+    });
   }
 
   /** Arma la geometría de los gráficos del consolidado (se calcula una vez, no en cada ciclo). */
@@ -1324,6 +1600,10 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
 
   alturaAnual(total: number): number {
     return this.maximoAnual ? Math.max(6, total * 100 / this.maximoAnual) : 0;
+  }
+
+  anchoArea(valor: number): number {
+    return this.maximoArea ? valor * 100 / this.maximoArea : 0;
   }
 
   anchoSubProyecto(valor: number): number {
@@ -1590,15 +1870,9 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
     });
     fila += 1;
 
-    fila = this.xlTituloSeccion(ws, fila, 'Medición de la eficacia de las mejoras', n);
-    fila = this.xlTabla(ws, fila, columnas('Eficacia'), filas(this.consolidadoEficacia), {
-      filaTotal: ['Total' as any].concat(this.consolidadoEficaciaTotales).concat([this.consolidadoEficaciaGranTotal])
-    });
-    fila += 1;
-
     fila = this.xlTituloSeccion(ws, fila, 'Mejoras operacionales', n);
     fila = this.xlTabla(ws, fila, columnas('Indicador'),
-      filas(this.consolidadoMejoras).concat([
+      filas(this.consolidadoMejorasUnidas).concat([
         filaPct('% efectividad del hallazgo', this.consolidadoPctMejoras, this.consolidadoPctMejorasTotal)
       ]), {});
     fila += 1;
@@ -1874,12 +2148,8 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
     this.consolidadoTipos.forEach(f => filas.push(filaCg(f)));
     filas.push(['Total' as any].concat(this.consolidadoTiposTotales).concat([this.consolidadoTiposGranTotal]).map(limpiar).join(sep));
     filas.push('');
-    filas.push(cabeceraCg('Eficacia'));
-    this.consolidadoEficacia.forEach(f => filas.push(filaCg(f)));
-    filas.push(['Total' as any].concat(this.consolidadoEficaciaTotales).concat([this.consolidadoEficaciaGranTotal]).map(limpiar).join(sep));
-    filas.push('');
     filas.push(cabeceraCg('Mejoras operacionales'));
-    this.consolidadoMejoras.forEach(f => filas.push(filaCg(f)));
+    this.consolidadoMejorasUnidas.forEach(f => filas.push(filaCg(f)));
     filas.push(['% efectividad del hallazgo' as any].concat(this.consolidadoPctMejoras.map(p => this.formatoPct(p)))
       .concat([this.formatoPct(this.consolidadoPctMejorasTotal)]).map(limpiar).join(sep));
     filas.push('');

@@ -300,6 +300,65 @@
                 </article>
             </div>
 
+            <!-- ================= HALLAZGOS POR ÁREA ================= -->
+            <section class="seccion-areas">
+              <div class="seccion-titulo">
+                <span class="seccion-titulo-icono"><i class="fa fa-users"></i></span>
+                <div>
+                  <h3>Hallazgos por área</h3>
+                  <p>Cuántos hallazgos tiene cada área responsable en {{anioSeleccionado}}, considerando todas las obras</p>
+                </div>
+              </div>
+
+              <div class="grafico-vacio" *ngIf="hallazgosDelAnio.length === 0">
+                <i class="fa fa-users"></i>
+                Sin hallazgos en {{anioSeleccionado}}.
+              </div>
+
+              <div class="areas-grid" *ngIf="hallazgosDelAnio.length > 0">
+                <article class="area-panel">
+                  <div class="area-panel-cabecera">
+                    <h4>Cantidad y estado</h4>
+                    <div class="leyenda-mini">
+                      <span><i class="ley-abiertos"></i> Seguimiento</span>
+                      <span><i class="ley-cerrados"></i> Cerrados</span>
+                    </div>
+                  </div>
+                  <div class="area-fila" *ngFor="let area of reportesArea; trackBy: trackByKey" [class.area-fila-cero]="!area.total">
+                    <span class="area-nombre" [title]="area.nombre">{{area.nombre}}</span>
+                    <div class="area-barra">
+                      <span class="barra-pila" [style.width.%]="anchoArea(area.total)">
+                        <span class="barra-abiertos" [style.flex-grow]="area.abiertos" [title]="area.abiertos + ' en seguimiento'"></span>
+                        <span class="barra-cerrados" [style.flex-grow]="area.cerrados" [title]="area.cerrados + ' cerrados'"></span>
+                      </span>
+                    </div>
+                    <span class="area-total"><strong>{{area.total}}</strong> {{area.pct}}%</span>
+                  </div>
+                </article>
+
+                <article class="area-panel">
+                  <div class="area-panel-cabecera">
+                    <h4>Tipo de acción</h4>
+                  </div>
+                  <div class="area-fila" *ngFor="let area of reportesArea; trackBy: trackByKey" [class.area-fila-cero]="!area.total">
+                    <span class="area-nombre" [title]="area.nombre">{{area.nombre}}</span>
+                    <div class="area-barra">
+                      <span class="barra-pila" [style.width.%]="anchoArea(area.total)">
+                        <span *ngFor="let s of area.segmentos; trackBy: trackByKey" class="area-seg" [ngClass]="'area-seg-' + s.key"
+                              [style.flex-grow]="s.valor" [title]="s.label + ': ' + s.valor"></span>
+                      </span>
+                    </div>
+                    <span class="area-total"><strong>{{area.total}}</strong></span>
+                  </div>
+                  <div class="area-leyenda">
+                    <span *ngFor="let t of tiposEnAreas; trackBy: trackByKey">
+                      <i class="area-seg" [ngClass]="'area-seg-' + t.key"></i>{{t.label}} <strong>{{t.total}}</strong>
+                    </span>
+                  </div>
+                </article>
+              </div>
+            </section>
+
             <!-- ================= 2. RELACIÓN CON EL MANDANTE ================= -->
             <section class="seccion-mandante">
               <div class="seccion-titulo">
@@ -614,6 +673,117 @@
                   </div>
                 </article>
 
+                <!-- Hallazgos por año y área (desde 2023, primer año con detalle por área) -->
+                <article class="cg-panel cg-panel-ancho">
+                  <div class="cg-panel-cabecera">
+                    <div>
+                      <h4><i class="fa fa-users"></i> Hallazgos por año y área</h4>
+                      <p>Desde 2023, primer año con detalle por área</p>
+                    </div>
+                    <span class="grafico-total">{{cgAreaTotal}} en total</span>
+                  </div>
+                  <ng-container>
+                    <div class="cg-plot">
+                      <div class="cg-guias"><span></span><span></span><span></span><span></span></div>
+                      <div class="cg-col" *ngFor="let c of cgColumnasArea; let i = index; trackBy: trackByAnio" [class.cg-col-viva]="c.vivo">
+                        <div class="cg-col-area">
+                          <div class="cg-pila" [style.height.%]="c.alto" [style.animation-delay]="(i * 60) + 'ms'">
+                            <span class="cg-pila-total" *ngIf="c.total > 0">{{c.total}}</span>
+                            <div class="cg-pila-barra" [title]="c.anio + ': ' + c.total + ' hallazgos'">
+                              <span *ngFor="let s of c.segmentos; trackBy: trackByIndex"
+                                    [style.background]="s.color" [style.flex-grow]="s.valor"
+                                    [title]="c.anio + ' · ' + s.label + ': ' + s.valor"></span>
+                            </div>
+                          </div>
+                        </div>
+                        <span class="cg-col-anio">{{c.anio}}<i class="cg-dot-vivo" *ngIf="c.vivo"></i></span>
+                      </div>
+                    </div>
+                    <div class="cg-leyenda">
+                      <span *ngFor="let a of cgLeyendaArea; trackBy: trackByIndex">
+                        <i [style.background]="a.color"></i>{{a.label}} <strong>{{a.total}}</strong>
+                      </span>
+                    </div>
+                  </ng-container>
+                </article>
+
+                <!-- Distribución por área (dona) -->
+                <article class="cg-panel">
+                  <div class="cg-panel-cabecera">
+                    <div>
+                      <h4><i class="fa fa-pie-chart"></i> Distribución por área</h4>
+                      <p>Participación de cada área desde 2023</p>
+                    </div>
+                  </div>
+                  <div class="grafico-vacio" *ngIf="cgAreaTotal === 0">
+                    <i class="fa fa-pie-chart"></i>
+                    Aún no hay hallazgos con área registrada.
+                  </div>
+                  <div class="cg-donut-cuerpo" *ngIf="cgAreaTotal > 0">
+                    <div class="cg-donut-wrap">
+                      <svg class="cg-donut" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="#eef3f6" stroke-width="13"></circle>
+                        <circle *ngFor="let s of cgDonutArea; trackBy: trackByIndex" class="cg-donut-seg"
+                                cx="50" cy="50" r="40" fill="none" stroke-width="13"
+                                transform="rotate(-90 50 50)"
+                                [attr.stroke]="s.color" [attr.stroke-dasharray]="s.dash" [attr.stroke-dashoffset]="s.offset">
+                          <title>{{s.label}}: {{s.valor}} ({{s.pct}}%)</title>
+                        </circle>
+                      </svg>
+                      <div class="cg-donut-centro">
+                        <strong>{{cgAreaTotal}}</strong>
+                        <span>hallazgos</span>
+                      </div>
+                    </div>
+                    <ul class="cg-donut-leyenda">
+                      <li *ngFor="let s of cgDonutArea; trackBy: trackByIndex">
+                        <i [style.background]="s.color"></i>
+                        <span class="cg-donut-nombre">{{s.label}}</span>
+                        <strong>{{s.valor}}</strong>
+                        <em>{{s.pct}}%</em>
+                      </li>
+                    </ul>
+                  </div>
+                </article>
+
+                <!-- Hallazgos internos vs mandante (gráfico de puntos) -->
+                <article class="cg-panel cg-panel-completo">
+                  <div class="cg-panel-cabecera">
+                    <div>
+                      <h4><i class="fa fa-dot-circle-o"></i> Hallazgos internos y del mandante</h4>
+                      <p>Cuántos detectó el equipo interno y cuántos el mandante cada año, desde 2023</p>
+                    </div>
+                    <div class="cg-origen-totales">
+                      <span><i class="cg-origen-interno"></i> Interno <strong>{{cgTotalInterno}}</strong></span>
+                      <span><i class="cg-origen-mandante"></i> Mandante <strong>{{cgTotalMandante}}</strong> ({{cgPctMandante}}%)</span>
+                    </div>
+                  </div>
+                  <svg class="cg-origen-svg" viewBox="0 0 1000 240" role="img"
+                       aria-label="Hallazgos internos y del mandante por año">
+                    <rect *ngFor="let p of cgPuntosOrigen; trackBy: trackByAnio" [class.cg-origen-oculto]="!p.vivo"
+                          class="cg-origen-vivo" [attr.x]="p.inicioColumna" y="0" [attr.width]="p.anchoColumna" height="240"></rect>
+                    <line *ngFor="let y of cgGuiasOrigen; trackBy: trackByIndex" class="cg-origen-guia"
+                          x1="0" x2="1000" [attr.y1]="y" [attr.y2]="y"></line>
+                    <line class="cg-origen-eje" x1="0" x2="1000" y1="205" y2="205"></line>
+                    <polyline class="cg-origen-linea cg-linea-interno" [attr.points]="cgLineaInterno"></polyline>
+                    <polyline class="cg-origen-linea cg-linea-mandante" [attr.points]="cgLineaMandante"></polyline>
+                    <circle *ngFor="let p of cgPuntosOrigen; trackBy: trackByAnio" class="cg-punto-interno"
+                            [attr.cx]="p.x" [attr.cy]="p.yInterno" r="7">
+                      <title>{{p.anio}} · Interno: {{p.interno}}</title>
+                    </circle>
+                    <circle *ngFor="let p of cgPuntosOrigen; trackBy: trackByAnio" class="cg-punto-mandante"
+                            [attr.cx]="p.x" [attr.cy]="p.yMandante" r="7">
+                      <title>{{p.anio}} · Mandante: {{p.mandante}}</title>
+                    </circle>
+                    <text *ngFor="let p of cgPuntosOrigen; trackBy: trackByAnio" class="cg-texto-interno"
+                          [attr.x]="p.x" [attr.y]="p.yTextoInterno">{{p.interno}}</text>
+                    <text *ngFor="let p of cgPuntosOrigen; trackBy: trackByAnio" class="cg-texto-mandante"
+                          [attr.x]="p.x" [attr.y]="p.yTextoMandante">{{p.mandante}}</text>
+                    <text *ngFor="let p of cgPuntosOrigen; trackBy: trackByAnio" class="cg-texto-anio"
+                          [class.cg-texto-anio-vivo]="p.vivo" [attr.x]="p.x" y="228">{{p.anio}}</text>
+                  </svg>
+                </article>
+
                 <!-- Eficacia de las mejoras (barras + línea de %) -->
                 <article class="cg-panel">
                   <div class="cg-panel-cabecera">
@@ -650,7 +820,7 @@
                       </div>
                       <span class="cg-col-anio">{{c.anio}}<i class="cg-dot-vivo" *ngIf="c.vivo"></i></span>
                     </div>
-                  </div>w
+                  </div>
                 </article>
 
                 <!-- Interacción con el mandante (barras agrupadas) -->
@@ -720,41 +890,7 @@
                 </div>
               </div>
 
-              <!-- 5.2 Eficacia de las mejoras -->
-              <div class="cg-bloque">
-                <h4 class="cg-titulo"><i class="fa fa-check-square-o"></i> Medición de la eficacia de las mejoras</h4>
-                <div class="table-responsive">
-                  <table class="table tabla-hallazgos tabla-consolidado">
-                    <thead>
-                      <tr>
-                        <th>Eficacia</th>
-                        <th class="numero-columna" *ngFor="let a of consolidadoAnios" [class.cg-vivo]="esAnioVivo(a)">{{a}}</th>
-                        <th class="numero-columna cg-col-total">Totales</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let f of consolidadoEficacia; trackBy: trackByKey">
-                        <td><span class="cg-etiqueta" [ngClass]="f.clase">{{f.label}}</span></td>
-                        <td class="numero-columna" *ngFor="let v of f.valores; let i = index; trackBy: trackByIndex"
-                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])">
-                          <span [class.num-cero]="!v">{{v}}</span>
-                        </td>
-                        <td class="numero-columna cg-col-total"><span class="total-pill">{{f.total}}</span></td>
-                      </tr>
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td><strong>Total</strong></td>
-                        <td class="numero-columna" *ngFor="let v of consolidadoEficaciaTotales; let i = index; trackBy: trackByIndex"
-                            [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])"><strong>{{v}}</strong></td>
-                        <td class="numero-columna cg-col-total"><strong>{{consolidadoEficaciaGranTotal}}</strong></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-
-              <!-- 5.3 Mejoras operacionales -->
+              <!-- 5.2 Mejoras operacionales: total de hallazgos, eficacia y totales de mejoras en un solo cuadro -->
               <div class="cg-bloque">
                 <h4 class="cg-titulo"><i class="fa fa-cogs"></i> Mejoras operacionales</h4>
                 <div class="table-responsive">
@@ -767,7 +903,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr *ngFor="let f of consolidadoMejoras; trackBy: trackByKey">
+                      <tr *ngFor="let f of consolidadoMejorasUnidas; trackBy: trackByKey">
                         <td><span class="cg-etiqueta" [ngClass]="f.clase">{{f.label}}</span></td>
                         <td class="numero-columna" *ngFor="let v of f.valores; let i = index; trackBy: trackByIndex"
                             [class.cg-vivo]="esAnioVivo(consolidadoAnios[i])">
@@ -790,7 +926,7 @@
                 </div>
               </div>
 
-              <!-- 5.4 Interacción con clientes -->
+              <!-- 5.3 Interacción con clientes -->
               <div class="cg-bloque">
                 <h4 class="cg-titulo"><i class="fa fa-handshake-o"></i> Interacción con clientes (mandante)</h4>
                 <div class="table-responsive">
