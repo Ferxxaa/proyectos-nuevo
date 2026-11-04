@@ -1,4 +1,10 @@
 <section class="ehh">
+  <div class="ehh-vistas">
+    <button type="button" [class.activa]="vista === 'mensual'" [attr.aria-pressed]="vista === 'mensual'" (click)="vista = 'mensual'">Estadísticas mensuales</button>
+    <button type="button" [class.activa]="vista === 'asistencia'" [attr.aria-pressed]="vista === 'asistencia'" (click)="vista = 'asistencia'">Control de asistencia</button>
+  </div>
+
+  <ng-container *ngIf="vista === 'mensual'">
   <div class="ehh-encabezado">
     <div class="ehh-titulo">
       <span class="ehh-icono"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
@@ -47,7 +53,9 @@
               <th scope="row" class="ehh-col-indicador">{{indicador.etiqueta}}</th>
               <td *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">
                 <input type="text" inputmode="decimal" autocomplete="off"
-                       [value]="getTextoCelda(mes.numero, indicador.campo)" [disabled]="soloLectura"
+                       [class.ehh-calculado]="esCalculado(mes.numero, indicador.campo)"
+                       [value]="getTextoCelda(mes.numero, indicador.campo)" [disabled]="soloLectura || esCalculado(mes.numero, indicador.campo)"
+                       [title]="esCalculado(mes.numero, indicador.campo) ? 'Se calcula desde el Control de asistencia' : ''"
                        (change)="guardarCelda(mes.numero, indicador, $event.target)"
                        [attr.aria-label]="indicador.etiqueta + ' de ' + mes.nombre">
               </td>
@@ -63,7 +71,22 @@
       </table>
     </div>
     <p class="ehh-nota">
-      IF = accidentes con baja × 1.000.000 / HH. IS = días perdidos × 1.000 / HH. Se calculan solos cuando el mes tiene HH.
+      IF = accidentes con baja × 1.000.000 / HH. IS = días perdidos × 1.000 / HH. Las HH incluyen jornadas, horas extra y, con asistencia, capacitación.
+      Las celdas en azul se calculan desde el Control de asistencia.
     </p>
+  </ng-container>
+  </ng-container>
+
+  <ng-container *ngIf="vista === 'asistencia'">
+    <div class="ehh-mensaje" *ngIf="cargando"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando...</div>
+    <div class="ehh-mensaje" *ngIf="errorCarga">
+      No se pudieron cargar las estadísticas.
+      <button type="button" (click)="cargar()">Reintentar</button>
+    </div>
+    <app-control-asistencia *ngIf="!cargando && !errorCarga"
+                            [idSubProyecto]="idSubProyecto" [idProyecto]="idProyecto"
+                            [nombreSubProyecto]="nombreSubProyecto" [soloLectura]="soloLectura"
+                            [anios]="anios" [datosHH]="datosPorAnio"
+                            (resumenActualizado)="aplicarAsistencia($event)"></app-control-asistencia>
   </ng-container>
 </section>

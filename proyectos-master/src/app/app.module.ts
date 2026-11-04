@@ -1,3 +1,4 @@
+import { ControlAsistenciaComponent } from './Proyectos/estadisticas-hh/control-asistencia.component';
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 import { DatePipe } from '@angular/common';
@@ -48,6 +49,7 @@ import { sProyecto } from './services/sProyecto.service';
 import { sSubProyecto } from './services/sSubProyecto.service';
 import { sCorreo } from './services/Personalizados/sCorreo.service';
 import { EstadisticasHhComponent } from './Proyectos/estadisticas-hh/estadisticas-hh.component';
+import { ConsolidadoHhComponent } from './Proyectos/estadisticas-hh/consolidado-hh.component';
 import { EstadisticasSsoComponent } from './Proyectos/estadisticas-sso/estadisticas-sso.component';
 
 //Material
@@ -151,6 +153,10 @@ const route = [
     data: { consolidadoSSO: true }
   },
   {
+    path: 'Proyectos-ConsolidadoHH',
+    component: ConsolidadoHhComponent
+  },
+  {
     path: 'Configuracion-SubProyecto',
     component: ConfiguracionSubProyectoComponent
   },
@@ -218,6 +224,7 @@ const route = [
 
 @NgModule({
   declarations: [
+    ControlAsistenciaComponent,
     // MensajeComponent ya está declarado aquí, lo que permite usar <app-mensaje> en cualquier template de este módulo.
     AppComponent,
     LoginComponent,
@@ -277,6 +284,7 @@ const route = [
     ReportesHallazgosComponent,
     ConsolidadoHallazgosComponent,
     EstadisticasHhComponent,
+    ConsolidadoHhComponent,
     EstadisticasSsoComponent,
   ],
   imports: [

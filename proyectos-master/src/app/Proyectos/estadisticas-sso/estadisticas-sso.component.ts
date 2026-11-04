@@ -11,6 +11,7 @@ declare var Swal: any;
  * Firestore: un documento por accidente en 'accidentesSSO', con idSubProyecto para los consolidados.
  */
 const COLECCION = 'accidentesSSO';
+const COLECCION_MA = 'estadisticasMA';
 const PRIMER_ANIO_SISTEMA = 2026; // Hasta 2025 manda el registro histórico
 
 const MEDIDAS_MENOR = 'Charlas de 5 minutos, uso de EPP, señalización. Reinducción, cumplimiento programa prevención de riesgos, control de los riesgos.';
@@ -26,6 +27,20 @@ export interface AccidenteSSO {
   descripcion: string;
   medidasControl: string;
   estado: string;
+}
+
+interface IndicadorMA {
+  campo: string;
+  etiqueta: string;
+  unidad: string;
+  decimales: number;
+}
+
+interface RegistroConsolidadoMA {
+  idSubProyecto: string;
+  nombre: string;
+  anio: number;
+  meses: any;
 }
 
 @Component({
@@ -62,6 +77,45 @@ export class EstadisticasSsoComponent implements OnInit {
 
   readonly hoy: string = this.getFechaHoy();
 
+  readonly mesesMA = [
+    { numero: 1, nombre: 'Enero', corto: 'Ene' }, { numero: 2, nombre: 'Febrero', corto: 'Feb' }, { numero: 3, nombre: 'Marzo', corto: 'Mar' },
+    { numero: 4, nombre: 'Abril', corto: 'Abr' }, { numero: 5, nombre: 'Mayo', corto: 'May' }, { numero: 6, nombre: 'Junio', corto: 'Jun' },
+    { numero: 7, nombre: 'Julio', corto: 'Jul' }, { numero: 8, nombre: 'Agosto', corto: 'Ago' }, { numero: 9, nombre: 'Septiembre', corto: 'Sep' },
+    { numero: 10, nombre: 'Octubre', corto: 'Oct' }, { numero: 11, nombre: 'Noviembre', corto: 'Nov' }, { numero: 12, nombre: 'Diciembre', corto: 'Dic' }
+  ];
+
+  readonly indicadoresMA: IndicadorMA[] = [
+    { campo: 'consumoAgua', etiqueta: 'Consumo de agua', unidad: 'LTS', decimales: 2 },
+    { campo: 'consumoCombustible', etiqueta: 'Consumo de combustible', unidad: 'LTS', decimales: 2 },
+    { campo: 'residuosDomiciliarios', etiqueta: 'Consumo de residuos domiciliarios', unidad: 'TONS.', decimales: 2 },
+    { campo: 'disposicionEscombros', etiqueta: 'Disposición de escombros', unidad: 'TONS.', decimales: 2 },
+    { campo: 'disposicionChatarraMetalica', etiqueta: 'Disposición de chatarra metálica', unidad: 'TONS.', decimales: 2 },
+    { campo: 'disposicionAsbesto', etiqueta: 'Disposición de asbesto', unidad: 'TONS.', decimales: 2 },
+    { campo: 'disposicionOtros', etiqueta: 'Disposición de otros', unidad: 'TONS.', decimales: 2 },
+    { campo: 'disposicionPapel', etiqueta: 'Disposición de papel', unidad: '', decimales: 2 }
+  ];
+
+  aniosMA: number[] = [];
+  anioMA: number = new Date().getFullYear();
+  readonly mesActualMA: number = new Date().getMonth() + 1;
+  readonly anioActualMA: number = new Date().getFullYear();
+  valoresMA: any = {};
+  cargandoMA: boolean = true;
+  errorCargaMA: boolean = false;
+  estadoGuardadoMA: string = '';
+
+  vistaSubproyecto: string = 'accidentes';
+  readonly accidentesPorPagina: number = 10;
+  filtroAnio: string = 'todos';
+  filtroEstado: string = 'todos';
+  filtroBusqueda: string = '';
+  paginaAccidentes: number = 1;
+  aniosAccidentes: string[] = [];
+  accidentesFiltrados: AccidenteSSO[] = [];
+  accidentesPagina: AccidenteSSO[] = [];
+  resumenAccidentes: any = { total: 0, abiertos: 0, diasPerdidos: 0, graves: 0 };
+  detalleAbiertoId: string | null = null;
+
   accidentes: AccidenteSSO[] = [];
   cargando: boolean = true;
   errorCarga: boolean = false;
@@ -80,8 +134,23 @@ export class EstadisticasSsoComponent implements OnInit {
   historicoEstadisticas: any = this.calcularEstadisticas([], []);
   errorHistoricoSistema: boolean = false;
 
+  consolidadoVista: string = 'sso';
+  consolidadoMAAnios: number[] = [];
+  consolidadoMAAnio: number = new Date().getFullYear();
+  consolidadoMASubproyecto: string = 'todos';
+  consolidadoMASubproyectos: { id: string, nombre: string }[] = [];
+  consolidadoMAFilas: { indicador: IndicadorMA, meses: string[], total: string }[] = [];
+  consolidadoMAPorSubproyecto: { nombre: string, totales: string[] }[] = [];
+  consolidadoMATotales: string[] = [];
+  consolidadoMAResumen: any = { subproyectos: 0, agua: '-', combustible: '-', residuos: '-' };
+  errorConsolidadoMA: boolean = false;
+
   private idUsuario: any = null;
   private accidentesSistema: AccidenteHistorico[] = [];
+  private datosMAPorAnio: { [anio: number]: any } = {};
+  private respaldoMA: { [clave: string]: number | null } = {};
+  private guardadosPendientesMA: number = 0;
+  private registrosConsolidadoMA: RegistroConsolidadoMA[] = [];
 
   constructor(
     private route: ActivatedRoute,
@@ -121,6 +190,7 @@ export class EstadisticasSsoComponent implements OnInit {
         this.accidentes = accidentes;
         this.recalcular();
         this.cargando = false;
+        this.cargarEstadisticasMA();
       })
       .catch((error: any) => {
         console.error('Error al cargar los accidentes:', error);
@@ -129,8 +199,247 @@ export class EstadisticasSsoComponent implements OnInit {
       });
   }
 
+  cargarEstadisticasMA() {
+    this.cargandoMA = true;
+    this.errorCargaMA = false;
+
+    if (!this.idSubProyecto) {
+      this.cargandoMA = false;
+      this.errorCargaMA = true;
+      return;
+    }
+
+    firestoreDB.collection(COLECCION_MA).where('idSubProyecto', '==', this.idSubProyecto).get()
+      .then((snapshot: any) => {
+        this.datosMAPorAnio = {};
+        snapshot.forEach((doc: any) => {
+          const data = doc.data();
+          this.datosMAPorAnio[Number(data.anio)] = data.meses || {};
+        });
+        this.prepararAniosMA();
+        this.seleccionarAnioMA();
+        this.cargandoMA = false;
+      })
+      .catch((error: any) => {
+        console.error('Error al cargar las estadísticas de MA:', error);
+        this.cargandoMA = false;
+        this.errorCargaMA = true;
+      });
+  }
+
+  private prepararAniosMA() {
+    const anios: { [anio: number]: boolean } = {};
+    for (let anio = this.anioActualMA; anio >= this.anioActualMA - 5; anio--) {
+      anios[anio] = true;
+    }
+    Object.keys(this.datosMAPorAnio).forEach(anio => anios[Number(anio)] = true);
+    this.aniosMA = Object.keys(anios).map(Number).sort((a, b) => b - a);
+  }
+
+  seleccionarAnioMA() {
+    const anio = Number(this.anioMA);
+    if (!this.datosMAPorAnio[anio]) {
+      this.datosMAPorAnio[anio] = {};
+    }
+
+    this.mesesMA.forEach(mes => {
+      const delMes = this.datosMAPorAnio[anio][mes.numero] || (this.datosMAPorAnio[anio][mes.numero] = {});
+      this.indicadoresMA.forEach(indicador => {
+        const valor = delMes[indicador.campo];
+        delMes[indicador.campo] = valor === undefined ? null : valor;
+        this.respaldoMA[this.getClaveMA(anio, mes.numero, indicador.campo)] = delMes[indicador.campo];
+      });
+    });
+
+    this.valoresMA = this.datosMAPorAnio[anio];
+  }
+
+  guardarCeldaMA(mes: number, indicador: IndicadorMA, input: any) {
+    if (this.soloLectura) { return; }
+
+    const anio = Number(this.anioMA);
+    const clave = this.getClaveMA(anio, mes, indicador.campo);
+    const valor = this.normalizarValorMA(input.value, indicador.decimales);
+
+    if (valor === undefined) {
+      input.value = this.getTextoCeldaMA(mes, indicador.campo);
+      return;
+    }
+
+    this.valoresMA[mes][indicador.campo] = valor;
+    input.value = this.getTextoCeldaMA(mes, indicador.campo);
+    if (valor === this.respaldoMA[clave]) { return; }
+
+    const anterior = this.respaldoMA[clave];
+    this.respaldoMA[clave] = valor;
+    this.guardadosPendientesMA++;
+    this.estadoGuardadoMA = 'guardando';
+
+    firestoreDB.collection(COLECCION_MA).doc(this.idSubProyecto + '_' + anio).set({
+      idSubProyecto: this.idSubProyecto,
+      idProyecto: this.idProyecto === undefined ? null : this.idProyecto,
+      nombreSubProyecto: this.nombreSubProyecto || '',
+      anio: anio,
+      idUsuarioActualizacion: this.idUsuario,
+      fechaActualizacion: new Date().toISOString(),
+      meses: { [mes]: { [indicador.campo]: valor } }
+    }, { merge: true })
+      .then(() => {
+        this.guardadosPendientesMA--;
+        if (!this.guardadosPendientesMA && this.estadoGuardadoMA !== 'error') {
+          this.estadoGuardadoMA = 'guardado';
+        }
+      })
+      .catch((error: any) => {
+        console.error('Error al guardar la estadística de MA:', error);
+        this.guardadosPendientesMA--;
+        this.respaldoMA[clave] = anterior;
+        this.datosMAPorAnio[anio][mes][indicador.campo] = anterior;
+        this.estadoGuardadoMA = 'error';
+      });
+  }
+
+  private normalizarValorMA(texto: string, decimales: number): number | null | undefined {
+    const limpio = (texto || '').replace(/\s/g, '');
+    if (!limpio) { return null; }
+    if (!/^\d[\d.,]*$/.test(limpio)) { return undefined; }
+
+    let numero = limpio;
+    if (limpio.indexOf(',') !== -1) {
+      numero = limpio.replace(/\./g, '').replace(',', '.');
+    } else if (/^\d{1,3}(\.\d{3})+$/.test(limpio)) {
+      numero = limpio.replace(/\./g, '');
+    }
+
+    const resultado = Number(numero);
+    if (isNaN(resultado)) { return undefined; }
+    const factor = Math.pow(10, decimales);
+    return Math.round(resultado * factor) / factor;
+  }
+
+  private getClaveMA(anio: number, mes: number, campo: string): string {
+    return anio + '-' + mes + '-' + campo;
+  }
+
+  private formatearMA(valor: number | null): string {
+    if (valor === null || valor === undefined) { return '-'; }
+    const partes = String(Math.round(valor * 100) / 100).split('.');
+    return partes[0].replace(/\B(?=(\d{3})+$)/g, '.') + (partes[1] ? ',' + partes[1] : '');
+  }
+
+  getTextoCeldaMA(mes: number, campo: string): string {
+    const delMes = this.valoresMA[mes] || {};
+    return delMes[campo] === null || delMes[campo] === undefined ? '' : this.formatearMA(delMes[campo]);
+  }
+
+  getTotalMA(campo: string): string {
+    let total: number = 0;
+    let hayValores = false;
+    this.mesesMA.forEach(mes => {
+      const valor = this.valoresMA[mes.numero] ? this.valoresMA[mes.numero][campo] : null;
+      if (valor !== null && valor !== undefined) {
+        total += Number(valor);
+        hayValores = true;
+      }
+    });
+    return this.formatearMA(hayValores ? total : null);
+  }
+
+  esMesActualMA(mes: number): boolean {
+    return Number(this.anioMA) === this.anioActualMA && mes === this.mesActualMA;
+  }
+
+  trackMesMA(index: number, mes: any) {
+    return mes.numero;
+  }
+
+  trackIndicadorMA(index: number, indicador: IndicadorMA) {
+    return indicador.campo;
+  }
+
   private recalcular() {
     this.accidentes.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+    const anios: { [anio: string]: boolean } = {};
+    this.accidentes.forEach(item => {
+      const anio = (item.fecha || '').substring(0, 4);
+      if (anio) { anios[anio] = true; }
+    });
+    this.aniosAccidentes = Object.keys(anios).sort((a, b) => b.localeCompare(a));
+    if (this.filtroAnio !== 'todos' && !anios[this.filtroAnio]) {
+      this.filtroAnio = 'todos';
+    }
+
+    this.aplicarFiltrosAccidentes();
+  }
+
+  /** Al cambiar un filtro se vuelve a la primera página. */
+  cambiarFiltrosAccidentes() {
+    this.paginaAccidentes = 1;
+    this.detalleAbiertoId = null;
+    this.aplicarFiltrosAccidentes();
+  }
+
+  limpiarFiltrosAccidentes() {
+    this.filtroAnio = 'todos';
+    this.filtroEstado = 'todos';
+    this.filtroBusqueda = '';
+    this.cambiarFiltrosAccidentes();
+  }
+
+  get hayFiltrosAccidentes(): boolean {
+    return this.filtroAnio !== 'todos' || this.filtroEstado !== 'todos' || !!this.filtroBusqueda.trim();
+  }
+
+  private aplicarFiltrosAccidentes() {
+    const busqueda = this.normalizarTexto(this.filtroBusqueda);
+
+    this.accidentesFiltrados = this.accidentes.filter(item => {
+      if (this.filtroAnio !== 'todos' && (item.fecha || '').substring(0, 4) !== this.filtroAnio) { return false; }
+      if (this.filtroEstado !== 'todos' && item.estado !== this.filtroEstado) { return false; }
+      if (!busqueda) { return true; }
+      return this.normalizarTexto([item.tipo, item.descripcion, item.medidasControl].join(' ')).indexOf(busqueda) !== -1;
+    });
+
+    this.resumenAccidentes = {
+      total: this.accidentesFiltrados.length,
+      abiertos: this.accidentesFiltrados.filter(item => item.estado !== 'Cerrado').length,
+      diasPerdidos: this.accidentesFiltrados.reduce((suma, item) => suma + (Number(item.diasPerdidos) || 0), 0),
+      graves: this.accidentesFiltrados.filter(item => Number(item.grado) >= 5).length
+    };
+
+    this.paginaAccidentes = Math.min(this.paginaAccidentes, this.totalPaginasAccidentes);
+    const inicio = (this.paginaAccidentes - 1) * this.accidentesPorPagina;
+    this.accidentesPagina = this.accidentesFiltrados.slice(inicio, inicio + this.accidentesPorPagina);
+  }
+
+  get totalPaginasAccidentes(): number {
+    return Math.max(1, Math.ceil(this.accidentesFiltrados.length / this.accidentesPorPagina));
+  }
+
+  get primerAccidentePagina(): number {
+    return this.accidentesFiltrados.length ? (this.paginaAccidentes - 1) * this.accidentesPorPagina + 1 : 0;
+  }
+
+  get ultimoAccidentePagina(): number {
+    return Math.min(this.paginaAccidentes * this.accidentesPorPagina, this.accidentesFiltrados.length);
+  }
+
+  cambiarPaginaAccidentes(cambio: number) {
+    this.paginaAccidentes = Math.max(1, Math.min(this.paginaAccidentes + cambio, this.totalPaginasAccidentes));
+    this.detalleAbiertoId = null;
+    this.aplicarFiltrosAccidentes();
+  }
+
+  alternarDetalle(item: AccidenteSSO) {
+    this.detalleAbiertoId = this.detalleAbiertoId === item.id ? null : item.id;
+  }
+
+  private mostrarFormulario() {
+    setTimeout(() => {
+      const formulario = document.getElementById('sso-formulario');
+      if (formulario) { formulario.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    });
   }
 
   private calcularEstadisticas(registros: { anio: string, grado: number }[], anios: string[]) {
@@ -187,8 +496,9 @@ export class EstadisticasSsoComponent implements OnInit {
           return;
         }
 
-        this.cargarAccidentesSistema().then(() => {
+        Promise.all([this.cargarAccidentesSistema(), this.cargarConsolidadoMA()]).then(() => {
           this.prepararHistorico();
+          this.prepararConsolidadoMA();
           this.cargando = false;
         });
       },
@@ -198,6 +508,111 @@ export class EstadisticasSsoComponent implements OnInit {
         this.cargando = false;
       }
     );
+  }
+
+  /** Lee las estadísticas de MA de todos los subproyectos y años. */
+  private cargarConsolidadoMA(): Promise<void> {
+    this.errorConsolidadoMA = false;
+
+    return firestoreDB.collection(COLECCION_MA).get()
+      .then((snapshot: any) => {
+        const registros: RegistroConsolidadoMA[] = [];
+        snapshot.forEach((doc: any) => {
+          const data = doc.data();
+          registros.push({
+            idSubProyecto: String(data.idSubProyecto),
+            nombre: data.nombreSubProyecto || ('Subproyecto ' + data.idSubProyecto),
+            anio: Number(data.anio),
+            meses: data.meses || {}
+          });
+        });
+        this.registrosConsolidadoMA = registros;
+      })
+      .catch((error: any) => {
+        console.error('Error al cargar el consolidado de MA:', error);
+        this.registrosConsolidadoMA = [];
+        this.errorConsolidadoMA = true;
+      });
+  }
+
+  reintentarConsolidadoMA() {
+    this.cargarConsolidadoMA().then(() => this.prepararConsolidadoMA());
+  }
+
+  private prepararConsolidadoMA() {
+    const anios: { [anio: number]: boolean } = {};
+    const subproyectos: { [id: string]: string } = {};
+
+    anios[this.anioActualMA] = true;
+    this.registrosConsolidadoMA.filter(registro => this.tieneDatosMA(registro)).forEach(registro => {
+      anios[registro.anio] = true;
+      subproyectos[registro.idSubProyecto] = registro.nombre;
+    });
+
+    this.consolidadoMAAnios = Object.keys(anios).map(Number).sort((a, b) => b - a);
+    this.consolidadoMASubproyectos = Object.keys(subproyectos)
+      .map(id => ({ id: id, nombre: subproyectos[id] }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    this.recalcularConsolidadoMA();
+  }
+
+  recalcularConsolidadoMA() {
+    const anio = Number(this.consolidadoMAAnio);
+    const subproyecto = this.consolidadoMASubproyecto;
+
+    const registros = this.registrosConsolidadoMA
+      .filter(registro => registro.anio === anio && this.tieneDatosMA(registro))
+      .filter(registro => subproyecto === 'todos' || registro.idSubProyecto === subproyecto)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    this.consolidadoMAFilas = this.indicadoresMA.map(indicador => ({
+      indicador: indicador,
+      meses: this.mesesMA.map(mes => this.formatearMA(this.sumarMA(registros, indicador.campo, mes.numero))),
+      total: this.formatearMA(this.sumarMA(registros, indicador.campo))
+    }));
+
+    this.consolidadoMAPorSubproyecto = registros.map(registro => ({
+      nombre: registro.nombre,
+      totales: this.indicadoresMA.map(indicador => this.formatearMA(this.sumarMA([registro], indicador.campo)))
+    }));
+
+    this.consolidadoMATotales = this.consolidadoMAFilas.map(fila => fila.total);
+
+    this.consolidadoMAResumen = {
+      subproyectos: registros.length,
+      agua: this.formatearMA(this.sumarMA(registros, 'consumoAgua')),
+      combustible: this.formatearMA(this.sumarMA(registros, 'consumoCombustible')),
+      residuos: this.formatearMA(this.sumarMA(registros, 'residuosDomiciliarios'))
+    };
+  }
+
+  /** Suma un indicador de todo el año, o de un solo mes si viene el número. */
+  private sumarMA(registros: RegistroConsolidadoMA[], campo: string, mes?: number): number | null {
+    const meses = mes ? [mes] : this.mesesMA.map(item => item.numero);
+    let total: number = 0;
+    let hayValores = false;
+
+    registros.forEach(registro => {
+      meses.forEach(numero => {
+        const delMes = registro.meses[numero];
+        const valor = delMes ? delMes[campo] : null;
+        if (valor !== null && valor !== undefined) {
+          total += Number(valor);
+          hayValores = true;
+        }
+      });
+    });
+
+    return hayValores ? total : null;
+  }
+
+  private tieneDatosMA(registro: RegistroConsolidadoMA): boolean {
+    return this.indicadoresMA.some(indicador => this.sumarMA([registro], indicador.campo) !== null);
+  }
+
+  esMesActualConsolidadoMA(mes: number): boolean {
+    return Number(this.consolidadoMAAnio) === this.anioActualMA && mes === this.mesActualMA;
   }
 
   /** Desde 2026 los datos salen solos de lo registrado en todos los subproyectos. */
@@ -316,6 +731,7 @@ export class EstadisticasSsoComponent implements OnInit {
     this.editandoId = null;
     this.errorFormulario = '';
     this.formularioAbierto = true;
+    this.mostrarFormulario();
   }
 
   editar(item: AccidenteSSO) {
@@ -324,6 +740,7 @@ export class EstadisticasSsoComponent implements OnInit {
     this.editandoId = item.id;
     this.errorFormulario = '';
     this.formularioAbierto = true;
+    this.mostrarFormulario();
   }
 
   cerrarFormulario() {
@@ -390,6 +807,13 @@ export class EstadisticasSsoComponent implements OnInit {
       .then((id: string) => {
         const registro: any = { ...payload, id: id };
         this.accidentes = this.accidentes.filter(item => item.id !== id).concat(registro);
+        if (!idEditado) {
+          // Un registro nuevo queda visible aunque hubiera filtros puestos
+          this.filtroAnio = 'todos';
+          this.filtroEstado = 'todos';
+          this.filtroBusqueda = '';
+          this.paginaAccidentes = 1;
+        }
         this.recalcular();
         this.guardando = false;
         this.cerrarFormulario();

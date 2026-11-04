@@ -111,7 +111,7 @@
   cursor: pointer;
 }
 
-/* Este subproyecto / Histórico empresa */
+/* Accidentes (SSO) / Medio Ambiente (MA) */
 .sso-vistas {
   display: inline-flex;
   margin-bottom: 12px;
@@ -121,6 +121,9 @@
 }
 
 .sso-vistas button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 32px;
   padding: 0 14px;
   border: 0;
@@ -330,6 +333,10 @@
   color: #9a5208;
   font-size: 12.5px;
   font-weight: 600;
+}
+
+.sso-aviso .sso-boton {
+  margin-left: 8px;
 }
 
 .sso-filtros {
@@ -558,6 +565,259 @@
   vertical-align: middle;
 }
 
+.sso-ma-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-right: 12px;
+  background: #4a4f55;
+}
+
+.sso-ma-encabezado h6 {
+  flex: 1 1 260px;
+}
+
+.sso-ma-controles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+}
+
+.sso-ma-controles label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sso-ma-controles select {
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid #cfd6dc;
+  border-radius: 4px;
+  background: #fff;
+  color: #24404f;
+  font-weight: 700;
+}
+
+.sso-ma-controles .sso-ma-subproyecto {
+  max-width: 260px;
+}
+
+.sso-ma-estado {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sso-ma-estado.guardando { color: #e2e8ec; }
+.sso-ma-estado.guardado { color: #b6f0ca; }
+.sso-ma-estado.error { color: #ffc2c4; }
+
+.sso-tabla-ma {
+  min-width: 1160px;
+}
+
+/* Indicador y total quedan fijos al mover la tabla de lado */
+.sso-tabla-ma .sso-ma-indicador {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 220px;
+  min-width: 220px;
+  text-align: left;
+}
+
+.sso-tabla-ma thead .sso-ma-indicador,
+.sso-tabla-ma thead .sso-ma-total {
+  background: #eef1f4;
+}
+
+.sso-tabla-ma tbody .sso-ma-indicador {
+  background: #f7f8f9;
+}
+
+.sso-tabla-ma tbody th {
+  padding: 7px 8px;
+  border-top: 1px solid #e6e9ed;
+  background: #f7f8f9;
+  color: #3d454c;
+  font-size: 12px;
+  text-align: left;
+}
+
+.sso-tabla-ma tbody th small {
+  display: block;
+  color: #6c757d;
+  font-size: 10.5px;
+}
+
+.sso-tabla-ma tbody td {
+  padding: 4px;
+  text-align: center;
+}
+
+.sso-tabla-ma tbody td input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 78px;
+  height: 30px;
+  padding: 3px 6px;
+  border: 1px solid #cfd6dc;
+  border-radius: 4px;
+  color: #2f363d;
+  font-size: 12px;
+  text-align: right;
+}
+
+.sso-tabla-ma tbody td input:focus {
+  border-color: #075f91;
+  outline: 2px solid rgba(7, 95, 145, 0.2);
+}
+
+.sso-tabla-ma tbody td input:disabled {
+  background: #f4f6f8;
+  color: #626b75;
+}
+
+.sso-tabla-ma .mes-actual {
+  background: #f0f8fc;
+}
+
+.sso-tabla-ma .sso-ma-total {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: #f4f6f8;
+  color: #24404f;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Lista de accidentes del subproyecto */
+.sso-tiles-compacto .sso-tile {
+  padding: 8px 14px;
+}
+
+.sso-tiles-compacto .sso-tile strong {
+  font-size: 22px;
+}
+
+.sso-tabla.sso-tabla-accidentes {
+  min-width: 900px;
+}
+
+.sso-tabla-accidentes .sso-descripcion-corta {
+  width: 100%;
+  max-width: 0;
+  min-width: 180px;
+}
+
+.sso-descripcion-corta div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sso-tabla-accidentes tr.detalle-abierto td {
+  background: #f0f8fc;
+}
+
+.sso-tabla-accidentes .sso-fila-detalle td {
+  padding: 0;
+  border-top: 0;
+}
+
+.sso-detalle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 10px 12px 14px;
+  background: #f0f8fc;
+}
+
+.sso-detalle strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #24404f;
+  font-size: 12px;
+}
+
+.sso-detalle p {
+  margin: 0;
+  color: #3d454c;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.sso-paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #e3e6ea;
+  color: #626b75;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sso-paginacion div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sso-paginacion .sso-boton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Consolidado de MA: tablas de solo lectura */
+.sso-tabla-ma-consolidado thead th {
+  text-align: right;
+  white-space: normal;
+  vertical-align: bottom;
+}
+
+.sso-tabla-ma-consolidado thead th:first-child {
+  text-align: left;
+}
+
+.sso-tabla-ma-consolidado thead th small {
+  display: block;
+  color: #6c757d;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.sso-tabla-ma-consolidado tbody td {
+  padding: 7px 8px;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sso-tabla-ma-consolidado tfoot th,
+.sso-tabla-ma-consolidado tfoot td {
+  padding: 7px 8px;
+  background: #4a4f55;
+  color: #fff;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sso-tabla-ma-consolidado tfoot th {
+  text-align: left;
+}
+
 .sso-nowrap {
   white-space: nowrap;
 }
@@ -624,6 +884,10 @@
 .sso-acciones {
   text-align: right;
   white-space: nowrap;
+}
+
+.sso-acciones .sso-boton {
+  vertical-align: middle;
 }
 
 .sso-acciones .sso-boton + .sso-boton {
@@ -766,4 +1030,7 @@
 @media (max-width: 767px) {
   .sso { margin: 0 0 20px; }
   .sso-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sso-ma-encabezado { padding: 0 10px 8px; }
+  .sso-ma-controles { flex-wrap: wrap; }
+  .sso-detalle { grid-template-columns: minmax(0, 1fr); }
 }

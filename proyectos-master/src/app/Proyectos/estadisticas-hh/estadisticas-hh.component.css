@@ -4,6 +4,38 @@
   font-family: 'Open Sans', sans-serif;
 }
 
+.ehh-vistas {
+  display: inline-flex;
+  margin-bottom: 12px;
+  overflow: hidden;
+  border: 1px solid #b9c3cb;
+  border-radius: 6px;
+}
+
+.ehh-vistas button {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  background: #fff;
+  color: #4a525a;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ehh-vistas button + button {
+  border-left: 1px solid #b9c3cb;
+}
+
+.ehh-vistas button:hover:not(.activa) {
+  background: #f4f6f8;
+}
+
+.ehh-vistas button.activa {
+  background: #075f91;
+  color: #fff;
+}
+
 .ehh-encabezado {
   display: flex;
   align-items: center;
@@ -199,6 +231,12 @@
   background: transparent;
   color: #2f363d;
   cursor: default;
+}
+
+.ehh-tabla input.ehh-calculado:disabled {
+  border-color: transparent;
+  background: #dcebf5;
+  color: #064f78;
 }
 
 .ehh-tabla .ehh-col-total {

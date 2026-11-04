@@ -688,6 +688,8 @@ h2{
 }
 
 .bitacora-selector {
+  margin: 0;
+  padding: 0; /* El .widget del tema trae padding propio y bajaba esta columna */
   border: 0;
   border-radius: 0;
   background: transparent;

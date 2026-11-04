@@ -1,0 +1,155 @@
+<app-main *ngIf="!embebido"></app-main>
+
+<div [class.content-wrap]="!embebido">
+  <main [attr.id]="embebido ? null : 'content'" [attr.role]="embebido ? null : 'main'" [class.content]="!embebido">
+    <section class="chh" [class.chh-embebido]="embebido">
+      <header class="chh-encabezado">
+        <div class="chh-titulo" *ngIf="!embebido">
+          <span class="chh-icono"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
+          <div>
+            <span class="chh-kicker">REPORTES DE PROYECTOS</span>
+            <h2>CONSOLIDADO HH</h2>
+            <p>Horas trabajadas, capacitaciones e indicadores por subproyecto.</p>
+          </div>
+        </div>
+        <div class="chh-filtro">
+          <label for="chh-anio">Año</label>
+          <select id="chh-anio" [(ngModel)]="anio" (ngModelChange)="recalcular()" [disabled]="cargando || !anios.length">
+            <option *ngFor="let opcion of anios" [ngValue]="opcion">{{opcion}}</option>
+            <option *ngIf="!anios.length" [ngValue]="anio">{{anio}}</option>
+          </select>
+        </div>
+      </header>
+
+      <div class="chh-mensaje" *ngIf="cargando" role="status">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando consolidado HH...
+      </div>
+      <div class="chh-mensaje chh-error" *ngIf="!cargando && errorCarga" role="alert">
+        No se pudo cargar el consolidado HH.
+        <button type="button" (click)="cargar()">Reintentar</button>
+      </div>
+      <div class="chh-mensaje" *ngIf="!cargando && !errorCarga && sinPermiso" role="alert">
+        No tienes permisos para ver el consolidado HH.
+      </div>
+
+      <ng-container *ngIf="!cargando && !errorCarga && !sinPermiso">
+        <div class="chh-kpis">
+          <div class="chh-kpi chh-kpi-principal">
+            <span>HH trabajadas</span>
+            <strong>{{formatear(totales.hh)}}</strong>
+          </div>
+          <div class="chh-kpi chh-kpi-capacitacion">
+            <span>HH capacitación</span>
+            <strong>{{formatear(totales.capacitaciones)}}</strong>
+          </div>
+          <div class="chh-kpi">
+            <span>Subproyectos</span>
+            <strong>{{totales.subproyectos}}</strong>
+          </div>
+          <div class="chh-kpi">
+            <span>Incidentes</span>
+            <strong>{{totales.incidentes}}</strong>
+          </div>
+          <div class="chh-kpi">
+            <span>Accidentes con baja</span>
+            <strong>{{totales.accidentesBaja}}</strong>
+          </div>
+          <div class="chh-kpi">
+            <span>Días perdidos</span>
+            <strong>{{totales.diasPerdidos}}</strong>
+          </div>
+        </div>
+
+        <div class="chh-graficos">
+          <section class="chh-panel">
+            <h3>HH trabajadas por mes · {{anio}}</h3>
+            <div class="chh-grafico" role="img" aria-label="Gráfico mensual de horas trabajadas">
+              <div class="chh-columna" *ngFor="let barra of graficoMensualHh" [title]="barra.etiqueta + ': ' + formatear(barra.valor) + ' HH'">
+                <strong *ngIf="barra.valor">{{formatear(barra.valor)}}</strong>
+                <div class="chh-track"><i class="chh-barra-hh" [style.height.%]="barra.alto"></i></div>
+                <span>{{barra.etiqueta}}</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="chh-panel">
+            <h3>HH de capacitación por mes · {{anio}}</h3>
+            <div class="chh-grafico" role="img" aria-label="Gráfico mensual de horas de capacitación">
+              <div class="chh-columna" *ngFor="let barra of graficoMensualCapacitaciones" [title]="barra.etiqueta + ': ' + formatear(barra.valor) + ' HH'">
+                <strong *ngIf="barra.valor">{{formatear(barra.valor)}}</strong>
+                <div class="chh-track"><i class="chh-barra-capacitacion" [style.height.%]="barra.alto"></i></div>
+                <span>{{barra.etiqueta}}</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="chh-panel chh-panel-ranking">
+          <h3>Subproyectos con más HH trabajadas</h3>
+          <div class="chh-vacio" *ngIf="!tablaSubproyectos.length">
+            No hay estadísticas HH registradas para {{anio}}.
+          </div>
+          <div class="chh-ranking" *ngIf="principalesSubproyectos.length">
+            <div class="chh-ranking-fila" *ngFor="let fila of principalesSubproyectos; let i = index">
+              <span class="chh-ranking-numero">{{i + 1}}</span>
+              <span class="chh-ranking-nombre" [title]="fila.nombre">{{fila.nombre}}</span>
+              <div class="chh-ranking-track"><i [style.width.%]="anchoBarraSubproyecto(fila.hh)"></i></div>
+              <strong>{{formatear(fila.hh)}}</strong>
+            </div>
+          </div>
+          <p class="chh-nota" *ngIf="tablaSubproyectos.length > principalesSubproyectos.length">
+            Se muestran los 10 primeros. El detalle incluye todos los subproyectos.
+          </p>
+        </section>
+
+        <section class="chh-panel">
+          <h3>Detalle por subproyecto · {{anio}}</h3>
+          <div class="chh-tabla-scroll" *ngIf="tablaSubproyectos.length">
+            <table class="chh-tabla">
+              <thead>
+                <tr>
+                  <th>Subproyecto</th>
+                  <th>HH trabajadas</th>
+                  <th>Horas extra</th>
+                  <th>HH capacitación</th>
+                  <th>Incidentes</th>
+                  <th>Accidentes con baja</th>
+                  <th>Días perdidos</th>
+                  <th>IF</th>
+                  <th>IS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let fila of tablaSubproyectos">
+                  <th scope="row">{{fila.nombre}}</th>
+                  <td>{{formatear(fila.hh)}}</td>
+                  <td>{{formatear(fila.horasExtra)}}</td>
+                  <td>{{formatear(fila.capacitaciones)}}</td>
+                  <td>{{formatear(fila.incidentes)}}</td>
+                  <td>{{formatear(fila.accidentesBaja)}}</td>
+                  <td>{{formatear(fila.diasPerdidos)}}</td>
+                  <td>{{formatear(fila.hhIndice ? fila.accidentesBaja * 1000000 / fila.hhIndice : null)}}</td>
+                  <td>{{formatear(fila.hhIndice ? fila.diasPerdidos * 1000 / fila.hhIndice : null)}}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">Total {{anio}}</th>
+                  <td>{{formatear(totales.hh)}}</td>
+                  <td>{{formatear(totales.horasExtra)}}</td>
+                  <td>{{formatear(totales.capacitaciones)}}</td>
+                  <td>{{formatear(totales.incidentes)}}</td>
+                  <td>{{formatear(totales.accidentesBaja)}}</td>
+                  <td>{{formatear(totales.diasPerdidos)}}</td>
+                  <td>{{formatear(totales.if)}}</td>
+                  <td>{{formatear(totales.is)}}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <p class="chh-nota">IF = accidentes con baja × 1.000.000 / HH. IS = días perdidos × 1.000 / HH.</p>
+        </section>
+      </ng-container>
+    </section>
+  </main>
+</div>

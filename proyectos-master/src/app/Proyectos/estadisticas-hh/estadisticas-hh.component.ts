@@ -1,5 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { firestoreDB } from '../../firebase-init';
+import { CAMPO_CAPACITACION } from './control-asistencia.component';
 
 /**
  * Estadísticas mensuales de HH por subproyecto.
@@ -16,6 +17,27 @@ export interface IndicadorHH {
   capacitacion?: boolean;
   inicioCapacitacion?: boolean;
 }
+
+export const INDICADORES_HH: IndicadorHH[] = [
+  { campo: 'hh', etiqueta: 'HH trabajadas', decimales: 2 },
+  { campo: 'horasExtra', etiqueta: 'Horas extra', decimales: 2 },
+  { campo: 'hhCharlasDiarias', etiqueta: 'Charlas diarias', decimales: 2, capacitacion: true, inicioCapacitacion: true },
+  { campo: 'trabajadores', etiqueta: 'N° de trabajadores', decimales: 0 },
+  { campo: 'incidentes', etiqueta: 'N° incidentes', decimales: 0 },
+  { campo: 'accidentesBaja', etiqueta: 'Accidentes con baja', decimales: 0 },
+  { campo: 'diasPerdidos', etiqueta: 'Días perdidos', decimales: 0 }
+];
+
+/** HH de exposición de un mes para IF e IS. */
+export function getHhIndice(delMes: any): number {
+  if (delMes.hhTotales !== null && delMes.hhTotales !== undefined) { return Number(delMes.hhTotales) || 0; }
+  return (Number(delMes.hh) || 0) + (Number(delMes.horasExtra) || 0);
+}
+
+export const INDICES_HH = [
+  { campo: 'accidentesBaja', etiqueta: 'IF', titulo: 'Índice de frecuencia', base: 1000000 },
+  { campo: 'diasPerdidos', etiqueta: 'IS', titulo: 'Índice de severidad', base: 1000 }
+];
 
 @Component({
   selector: 'app-estadisticas-hh',
@@ -36,23 +58,10 @@ export class EstadisticasHhComponent implements OnInit {
     { numero: 10, nombre: 'Octubre' }, { numero: 11, nombre: 'Noviembre' }, { numero: 12, nombre: 'Diciembre' }
   ];
 
-  readonly indicadores: IndicadorHH[] = [
-    { campo: 'hh', etiqueta: 'HH trabajadas', decimales: 2 },
-    { campo: 'hhCharlasDiarias', etiqueta: 'Charlas diarias', decimales: 2, capacitacion: true, inicioCapacitacion: true },
-    { campo: 'hhEspecificas', etiqueta: 'Específicas', decimales: 2, capacitacion: true },
-    { campo: 'hhOtec', etiqueta: 'OTEC', decimales: 2, capacitacion: true },
-    { campo: 'hhOtrasCapacitaciones', etiqueta: 'Otros', decimales: 2, capacitacion: true },
-    { campo: 'trabajadores', etiqueta: 'N° de trabajadores', decimales: 0 },
-    { campo: 'incidentes', etiqueta: 'N° incidentes', decimales: 0 },
-    { campo: 'accidentesBaja', etiqueta: 'Accidentes con baja', decimales: 0 },
-    { campo: 'diasPerdidos', etiqueta: 'Días perdidos', decimales: 0 }
-  ];
+  readonly indicadores: IndicadorHH[] = INDICADORES_HH;
+  readonly indices = INDICES_HH;
 
-  readonly indices = [
-    { campo: 'accidentesBaja', etiqueta: 'IF', titulo: 'Índice de frecuencia', base: 1000000 },
-    { campo: 'diasPerdidos', etiqueta: 'IS', titulo: 'Índice de severidad', base: 1000 }
-  ];
-
+  vista: string = 'mensual'; // 'mensual' o 'asistencia'
   anios: number[] = [];
   anio: number = new Date().getFullYear();
   readonly mesActual: number = new Date().getMonth() + 1;
@@ -62,7 +71,7 @@ export class EstadisticasHhComponent implements OnInit {
   errorCarga: boolean = false;
   estadoGuardado: string = ''; // '', 'guardando', 'guardado' o 'error'
 
-  private datosPorAnio: { [anio: number]: any } = {};
+  datosPorAnio: { [anio: number]: any } = {};
   private respaldo: { [clave: string]: number | null } = {};
   private guardadosPendientes: number = 0;
   private idUsuario: any = null;
@@ -131,8 +140,24 @@ export class EstadisticasHhComponent implements OnInit {
     this.valores = this.datosPorAnio[anio];
   }
 
+  /** El Control de asistencia ya guardó estos valores: solo se reflejan en la tabla. */
+  aplicarAsistencia(evento: { anio: number, mes: number, valores: any }) {
+    const delAnio = this.datosPorAnio[evento.anio] || (this.datosPorAnio[evento.anio] = {});
+    const delMes = delAnio[evento.mes] || (delAnio[evento.mes] = {});
+    Object.keys(evento.valores).forEach(campo => {
+      delMes[campo] = evento.valores[campo];
+      this.respaldo[this.getClave(evento.anio, evento.mes, campo)] = evento.valores[campo];
+    });
+  }
+
+  esCalculado(mes: number, campo: string): boolean {
+    const delMes = this.valores[mes] || {};
+    if (campo === CAMPO_CAPACITACION) { return !!delMes.asistenciaCapacitacion; }
+    return !!delMes.asistencia && (campo === 'hh' || campo === 'horasExtra' || campo === 'trabajadores');
+  }
+
   guardarCelda(mes: number, indicador: IndicadorHH, input: any) {
-    if (this.soloLectura) { return; }
+    if (this.soloLectura || this.esCalculado(mes, indicador.campo)) { return; }
 
     const anio = Number(this.anio);
     const clave = this.getClave(anio, mes, indicador.campo);
@@ -264,11 +289,12 @@ export class EstadisticasHhComponent implements OnInit {
 
   getIndiceMes(mes: number, indice: any): string {
     const delMes = this.valores[mes] || {};
-    return this.formatear(this.calcularIndice(delMes[indice.campo], delMes.hh, indice.base));
+    return this.formatear(this.calcularIndice(delMes[indice.campo], getHhIndice(delMes), indice.base));
   }
 
   getIndiceAnual(indice: any): string {
-    return this.formatear(this.calcularIndice(this.sumar(indice.campo), this.sumar('hh'), indice.base));
+    const hh = this.meses.reduce((suma, mes) => suma + getHhIndice(this.valores[mes.numero] || {}), 0);
+    return this.formatear(this.calcularIndice(this.sumar(indice.campo), hh, indice.base));
   }
 
   esMesActual(mes: number): boolean {

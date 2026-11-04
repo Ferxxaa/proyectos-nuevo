@@ -6,15 +6,15 @@
 <section class="sso" [class.sso-consolidado]="consolidadoHistorico">
   <div class="sso-encabezado">
     <div class="sso-titulo">
-      <span class="sso-icono"><i class="fa fa-shield" aria-hidden="true"></i></span>
+      <span class="sso-icono"><i class="fa" [ngClass]="!consolidadoHistorico && vistaSubproyecto === 'ma' ? 'fa-leaf' : 'fa-shield'" aria-hidden="true"></i></span>
       <div>
         <span class="sso-kicker" *ngIf="consolidadoHistorico">ANÁLISIS DE PROYECTOS</span>
-        <h5>{{consolidadoHistorico ? 'Consolidado SSO' : 'Seguimiento de accidentes'}}</h5>
-        <p *ngIf="consolidadoHistorico">Histórico de accidentes de toda la empresa</p>
+        <h5>{{consolidadoHistorico ? 'Consolidado SSO, MA y HH' : (vistaSubproyecto === 'ma' ? 'Seguimiento MA' : 'Seguimiento de accidentes')}}</h5>
+        <p *ngIf="consolidadoHistorico">Accidentes, Medio Ambiente y horas hombre de toda la empresa</p>
         <p *ngIf="!consolidadoHistorico">{{nombreSubProyecto}}</p>
       </div>
     </div>
-    <button type="button" class="sso-boton-principal" *ngIf="!consolidadoHistorico && !soloLectura && !cargando && !errorCarga" (click)="abrirNuevo()">
+    <button type="button" class="sso-boton-principal" *ngIf="!consolidadoHistorico && vistaSubproyecto === 'accidentes' && !soloLectura && !cargando && !errorCarga" (click)="abrirNuevo()">
       <i class="fa fa-plus" aria-hidden="true"></i> Registrar accidente
     </button>
     <a *ngIf="consolidadoHistorico" class="btn sso-volver" [routerLink]="['/Proyectos-MisProyectos']">
@@ -23,18 +23,28 @@
     </a>
   </div>
 
-  <div class="sso-mensaje" *ngIf="cargando"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando accidentes...</div>
+  <div class="sso-mensaje" *ngIf="cargando"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> {{consolidadoHistorico ? 'Cargando consolidado...' : 'Cargando accidentes...'}}</div>
   <div class="sso-mensaje" *ngIf="!cargando && sinPermisoConsolidado" role="alert">
-    No tienes permisos para ver el consolidado SSO.
+    No tienes permisos para ver este consolidado.
   </div>
   <div class="sso-mensaje" *ngIf="errorCarga">
-    No se pudieron cargar los accidentes.
+    {{consolidadoHistorico ? 'No se pudo cargar el consolidado.' : 'No se pudieron cargar los accidentes.'}}
     <button type="button" (click)="consolidadoHistorico ? cargarConsolidadoSso() : cargar()">Reintentar</button>
   </div>
 
   <ng-container *ngIf="!cargando && !errorCarga && !sinPermisoConsolidado">
     <ng-container *ngIf="!verHistorico">
-    <form class="sso-panel sso-formulario" *ngIf="formularioAbierto" (ngSubmit)="guardar()">
+    <div class="sso-vistas">
+      <button type="button" [class.activa]="vistaSubproyecto === 'accidentes'" [attr.aria-pressed]="vistaSubproyecto === 'accidentes'" (click)="vistaSubproyecto = 'accidentes'">
+        <i class="fa fa-shield" aria-hidden="true"></i> Accidentes ({{accidentes.length}})
+      </button>
+      <button type="button" [class.activa]="vistaSubproyecto === 'ma'" [attr.aria-pressed]="vistaSubproyecto === 'ma'" (click)="vistaSubproyecto = 'ma'">
+        <i class="fa fa-leaf" aria-hidden="true"></i> Medio Ambiente (MA)
+      </button>
+    </div>
+
+    <ng-container *ngIf="vistaSubproyecto === 'accidentes'">
+    <form id="sso-formulario" class="sso-panel sso-formulario" *ngIf="formularioAbierto" (ngSubmit)="guardar()">
       <h6>{{editandoId ? 'Editar accidente' : 'Registrar accidente'}}</h6>
       <div class="sso-formulario-campos">
         <div class="sso-campo">
@@ -84,48 +94,154 @@
 
     <div class="sso-mensaje" *ngIf="!accidentes.length">Aún no hay accidentes registrados en este subproyecto.</div>
 
-    <section class="sso-panel">
-        <h6>Seguimiento de accidentes</h6>
-        <div class="sso-tabla-scroll">
-          <table class="sso-tabla">
+    <ng-container *ngIf="accidentes.length">
+      <div class="sso-tiles sso-tiles-compacto">
+        <div class="sso-tile"><span>Registros</span><strong>{{resumenAccidentes.total}}</strong></div>
+        <div class="sso-tile" [class.tile-abierto]="resumenAccidentes.abiertos"><span>Abiertos</span><strong>{{resumenAccidentes.abiertos}}</strong></div>
+        <div class="sso-tile"><span>Días perdidos</span><strong>{{resumenAccidentes.diasPerdidos}}</strong></div>
+        <div class="sso-tile" [class.tile-grave]="resumenAccidentes.graves"><span>Graves (grado 5 y 6)</span><strong>{{resumenAccidentes.graves}}</strong></div>
+      </div>
+
+      <section class="sso-panel">
+        <div class="sso-filtros">
+          <select [(ngModel)]="filtroAnio" (ngModelChange)="cambiarFiltrosAccidentes()" aria-label="Filtrar por año">
+            <option value="todos">Todos los años</option>
+            <option *ngFor="let anio of aniosAccidentes" [value]="anio">{{anio}}</option>
+          </select>
+          <select [(ngModel)]="filtroEstado" (ngModelChange)="cambiarFiltrosAccidentes()" aria-label="Filtrar por estado">
+            <option value="todos">Todos los estados</option>
+            <option value="Abierto">Abiertos</option>
+            <option value="Cerrado">Cerrados</option>
+          </select>
+          <input type="text" [(ngModel)]="filtroBusqueda" (ngModelChange)="cambiarFiltrosAccidentes()"
+                 placeholder="Buscar por tipo, descripción o medidas" aria-label="Buscar accidente">
+          <button type="button" class="sso-boton" *ngIf="hayFiltrosAccidentes" (click)="limpiarFiltrosAccidentes()">Limpiar</button>
+        </div>
+
+        <div class="sso-mensaje" *ngIf="!accidentesFiltrados.length">Ningún accidente coincide con estos filtros.</div>
+
+        <div class="sso-tabla-scroll" *ngIf="accidentesFiltrados.length">
+          <table class="sso-tabla sso-tabla-accidentes">
             <thead>
               <tr>
                 <th>Fecha</th>
                 <th>Tipo</th>
                 <th>Grado</th>
-                <th>Días perdidos</th>
+                <th class="sso-centro">Días perdidos</th>
                 <th>Descripción</th>
-                <th>Medidas de control</th>
                 <th>Estado</th>
-                <th *ngIf="!soloLectura"></th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of accidentes; trackBy: trackAccidente">
-                <td class="sso-nowrap">{{getFechaTexto(item.fecha)}}</td>
-                <td class="sso-nowrap"><span class="sso-chip" [ngClass]="getClaseTipo(item.tipo)">{{item.tipo}}</span></td>
-                <td class="sso-nowrap">
-                  <span class="sso-grado" [ngClass]="'grado-' + item.grado">{{item.grado}}</span>
-                  <small>{{getClasificacion(item.grado)}}</small>
-                </td>
-                <td class="sso-centro">{{item.diasPerdidos}}</td>
-                <td class="sso-texto"><div [title]="item.descripcion">{{item.descripcion}}</div></td>
-                <td class="sso-texto"><div [title]="item.medidasControl">{{item.medidasControl || '-'}}</div></td>
-                <td class="sso-nowrap"><span class="sso-estado" [class.cerrado]="item.estado === 'Cerrado'">{{item.estado}}</span></td>
-                <td class="sso-acciones" *ngIf="!soloLectura">
-                  <button type="button" class="sso-boton" (click)="editar(item)">Editar</button>
-                  <button type="button" class="sso-boton sso-boton-peligro" (click)="eliminar(item)" [attr.aria-label]="'Eliminar accidente del ' + getFechaTexto(item.fecha)">
-                    <i class="fa fa-trash" aria-hidden="true"></i>
-                  </button>
-                </td>
-              </tr>
+              <ng-container *ngFor="let item of accidentesPagina; trackBy: trackAccidente">
+                <tr [class.detalle-abierto]="detalleAbiertoId === item.id">
+                  <td class="sso-nowrap">{{getFechaTexto(item.fecha)}}</td>
+                  <td class="sso-nowrap"><span class="sso-chip" [ngClass]="getClaseTipo(item.tipo)">{{item.tipo}}</span></td>
+                  <td class="sso-nowrap">
+                    <span class="sso-grado" [ngClass]="'grado-' + item.grado">{{item.grado}}</span>
+                    <small>{{getClasificacion(item.grado)}}</small>
+                  </td>
+                  <td class="sso-centro">{{item.diasPerdidos}}</td>
+                  <td class="sso-descripcion-corta"><div [title]="item.descripcion">{{item.descripcion}}</div></td>
+                  <td class="sso-nowrap"><span class="sso-estado" [class.cerrado]="item.estado === 'Cerrado'">{{item.estado}}</span></td>
+                  <td class="sso-acciones">
+                    <button type="button" class="sso-boton" (click)="alternarDetalle(item)" [attr.aria-expanded]="detalleAbiertoId === item.id">
+                      {{detalleAbiertoId === item.id ? 'Ocultar' : 'Ver'}}
+                    </button>
+                    <button type="button" class="sso-boton" *ngIf="!soloLectura" (click)="editar(item)">Editar</button>
+                    <button type="button" class="sso-boton sso-boton-peligro" *ngIf="!soloLectura" (click)="eliminar(item)" [attr.aria-label]="'Eliminar accidente del ' + getFechaTexto(item.fecha)">
+                      <i class="fa fa-trash" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                </tr>
+                <tr class="sso-fila-detalle" *ngIf="detalleAbiertoId === item.id">
+                  <td colspan="7">
+                    <div class="sso-detalle">
+                      <div>
+                        <strong>Descripción</strong>
+                        <p>{{item.descripcion}}</p>
+                      </div>
+                      <div>
+                        <strong>Medidas de control</strong>
+                        <p>{{item.medidasControl || 'Sin medidas registradas'}}</p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </ng-container>
             </tbody>
           </table>
         </div>
+
+        <div class="sso-paginacion" *ngIf="accidentesFiltrados.length">
+          <span>{{primerAccidentePagina}}–{{ultimoAccidentePagina}} de {{accidentesFiltrados.length}}</span>
+          <div *ngIf="totalPaginasAccidentes > 1">
+            <button type="button" class="sso-boton" [disabled]="paginaAccidentes === 1" (click)="cambiarPaginaAccidentes(-1)">Anterior</button>
+            <span>Página {{paginaAccidentes}} de {{totalPaginasAccidentes}}</span>
+            <button type="button" class="sso-boton" [disabled]="paginaAccidentes === totalPaginasAccidentes" (click)="cambiarPaginaAccidentes(1)">Siguiente</button>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+    </ng-container>
+
+    <section class="sso-panel sso-panel-ma" *ngIf="vistaSubproyecto === 'ma'">
+      <div class="sso-ma-encabezado">
+        <h6>Estadísticas de Medio Ambiente (MA)</h6>
+        <div class="sso-ma-controles">
+          <span class="sso-ma-estado" [ngClass]="estadoGuardadoMA" *ngIf="estadoGuardadoMA" role="status">
+            <ng-container *ngIf="estadoGuardadoMA === 'guardando'"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Guardando...</ng-container>
+            <ng-container *ngIf="estadoGuardadoMA === 'guardado'"><i class="fa fa-check" aria-hidden="true"></i> Guardado</ng-container>
+            <ng-container *ngIf="estadoGuardadoMA === 'error'"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> No se pudo guardar</ng-container>
+          </span>
+          <label for="sso-ma-anio">Año</label>
+          <select id="sso-ma-anio" [(ngModel)]="anioMA" (ngModelChange)="seleccionarAnioMA()" [disabled]="cargandoMA || errorCargaMA">
+            <option *ngFor="let opcion of aniosMA" [ngValue]="opcion">{{opcion}}</option>
+          </select>
+        </div>
+      </div>
+      <div class="sso-mensaje" *ngIf="cargandoMA"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando estadísticas de MA...</div>
+      <div class="sso-mensaje" *ngIf="errorCargaMA" role="alert">
+        No se pudieron cargar las estadísticas de MA.
+        <button type="button" (click)="cargarEstadisticasMA()">Reintentar</button>
+      </div>
+      <div class="sso-tabla-scroll" *ngIf="!cargandoMA && !errorCargaMA">
+        <table class="sso-tabla sso-tabla-ma">
+          <thead>
+            <tr>
+              <th class="sso-ma-indicador">Indicador</th>
+              <th *ngFor="let mes of mesesMA; trackBy: trackMesMA" [class.mes-actual]="esMesActualMA(mes.numero)" [title]="mes.nombre">{{mes.corto}}</th>
+              <th class="sso-ma-total">Total año</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let indicador of indicadoresMA; trackBy: trackIndicadorMA">
+              <th scope="row" class="sso-ma-indicador">
+                {{indicador.etiqueta}} <small *ngIf="indicador.unidad">{{indicador.unidad}}</small>
+              </th>
+              <td *ngFor="let mes of mesesMA; trackBy: trackMesMA" [class.mes-actual]="esMesActualMA(mes.numero)">
+                <input type="text" inputmode="decimal" autocomplete="off"
+                       [value]="getTextoCeldaMA(mes.numero, indicador.campo)" [disabled]="soloLectura"
+                       (change)="guardarCeldaMA(mes.numero, indicador, $event.target)"
+                       [attr.aria-label]="indicador.etiqueta + ' de ' + mes.nombre">
+              </td>
+              <td class="sso-ma-total">{{getTotalMA(indicador.campo)}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
     </ng-container>
 
     <ng-container *ngIf="verHistorico">
+      <div class="sso-vistas">
+        <button type="button" [class.activa]="consolidadoVista === 'sso'" [attr.aria-pressed]="consolidadoVista === 'sso'" (click)="consolidadoVista = 'sso'">Accidentes (SSO)</button>
+        <button type="button" [class.activa]="consolidadoVista === 'ma'" [attr.aria-pressed]="consolidadoVista === 'ma'" (click)="consolidadoVista = 'ma'">Medio Ambiente (MA)</button>
+        <button type="button" [class.activa]="consolidadoVista === 'hh'" [attr.aria-pressed]="consolidadoVista === 'hh'" (click)="consolidadoVista = 'hh'">Horas Hombre (HH)</button>
+      </div>
+
+      <ng-container *ngIf="consolidadoVista === 'sso'">
       <div class="sso-tiles">
         <div class="sso-tile"><span>Accidentes</span><strong>{{historicoResumen.total}}</strong></div>
         <div class="sso-tile"><span>Días perdidos</span><strong>{{historicoResumen.diasPerdidos}}</strong></div>
@@ -232,6 +348,90 @@
           </table>
         </div>
       </section>
+      </ng-container>
+
+      <ng-container *ngIf="consolidadoVista === 'ma'">
+        <div class="sso-aviso" *ngIf="errorConsolidadoMA" role="alert">
+          No se pudieron cargar las estadísticas de MA.
+          <button type="button" class="sso-boton" (click)="reintentarConsolidadoMA()">Reintentar</button>
+        </div>
+
+        <div class="sso-tiles">
+          <div class="sso-tile"><span>Subproyectos con datos</span><strong>{{consolidadoMAResumen.subproyectos}}</strong></div>
+          <div class="sso-tile"><span>Agua (LTS)</span><strong>{{consolidadoMAResumen.agua}}</strong></div>
+          <div class="sso-tile"><span>Combustible (LTS)</span><strong>{{consolidadoMAResumen.combustible}}</strong></div>
+          <div class="sso-tile"><span>Residuos domiciliarios (TONS.)</span><strong>{{consolidadoMAResumen.residuos}}</strong></div>
+        </div>
+
+        <section class="sso-panel sso-panel-ma">
+          <div class="sso-ma-encabezado">
+            <h6>Estadísticas mensuales de Medio Ambiente</h6>
+            <div class="sso-ma-controles">
+              <label for="sso-consolidado-ma-anio">Año</label>
+              <select id="sso-consolidado-ma-anio" [(ngModel)]="consolidadoMAAnio" (ngModelChange)="recalcularConsolidadoMA()">
+                <option *ngFor="let opcion of consolidadoMAAnios" [ngValue]="opcion">{{opcion}}</option>
+              </select>
+              <label for="sso-consolidado-ma-subproyecto">Subproyecto</label>
+              <select id="sso-consolidado-ma-subproyecto" class="sso-ma-subproyecto" [(ngModel)]="consolidadoMASubproyecto" (ngModelChange)="recalcularConsolidadoMA()">
+                <option value="todos">Todos</option>
+                <option *ngFor="let opcion of consolidadoMASubproyectos" [value]="opcion.id">{{opcion.nombre}}</option>
+              </select>
+            </div>
+          </div>
+          <div class="sso-mensaje" *ngIf="!errorConsolidadoMA && !consolidadoMAPorSubproyecto.length">No hay datos de MA para este filtro.</div>
+          <div class="sso-tabla-scroll" *ngIf="consolidadoMAPorSubproyecto.length">
+            <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado">
+              <thead>
+                <tr>
+                  <th class="sso-ma-indicador">Indicador</th>
+                  <th *ngFor="let mes of mesesMA; trackBy: trackMesMA" [class.mes-actual]="esMesActualConsolidadoMA(mes.numero)" [title]="mes.nombre">{{mes.corto}}</th>
+                  <th class="sso-ma-total">Total año</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let fila of consolidadoMAFilas">
+                  <th scope="row" class="sso-ma-indicador">
+                    {{fila.indicador.etiqueta}} <small *ngIf="fila.indicador.unidad">{{fila.indicador.unidad}}</small>
+                  </th>
+                  <td *ngFor="let valor of fila.meses; let indice = index" [class.mes-actual]="esMesActualConsolidadoMA(indice + 1)">{{valor}}</td>
+                  <td class="sso-ma-total">{{fila.total}}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="sso-panel" *ngIf="consolidadoMAPorSubproyecto.length">
+          <h6>Total del año por subproyecto</h6>
+          <div class="sso-tabla-scroll">
+            <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado">
+              <thead>
+                <tr>
+                  <th class="sso-ma-indicador">Subproyecto</th>
+                  <th *ngFor="let indicador of indicadoresMA; trackBy: trackIndicadorMA">
+                    {{indicador.etiqueta}} <small *ngIf="indicador.unidad">{{indicador.unidad}}</small>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let fila of consolidadoMAPorSubproyecto">
+                  <th scope="row" class="sso-ma-indicador">{{fila.nombre}}</th>
+                  <td *ngFor="let total of fila.totales">{{total}}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">Total</th>
+                  <td *ngFor="let total of consolidadoMATotales">{{total}}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+      </ng-container>
+
+      <!-- Con [hidden] se mantiene el año elegido al cambiar de pestaña -->
+      <app-consolidado-hh [embebido]="true" [hidden]="consolidadoVista !== 'hh'"></app-consolidado-hh>
     </ng-container>
   </ng-container>
 </section>
