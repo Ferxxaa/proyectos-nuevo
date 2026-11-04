@@ -16,6 +16,85 @@ export const HORAS_JORNADA = 8.5;
 /** Indicador de Estadísticas HH que recibe las horas de capacitación. */
 export const CAMPO_CAPACITACION = 'hhCharlasDiarias';
 
+/** Fecha del solsticio de invierno en Chile; desde 2028 hay que confirmarla con el decreto de cada año. */
+const DIA_PUEBLOS_INDIGENAS: { [anio: number]: number } = { 2024: 20, 2025: 20, 2026: 21, 2027: 21, 2028: 20, 2029: 20, 2030: 21 };
+
+/** Feriados por ley puntual, como elecciones. Agregar aquí con formato { 'aaaa-m-d': 'Nombre' }. */
+const FERIADOS_ESPECIALES: { [fecha: string]: string } = {
+  '2025-11-16': 'Elecciones',
+  '2025-12-14': 'Elecciones'
+};
+
+function getPascua(anio: number): Date {
+  const a = anio % 19;
+  const b = Math.floor(anio / 100);
+  const c = anio % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mes = Math.floor((h + l - 7 * m + 114) / 31);
+  const dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(anio, mes - 1, dia);
+}
+
+/** Ley 19.668: de martes a jueves pasa al lunes anterior, y el viernes al lunes siguiente. */
+function moverALunes(anio: number, mes: number, dia: number): Date {
+  const fecha = new Date(anio, mes - 1, dia);
+  const semana = fecha.getDay();
+  if (semana >= 2 && semana <= 4) { return new Date(anio, mes - 1, dia - (semana - 1)); }
+  if (semana === 5) { return new Date(anio, mes - 1, dia + 3); }
+  return fecha;
+}
+
+/** Feriados nacionales de Chile, con clave 'mes-dia'. No incluye los regionales ni comunales. */
+export function getFeriadosChile(anio: number): { [clave: string]: string } {
+  const feriados: { [clave: string]: string } = {};
+  const agregar = (fecha: Date, nombre: string) => {
+    feriados[(fecha.getMonth() + 1) + '-' + fecha.getDate()] = nombre;
+  };
+  const fijo = (mes: number, dia: number, nombre: string) => agregar(new Date(anio, mes - 1, dia), nombre);
+  const pascua = getPascua(anio);
+
+  fijo(1, 1, 'Año Nuevo');
+  agregar(new Date(anio, pascua.getMonth(), pascua.getDate() - 2), 'Viernes Santo');
+  agregar(new Date(anio, pascua.getMonth(), pascua.getDate() - 1), 'Sábado Santo');
+  fijo(5, 1, 'Día del Trabajo');
+  fijo(5, 21, 'Día de las Glorias Navales');
+  fijo(6, DIA_PUEBLOS_INDIGENAS[anio] || 21, 'Día Nacional de los Pueblos Indígenas');
+  agregar(moverALunes(anio, 6, 29), 'San Pedro y San Pablo');
+  fijo(7, 16, 'Día de la Virgen del Carmen');
+  fijo(8, 15, 'Asunción de la Virgen');
+  fijo(9, 18, 'Independencia Nacional');
+  fijo(9, 19, 'Día de las Glorias del Ejército');
+  agregar(moverALunes(anio, 10, 12), 'Encuentro de Dos Mundos');
+  fijo(11, 1, 'Día de Todos los Santos');
+  fijo(12, 8, 'Inmaculada Concepción');
+  fijo(12, 25, 'Navidad');
+
+  // Ley 20.299: de martes pasa al viernes anterior, y de miércoles al viernes siguiente
+  const iglesias = new Date(anio, 9, 31).getDay();
+  agregar(new Date(anio, 9, 31 + (iglesias === 2 ? -4 : iglesias === 3 ? 2 : 0)), 'Día de las Iglesias Evangélicas');
+
+  // Leyes 20.215 y 20.983
+  const septiembre = new Date(anio, 8, 18).getDay();
+  if (septiembre === 2 || septiembre === 6) { fijo(9, 17, 'Feriado adicional de Fiestas Patrias'); }
+  if (septiembre === 3) { fijo(9, 20, 'Feriado adicional de Fiestas Patrias'); }
+  if (new Date(anio, 0, 1).getDay() === 0) { fijo(1, 2, 'Feriado adicional de Año Nuevo'); }
+
+  Object.keys(FERIADOS_ESPECIALES).forEach(fecha => {
+    const partes = fecha.split('-').map(Number);
+    if (partes[0] === anio) { fijo(partes[1], partes[2], FERIADOS_ESPECIALES[fecha]); }
+  });
+
+  return feriados;
+}
+
 export interface TrabajadorAsistencia {
   id: string;
   nombre: string;
@@ -65,8 +144,8 @@ export class ControlAsistenciaComponent implements OnInit {
 
   anio: number = new Date().getFullYear();
   mes: number = new Date().getMonth() + 1;
-  dias: { numero: number, fecha: string, finDeSemana: boolean }[] = [];
-  diasVisibles: { numero: number, fecha: string, finDeSemana: boolean }[] = [];
+  dias: { numero: number, fecha: string, finDeSemana: boolean, feriado: string }[] = [];
+  diasVisibles: { numero: number, fecha: string, finDeSemana: boolean, feriado: string }[] = [];
   quincena: number = 1;
   borrador: TrabajadorAsistencia = null;
   errorFila: string = '';
@@ -170,10 +249,16 @@ export class ControlAsistenciaComponent implements OnInit {
   private prepararDias(anio: number, mes: number) {
     const corto = this.meses[mes - 1].corto;
     const total = new Date(anio, mes, 0).getDate();
-    const dias: { numero: number, fecha: string, finDeSemana: boolean }[] = [];
+    const feriados = getFeriadosChile(anio);
+    const dias: { numero: number, fecha: string, finDeSemana: boolean, feriado: string }[] = [];
     for (let numero = 1; numero <= total; numero++) {
       const dia = new Date(anio, mes - 1, numero).getDay();
-      dias.push({ numero: numero, fecha: numero + '-' + corto, finDeSemana: dia === 0 || dia === 6 });
+      dias.push({
+        numero: numero,
+        fecha: numero + '-' + corto,
+        finDeSemana: dia === 0 || dia === 6,
+        feriado: feriados[mes + '-' + numero] || ''
+      });
     }
     this.dias = dias;
   }

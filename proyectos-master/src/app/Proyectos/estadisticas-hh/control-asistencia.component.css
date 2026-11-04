@@ -240,6 +240,10 @@
   background: #6b7076;
 }
 
+.ca-tabla thead .ca-feriado {
+  background: #b23b42;
+}
+
 .ca-tabla thead .ca-izquierda {
   padding-left: 5px;
   font-size: 11px;
@@ -280,6 +284,11 @@
 
 .ca-tabla tbody td.ca-fin-semana {
   background: #f1f3f5;
+}
+
+.ca-tabla tbody tr td.ca-feriado,
+.ca-tabla tbody tr.ca-fila-nueva td.ca-feriado {
+  background: #fbe3e4;
 }
 
 .ca-tabla tbody td.ca-col-numero {

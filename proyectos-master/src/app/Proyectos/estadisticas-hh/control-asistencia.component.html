@@ -71,14 +71,14 @@
             <th class="ca-fijo ca-col-numero" rowspan="2">N°</th>
             <th *ngFor="let item of camposTrabajador" [ngClass]="item.clase" class="ca-izquierda" rowspan="2">{{item.etiqueta}}</th>
             <th rowspan="2" *ngIf="!soloLectura"></th>
-            <th *ngFor="let dia of diasVisibles; trackBy: trackDia" colspan="3" class="ca-inicio-dia" [class.ca-fin-semana]="dia.finDeSemana">{{dia.fecha}}</th>
+            <th *ngFor="let dia of diasVisibles; trackBy: trackDia" colspan="3" class="ca-inicio-dia" [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado" [attr.title]="dia.feriado || null">{{dia.fecha}}</th>
             <th class="ca-inicio-dia" colspan="3">Total mes</th>
             <th class="ca-col-hh" rowspan="2">HH</th>
           </tr>
           <tr>
             <ng-container *ngFor="let dia of diasVisibles; trackBy: trackDia">
               <th *ngFor="let item of campos; let i = index; trackBy: trackCampo" class="ca-subcolumna" [class.ca-inicio-dia]="i === 0"
-                  [class.ca-fin-semana]="dia.finDeSemana" [title]="item.titulo">{{item.etiqueta}}</th>
+                  [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado" [title]="item.titulo">{{item.etiqueta}}</th>
             </ng-container>
             <th class="ca-subcolumna ca-inicio-dia">Días</th>
             <th class="ca-subcolumna">H.E.</th>
@@ -98,7 +98,7 @@
               <button type="button" *ngIf="!trabajador.nuevo" (click)="eliminar(trabajador)" [attr.aria-label]="'Quitar a ' + trabajador.nombre" title="Quitar"><i class="fa fa-trash" aria-hidden="true"></i></button>
             </td>
             <ng-container *ngFor="let dia of diasVisibles; trackBy: trackDia">
-              <td *ngFor="let item of campos; let i = index; trackBy: trackCampo" [class.ca-inicio-dia]="i === 0" [class.ca-fin-semana]="dia.finDeSemana">
+              <td *ngFor="let item of campos; let i = index; trackBy: trackCampo" [class.ca-inicio-dia]="i === 0" [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado">
                 <input type="text" inputmode="decimal" autocomplete="off"
                        [value]="getTextoCelda(trabajador, dia.numero, item.campo)" [disabled]="soloLectura || trabajador.nuevo"
                        (change)="guardarCelda(trabajador, dia.numero, item.campo, $event.target)"
@@ -130,7 +130,7 @@
     </div>
     <p class="ca-nota">
       Día: 1 es jornada completa ({{formatear(horasJornada)}} h) y 0,5 media jornada. H.E. y Cap. van en horas, y Cap. se carga en Charlas diarias.
-      HH = días × {{formatear(horasJornada)}} + horas extra + capacitación. Para agregar un trabajador, escríbelo en la última fila.
+      HH = días × {{formatear(horasJornada)}} + horas extra + capacitación. Para agregar un trabajador, escríbelo en la última fila. En rojo, los feriados.
     </p>
   </ng-container>
 </section>
