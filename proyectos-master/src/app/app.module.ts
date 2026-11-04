@@ -50,6 +50,7 @@ import { sSubProyecto } from './services/sSubProyecto.service';
 import { sCorreo } from './services/Personalizados/sCorreo.service';
 import { EstadisticasHhComponent } from './Proyectos/estadisticas-hh/estadisticas-hh.component';
 import { ConsolidadoHhComponent } from './Proyectos/estadisticas-hh/consolidado-hh.component';
+import { EstadisticasHhPageComponent } from './Proyectos/estadisticas-hh/estadisticas-hh-page.component';
 import { EstadisticasSsoComponent } from './Proyectos/estadisticas-sso/estadisticas-sso.component';
 
 //Material
@@ -155,6 +156,10 @@ const route = [
   {
     path: 'Proyectos-ConsolidadoHH',
     component: ConsolidadoHhComponent
+  },
+  {
+    path: 'Proyectos-EstadisticasHH',
+    component: EstadisticasHhPageComponent
   },
   {
     path: 'Configuracion-SubProyecto',
@@ -284,6 +289,7 @@ const route = [
     ReportesHallazgosComponent,
     ConsolidadoHallazgosComponent,
     EstadisticasHhComponent,
+    EstadisticasHhPageComponent,
     ConsolidadoHhComponent,
     EstadisticasSsoComponent,
   ],

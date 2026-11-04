@@ -47,10 +47,6 @@
               (click)="PestControlAvance()"><b>Control Avance<br>de Proyecto</b></a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" id="TabEstadisticasHH" data-toggle="tab" role="tab" style="cursor: pointer;"
-              (click)="PestEstadisticasHH()"><b>Estadísticas HH</b></a>
-          </li>
-          <li class="nav-item">
             <a class="nav-link" id="TabEstadisticasSSO" data-toggle="tab" role="tab" style="cursor: pointer;"
               (click)="PestEstadisticasSSO()"><b>Estadísticas SSO/MA</b></a>
           </li>
@@ -285,14 +281,6 @@
           <div class="col-lg-12">
             <app-control-hallazgos [idProyecto]="SubProyecto?.idProyecto"
               [nombreProyecto]="SubProyecto?.nombreSubProyecto" [soloLectura]="esCliente"></app-control-hallazgos>
-          </div>
-        </div>
-
-        <!-- ESTADÍSTICAS HH -->
-        <div class="row" *ngIf="rowEstadisticasHH">
-          <div class="col-lg-12">
-            <app-estadisticas-hh [idSubProyecto]="SubProyecto?.idSubProyecto" [idProyecto]="SubProyecto?.idProyecto"
-              [nombreSubProyecto]="SubProyecto?.nombreSubProyecto" [soloLectura]="esCliente"></app-estadisticas-hh>
           </div>
         </div>
 

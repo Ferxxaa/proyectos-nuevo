@@ -1,0 +1,336 @@
+.ehh-pagina,
+.ehh-cuerpo {
+  overflow: visible;
+}
+
+.ehh-pagina {
+  margin: 0 15px 24px;
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(36, 64, 79, 0.1);
+}
+
+.ehh-cabecera {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 92px;
+  padding: 18px 24px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: linear-gradient(115deg, #064f78 0%, #075f91 45%, #1089bd 100%);
+  color: #fff;
+}
+
+.ehh-cabecera::after {
+  position: absolute;
+  top: -80px;
+  right: -60px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  content: '';
+  pointer-events: none;
+}
+
+.ehh-titulo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ehh-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 21px;
+}
+
+.ehh-kicker {
+  color: #bfe6f8;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+}
+
+.ehh-cabecera h2 {
+  margin: 3px 0;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.ehh-cabecera p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+}
+
+.ehh-cuerpo {
+  padding: 16px 18px 20px;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.ehh-selector {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 15px 16px;
+  padding: 10px 12px;
+  border: 1px solid #e3e6ea;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.ehh-selector label {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #4a525a;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.ehh-combo {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 720px;
+}
+
+.ehh-combo-icono {
+  position: absolute;
+  top: 11px;
+  left: 12px;
+  z-index: 1;
+  color: #7a838c;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.ehh-combo.abierto .ehh-combo-icono {
+  color: #075f91;
+}
+
+.ehh-combo input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 36px;
+  padding: 0 38px 0 36px;
+  overflow: hidden;
+  border: 1px solid #b9c3cb;
+  border-radius: 6px;
+  background: #fff;
+  color: #24404f;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ehh-combo input::placeholder {
+  color: #7a838c;
+  font-weight: 400;
+}
+
+.ehh-combo input:hover {
+  border-color: #8f979f;
+}
+
+.ehh-combo input:focus {
+  border-color: #075f91;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(7, 95, 145, 0.18);
+}
+
+.ehh-combo-limpiar {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #626b75;
+  cursor: pointer;
+}
+
+.ehh-combo-limpiar:hover {
+  background: #eef1f4;
+  color: #24404f;
+}
+
+.ehh-combo-limpiar:focus {
+  outline: 2px solid rgba(7, 95, 145, 0.35);
+}
+
+.ehh-combo-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 50;
+  overflow: hidden;
+  border: 1px solid #cfd6dc;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(36, 64, 79, 0.18);
+}
+
+.ehh-combo-resumen {
+  padding: 7px 12px;
+  border-bottom: 1px solid #e3e6ea;
+  background: #f9fafb;
+  color: #626b75;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.ehh-combo-lista {
+  max-height: 320px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.ehh-combo-lista li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  color: #2f363d;
+  cursor: pointer;
+}
+
+.ehh-combo-lista li.activa {
+  background: #e6f1f8;
+}
+
+.ehh-combo-lista li.seleccionada {
+  color: #064f78;
+}
+
+.ehh-combo-lista li .fa-check {
+  flex: 0 0 auto;
+  color: #075f91;
+}
+
+.ehh-opcion-textos {
+  min-width: 0;
+}
+
+.ehh-opcion-subproyecto,
+.ehh-opcion-proyecto {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.ehh-opcion-subproyecto {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ehh-opcion-proyecto {
+  margin-top: 1px;
+  color: #626b75;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.ehh-combo-vacio {
+  padding: 24px 16px;
+  color: #626b75;
+  font-size: 13px;
+  text-align: center;
+}
+
+.ehh-mensaje {
+  padding: 40px 20px;
+  color: #626b75;
+  font-size: 14px;
+  text-align: center;
+}
+
+.ehh-mensaje[role='alert'] {
+  color: #c22f35;
+}
+
+.ehh-mensaje button {
+  margin-left: 8px;
+  padding: 3px 12px;
+  border: 1px solid #b9c3cb;
+  border-radius: 5px;
+  background: #fff;
+  color: #24404f;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ehh-mensaje button:hover {
+  background: #f4f6f8;
+}
+
+@media (max-width: 767px) {
+  .ehh-pagina {
+    margin: 0 0 20px;
+  }
+
+  .ehh-cabecera {
+    min-height: 82px;
+    padding: 14px 16px;
+  }
+
+  .ehh-cabecera h2 {
+    font-size: 19px;
+  }
+
+  .ehh-cabecera p {
+    font-size: 12px;
+  }
+
+  .ehh-icono {
+    width: 42px;
+    height: 42px;
+  }
+
+  .ehh-cuerpo {
+    padding: 14px 12px 16px;
+  }
+
+  .ehh-selector {
+    display: block;
+    margin: 0 0 14px;
+  }
+
+  .ehh-selector label {
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  .ehh-combo {
+    max-width: none;
+  }
+}

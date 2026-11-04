@@ -50,7 +50,6 @@ export class TableroControlComponent implements OnInit {
   rowGantt: boolean;
   rowControlAvance: boolean;
   rowControlHallazgos: boolean;
-  rowEstadisticasHH: boolean;
   rowEstadisticasSSO: boolean;
 
   //VerBitacora
@@ -181,14 +180,12 @@ export class TableroControlComponent implements OnInit {
     this.rowGantt = false;
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
-    this.rowEstadisticasHH = false;
     this.rowEstadisticasSSO = false;
     $("#TabSeguimiento").attr("class", "nav-link active")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link")
-    $("#TabEstadisticasHH").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
   }
 
@@ -213,14 +210,12 @@ export class TableroControlComponent implements OnInit {
     this.rowGantt = false;
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
-    this.rowEstadisticasHH = false;
     this.rowEstadisticasSSO = false;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link active")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link")
-    $("#TabEstadisticasHH").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
     
     // Cargar las tareas cuando se abre la pestaña
@@ -238,14 +233,12 @@ export class TableroControlComponent implements OnInit {
     this.rowGantt = true;
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
-    this.rowEstadisticasHH = false;
     this.rowEstadisticasSSO = false;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link active")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link")
-    $("#TabEstadisticasHH").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
   }
 
@@ -255,14 +248,12 @@ export class TableroControlComponent implements OnInit {
     this.rowGantt = false;
     this.rowControlAvance = true;
     this.rowControlHallazgos = false;
-    this.rowEstadisticasHH = false;
     this.rowEstadisticasSSO = false;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link active")
     $("#TabControlHallazgos").attr("class", "nav-link")
-    $("#TabEstadisticasHH").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
   }
 
@@ -272,30 +263,12 @@ export class TableroControlComponent implements OnInit {
     this.rowGantt = false;
     this.rowControlAvance = false;
     this.rowControlHallazgos = true;
-    this.rowEstadisticasHH = false;
     this.rowEstadisticasSSO = false;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link active")
-    $("#TabEstadisticasHH").attr("class", "nav-link")
-    $("#TabEstadisticasSSO").attr("class", "nav-link")
-  }
-  PestEstadisticasHH() {
-    this.rowSeguimiento = false;
-    this.rowTareas = false;
-    this.rowGantt = false;
-    this.rowControlAvance = false;
-    this.rowControlHallazgos = false;
-    this.rowEstadisticasHH = true;
-    this.rowEstadisticasSSO = false;
-    $("#TabSeguimiento").attr("class", "nav-link")
-    $("#TabTareas").attr("class", "nav-link")
-    $("#TabGantt").attr("class", "nav-link")
-    $("#TabControlAvance").attr("class", "nav-link")
-    $("#TabControlHallazgos").attr("class", "nav-link")
-    $("#TabEstadisticasHH").attr("class", "nav-link active")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
   }
   PestEstadisticasSSO() {
@@ -304,14 +277,12 @@ export class TableroControlComponent implements OnInit {
     this.rowGantt = false;
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
-    this.rowEstadisticasHH = false;
     this.rowEstadisticasSSO = true;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link")
-    $("#TabEstadisticasHH").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link active")
   }
 
