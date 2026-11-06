@@ -5,9 +5,19 @@
     <div class="psso-titulo">
       <span class="psso-icono"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
       <div>
-        <h5>Programa de Actividades SSO</h5>
+        <h5>Programa de Actividades {{ esMA ? 'MA' : 'SSO' }}</h5>
         <p>Programación mensual y control de cumplimiento</p>
       </div>
+    </div>
+    <div class="psso-tipos" role="tablist" aria-label="Tipo de programa">
+      <button type="button" role="tab" [attr.aria-selected]="!esMA"
+              [class.activo]="!esMA" (click)="seleccionarTipoPrograma('SSO')">
+        Programa de actividades SSO
+      </button>
+      <button type="button" role="tab" [attr.aria-selected]="esMA"
+              [class.activo]="esMA" (click)="seleccionarTipoPrograma('MA')">
+        Programa de actividades MA
+      </button>
     </div>
     <div class="psso-anio">
       <button type="button" class="psso-flecha" (click)="cambiarAnio(-1)" title="Año anterior"><i class="fa fa-chevron-left"></i></button>
@@ -34,10 +44,10 @@
   <!-- Mes sin programa -->
   <div *ngIf="!cargando && !programa" class="psso-vacio">
     <i class="fa fa-calendar-plus-o" aria-hidden="true"></i>
-    <strong>No hay programa para {{ meses[mesSel - 1] }} {{ anio }}</strong>
+    <strong>No hay programa {{ esMA ? 'MA' : 'SSO' }} para {{ meses[mesSel - 1] }} {{ anio }}</strong>
     <p *ngIf="editable">Se copian las actividades del mes anterior (o la plantilla base) y se programan según su frecuencia.</p>
     <button *ngIf="editable" type="button" class="psso-btn primario" (click)="crearPrograma()">
-      <i class="fa fa-plus"></i> Crear Programa {{ meses[mesSel - 1] }}
+      <i class="fa fa-plus"></i> Crear Programa {{ esMA ? 'MA' : 'SSO' }} {{ meses[mesSel - 1] }}
     </button>
   </div>
 
@@ -191,7 +201,7 @@
           <tfoot>
             <tr>
               <td class="sticky-1"></td>
-              <td class="sticky-2 lbl-total">TOTAL SSO</td>
+              <td class="sticky-2 lbl-total">TOTAL {{ esMA ? 'MA' : 'SSO' }}</td>
               <td [attr.colspan]="dias.length + 1"></td>
               <td class="col-num">{{ totalProg }}</td>
               <td class="col-num">{{ totalCtrl }}</td>

@@ -57,6 +57,37 @@ const PLANTILLA: any[] = [
   [5, 'Reunión de Coordinación de obra', 'SEMANAL', 1]
 ];
 
+const GRUPOS_MA = [
+  'LIDERAZGO',
+  'CAPACITACIÓN Y CHARLAS',
+  'INSPECCIONES PROGRAMADAS',
+  'EMERGENCIA',
+  'IDENTIFICACIÓN DE ASPECTOS',
+  'REUNIONES Y COMUNICACIÓN'
+];
+
+const PLANTILLA_MA: any[] = [
+  [0, 'Participación de Jefe de Obra como relator', 'QUINCENAL', 0],
+  [0, 'Participación en la creación matriz MA', 'POR_ACTIVIDAD', 0],
+  [0, 'Participación de Jefe de obra en inspecciones', 'SEMANAL', 4],
+  [1, 'Charla de 5 minutos (relacionada con MA)', 'QUINCENAL', 0],
+  [1, 'Capacitaciones específicas MA', 'MENSUAL', 0],
+  [1, 'Capacitación con Mutual MA', 'POR_ACTIVIDAD', 0],
+  [1, 'Inducción ISO 14.001 personal nuevo', 'SEGUN_NECESIDADES', 0],
+  [1, 'Inducción ISO 14.001 personal permanente', 'MENSUAL', 0],
+  [2, 'Revisión jaula de residuos', 'SEGUN_NECESIDADES', 0],
+  [2, 'Revisión aire acondicionado', 'SEGUN_NECESIDADES', 0],
+  [2, 'Reciclar papel', 'MENSUAL', 0],
+  [2, 'Segregación materiales uso cocina', 'MENSUAL', 0],
+  [2, 'Reciclar pilas y baterías', 'SEGUN_NECESIDADES', 0],
+  [3, 'Simulacro derrames de sustancias', 'SEGUN_NECESIDADES', 0],
+  [4, 'Actualización Matriz MA', 'SEGUN_NECESIDADES', 0],
+  [4, 'Certificado botadero', 'SEGUN_NECESIDADES', 0],
+  [5, 'Informes Diarios', 'DIARIA', 0],
+  [5, 'Informes Semanales', 'SEMANAL', 5],
+  [5, 'Informes Mensual', 'MENSUAL', 0]
+];
+
 interface DiaInfo {
   dia: number;
   dow: number;
@@ -97,12 +128,15 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   @Input() idSubProyecto: any;
   @Input() editable: boolean = true;       // false = cliente / solo lectura
   @Input() puedeValidar: boolean = false;  // Director de Proyecto o Sub-gerente
+  @Input() tipoPrograma: string = 'SSO';
 
   meses = MESES;
   frecuencias = [
     { v: 'DIARIA', t: 'Diaria' },
     { v: 'SEMANAL', t: 'Semanal' },
     { v: 'MENSUAL', t: 'Mensual' },
+    { v: 'QUINCENAL', t: 'Quincenal' },
+    { v: 'POR_ACTIVIDAD', t: 'Por actividad' },
     { v: 'SEGUN_NECESIDADES', t: 'Según necesidades' }
   ];
   diasSemana = [
@@ -141,6 +175,21 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     } catch (e) {
       this.nombreUsuario = '';
     }
+  }
+
+  get esMA(): boolean {
+    return this.tipoPrograma === 'MA';
+  }
+
+  seleccionarTipoPrograma(tipo: string) {
+    if (tipo === this.tipoPrograma) { return; }
+    this.flushGuardado();
+    this.tipoPrograma = tipo;
+    this.cargarAnio();
+  }
+
+  private get coleccionPrograma(): string {
+    return this.esMA ? 'programaMA' : 'programaSSO';
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -182,7 +231,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   cargarAnio() {
     const anio = this.anio;
     this.mesesConPrograma = [];
-    this.sPrograma.mesesExistentes(this.idSubProyecto, anio).then(meses => {
+    this.sPrograma.mesesExistentes(this.idSubProyecto, anio, this.coleccionPrograma).then(meses => {
       if (anio === this.anio) { this.mesesConPrograma = meses; }
     }).catch(err => console.error('programaSSO meses', err));
     this.cargarMes();
@@ -210,7 +259,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.cargando = true;
     this.programa = null;
     this.grupos = [];
-    this.sPrograma.obtener(this.idSubProyecto, this.anio, this.mesSel).then(p => {
+    this.sPrograma.obtener(this.idSubProyecto, this.anio, this.mesSel, this.coleccionPrograma).then(p => {
       if (token !== this.cargaToken) { return; }
       this.programa = p ? this.normalizar(p) : null;
       this.recalcular();
@@ -247,7 +296,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     const mes = this.mesSel;
     this.cargando = true;
 
-    this.sPrograma.obtener(this.idSubProyecto, anioAnt, mesAnt).then(prev => {
+    this.sPrograma.obtener(this.idSubProyecto, anioAnt, mesAnt, this.coleccionPrograma).then(prev => {
       let grupos: string[];
       let actividades: ActividadPrograma[];
 
@@ -256,8 +305,10 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
         grupos = prev.grupos.slice();
         actividades = prev.actividades.map(a => this.nuevaActividad(a.grupo, a.nombre, a.frecuencia, a.diaSemana));
       } else {
-        grupos = GRUPOS_BASE.slice();
-        actividades = PLANTILLA.map(t => this.nuevaActividad(GRUPOS_BASE[t[0]], t[1], t[2], t[3]));
+        const gruposBase = this.esMA ? GRUPOS_MA : GRUPOS_BASE;
+        const plantilla = this.esMA ? PLANTILLA_MA : PLANTILLA;
+        grupos = gruposBase.slice();
+        actividades = plantilla.map(t => this.nuevaActividad(gruposBase[t[0]], t[1], t[2], t[3]));
       }
 
       const p: ProgramaMes = {
@@ -276,7 +327,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       this.dias = this.construirDias(p.feriados);
       p.actividades.forEach(a => { a.programados = this.diasProgramados(a); });
       this.recalcular();
-      return this.sPrograma.guardar(p);
+      return this.sPrograma.guardar(p, this.coleccionPrograma);
     }).then(() => {
       if (this.mesesConPrograma.indexOf(mes) < 0) { this.mesesConPrograma.push(mes); }
       this.cargando = false;
@@ -378,7 +429,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.pendiente = null;
     this.procesando = true;
     this.recalcular();
-    this.sPrograma.guardar(this.programa).then(() => {
+    this.sPrograma.guardar(this.programa, this.coleccionPrograma).then(() => {
       this.procesando = false;
       this.mostrarEstado(mensaje);
     }).catch(err => {
@@ -411,6 +462,13 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     const habiles = this.dias.filter(d => !d.rojo).map(d => d.dia);
     if (a.frecuencia === 'DIARIA') { return habiles; }
     if (a.frecuencia === 'MENSUAL') { return habiles.length ? [habiles[habiles.length - 1]] : []; }
+    if (a.frecuencia === 'QUINCENAL') {
+      const res: number[] = [];
+      const mitad = Math.ceil(habiles.length / 2);
+      if (habiles.length) { res.push(habiles[0]); }
+      if (habiles.length > 1) { res.push(habiles[mitad]); }
+      return res;
+    }
     if (a.frecuencia === 'SEMANAL') {
       const res: number[] = [];
       const objetivo = a.diaSemana || 1;
@@ -480,7 +538,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   }
 
   private construirFila(a: ActividadPrograma): FilaVista {
-    const sn = a.frecuencia === 'SEGUN_NECESIDADES';
+    const sn = a.frecuencia === 'SEGUN_NECESIDADES' || a.frecuencia === 'POR_ACTIVIDAD';
     const celdas: CeldaVista[] = this.dias.map(d => {
       let clase = '';
       if (d.rojo) { clase = 'c-rojo'; }
@@ -508,6 +566,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (a.frecuencia === 'SEMANAL') { return 'Semanal · ' + (NOMBRE_DIA[a.diaSemana] || 'Lun'); }
     if (a.frecuencia === 'DIARIA') { return 'Diaria'; }
     if (a.frecuencia === 'MENSUAL') { return 'Mensual'; }
+    if (a.frecuencia === 'QUINCENAL') { return 'Quincenal'; }
+    if (a.frecuencia === 'POR_ACTIVIDAD') { return 'Por actividad'; }
     return a.frecuencia;
   }
 
@@ -521,7 +581,9 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   celdaClicable(c: CeldaVista, f: FilaVista): boolean {
     if (c.clase === 'c-rojo') { return false; }
     if (this.enControl) { return c.clase === 'c-azul' || c.clase === 'c-verde'; }
-    if (this.enEdicion) { return f.act.frecuencia !== 'SEGUN_NECESIDADES'; }
+    if (this.enEdicion) {
+      return f.act.frecuencia !== 'SEGUN_NECESIDADES' && f.act.frecuencia !== 'POR_ACTIVIDAD';
+    }
     return false;
   }
 
@@ -581,7 +643,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   private reprogramarActividad(a: ActividadPrograma) {
     a.programados = this.diasProgramados(a);
-    if (a.frecuencia !== 'SEGUN_NECESIDADES') {
+    if (a.frecuencia !== 'SEGUN_NECESIDADES' && a.frecuencia !== 'POR_ACTIVIDAD') {
       a.realizados = a.realizados.filter(d => a.programados.indexOf(d) >= 0);
     }
   }
@@ -668,7 +730,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     const p = this.pendiente;
     this.pendiente = null;
     if (!p) { return; }
-    this.sPrograma.guardar(p).then(() => {
+    this.sPrograma.guardar(p, this.coleccionPrograma).then(() => {
       if (p === this.programa) { this.mostrarEstado('Guardado'); }
     }).catch(err => {
       console.error('programaSSO guardar', err);

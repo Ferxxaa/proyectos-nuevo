@@ -48,6 +48,32 @@
   font-size: 12.5px;
 }
 
+.psso-tipos {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid #e0e5ea;
+  border-radius: 7px;
+  background: #edf1f5;
+}
+.psso-tipos button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #59636e;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.psso-tipos button:hover { background: rgba(255, 255, 255, .62); }
+.psso-tipos button.activo {
+  background: #fff;
+  color: #075f91;
+  box-shadow: 0 2px 6px rgba(31, 45, 61, .12);
+}
+
 .psso-anio {
   display: flex;
   align-items: center;
@@ -380,6 +406,8 @@ thead .sticky-2 { z-index: 3; }
 .frec-DIARIA            { background: #e3eefa; color: #2d5d8f; }
 .frec-SEMANAL           { background: #ece6f6; color: #5b4a86; }
 .frec-MENSUAL           { background: #fbeedd; color: #8a5a17; }
+.frec-QUINCENAL         { background: #e8edf7; color: #455f8a; }
+.frec-POR_ACTIVIDAD     { background: #e4f3de; color: #3c7031; }
 .frec-SEGUN_NECESIDADES { background: #e4f3de; color: #3c7031; }
 
 /* celdas de días */

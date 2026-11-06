@@ -38,23 +38,23 @@ export class ProgramaSsoService {
 
   private coleccion = 'programaSSO';
 
-  private col() {
-    return firebase.firestore().collection(this.coleccion);
+  private col(coleccion: string = this.coleccion) {
+    return firebase.firestore().collection(coleccion);
   }
 
   docId(idSubProyecto: any, anio: number, mes: number): string {
     return String(idSubProyecto) + '_' + anio + '_' + mes;
   }
 
-  obtener(idSubProyecto: any, anio: number, mes: number): Promise<ProgramaMes> {
-    return this.col().doc(this.docId(idSubProyecto, anio, mes)).get().then(snap => {
+  obtener(idSubProyecto: any, anio: number, mes: number, coleccion?: string): Promise<ProgramaMes> {
+    return this.col(coleccion).doc(this.docId(idSubProyecto, anio, mes)).get().then(snap => {
       if (!snap.exists) { return null; }
       return snap.data() as ProgramaMes;
     });
   }
 
-  mesesExistentes(idSubProyecto: any, anio: number): Promise<number[]> {
-    return this.col()
+  mesesExistentes(idSubProyecto: any, anio: number, coleccion?: string): Promise<number[]> {
+    return this.col(coleccion)
       .where('idSubProyecto', '==', String(idSubProyecto))
       .where('anio', '==', anio)
       .get()
@@ -68,9 +68,9 @@ export class ProgramaSsoService {
       });
   }
 
-  guardar(p: ProgramaMes): Promise<void> {
+  guardar(p: ProgramaMes, coleccion?: string): Promise<void> {
     const data: any = JSON.parse(JSON.stringify(p)); // limpia undefined (Firestore los rechaza)
     data.actualizado = new Date();
-    return this.col().doc(this.docId(p.idSubProyecto, p.anio, p.mes)).set(data);
+    return this.col(coleccion).doc(this.docId(p.idSubProyecto, p.anio, p.mes)).set(data);
   }
 }
