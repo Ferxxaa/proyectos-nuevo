@@ -1,0 +1,218 @@
+<div class="psso">
+
+  <!-- Encabezado -->
+  <header class="psso-header">
+    <div class="psso-titulo">
+      <span class="psso-icono"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
+      <div>
+        <h5>Programa de Actividades SSO</h5>
+        <p>Programación mensual y control de cumplimiento</p>
+      </div>
+    </div>
+    <div class="psso-anio">
+      <button type="button" class="psso-flecha" (click)="cambiarAnio(-1)" title="Año anterior"><i class="fa fa-chevron-left"></i></button>
+      <span>{{ anio }}</span>
+      <button type="button" class="psso-flecha" (click)="cambiarAnio(1)" title="Año siguiente"><i class="fa fa-chevron-right"></i></button>
+    </div>
+  </header>
+
+  <!-- Pestañas de meses -->
+  <div class="psso-meses">
+    <button type="button" *ngFor="let m of meses; let i = index"
+            class="psso-mes"
+            [class.activo]="mesSel === i + 1"
+            [class.con-datos]="tieneMes(i + 1)"
+            (click)="seleccionarMes(i + 1)">
+      Programa {{ m }}
+    </button>
+  </div>
+
+  <div *ngIf="cargando" class="psso-cargando">
+    <div class="psso-spinner"></div> Cargando programa...
+  </div>
+
+  <!-- Mes sin programa -->
+  <div *ngIf="!cargando && !programa" class="psso-vacio">
+    <i class="fa fa-calendar-plus-o" aria-hidden="true"></i>
+    <strong>No hay programa para {{ meses[mesSel - 1] }} {{ anio }}</strong>
+    <p *ngIf="editable">Se copian las actividades del mes anterior (o la plantilla base) y se programan según su frecuencia.</p>
+    <button *ngIf="editable" type="button" class="psso-btn primario" (click)="crearPrograma()">
+      <i class="fa fa-plus"></i> Crear Programa {{ meses[mesSel - 1] }}
+    </button>
+  </div>
+
+  <!-- Programa -->
+  <ng-container *ngIf="!cargando && programa">
+
+    <!-- Estado / flujo -->
+    <div class="psso-estado-card" [ngClass]="'est-' + estado">
+      <div class="psso-estado-info">
+        <span class="psso-badge" [ngClass]="'badge-' + estado">
+          <i class="fa" [ngClass]="estado === 'validado' ? 'fa-check-circle' : (estado === 'pendiente' ? 'fa-clock-o' : 'fa-pencil')"></i>
+          {{ textoEstado }}
+        </span>
+
+        <span class="psso-meta" *ngIf="estado === 'borrador' && editable">
+          Programa las actividades y luego presiona <b>Guardar programación</b>. Después no se podrá modificar.
+        </span>
+        <span class="psso-meta" *ngIf="estado === 'pendiente'">
+          Programado por <b>{{ programa.programadoPor || '—' }}</b>
+          <ng-container *ngIf="programa.fechaProgramado"> el {{ programa.fechaProgramado | date:'dd/MM/yyyy HH:mm' }}</ng-container>.
+          <ng-container *ngIf="!puedeValidar"> Debe validarlo el Director de Proyecto o el Sub-gerente.</ng-container>
+        </span>
+        <span class="psso-meta" *ngIf="estado === 'validado'">
+          Validado por <b>{{ programa.validadoPor || '—' }}</b>
+          <ng-container *ngIf="programa.fechaValidado"> el {{ programa.fechaValidado | date:'dd/MM/yyyy HH:mm' }}</ng-container>.
+          <ng-container *ngIf="editable"> Haz clic en una celda programada para marcarla como realizada.</ng-container>
+        </span>
+      </div>
+
+      <div class="psso-estado-acciones">
+        <span class="psso-guardado" [class.error]="estadoGuardado === 'Error al guardar'">{{ estadoGuardado }}</span>
+
+        <ng-container *ngIf="enEdicion">
+          <button type="button" class="psso-btn" (click)="regenerar()" [disabled]="procesando">
+            <i class="fa fa-refresh"></i> Reprogramar según frecuencia
+          </button>
+          <button type="button" class="psso-btn primario" (click)="guardarProgramacion()" [disabled]="procesando">
+            <i class="fa fa-floppy-o"></i> Guardar programación
+          </button>
+        </ng-container>
+
+        <ng-container *ngIf="estado === 'pendiente' && puedeValidar">
+          <button type="button" class="psso-btn peligro" (click)="rechazar()" [disabled]="procesando">
+            <i class="fa fa-times"></i> Rechazar
+          </button>
+          <button type="button" class="psso-btn exito" (click)="validar()" [disabled]="procesando">
+            <i class="fa fa-check"></i> Validar programa
+          </button>
+        </ng-container>
+
+        <button *ngIf="estado === 'validado' && puedeValidar" type="button" class="psso-btn" (click)="reabrir()" [disabled]="procesando">
+          <i class="fa fa-unlock"></i> Reabrir programación
+        </button>
+      </div>
+    </div>
+
+    <div class="psso-rechazo" *ngIf="estado === 'borrador' && programa.motivoRechazo">
+      <i class="fa fa-exclamation-triangle"></i>
+      Rechazado por <b>{{ programa.validadoPor || '—' }}</b>: {{ programa.motivoRechazo }}
+    </div>
+
+    <!-- Grilla -->
+    <div class="psso-marco">
+      <div class="psso-scroll">
+        <table class="psso-tabla" [class.edicion]="enEdicion">
+          <thead>
+            <tr>
+              <th rowspan="2" class="col-item sticky-1">Ítem</th>
+              <th rowspan="2" class="col-act sticky-2">Actividades</th>
+              <th rowspan="2" class="col-frec">Frecuencia</th>
+              <th [attr.colspan]="dias.length" class="col-mes">{{ meses[mesSel - 1] | uppercase }} {{ anio }}</th>
+              <th rowspan="2" class="col-num">Total<br>días</th>
+              <th rowspan="2" class="col-num">Contro-<br>lados</th>
+              <th rowspan="2" class="col-num">%</th>
+              <th rowspan="2" class="col-num col-total">Total</th>
+            </tr>
+            <tr>
+              <th *ngFor="let d of dias; trackBy: trackDia" class="col-dia dia-head"
+                  [class.dia-rojo]="d.rojo"
+                  [class.clicable]="enEdicion && !d.finde"
+                  [title]="d.feriado ? 'Feriado' : (d.finde ? 'Fin de semana' : (enEdicion ? 'Clic para marcar feriado' : ''))"
+                  (click)="clickDia(d)">
+                <span class="dia-letra">{{ d.letra }}</span>
+                <span class="dia-num">{{ d.dia }}</span>
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <ng-container *ngFor="let g of grupos; trackBy: trackGrupo">
+
+              <tr *ngFor="let f of g.filas; let i = index; trackBy: trackFila" [class.inicio-grupo]="i === 0">
+                <td *ngIf="i === 0" class="col-item grupo sticky-1"
+                    [attr.rowspan]="g.filas.length + (enEdicion ? 1 : 0)">{{ g.nombre }}</td>
+
+                <td class="col-act sticky-2">
+                  <span *ngIf="!enEdicion" class="act-nombre">{{ f.act.nombre }}</span>
+                  <div *ngIf="enEdicion" class="edit-act">
+                    <input type="text" [(ngModel)]="f.act.nombre" (ngModelChange)="programarGuardado()">
+                    <button type="button" class="btn-del" title="Eliminar actividad" (click)="eliminarActividad(f.act)">
+                      <i class="fa fa-trash-o"></i>
+                    </button>
+                  </div>
+                </td>
+
+                <td class="col-frec">
+                  <span *ngIf="!enEdicion" class="frec-chip" [ngClass]="'frec-' + f.act.frecuencia">{{ etiquetaFrecuencia(f.act) }}</span>
+                  <div *ngIf="enEdicion" class="edit-frec">
+                    <select [ngModel]="f.act.frecuencia" (ngModelChange)="cambiarFrecuencia(f.act, $event)">
+                      <option *ngFor="let fr of frecuencias" [value]="fr.v">{{ fr.t }}</option>
+                    </select>
+                    <select *ngIf="f.act.frecuencia === 'SEMANAL'" class="sel-dia" [ngModel]="f.act.diaSemana" (ngModelChange)="cambiarDiaSemana(f.act, $event)">
+                      <option *ngFor="let ds of diasSemana" [ngValue]="ds.v">{{ ds.t }}</option>
+                    </select>
+                  </div>
+                </td>
+
+                <td *ngFor="let c of f.celdas; trackBy: trackDia"
+                    class="col-dia celda"
+                    [ngClass]="c.clase"
+                    [class.hecho]="c.x"
+                    [class.clicable]="celdaClicable(c, f)"
+                    (click)="clickCelda(f, c)">{{ c.x ? 'x' : '' }}</td>
+
+                <td class="col-num">{{ f.total }}</td>
+                <td class="col-num">{{ f.ctrl }}</td>
+                <td class="col-num"><span class="pct" [ngClass]="claseSemaforo(f.pct)">{{ f.pct === null ? '-' : f.pct + '%' }}</span></td>
+
+                <td *ngIf="i === 0" class="col-num col-total"
+                    [attr.rowspan]="g.filas.length + (enEdicion ? 1 : 0)">
+                  <span class="pct grande" [ngClass]="claseSemaforo(g.pct)">{{ g.pct === null ? '-' : g.pct + '%' }}</span>
+                </td>
+              </tr>
+
+              <!-- agregar actividad (solo en borrador) -->
+              <tr *ngIf="enEdicion" class="fila-agregar">
+                <td *ngIf="g.filas.length === 0" class="col-item grupo sticky-1">
+                  {{ g.nombre }}
+                  <button type="button" class="btn-del" title="Eliminar ítem" (click)="eliminarGrupo(g.nombre)"><i class="fa fa-trash-o"></i></button>
+                </td>
+                <td class="col-act sticky-2">
+                  <button type="button" class="psso-link" (click)="agregarActividad(g.nombre)"><i class="fa fa-plus"></i> Agregar actividad</button>
+                </td>
+                <td [attr.colspan]="dias.length + 4"></td>
+                <td *ngIf="g.filas.length === 0" class="col-num col-total"></td>
+              </tr>
+
+            </ng-container>
+          </tbody>
+
+          <tfoot>
+            <tr>
+              <td class="sticky-1"></td>
+              <td class="sticky-2 lbl-total">TOTAL SSO</td>
+              <td [attr.colspan]="dias.length + 1"></td>
+              <td class="col-num">{{ totalProg }}</td>
+              <td class="col-num">{{ totalCtrl }}</td>
+              <td class="col-num"><span class="pct" [ngClass]="claseSemaforo(pctTotal)">{{ pctTotal }}%</span></td>
+              <td class="col-num col-total"><span class="pct grande" [ngClass]="claseSemaforo(pctGlobal)">{{ pctGlobal }}%</span></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="psso-pie">
+      <button *ngIf="enEdicion" type="button" class="psso-link" (click)="agregarGrupo()"><i class="fa fa-plus"></i> Agregar ítem</button>
+      <div class="psso-doc">Código: {{ programa.codigo }} · Versión: {{ programa.version }}</div>
+      <div class="psso-leyenda">
+        <span><i class="ley c-azul"></i> Corresponde realizar lo programado</span>
+        <span><i class="ley c-verde"></i> Siempre que sea necesario</span>
+        <span><i class="ley c-rojo"></i> Día feriado</span>
+        <span><i class="ley c-azul hecho">x</i> Realizado</span>
+      </div>
+    </div>
+
+  </ng-container>
+</div>

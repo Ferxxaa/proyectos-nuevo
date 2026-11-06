@@ -50,6 +50,10 @@
             <a class="nav-link" id="TabEstadisticasSSO" data-toggle="tab" role="tab" style="cursor: pointer;"
               (click)="PestEstadisticasSSO()"><b>Estadísticas SSO/MA</b></a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link" id="TabProgramas" data-toggle="tab" role="tab" style="cursor: pointer;"
+              (click)="PestProgramas()"><b>Programas</b></a>
+          </li>
         </ul>
       </div>
 
@@ -289,6 +293,14 @@
           <div class="col-lg-12">
             <app-estadisticas-sso [idSubProyecto]="SubProyecto?.idSubProyecto" [idProyecto]="SubProyecto?.idProyecto"
               [nombreSubProyecto]="SubProyecto?.nombreSubProyecto" [soloLectura]="esCliente"></app-estadisticas-sso>
+          </div>
+        </div>
+
+        <!-- PROGRAMAS -->
+        <div class="row" *ngIf="rowProgramas">
+          <div class="col-lg-12">
+            <app-programa-sso [idSubProyecto]="SubProyecto?.idSubProyecto" [editable]="!esCliente"
+              [puedeValidar]="puedeValidarPrograma"></app-programa-sso>
           </div>
         </div>
 

@@ -88,6 +88,7 @@ import { ConsolidadoHallazgosComponent } from './Proyectos/consolidado-hallazgos
 import { sVis_ProyectoMatriz } from './services/sVis_ProyectoMatriz.service';
 import { sVis_Proyectos } from './services/sVis_Proyectos.service';
 import { sVis_SubProyecto } from './services/sVis_SubProyecto.service';
+import { ProgramaSsoComponent } from './Proyectos/programa-sso/programa-sso.component';
 
 const route = [
   {
@@ -292,6 +293,7 @@ const route = [
     EstadisticasHhPageComponent,
     ConsolidadoHhComponent,
     EstadisticasSsoComponent,
+    ProgramaSsoComponent
   ],
   imports: [
     // FormsModule ya está importado aquí, lo que permite usar [(ngModel)] en los templates de este módulo.

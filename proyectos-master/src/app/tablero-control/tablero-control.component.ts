@@ -17,6 +17,7 @@ import { sMis_Tareas } from '../services/sMis_Tareas.service';
 import { sCorreo } from '../services/Personalizados/sCorreo.service';
 import { sTarea } from '../services/sTarea.service';
 import { sUsuario } from '../services/sUsuario.service';
+import { sPerfil } from '../services/sPerfil.service';
 import { DesplegableTableroControlComponent } from './desplegable-tablero-control/desplegable-tablero-control.component';
 import { Http, Response } from '@angular/http';
 import { Observable } from 'rxjs';
@@ -39,7 +40,8 @@ declare var $: any;
     sMis_Tareas,
     sCorreo,
     sTarea,
-    sUsuario
+    sUsuario,
+    sPerfil
   ]
 })
 export class TableroControlComponent implements OnInit {
@@ -51,6 +53,7 @@ export class TableroControlComponent implements OnInit {
   rowControlAvance: boolean;
   rowControlHallazgos: boolean;
   rowEstadisticasSSO: boolean;
+  rowProgramas: boolean;
 
   //VerBitacora
   verDoc: boolean;
@@ -80,6 +83,8 @@ export class TableroControlComponent implements OnInit {
   perfilesUsuario: any[] = [];
   // Mientras se cargan los perfiles, se asume el modo más restrictivo por seguridad
   esCliente: boolean = true;
+  // Director / Sub-gerente (sistema PROYECTOS): pueden validar el Programa SSO
+  puedeValidarPrograma: boolean = false;
 
   idEtapa: number | null;
 
@@ -92,6 +97,7 @@ export class TableroControlComponent implements OnInit {
     private _sMis_Tareas: sMis_Tareas,
     private _sTarea: sTarea,
     private _sUsuario: sUsuario,
+    private _sPerfil: sPerfil,
     private _http: Http,
     private route: ActivatedRoute
   ) {
@@ -165,12 +171,39 @@ export class TableroControlComponent implements OnInit {
     obs.subscribe(result => {
       this.perfilesUsuario = result || [];
       this.esCliente = this.perfilesUsuario.some(p => p.idPerfil === 5);
+      this.cargarPermisoValidarPrograma();
       console.log('Perfiles del usuario:', this.perfilesUsuario, '| esCliente:', this.esCliente);
     }, error => {
       console.error('Error al cargar perfiles del usuario:', error);
       // Ante un error, se mantiene el modo restrictivo por seguridad
       this.perfilesUsuario = [];
       this.esCliente = true;
+      this.puedeValidarPrograma = false;
+    });
+  }
+
+  // Busca en el catálogo de perfiles los ids de DIRECTOR y SUB-GERENTE (no DIRECTORLIC)
+  // y revisa si el usuario tiene alguno de ellos activo
+  private cargarPermisoValidarPrograma() {
+    this.puedeValidarPrograma = false;
+    if (this.esCliente) { return; }
+
+    this._sPerfil.getPerfil().subscribe((catalogo: any[]) => {
+      const idsValidadores = (catalogo || [])
+        .filter(p => {
+          const nombre = String(p.nombrePerfil || '').toUpperCase().replace(/[\s_-]/g, '');
+          return nombre === 'DIRECTOR' || nombre === 'SUBGERENTE';
+        })
+        .map(p => Number(p.idPerfil));
+
+      this.puedeValidarPrograma = this.perfilesUsuario.some(up =>
+        up.activo !== false && idsValidadores.indexOf(Number(up.idPerfil)) >= 0
+      );
+      console.log('Perfiles validadores (Director/Sub-gerente):', idsValidadores,
+        '| Puede validar Programa SSO:', this.puedeValidarPrograma);
+    }, error => {
+      console.error('Error al cargar catálogo de perfiles:', error);
+      this.puedeValidarPrograma = false;
     });
   }
 
@@ -181,12 +214,14 @@ export class TableroControlComponent implements OnInit {
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
     this.rowEstadisticasSSO = false;
+    this.rowProgramas = false;
     $("#TabSeguimiento").attr("class", "nav-link active")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
+    $("#TabProgramas").attr("class", "nav-link")
   }
 
   PestBitDoc() {
@@ -211,12 +246,14 @@ export class TableroControlComponent implements OnInit {
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
     this.rowEstadisticasSSO = false;
+    this.rowProgramas = false;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link active")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
+    $("#TabProgramas").attr("class", "nav-link")
     
     // Cargar las tareas cuando se abre la pestaña
     if (this.detalleSeguimiento && this.detalleSeguimiento.length > 0) {
@@ -234,12 +271,14 @@ export class TableroControlComponent implements OnInit {
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
     this.rowEstadisticasSSO = false;
+    this.rowProgramas = false;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link active")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
+    $("#TabProgramas").attr("class", "nav-link")
   }
 
   PestControlAvance() {
@@ -249,12 +288,14 @@ export class TableroControlComponent implements OnInit {
     this.rowControlAvance = true;
     this.rowControlHallazgos = false;
     this.rowEstadisticasSSO = false;
+    this.rowProgramas = false;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link active")
     $("#TabControlHallazgos").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
+    $("#TabProgramas").attr("class", "nav-link")
   }
 
   PestControlHallazgos() {
@@ -264,12 +305,14 @@ export class TableroControlComponent implements OnInit {
     this.rowControlAvance = false;
     this.rowControlHallazgos = true;
     this.rowEstadisticasSSO = false;
+    this.rowProgramas = false;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link active")
     $("#TabEstadisticasSSO").attr("class", "nav-link")
+    $("#TabProgramas").attr("class", "nav-link")
   }
   PestEstadisticasSSO() {
     this.rowSeguimiento = false;
@@ -278,12 +321,31 @@ export class TableroControlComponent implements OnInit {
     this.rowControlAvance = false;
     this.rowControlHallazgos = false;
     this.rowEstadisticasSSO = true;
+    this.rowProgramas = false;
     $("#TabSeguimiento").attr("class", "nav-link")
     $("#TabTareas").attr("class", "nav-link")
     $("#TabGantt").attr("class", "nav-link")
     $("#TabControlAvance").attr("class", "nav-link")
     $("#TabControlHallazgos").attr("class", "nav-link")
     $("#TabEstadisticasSSO").attr("class", "nav-link active")
+    $("#TabProgramas").attr("class", "nav-link")
+  }
+
+  PestProgramas() {
+    this.rowSeguimiento = false;
+    this.rowTareas = false;
+    this.rowGantt = false;
+    this.rowControlAvance = false;
+    this.rowControlHallazgos = false;
+    this.rowEstadisticasSSO = false;
+    this.rowProgramas = true;
+    $("#TabSeguimiento").attr("class", "nav-link")
+    $("#TabTareas").attr("class", "nav-link")
+    $("#TabGantt").attr("class", "nav-link")
+    $("#TabControlAvance").attr("class", "nav-link")
+    $("#TabControlHallazgos").attr("class", "nav-link")
+    $("#TabEstadisticasSSO").attr("class", "nav-link")
+    $("#TabProgramas").attr("class", "nav-link active")
   }
 
   ActualizaSP() {

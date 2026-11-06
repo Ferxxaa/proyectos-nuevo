@@ -330,7 +330,8 @@ h2{
 #TabTareas,
 #TabControlAvance,
 #TabEstadisticasHH,
-#TabEstadisticasSSO {
+#TabEstadisticasSSO,
+#TabProgramas {
   background-color: #7C8C82 !important;
   color: white !important;
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
@@ -342,7 +343,8 @@ h2{
 #TabTareas:hover,
 #TabControlAvance:hover,
 #TabEstadisticasHH:hover,
-#TabEstadisticasSSO:hover {
+#TabEstadisticasSSO:hover,
+#TabProgramas:hover {
   background-color: #95A49B !important; /* Gris verdoso intermedio al hover */
   color: white !important;
 }
@@ -361,7 +363,9 @@ h2{
 #TabTareas.active:hover,
 #TabControlAvance.active:hover,
 #TabEstadisticasHH.active:hover,
-#TabEstadisticasSSO.active:hover {
+#TabEstadisticasSSO.active:hover,
+#TabProgramas.active,
+#TabProgramas.active:hover {
   background-color: #36443C !important;
   color: white !important;
 }
