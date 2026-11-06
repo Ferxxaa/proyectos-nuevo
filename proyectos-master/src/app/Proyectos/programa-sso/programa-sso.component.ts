@@ -1,5 +1,6 @@
 import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { ProgramaSsoService, ProgramaMes, ActividadPrograma } from './programa-sso.service';
+import { getFeriadosChile } from '../estadisticas-hh/control-asistencia.component';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -7,12 +8,7 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
 const LETRAS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']; // indice = getDay()
 const NOMBRE_DIA = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
 
-// Feriados Chile (mes-dia). Los que se mueven van por año. Igual se pueden marcar/desmarcar a mano.
-const FERIADOS_FIJOS = ['1-1', '5-1', '5-21', '7-16', '8-15', '9-18', '9-19', '11-1', '12-8', '12-25'];
-const FERIADOS_POR_ANIO: any = {
-  2026: ['4-3', '4-4', '6-21', '6-29', '10-12', '10-31'],
-  2027: ['3-26', '3-27', '6-21', '6-28', '10-11', '10-31']
-};
+// Feriados de Chile: mismo cálculo del Control de asistencia. Igual se pueden marcar o desmarcar a mano.
 
 const GRUPOS_BASE = [
   'LIDERAZGO',
@@ -141,6 +137,19 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   ];
   diasSemana = [
     { v: 1, t: 'Lun' }, { v: 2, t: 'Mar' }, { v: 3, t: 'Mié' }, { v: 4, t: 'Jue' }, { v: 5, t: 'Vie' }
+  ];
+  // Frecuencia y día de la semana en un solo selector
+  opcionesFrecuencia = [
+    { v: 'DIARIA', t: 'Diaria' },
+    { v: 'SEMANAL-1', t: 'Semanal · Lun' },
+    { v: 'SEMANAL-2', t: 'Semanal · Mar' },
+    { v: 'SEMANAL-3', t: 'Semanal · Mié' },
+    { v: 'SEMANAL-4', t: 'Semanal · Jue' },
+    { v: 'SEMANAL-5', t: 'Semanal · Vie' },
+    { v: 'QUINCENAL', t: 'Quincenal' },
+    { v: 'MENSUAL', t: 'Mensual' },
+    { v: 'POR_ACTIVIDAD', t: 'Por actividad' },
+    { v: 'SEGUN_NECESIDADES', t: 'Según necesidad' }
   ];
 
   anio: number;
@@ -356,7 +365,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   }
 
   private feriadosPorDefecto(anio: number, mes: number): number[] {
-    const lista = FERIADOS_FIJOS.concat(FERIADOS_POR_ANIO[anio] || []);
+    const lista = Object.keys(getFeriadosChile(anio));
     const res: number[] = [];
     lista.forEach(f => {
       const partes = f.split('-');
@@ -537,32 +546,43 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.pctGlobal = nGrupos > 0 ? Math.round(sumaGrupos / nGrupos) : 0;
   }
 
+  private esSegunNecesidad(a: ActividadPrograma): boolean {
+    return a.frecuencia === 'SEGUN_NECESIDADES' || a.frecuencia === 'POR_ACTIVIDAD';
+  }
+
+  /** Programas antiguos: "Según necesidades" sin días marcados se mostraba todo el mes en verde y contaba 1. */
+  private esFormatoAntiguo(a: ActividadPrograma): boolean {
+    return this.esSegunNecesidad(a) && !a.programados.length && this.estado !== 'borrador';
+  }
+
   private construirFila(a: ActividadPrograma): FilaVista {
-    const sn = a.frecuencia === 'SEGUN_NECESIDADES' || a.frecuencia === 'POR_ACTIVIDAD';
+    const sn = this.esSegunNecesidad(a);
+    const antiguo = this.esFormatoAntiguo(a);
     const celdas: CeldaVista[] = this.dias.map(d => {
       let clase = '';
       if (d.rojo) { clase = 'c-rojo'; }
-      else if (sn) { clase = this.estado === 'borrador' ? '' : 'c-verde'; }
-      else if (a.programados.indexOf(d.dia) >= 0) { clase = 'c-azul'; }
+      else if (antiguo) { clase = 'c-verde'; }
+      else if (a.programados.indexOf(d.dia) >= 0) { clase = sn ? 'c-verde' : 'c-azul'; }
       const x = (clase === 'c-azul' || clase === 'c-verde') && a.realizados.indexOf(d.dia) >= 0;
       return { dia: d.dia, clase: clase, x: x };
     });
 
     let total: number;
     let ctrl: number;
-    if (sn) {
+    if (antiguo) {
       total = 1;
       ctrl = celdas.some(c => c.x) ? 1 : 0;
     } else {
-      total = celdas.filter(c => c.clase === 'c-azul').length;
-      ctrl = celdas.filter(c => c.clase === 'c-azul' && c.x).length;
+      // Cuenta los días marcados, en azul o en verde
+      total = celdas.filter(c => c.clase === 'c-azul' || c.clase === 'c-verde').length;
+      ctrl = celdas.filter(c => (c.clase === 'c-azul' || c.clase === 'c-verde') && c.x).length;
     }
     const pct = total > 0 ? Math.round(ctrl * 100 / total) : null;
     return { act: a, celdas: celdas, total: total, ctrl: ctrl, pct: pct };
   }
 
   etiquetaFrecuencia(a: ActividadPrograma): string {
-    if (a.frecuencia === 'SEGUN_NECESIDADES') { return 'Según necesidades'; }
+    if (a.frecuencia === 'SEGUN_NECESIDADES') { return 'Según necesidad'; }
     if (a.frecuencia === 'SEMANAL') { return 'Semanal · ' + (NOMBRE_DIA[a.diaSemana] || 'Lun'); }
     if (a.frecuencia === 'DIARIA') { return 'Diaria'; }
     if (a.frecuencia === 'MENSUAL') { return 'Mensual'; }
@@ -581,9 +601,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   celdaClicable(c: CeldaVista, f: FilaVista): boolean {
     if (c.clase === 'c-rojo') { return false; }
     if (this.enControl) { return c.clase === 'c-azul' || c.clase === 'c-verde'; }
-    if (this.enEdicion) {
-      return f.act.frecuencia !== 'SEGUN_NECESIDADES' && f.act.frecuencia !== 'POR_ACTIVIDAD';
-    }
+    if (this.enEdicion) { return true; }
     return false;
   }
 
@@ -641,23 +659,36 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (!confirm('Se borran todos los días programados de ' + this.meses[this.mesSel - 1] + '. ¿Continuar?')) { return; }
     this.programa.actividades.forEach(a => {
       a.programados = [];
-      if (a.frecuencia !== 'SEGUN_NECESIDADES' && a.frecuencia !== 'POR_ACTIVIDAD') { a.realizados = []; }
+      a.realizados = [];
     });
     this.recalcular();
     this.programarGuardado();
   }
 
+  // "Según necesidades" no tiene frecuencia fija: conserva los días marcados a mano
   private reprogramarActividad(a: ActividadPrograma) {
+    if (this.esSegunNecesidad(a)) { return; }
     a.programados = this.diasProgramados(a);
-    if (a.frecuencia !== 'SEGUN_NECESIDADES' && a.frecuencia !== 'POR_ACTIVIDAD') {
-      a.realizados = a.realizados.filter(d => a.programados.indexOf(d) >= 0);
-    }
+    a.realizados = a.realizados.filter(d => a.programados.indexOf(d) >= 0);
   }
 
   cambiarFrecuencia(a: ActividadPrograma, valor: string) {
     if (!this.enEdicion) { return; }
     a.frecuencia = valor;
     a.diaSemana = valor === 'SEMANAL' ? (a.diaSemana || 1) : 0;
+    this.recalcular();
+    this.programarGuardado();
+  }
+
+  valorFrecuencia(a: ActividadPrograma): string {
+    return a.frecuencia === 'SEMANAL' ? 'SEMANAL-' + (a.diaSemana || 1) : a.frecuencia;
+  }
+
+  cambiarFrecuenciaCompuesta(a: ActividadPrograma, valor: string) {
+    if (!this.enEdicion) { return; }
+    const partes = (valor || '').split('-');
+    a.frecuencia = partes[0];
+    a.diaSemana = partes[0] === 'SEMANAL' ? (Number(partes[1]) || 1) : 0;
     this.recalcular();
     this.programarGuardado();
   }
@@ -745,6 +776,11 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.estadoGuardado = txt;
     if (this.timerEstado) { clearTimeout(this.timerEstado); }
     this.timerEstado = setTimeout(() => { this.estadoGuardado = ''; }, 2500);
+  }
+
+  /** Ancho mínimo: si la pantalla es más ancha, el espacio sobrante se lo lleva Actividades. */
+  get anchoMinimoTabla(): number {
+    return 110 + 300 + 170 + this.dias.length * 30 + 276;
   }
 
   // ===================== trackBy =====================

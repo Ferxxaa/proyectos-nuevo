@@ -287,7 +287,9 @@
   border-collapse: separate;
   border-spacing: 0;
   font-size: 11.5px;
-  min-width: 100%;
+  /* anchos fijos en el colgroup: los días quedan en 30 px y Actividades toma el resto */
+  width: 100%;
+  table-layout: fixed;
 }
 .psso-tabla th,
 .psso-tabla td {
@@ -337,31 +339,22 @@
 
 /* columnas */
 .col-item {
+  box-sizing: border-box; /* así calza con la columna fija de Actividades (left: 110px) */
   width: 110px;
   min-width: 110px;
   max-width: 110px;
 }
-.col-act {
-  width: 300px;
-  min-width: 300px;
-  max-width: 300px;
-}
+.psso-tabla td.col-act { overflow: hidden; }
 .col-frec {
-  min-width: 120px;
   white-space: nowrap;
 }
-.psso-tabla.edicion .col-frec { min-width: 175px; }
+.psso-tabla td.col-frec { padding: 2px 4px; }
 .col-dia {
-  width: 24px;
-  min-width: 24px;
-  max-width: 24px;
   padding: 0 !important;
 }
 .col-num {
-  min-width: 52px;
   white-space: nowrap;
 }
-.col-total { min-width: 64px; }
 
 /* columnas fijas al hacer scroll */
 .sticky-1,
@@ -396,6 +389,9 @@ thead .sticky-2 { z-index: 3; }
 
 .frec-chip {
   display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 2px 8px;
   border-radius: 10px;
   font-size: 11px;
@@ -403,10 +399,11 @@ thead .sticky-2 { z-index: 3; }
   background: #eef1f4;
   color: #4a525a;
 }
-.frec-DIARIA            { background: #e3eefa; color: #2d5d8f; }
-.frec-SEMANAL           { background: #ece6f6; color: #5b4a86; }
-.frec-MENSUAL           { background: #fbeedd; color: #8a5a17; }
-.frec-QUINCENAL         { background: #e8edf7; color: #455f8a; }
+/* azul = días programados, verde = según necesidad (mismos colores de la grilla) */
+.frec-DIARIA,
+.frec-SEMANAL,
+.frec-MENSUAL,
+.frec-QUINCENAL         { background: #e3eefa; color: #2d5d8f; }
 .frec-POR_ACTIVIDAD     { background: #e4f3de; color: #3c7031; }
 .frec-SEGUN_NECESIDADES { background: #e4f3de; color: #3c7031; }
 
@@ -464,20 +461,29 @@ thead .sticky-2 { z-index: 3; }
 .edit-act input:hover { border-color: #dfe3e8; }
 .edit-act input:focus { outline: none; border-color: #7fa9d8; background: #fff; }
 
-.edit-frec {
-  display: flex;
-  gap: 4px;
-}
-.edit-frec select {
+/* selector de frecuencia: neutro, con una franja del color de su frecuencia */
+.sel-frec {
+  width: 100%;
   height: 24px;
-  padding: 0 4px;
+  padding: 0 4px 0 7px;
   border: 1px solid #dfe3e8;
+  border-left: 3px solid #b9c3cb;
   border-radius: 4px;
-  background: #fff;
-  color: #2f363d;
+  background: #fff !important;
+  color: #2f363d !important;
   font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
 }
-.edit-frec select.sel-dia { width: 58px; }
+.sel-frec:hover { border-color: #b9c3cb; }
+.sel-frec:focus { outline: none; border-color: #7fa9d8; box-shadow: 0 0 0 2px rgba(127, 169, 216, .25); }
+.sel-frec.frec-DIARIA,
+.sel-frec.frec-SEMANAL,
+.sel-frec.frec-QUINCENAL,
+.sel-frec.frec-MENSUAL           { border-left-color: #7fa9d8; }
+.sel-frec.frec-POR_ACTIVIDAD,
+.sel-frec.frec-SEGUN_NECESIDADES { border-left-color: #8cc47a; }
+.sel-frec option { background: #fff; color: #2f363d; font-weight: 400; }
 
 .btn-del {
   border: none;

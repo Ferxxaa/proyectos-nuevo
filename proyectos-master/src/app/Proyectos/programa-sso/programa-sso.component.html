@@ -115,7 +115,17 @@
     <!-- Grilla -->
     <div class="psso-marco">
       <div class="psso-scroll">
-        <table class="psso-tabla" [class.edicion]="enEdicion">
+        <table class="psso-tabla" [class.edicion]="enEdicion" [style.min-width.px]="anchoMinimoTabla">
+          <colgroup>
+            <col style="width: 110px">
+            <col>
+            <col style="width: 170px">
+            <col *ngFor="let d of dias; trackBy: trackDia" style="width: 30px">
+            <col style="width: 72px">
+            <col style="width: 72px">
+            <col style="width: 60px">
+            <col style="width: 72px">
+          </colgroup>
           <thead>
             <tr>
               <th rowspan="2" class="col-item sticky-1">Ítem</th>
@@ -158,14 +168,11 @@
 
                 <td class="col-frec">
                   <span *ngIf="!enEdicion" class="frec-chip" [ngClass]="'frec-' + f.act.frecuencia">{{ etiquetaFrecuencia(f.act) }}</span>
-                  <div *ngIf="enEdicion" class="edit-frec">
-                    <select [ngModel]="f.act.frecuencia" (ngModelChange)="cambiarFrecuencia(f.act, $event)">
-                      <option *ngFor="let fr of frecuencias" [value]="fr.v">{{ fr.t }}</option>
-                    </select>
-                    <select *ngIf="f.act.frecuencia === 'SEMANAL'" class="sel-dia" [ngModel]="f.act.diaSemana" (ngModelChange)="cambiarDiaSemana(f.act, $event)">
-                      <option *ngFor="let ds of diasSemana" [ngValue]="ds.v">{{ ds.t }}</option>
-                    </select>
-                  </div>
+                  <select *ngIf="enEdicion" class="sel-frec" [ngClass]="'frec-' + f.act.frecuencia"
+                          [ngModel]="valorFrecuencia(f.act)" (ngModelChange)="cambiarFrecuenciaCompuesta(f.act, $event)"
+                          [attr.aria-label]="'Frecuencia de ' + f.act.nombre">
+                    <option *ngFor="let fr of opcionesFrecuencia" [value]="fr.v">{{ fr.t }}</option>
+                  </select>
                 </td>
 
                 <td *ngFor="let c of f.celdas; trackBy: trackDia"
