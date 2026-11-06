@@ -45,7 +45,7 @@
   <div *ngIf="!cargando && !programa" class="psso-vacio">
     <i class="fa fa-calendar-plus-o" aria-hidden="true"></i>
     <strong>No hay programa {{ esMA ? 'MA' : 'SSO' }} para {{ meses[mesSel - 1] }} {{ anio }}</strong>
-    <p *ngIf="editable">Se copian las actividades del mes anterior (o la plantilla base) y se programan según su frecuencia.</p>
+    <p *ngIf="editable">Se copian las actividades del mes anterior (o la plantilla base) con la grilla en blanco para que marques los días.</p>
     <button *ngIf="editable" type="button" class="psso-btn primario" (click)="crearPrograma()">
       <i class="fa fa-plus"></i> Crear Programa {{ esMA ? 'MA' : 'SSO' }} {{ meses[mesSel - 1] }}
     </button>
@@ -63,7 +63,7 @@
         </span>
 
         <span class="psso-meta" *ngIf="estado === 'borrador' && editable">
-          Programa las actividades y luego presiona <b>Guardar programación</b>. Después no se podrá modificar.
+          Haz clic en los días que corresponde cada actividad y luego presiona <b>Guardar programación</b>. Después no se podrá modificar.
         </span>
         <span class="psso-meta" *ngIf="estado === 'pendiente'">
           Programado por <b>{{ programa.programadoPor || '—' }}</b>
@@ -81,6 +81,9 @@
         <span class="psso-guardado" [class.error]="estadoGuardado === 'Error al guardar'">{{ estadoGuardado }}</span>
 
         <ng-container *ngIf="enEdicion">
+          <button type="button" class="psso-btn" (click)="limpiarProgramacion()" [disabled]="procesando">
+            <i class="fa fa-eraser"></i> Limpiar
+          </button>
           <button type="button" class="psso-btn" (click)="regenerar()" [disabled]="procesando">
             <i class="fa fa-refresh"></i> Reprogramar según frecuencia
           </button>
@@ -219,7 +222,7 @@
       <div class="psso-leyenda">
         <span><i class="ley c-azul"></i> Corresponde realizar lo programado</span>
         <span><i class="ley c-verde"></i> Siempre que sea necesario</span>
-        <span><i class="ley c-rojo"></i> Día feriado</span>
+        <span><i class="ley c-rojo"></i> Fin de semana o feriado</span>
         <span><i class="ley c-azul hecho">x</i> Realizado</span>
       </div>
     </div>

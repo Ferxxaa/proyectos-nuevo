@@ -324,8 +324,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       };
 
       this.programa = p;
+      // La grilla parte en blanco: solo fines de semana y feriados quedan marcados
       this.dias = this.construirDias(p.feriados);
-      p.actividades.forEach(a => { a.programados = this.diasProgramados(a); });
       this.recalcular();
       return this.sPrograma.guardar(p, this.coleccionPrograma);
     }).then(() => {
@@ -542,7 +542,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     const celdas: CeldaVista[] = this.dias.map(d => {
       let clase = '';
       if (d.rojo) { clase = 'c-rojo'; }
-      else if (sn) { clase = 'c-verde'; }
+      else if (sn) { clase = this.estado === 'borrador' ? '' : 'c-verde'; }
       else if (a.programados.indexOf(d.dia) >= 0) { clase = 'c-azul'; }
       const x = (clase === 'c-azul' || clase === 'c-verde') && a.realizados.indexOf(d.dia) >= 0;
       return { dia: d.dia, clase: clase, x: x };
@@ -614,12 +614,6 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     const p = this.programa;
     if (p.feriados.indexOf(d.dia) >= 0) {
       this.quitar(p.feriados, d.dia);
-      p.actividades.forEach(a => {
-        if (a.frecuencia === 'DIARIA' && a.programados.indexOf(d.dia) < 0) {
-          a.programados.push(d.dia);
-          a.programados.sort((x, y) => x - y);
-        }
-      });
     } else {
       p.feriados.push(d.dia);
       p.feriados.sort((x, y) => x - y);
@@ -641,6 +635,18 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.programarGuardado();
   }
 
+  /** Deja la grilla en blanco; solo quedan los fines de semana y feriados. */
+  limpiarProgramacion() {
+    if (!this.programa || !this.enEdicion) { return; }
+    if (!confirm('Se borran todos los días programados de ' + this.meses[this.mesSel - 1] + '. ¿Continuar?')) { return; }
+    this.programa.actividades.forEach(a => {
+      a.programados = [];
+      if (a.frecuencia !== 'SEGUN_NECESIDADES' && a.frecuencia !== 'POR_ACTIVIDAD') { a.realizados = []; }
+    });
+    this.recalcular();
+    this.programarGuardado();
+  }
+
   private reprogramarActividad(a: ActividadPrograma) {
     a.programados = this.diasProgramados(a);
     if (a.frecuencia !== 'SEGUN_NECESIDADES' && a.frecuencia !== 'POR_ACTIVIDAD') {
@@ -652,7 +658,6 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (!this.enEdicion) { return; }
     a.frecuencia = valor;
     a.diaSemana = valor === 'SEMANAL' ? (a.diaSemana || 1) : 0;
-    this.reprogramarActividad(a);
     this.recalcular();
     this.programarGuardado();
   }
@@ -660,7 +665,6 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   cambiarDiaSemana(a: ActividadPrograma, valor: any) {
     if (!this.enEdicion) { return; }
     a.diaSemana = Number(valor) || 1;
-    this.reprogramarActividad(a);
     this.recalcular();
     this.programarGuardado();
   }
@@ -668,7 +672,6 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   agregarActividad(grupo: string) {
     if (!this.programa || !this.enEdicion) { return; }
     const a = this.nuevaActividad(grupo, 'Nueva actividad', 'SEMANAL', 1);
-    a.programados = this.diasProgramados(a);
     let idx = -1;
     this.programa.actividades.forEach((x, i) => { if (x.grupo === grupo) { idx = i; } });
     if (idx >= 0) { this.programa.actividades.splice(idx + 1, 0, a); }

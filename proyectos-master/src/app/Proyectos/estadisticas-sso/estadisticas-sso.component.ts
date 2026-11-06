@@ -104,7 +104,10 @@ export class EstadisticasSsoComponent implements OnInit {
   errorCargaMA: boolean = false;
   estadoGuardadoMA: string = '';
 
-  vistaSubproyecto: string = 'accidentes';
+  // Pestañas del subproyecto: 'seguridad' (accidentes) | 'ma' | 'incidentes'
+  vistaSubproyecto: string = 'seguridad';
+  totalSeguridad: number = 0;
+  totalIncidentes: number = 0;
   readonly accidentesPorPagina: number = 10;
   filtroAnio: string = 'todos';
   filtroEstado: string = 'todos';
@@ -359,9 +362,11 @@ export class EstadisticasSsoComponent implements OnInit {
 
   private recalcular() {
     this.accidentes.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+    this.totalIncidentes = this.accidentes.filter(item => this.esIncidente(item)).length;
+    this.totalSeguridad = this.accidentes.length - this.totalIncidentes;
 
     const anios: { [anio: string]: boolean } = {};
-    this.accidentes.forEach(item => {
+    this.registrosVista.forEach(item => {
       const anio = (item.fecha || '').substring(0, 4);
       if (anio) { anios[anio] = true; }
     });
@@ -394,7 +399,7 @@ export class EstadisticasSsoComponent implements OnInit {
   private aplicarFiltrosAccidentes() {
     const busqueda = this.normalizarTexto(this.filtroBusqueda);
 
-    this.accidentesFiltrados = this.accidentes.filter(item => {
+    this.accidentesFiltrados = this.registrosVista.filter(item => {
       if (this.filtroAnio !== 'todos' && (item.fecha || '').substring(0, 4) !== this.filtroAnio) { return false; }
       if (this.filtroEstado !== 'todos' && item.estado !== this.filtroEstado) { return false; }
       if (!busqueda) { return true; }
@@ -429,6 +434,61 @@ export class EstadisticasSsoComponent implements OnInit {
     this.paginaAccidentes = Math.max(1, Math.min(this.paginaAccidentes + cambio, this.totalPaginasAccidentes));
     this.detalleAbiertoId = null;
     this.aplicarFiltrosAccidentes();
+  }
+
+  // ===== Pestañas Seguridad / Medio Ambiente / Incidentes =====
+  // Seguridad e Incidentes usan la misma colección; se separan por el tipo de registro.
+
+  private esIncidente(item: AccidenteSSO): boolean {
+    return (item.tipo || '').indexOf('Incidente') !== -1;
+  }
+
+  get enIncidentes(): boolean {
+    return this.vistaSubproyecto === 'incidentes';
+  }
+
+  get registrosVista(): AccidenteSSO[] {
+    const incidentes = this.enIncidentes;
+    return this.accidentes.filter(item => incidentes ? this.esIncidente(item) : !this.esIncidente(item));
+  }
+
+  get totalVista(): number {
+    return this.enIncidentes ? this.totalIncidentes : this.totalSeguridad;
+  }
+
+  get palabraRegistro(): string {
+    return this.enIncidentes ? 'incidente' : 'accidente';
+  }
+
+  get tiposFormulario() {
+    const incidentes = this.enIncidentes;
+    return this.tipos.filter(tipo => incidentes
+      ? tipo.nombre.indexOf('Incidente') !== -1
+      : tipo.nombre.indexOf('Incidente') === -1);
+  }
+
+  get tituloVista(): string {
+    if (this.vistaSubproyecto === 'ma') { return 'Seguimiento MA'; }
+    if (this.enIncidentes) { return 'Seguimiento de incidentes'; }
+    return 'Seguimiento de seguridad';
+  }
+
+  get iconoVista(): string {
+    if (this.vistaSubproyecto === 'ma') { return 'fa-leaf'; }
+    if (this.enIncidentes) { return 'fa-exclamation-triangle'; }
+    return 'fa-shield';
+  }
+
+  cambiarVista(vista: string) {
+    if (this.vistaSubproyecto === vista) { return; }
+    this.vistaSubproyecto = vista;
+    this.cerrarFormulario();
+    this.filtroAnio = 'todos';
+    this.filtroEstado = 'todos';
+    this.filtroBusqueda = '';
+    this.paginaAccidentes = 1;
+    this.detalleAbiertoId = null;
+    if (vista !== 'ma') { this.recalcular(); }
   }
 
   alternarDetalle(item: AccidenteSSO) {
@@ -728,6 +788,9 @@ export class EstadisticasSsoComponent implements OnInit {
 
   abrirNuevo() {
     this.formulario = this.getFormularioVacio();
+    if (this.enIncidentes && this.tiposFormulario.length) {
+      this.formulario.tipo = this.tiposFormulario[0].nombre;
+    }
     this.editandoId = null;
     this.errorFormulario = '';
     this.formularioAbierto = true;
@@ -830,7 +893,7 @@ export class EstadisticasSsoComponent implements OnInit {
 
     Swal.fire({
       title: '¿Eliminar este registro?',
-      text: 'Se borrará el accidente del ' + this.getFechaTexto(item.fecha) + '. No se puede deshacer.',
+      text: 'Se borrará el ' + this.palabraRegistro + ' del ' + this.getFechaTexto(item.fecha) + '. No se puede deshacer.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Eliminar',

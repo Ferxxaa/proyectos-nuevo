@@ -6,16 +6,16 @@
 <section class="sso" [class.sso-consolidado]="consolidadoHistorico">
   <div class="sso-encabezado">
     <div class="sso-titulo">
-      <span class="sso-icono"><i class="fa" [ngClass]="!consolidadoHistorico && vistaSubproyecto === 'ma' ? 'fa-leaf' : 'fa-shield'" aria-hidden="true"></i></span>
+      <span class="sso-icono"><i class="fa" [ngClass]="consolidadoHistorico ? 'fa-shield' : iconoVista" aria-hidden="true"></i></span>
       <div>
         <span class="sso-kicker" *ngIf="consolidadoHistorico">ANÁLISIS DE PROYECTOS</span>
-        <h5>{{consolidadoHistorico ? 'Consolidado SSO, MA y HH' : (vistaSubproyecto === 'ma' ? 'Seguimiento MA' : 'Seguimiento de accidentes')}}</h5>
+        <h5>{{consolidadoHistorico ? 'Consolidado SSO, MA y HH' : tituloVista}}</h5>
         <p *ngIf="consolidadoHistorico">Accidentes, Medio Ambiente y horas hombre de toda la empresa</p>
         <p *ngIf="!consolidadoHistorico">{{nombreSubProyecto}}</p>
       </div>
     </div>
-    <button type="button" class="sso-boton-principal" *ngIf="!consolidadoHistorico && vistaSubproyecto === 'accidentes' && !soloLectura && !cargando && !errorCarga" (click)="abrirNuevo()">
-      <i class="fa fa-plus" aria-hidden="true"></i> Registrar accidente
+    <button type="button" class="sso-boton-principal" *ngIf="!consolidadoHistorico && vistaSubproyecto !== 'ma' && !soloLectura && !cargando && !errorCarga" (click)="abrirNuevo()">
+      <i class="fa fa-plus" aria-hidden="true"></i> Registrar {{palabraRegistro}}
     </button>
     <a *ngIf="consolidadoHistorico" class="btn sso-volver" [routerLink]="['/Proyectos-MisProyectos']">
       <i class="fa fa-arrow-left" aria-hidden="true"></i>
@@ -23,29 +23,32 @@
     </a>
   </div>
 
-  <div class="sso-mensaje" *ngIf="cargando"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> {{consolidadoHistorico ? 'Cargando consolidado...' : 'Cargando accidentes...'}}</div>
+  <div class="sso-mensaje" *ngIf="cargando"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> {{consolidadoHistorico ? 'Cargando consolidado...' : 'Cargando registros...'}}</div>
   <div class="sso-mensaje" *ngIf="!cargando && sinPermisoConsolidado" role="alert">
     No tienes permisos para ver este consolidado.
   </div>
   <div class="sso-mensaje" *ngIf="errorCarga">
-    {{consolidadoHistorico ? 'No se pudo cargar el consolidado.' : 'No se pudieron cargar los accidentes.'}}
+    {{consolidadoHistorico ? 'No se pudo cargar el consolidado.' : 'No se pudieron cargar los registros.'}}
     <button type="button" (click)="consolidadoHistorico ? cargarConsolidadoSso() : cargar()">Reintentar</button>
   </div>
 
   <ng-container *ngIf="!cargando && !errorCarga && !sinPermisoConsolidado">
     <ng-container *ngIf="!verHistorico">
     <div class="sso-vistas">
-      <button type="button" [class.activa]="vistaSubproyecto === 'accidentes'" [attr.aria-pressed]="vistaSubproyecto === 'accidentes'" (click)="vistaSubproyecto = 'accidentes'">
-        <i class="fa fa-shield" aria-hidden="true"></i> Accidentes ({{accidentes.length}})
+      <button type="button" [class.activa]="vistaSubproyecto === 'seguridad'" [attr.aria-pressed]="vistaSubproyecto === 'seguridad'" (click)="cambiarVista('seguridad')">
+        <i class="fa fa-shield" aria-hidden="true"></i> Seguridad ({{totalSeguridad}})
       </button>
-      <button type="button" [class.activa]="vistaSubproyecto === 'ma'" [attr.aria-pressed]="vistaSubproyecto === 'ma'" (click)="vistaSubproyecto = 'ma'">
+      <button type="button" [class.activa]="vistaSubproyecto === 'ma'" [attr.aria-pressed]="vistaSubproyecto === 'ma'" (click)="cambiarVista('ma')">
         <i class="fa fa-leaf" aria-hidden="true"></i> Medio Ambiente (MA)
+      </button>
+      <button type="button" [class.activa]="vistaSubproyecto === 'incidentes'" [attr.aria-pressed]="vistaSubproyecto === 'incidentes'" (click)="cambiarVista('incidentes')">
+        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Incidentes ({{totalIncidentes}})
       </button>
     </div>
 
-    <ng-container *ngIf="vistaSubproyecto === 'accidentes'">
+    <ng-container *ngIf="vistaSubproyecto !== 'ma'">
     <form id="sso-formulario" class="sso-panel sso-formulario" *ngIf="formularioAbierto" (ngSubmit)="guardar()">
-      <h6>{{editandoId ? 'Editar accidente' : 'Registrar accidente'}}</h6>
+      <h6>{{editandoId ? 'Editar' : 'Registrar'}} {{palabraRegistro}}</h6>
       <div class="sso-formulario-campos">
         <div class="sso-campo">
           <label for="sso-fecha">Fecha</label>
@@ -55,7 +58,7 @@
           <label for="sso-tipo">Tipo</label>
           <select id="sso-tipo" name="tipo" [(ngModel)]="formulario.tipo">
             <option value="">Seleccionar</option>
-            <option *ngFor="let tipo of tipos" [value]="tipo.nombre">{{tipo.nombre}}</option>
+            <option *ngFor="let tipo of tiposFormulario" [value]="tipo.nombre">{{tipo.nombre}}</option>
           </select>
         </div>
         <div class="sso-campo">
@@ -92,9 +95,9 @@
       </div>
     </form>
 
-    <div class="sso-mensaje" *ngIf="!accidentes.length">Aún no hay accidentes registrados en este subproyecto.</div>
+    <div class="sso-mensaje" *ngIf="!totalVista">Aún no hay {{palabraRegistro}}s registrados en este subproyecto.</div>
 
-    <ng-container *ngIf="accidentes.length">
+    <ng-container *ngIf="totalVista">
       <div class="sso-tiles sso-tiles-compacto">
         <div class="sso-tile"><span>Registros</span><strong>{{resumenAccidentes.total}}</strong></div>
         <div class="sso-tile" [class.tile-abierto]="resumenAccidentes.abiertos"><span>Abiertos</span><strong>{{resumenAccidentes.abiertos}}</strong></div>
@@ -114,11 +117,11 @@
             <option value="Cerrado">Cerrados</option>
           </select>
           <input type="text" [(ngModel)]="filtroBusqueda" (ngModelChange)="cambiarFiltrosAccidentes()"
-                 placeholder="Buscar por tipo, descripción o medidas" aria-label="Buscar accidente">
+                 placeholder="Buscar por tipo, descripción o medidas" [attr.aria-label]="'Buscar ' + palabraRegistro">
           <button type="button" class="sso-boton" *ngIf="hayFiltrosAccidentes" (click)="limpiarFiltrosAccidentes()">Limpiar</button>
         </div>
 
-        <div class="sso-mensaje" *ngIf="!accidentesFiltrados.length">Ningún accidente coincide con estos filtros.</div>
+        <div class="sso-mensaje" *ngIf="!accidentesFiltrados.length">Ningún {{palabraRegistro}} coincide con estos filtros.</div>
 
         <div class="sso-tabla-scroll" *ngIf="accidentesFiltrados.length">
           <table class="sso-tabla sso-tabla-accidentes">
@@ -150,7 +153,7 @@
                       {{detalleAbiertoId === item.id ? 'Ocultar' : 'Ver'}}
                     </button>
                     <button type="button" class="sso-boton" *ngIf="!soloLectura" (click)="editar(item)">Editar</button>
-                    <button type="button" class="sso-boton sso-boton-peligro" *ngIf="!soloLectura" (click)="eliminar(item)" [attr.aria-label]="'Eliminar accidente del ' + getFechaTexto(item.fecha)">
+                    <button type="button" class="sso-boton sso-boton-peligro" *ngIf="!soloLectura" (click)="eliminar(item)" [attr.aria-label]="'Eliminar ' + palabraRegistro + ' del ' + getFechaTexto(item.fecha)">
                       <i class="fa fa-trash" aria-hidden="true"></i>
                     </button>
                   </td>
