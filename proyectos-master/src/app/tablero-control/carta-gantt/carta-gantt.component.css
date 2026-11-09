@@ -755,10 +755,12 @@
   font-weight: 700;
 }
 
-.cg-titulo p {
+.cg-titulo .cg-subproyecto {
   margin: 1px 0 0;
-  color: #626b75;
-  font-size: 12.5px;
+  color: #f58941;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'Open Sans', sans-serif;
 }
 
 .cg-vacio {

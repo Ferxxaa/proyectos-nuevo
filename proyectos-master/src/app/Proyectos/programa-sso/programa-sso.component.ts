@@ -123,6 +123,7 @@ interface GrupoVista {
 export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   @Input() idSubProyecto: any;
+  @Input() nombreSubProyecto: string = '';
   @Input() editable: boolean = true;       // false = cliente / solo lectura
   @Input() puedeValidar: boolean = false;  // Director de Proyecto o Sub-gerente
   @Input() tipoPrograma: string = 'SSO';
@@ -269,6 +270,11 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   tieneMes(m: number): boolean {
     return this.mesesConPrograma.indexOf(m) >= 0;
+  }
+
+  esMesActual(m: number): boolean {
+    const hoy = new Date();
+    return this.anio === hoy.getFullYear() && m === hoy.getMonth() + 1;
   }
 
   cargarMes() {

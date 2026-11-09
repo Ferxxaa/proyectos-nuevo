@@ -2768,9 +2768,10 @@ select.input-tipo:disabled {
 .hallazgos-titulo-proyecto {
   display: block;
   margin-top: 1px;
-  color: #626b75;
-  font-size: 12.5px;
-  font-weight: 400;
+  color: #f58941;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'Open Sans', sans-serif;
 }
 
 .control-hallazgos-container:not(.reporte-solo) .hallazgos-header-actions {

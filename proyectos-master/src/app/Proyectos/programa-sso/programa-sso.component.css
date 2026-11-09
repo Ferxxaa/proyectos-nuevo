@@ -17,35 +17,89 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 12px;
+  padding: 14px 18px;
+  border: 1px solid #e3e8ed;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(31, 45, 61, .05);
 }
 .psso-titulo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  min-width: 0;
 }
 .psso-icono {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #075f91;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #064f78 0%, #075f91 55%, #1089bd 100%);
   color: #fff;
-  font-size: 18px;
+  font-size: 21px;
+  box-shadow: 0 4px 10px rgba(7, 95, 145, .25);
+}
+.psso-icono.icono-ma {
+  background: linear-gradient(135deg, #2d7a3e 0%, #3f9a52 55%, #5cb874 100%);
+  box-shadow: 0 4px 10px rgba(63, 154, 82, .25);
+}
+.psso-titulo-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.psso-kicker {
+  color: #8f979f;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
 }
 .psso-titulo h5 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   color: #24404f;
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
 }
-.psso-titulo p {
-  margin: 1px 0 0;
-  color: #626b75;
-  font-size: 12.5px;
+.psso-tipo-chip {
+  padding: 2px 9px;
+  border-radius: 6px;
+  background: #e3eefa;
+  color: #075f91;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .5px;
+}
+.psso-tipo-chip.chip-ma { background: #e1f1da; color: #2d7a3e; }
+
+/* subproyecto: etiqueta naranja suave */
+.psso-titulo .psso-subproyecto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: 3px;
+  padding: 3px 10px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff1e6;
+  color: #d9692a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .psso-tipos {
@@ -99,47 +153,87 @@
 
 /* ---------- Meses ---------- */
 .psso-meses {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(84px, 1fr));
+  gap: 6px;
   margin-bottom: 14px;
+  padding-bottom: 2px;
   overflow-x: auto;
-  border: 1px solid #e0e5ea;
-  border-radius: 9px;
-  background: linear-gradient(180deg, #edf1f5, #e8edf2);
 }
 .psso-mes {
   position: relative;
-  flex: 1 0 auto;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: #59636e;
-  padding: 7px 10px;
-  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 6px 6px;
+  border: 1px solid #e3e8ed;
+  border-radius: 10px;
+  background: #fff;
+  color: #3f4852;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, transform .15s, background-color .15s;
+}
+.psso-mes:hover {
+  border-color: #b9d2ee;
+  box-shadow: 0 3px 10px rgba(31, 45, 61, .08);
+  transform: translateY(-1px);
+}
+.psso-mes:focus { outline: none; }
+.psso-mes:focus-visible { box-shadow: 0 0 0 3px rgba(7, 95, 145, .25); }
+
+.mes-nombre {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.mes-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #a3abb3;
+  font-size: 10.5px;
   font-weight: 600;
   white-space: nowrap;
-  cursor: pointer;
-  transition: background-color .15s, color .15s, box-shadow .15s;
 }
-.psso-mes:hover { background: rgba(255, 255, 255, .62); color: #3f4852; }
-.psso-mes.activo {
-  border-bottom-color: #075f91;
-  background: #fff;
-  color: #24404f;
-  box-shadow: 0 2px 7px rgba(31, 45, 61, .12);
-}
+
+/* con programa creado: estado en verde y una franja abajo */
+.psso-mes.con-datos .mes-estado { color: #3f9a52; }
 .psso-mes.con-datos::after {
   content: '';
   position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
+  left: 22%;
+  right: 22%;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
   background: #7cc47f;
 }
+
+/* mes actual: punto azul junto al nombre */
+.mes-hoy {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1089bd;
+  box-shadow: 0 0 0 3px rgba(16, 137, 189, .18);
+}
+
+/* mes seleccionado */
+.psso-mes.activo {
+  border-color: transparent;
+  background: linear-gradient(135deg, #064f78 0%, #075f91 55%, #1089bd 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(7, 95, 145, .3);
+  transform: none;
+}
+.psso-mes.activo .mes-estado,
+.psso-mes.activo.con-datos .mes-estado { color: rgba(255, 255, 255, .85); }
+.psso-mes.activo::after { display: none; }
+.psso-mes.activo .mes-hoy { background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .3); }
 
 /* ---------- Estados de carga / vacío ---------- */
 .psso-cargando {

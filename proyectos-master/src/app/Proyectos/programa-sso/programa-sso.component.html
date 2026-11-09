@@ -6,6 +6,7 @@
       <span class="psso-icono"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
       <div>
         <h5>Programa de Actividades {{ esMA ? 'MA' : 'SSO' }}</h5>
+        <p class="psso-subproyecto" *ngIf="nombreSubProyecto">{{nombreSubProyecto}}</p>
         <p>Programación mensual y control de cumplimiento</p>
       </div>
     </div>
@@ -27,13 +28,24 @@
   </header>
 
   <!-- Pestañas de meses -->
-  <div class="psso-meses">
+  <div class="psso-meses" role="tablist" aria-label="Mes del programa">
     <button type="button" *ngFor="let m of meses; let i = index"
             class="psso-mes"
+            role="tab"
+            [attr.aria-selected]="mesSel === i + 1"
             [class.activo]="mesSel === i + 1"
             [class.con-datos]="tieneMes(i + 1)"
+            [class.actual]="esMesActual(i + 1)"
+            [title]="'Programa ' + m + ' ' + anio + (tieneMes(i + 1) ? ' (creado)' : ' (sin programa)')"
             (click)="seleccionarMes(i + 1)">
-      Programa {{ m }}
+      <span class="mes-nombre">
+        {{ m }}
+        <i class="mes-hoy" *ngIf="esMesActual(i + 1)" title="Mes actual"></i>
+      </span>
+      <span class="mes-estado">
+        <ng-container *ngIf="tieneMes(i + 1)"><i class="fa fa-check-circle" aria-hidden="true"></i> Creado</ng-container>
+        <ng-container *ngIf="!tieneMes(i + 1)">Sin programa</ng-container>
+      </span>
     </button>
   </div>
 

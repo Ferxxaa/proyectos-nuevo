@@ -11,7 +11,7 @@
         <span class="sso-kicker" *ngIf="consolidadoHistorico">ANÁLISIS DE PROYECTOS</span>
         <h5>{{consolidadoHistorico ? 'Consolidado SSO, MA , INCS Y Asistencia' : tituloVista}}</h5>
         <p *ngIf="consolidadoHistorico">Accidentes, Medio Ambiente y horas hombre de toda la empresa</p>
-        <p *ngIf="!consolidadoHistorico">{{nombreSubProyecto}}</p>
+        <p *ngIf="!consolidadoHistorico" class="sso-subproyecto">{{nombreSubProyecto}}</p>
       </div>
     </div>
     <button type="button" class="sso-boton-principal" *ngIf="!consolidadoHistorico && vistaSubproyecto !== 'ma' && !soloLectura && !cargando && !errorCarga" (click)="abrirNuevo()">
