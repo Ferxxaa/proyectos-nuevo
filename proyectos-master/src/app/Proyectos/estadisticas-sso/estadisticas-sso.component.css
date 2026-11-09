@@ -1695,6 +1695,424 @@
   font-weight: 600;
 }
 
+/* ===== Tabla editable de MA del subproyecto: limpia, sin aspecto de planilla ===== */
+.sso-panel-ma-editable {
+  border-color: #e3e8ed;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(31, 45, 61, .05);
+}
+
+.sso-panel-ma-editable .sso-ma-encabezado {
+  padding: 4px 14px 4px 0;
+  border-bottom: 1px solid #e3e8ed;
+  background: #fff;
+}
+
+.sso-panel-ma-editable .sso-ma-encabezado h6 {
+  padding: 10px 16px;
+  background: transparent;
+  color: #24404f;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.sso-panel-ma-editable .sso-ma-encabezado h6 .fa {
+  margin-right: 4px;
+  color: #3f9a52;
+}
+
+.sso-panel-ma-editable .sso-ma-controles {
+  color: #6b7580;
+}
+
+.sso-panel-ma-editable .sso-ma-controles select {
+  height: 30px;
+  padding: 0 8px;
+  border-color: #dfe3e8;
+  border-radius: 6px;
+}
+
+.sso-panel-ma-editable .sso-ma-estado.guardando { color: #8f979f; }
+.sso-panel-ma-editable .sso-ma-estado.guardado  { color: #2d8a44; }
+.sso-panel-ma-editable .sso-ma-estado.error     { color: #c22f35; }
+
+.sso-tabla-ma.sso-tabla-ma-editable {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* encabezado claro */
+.sso-tabla-ma.sso-tabla-ma-editable thead th {
+  height: 38px;
+  padding: 0 6px;
+  border-bottom: 1px solid #e3e8ed;
+  background: #f7f9fb;
+  color: #6b7580;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable thead th.sso-ma-indicador {
+  padding-left: 16px;
+  text-align: left;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable thead th.sso-ma-total {
+  padding-right: 16px;
+  text-align: right;
+}
+
+/* mes actual: franja azul arriba y columna suave */
+.sso-tabla-ma.sso-tabla-ma-editable thead th.mes-actual {
+  background: #eaf3fa;
+  box-shadow: inset 0 3px 0 #075f91;
+  color: #075f91;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody td.mes-actual {
+  background: #f3f8fc;
+}
+
+/* filas */
+.sso-tabla-ma.sso-tabla-ma-editable tbody tr,
+.sso-tabla-ma.sso-tabla-ma-editable tbody tr:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody th,
+.sso-tabla-ma.sso-tabla-ma-editable tbody td {
+  border-top: 0;
+  border-bottom: 1px solid #f0f2f5;
+  background: #fff;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody tr:last-child th,
+.sso-tabla-ma.sso-tabla-ma-editable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody tr:hover th,
+.sso-tabla-ma.sso-tabla-ma-editable tbody tr:hover td {
+  background: #f7fafd;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody tr:hover td.mes-actual {
+  background: #eaf3fa;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody td {
+  padding: 6px 4px;
+}
+
+/* columna del indicador: ancho fijo, nombre en una línea y etiquetas alineadas */
+.sso-tabla-ma.sso-tabla-ma-editable .sso-ma-indicador {
+  width: 290px;
+  min-width: 290px;
+  max-width: 290px;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody th.sso-ma-indicador {
+  height: 58px;
+  padding: 8px 14px 8px 16px;
+  vertical-align: middle;
+  box-shadow: 1px 0 0 #edf1f4, 4px 0 8px -6px rgba(31, 45, 61, .18);
+}
+
+.sso-ma-nombre {
+  display: block;
+  overflow: hidden;
+  color: #24404f;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sso-ma-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.sso-ma-unidad {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 20px;
+  border-radius: 5px;
+  background: #eef1f4;
+  color: #6b7580;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+
+.sso-ma-unidad.sin-unidad {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px #eef1f4;
+  color: #c3cad1;
+}
+
+.sso-ma-meta .sso-ma-clip {
+  height: 20px;
+  margin-top: 0;
+}
+
+/* celdas: las vacías casi no se ven, las con dato resaltan y el mes actual invita a llenarse */
+.sso-tabla-ma.sso-tabla-ma-editable tbody td input {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 #e6eaee;
+  color: #24404f;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background-color .12s, border-color .12s, box-shadow .12s;
+}
+
+/* con dato */
+.sso-tabla-ma.sso-tabla-ma-editable tbody td input:not(:placeholder-shown) {
+  background: #eef5fb;
+  box-shadow: none;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody td input::placeholder {
+  color: #d3d9de;
+  font-weight: 400;
+  opacity: 1;
+}
+
+/* mes actual vacío: recuadro blanco con borde azul suave */
+.sso-tabla-ma.sso-tabla-ma-editable tbody td.mes-actual input:placeholder-shown {
+  border-color: #c9ddef;
+  background: #fff;
+  box-shadow: none;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody td input:hover {
+  border-color: #cfd8e1;
+  background: #fff;
+  box-shadow: none;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody td input:focus {
+  border-color: #075f91;
+  outline: none;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(7, 95, 145, .15);
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody td input:disabled {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: #3d454c;
+}
+
+/* separación muy suave entre meses */
+.sso-tabla-ma.sso-tabla-ma-editable tbody td + td {
+  box-shadow: inset 1px 0 0 #f4f6f8;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody td.sso-ma-total {
+  text-align: right;
+}
+
+/* total del año */
+.sso-tabla-ma.sso-tabla-ma-editable .sso-ma-total {
+  padding-right: 16px;
+  box-shadow: -1px 0 0 #edf1f4, -4px 0 8px -6px rgba(31, 45, 61, .18);
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody td.sso-ma-total {
+  background: #f7f9fb;
+  color: #24404f;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.sso-tabla-ma.sso-tabla-ma-editable tbody td.sso-ma-total small {
+  margin-left: 3px;
+  color: #8f979f;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Ícono de cada indicador (tabla y tarjetas) */
+.sso-ma-ind {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sso-ma-ind-texto {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sso-ma-ind-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+/* ===== Total acumulado: tarjetas por indicador ===== */
+.sso-acum {
+  margin-bottom: 12px;
+  padding: 14px 16px 16px;
+  border: 1px solid #e3e8ed;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(31, 45, 61, .05);
+}
+
+.sso-acum-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sso-acum-cabecera h6 {
+  margin: 0;
+  color: #24404f;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.sso-acum-cabecera h6 .fa {
+  margin-right: 4px;
+  color: #075f91;
+}
+
+.sso-acum-cabecera span {
+  color: #8f979f;
+  font-size: 11.5px;
+}
+
+.sso-acum-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.sso-acum-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #edf1f4;
+  border-radius: 10px;
+  background: #fbfcfd;
+  transition: box-shadow .15s, transform .15s;
+}
+
+.sso-acum-card:hover {
+  box-shadow: 0 4px 14px rgba(31, 45, 61, .08);
+  transform: translateY(-1px);
+}
+
+.sso-acum-card.sin-datos {
+  opacity: .6;
+}
+
+.sso-acum-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+
+.sso-acum-nombre {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-height: 29px; /* siempre 2 líneas: las tarjetas quedan parejas */
+  overflow: hidden;
+  color: #4a525a;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.sso-acum-top {
+  align-items: center;
+}
+
+.sso-acum-valor {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.sso-acum-valor strong {
+  color: #24404f;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sso-acum-valor small {
+  color: #8f979f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sso-acum-etiqueta {
+  color: #a3abb3;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.sso-acum-proyecto {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #e3e8ed;
+  color: #7b858e;
+  font-size: 11px;
+}
+
+.sso-acum-proyecto b {
+  color: #3d454c;
+}
+
+.sso-acum-barra {
+  height: 5px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #edf1f4;
+}
+
+.sso-acum-barra i {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  transition: width .3s ease;
+}
+
 /* Adjuntos por indicador de MA */
 .sso-ma-clip {
   display: inline-flex;

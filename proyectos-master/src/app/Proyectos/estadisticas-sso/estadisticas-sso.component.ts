@@ -70,6 +70,9 @@ interface IndicadorMA {
   etiqueta: string;
   unidad: string;
   decimales: number;
+  icono: string;   // Font Awesome 4
+  color: string;   // color del ícono y de la barra
+  fondo: string;   // fondo suave del ícono
 }
 
 interface RegistroConsolidadoMA {
@@ -167,15 +170,15 @@ export class EstadisticasSsoComponent implements OnInit {
   ];
 
   readonly indicadoresMA: IndicadorMA[] = [
-    { campo: 'consumoAgua', etiqueta: 'Consumo de agua', unidad: 'LTS', decimales: 2 },
-    { campo: 'consumoCombustible', etiqueta: 'Consumo de combustible', unidad: 'LTS', decimales: 2 },
-    { campo: 'residuosDomiciliarios', etiqueta: 'Consumo de residuos domiciliarios', unidad: 'TONS.', decimales: 2 },
-    { campo: 'disposicionEscombros', etiqueta: 'Disposición de escombros', unidad: 'TONS.', decimales: 2 },
-    { campo: 'disposicionChatarraMetalica', etiqueta: 'Disposición de chatarra metálica', unidad: 'TONS.', decimales: 2 },
-    { campo: 'disposicionResiduosPeligrosos', etiqueta: 'Disposición de residuos peligrosos', unidad: 'TONS.', decimales: 2 },
-    { campo: 'disposicionAsbesto', etiqueta: 'Disposición de asbesto', unidad: 'TONS.', decimales: 2 },
-    { campo: 'disposicionOtros', etiqueta: 'Disposición de otros', unidad: 'TONS.', decimales: 2 },
-    { campo: 'disposicionPapel', etiqueta: 'Disposición de papel', unidad: '', decimales: 2 }
+    { campo: 'consumoAgua', etiqueta: 'Consumo de agua', unidad: 'LTS', decimales: 2, icono: 'fa-tint', color: '#1f8fd1', fondo: '#e4f2fb' },
+    { campo: 'consumoCombustible', etiqueta: 'Consumo de combustible', unidad: 'LTS', decimales: 2, icono: 'fa-tachometer', color: '#e07b24', fondo: '#fdf0e3' },
+    { campo: 'residuosDomiciliarios', etiqueta: 'Consumo de residuos domiciliarios', unidad: 'TONS.', decimales: 2, icono: 'fa-trash-o', color: '#6b7580', fondo: '#eef1f4' },
+    { campo: 'disposicionEscombros', etiqueta: 'Disposición de escombros', unidad: 'TONS.', decimales: 2, icono: 'fa-cubes', color: '#a0703c', fondo: '#f6ede3' },
+    { campo: 'disposicionChatarraMetalica', etiqueta: 'Disposición de chatarra metálica', unidad: 'TONS.', decimales: 2, icono: 'fa-wrench', color: '#56708a', fondo: '#e9eef3' },
+    { campo: 'disposicionResiduosPeligrosos', etiqueta: 'Disposición de residuos peligrosos', unidad: 'TONS.', decimales: 2, icono: 'fa-exclamation-triangle', color: '#d64545', fondo: '#fcebeb' },
+    { campo: 'disposicionAsbesto', etiqueta: 'Disposición de asbesto', unidad: 'TONS.', decimales: 2, icono: 'fa-shield', color: '#8a5cc2', fondo: '#f1ebf9' },
+    { campo: 'disposicionOtros', etiqueta: 'Disposición de otros', unidad: 'TONS.', decimales: 2, icono: 'fa-recycle', color: '#2f9e5b', fondo: '#e5f5eb' },
+    { campo: 'disposicionPapel', etiqueta: 'Disposición de papel', unidad: '', decimales: 2, icono: 'fa-file-text-o', color: '#3d8fa8', fondo: '#e3f2f6' }
   ];
 
   aniosMA: number[] = [];
@@ -190,6 +193,8 @@ export class EstadisticasSsoComponent implements OnInit {
   // Total acumulado de todos los años: este subproyecto y el proyecto completo
   totalesMASubproyectoHistorico: string[] = [];
   totalesMAProyecto: string[] = [];
+  /** Qué parte del total del proyecto aporta este subproyecto, por indicador (0-100 o null). */
+  porcentajesMASubproyecto: number[] = [];
   subproyectosProyectoMA: number = 0;
   cargandoTotalProyectoMA: boolean = false;
   errorTotalProyectoMA: boolean = false;
@@ -543,6 +548,11 @@ export class EstadisticasSsoComponent implements OnInit {
 
     this.totalesMASubproyectoHistorico = this.getTotalesMA(propios);
     this.totalesMAProyecto = this.getTotalesMA(todos);
+    this.porcentajesMASubproyecto = this.indicadoresMA.map(indicador => {
+      const propio = this.sumarMA(propios, indicador.campo) || 0;
+      const total = this.sumarMA(todos, indicador.campo) || 0;
+      return total > 0 ? Math.round(propio * 100 / total) : null;
+    });
 
     const subproyectos: { [id: string]: boolean } = {};
     if (propios.some(registro => this.tieneDatosMA(registro))) { subproyectos[String(this.idSubProyecto)] = true; }

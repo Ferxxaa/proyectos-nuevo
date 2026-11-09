@@ -393,9 +393,9 @@
     </ng-container>
     </ng-container>
 
-    <section class="sso-panel sso-panel-ma" *ngIf="vistaSubproyecto === 'ma'">
+    <section class="sso-panel sso-panel-ma sso-panel-ma-editable" *ngIf="vistaSubproyecto === 'ma'">
       <div class="sso-ma-encabezado">
-        <h6>Estadísticas de Medio Ambiente (MA)</h6>
+        <h6><i class="fa fa-leaf" aria-hidden="true"></i> Estadísticas de Medio Ambiente (MA)</h6>
         <div class="sso-ma-controles">
           <span class="sso-ma-estado" [ngClass]="estadoGuardadoMA" *ngIf="estadoGuardadoMA" role="status">
             <ng-container *ngIf="estadoGuardadoMA === 'guardando'"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Guardando...</ng-container>
@@ -414,11 +414,11 @@
         <button type="button" (click)="cargarEstadisticasMA()">Reintentar</button>
       </div>
       <div class="sso-tabla-scroll" *ngIf="!cargandoMA && !errorCargaMA" (scroll)="cerrarAdjuntosIndicador()">
-        <table class="sso-tabla sso-tabla-ma">
+        <table class="sso-tabla sso-tabla-ma sso-tabla-ma-editable">
           <thead>
             <tr>
               <th class="sso-ma-indicador">Indicador</th>
-              <th *ngFor="let mes of mesesMA; trackBy: trackMesMA" [class.mes-actual]="esMesActualMA(mes.numero)" [title]="mes.nombre">{{mes.corto}}</th>
+              <th *ngFor="let mes of mesesMA; trackBy: trackMesMA" class="sso-ma-mes" [class.mes-actual]="esMesActualMA(mes.numero)" [title]="mes.nombre">{{mes.corto}}</th>
               <th class="sso-ma-total">Total año</th>
             </tr>
           </thead>
@@ -426,7 +426,15 @@
             <ng-container *ngFor="let indicador of indicadoresMA; trackBy: trackIndicadorMA">
             <tr [class.ma-fila-abierta]="indicadorMAAbierto === indicador.campo">
               <th scope="row" class="sso-ma-indicador">
-                {{indicador.etiqueta}} <small *ngIf="indicador.unidad">{{indicador.unidad}}</small>
+                <div class="sso-ma-ind">
+                <span class="sso-ma-ind-icono" [style.color]="indicador.color" [style.background-color]="indicador.fondo">
+                  <i class="fa" [ngClass]="indicador.icono" aria-hidden="true"></i>
+                </span>
+                <div class="sso-ma-ind-texto">
+                <span class="sso-ma-nombre" [title]="indicador.etiqueta">{{indicador.etiqueta}}</span>
+                <span class="sso-ma-meta">
+                <!-- Sin unidad igual ocupa el espacio, así los botones quedan en la misma línea -->
+                <span class="sso-ma-unidad" [class.sin-unidad]="!indicador.unidad">{{indicador.unidad || '—'}}</span>
                 <button type="button" class="sso-ma-clip"
                         [class.con-archivos]="cantidadAdjuntosIndicador(indicador.campo)"
                         [class.abierto]="indicadorMAAbierto === indicador.campo"
@@ -437,14 +445,20 @@
                   {{cantidadAdjuntosIndicador(indicador.campo) ? cantidadAdjuntosIndicador(indicador.campo) + ' adjunto' + (cantidadAdjuntosIndicador(indicador.campo) === 1 ? '' : 's') : 'Adjuntar'}}
                   <i class="fa sso-ma-clip-flecha" [ngClass]="indicadorMAAbierto === indicador.campo ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
                 </button>
+                </span>
+                </div>
+                </div>
               </th>
               <td *ngFor="let mes of mesesMA; trackBy: trackMesMA" [class.mes-actual]="esMesActualMA(mes.numero)">
-                <input type="text" inputmode="decimal" autocomplete="off"
+                <input type="text" inputmode="decimal" autocomplete="off" placeholder="–"
                        [value]="getTextoCeldaMA(mes.numero, indicador.campo)" [disabled]="soloLectura"
                        (change)="guardarCeldaMA(mes.numero, indicador, $event.target)"
                        [attr.aria-label]="indicador.etiqueta + ' de ' + mes.nombre">
               </td>
-              <td class="sso-ma-total">{{getTotalMA(indicador.campo)}}</td>
+              <td class="sso-ma-total">
+                {{getTotalMA(indicador.campo)}}
+                <small *ngIf="indicador.unidad && getTotalMA(indicador.campo) !== '-'">{{indicador.unidad}}</small>
+              </td>
             </tr>
 
             </ng-container>
@@ -527,43 +541,45 @@
       </div>
     </section>
 
-    <section class="sso-panel" *ngIf="vistaSubproyecto === 'ma' && !cargandoMA && !errorCargaMA">
-      <h6>Total acumulado (todos los años)</h6>
-      <div class="sso-aviso sso-aviso-panel" *ngIf="errorTotalProyectoMA" role="alert">
-        No se pudo cargar el total del proyecto.
-        <button type="button" class="sso-boton" (click)="cargarTotalProyectoMA()">Reintentar</button>
+    <section class="sso-acum" *ngIf="vistaSubproyecto === 'ma' && !cargandoMA && !errorCargaMA">
+      <div class="sso-acum-cabecera">
+        <div>
+          <h6><i class="fa fa-line-chart" aria-hidden="true"></i> Total acumulado</h6>
+          <span>Todos los años · este subproyecto<ng-container *ngIf="tieneProyectoMA"> y su aporte al proyecto completo
+            <ng-container *ngIf="!cargandoTotalProyectoMA">({{subproyectosProyectoMA}} {{subproyectosProyectoMA === 1 ? 'subproyecto' : 'subproyectos'}})</ng-container></ng-container></span>
+        </div>
+        <button type="button" class="sso-boton" *ngIf="errorTotalProyectoMA" (click)="cargarTotalProyectoMA()">
+          <i class="fa fa-refresh" aria-hidden="true"></i> Reintentar total del proyecto
+        </button>
       </div>
-      <div class="sso-tabla-scroll">
-        <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado sso-tabla-ma-acumulado">
-          <thead>
-            <tr>
-              <th class="sso-ma-indicador">Total</th>
-              <th *ngFor="let indicador of indicadoresMA; trackBy: trackIndicadorMA">
-                {{indicador.etiqueta}} <small *ngIf="indicador.unidad">{{indicador.unidad}}</small>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row" class="sso-ma-indicador">Este subproyecto</th>
-              <td *ngFor="let total of totalesMASubproyectoHistorico">{{total}}</td>
-            </tr>
-          </tbody>
-          <tfoot *ngIf="tieneProyectoMA">
-            <tr>
-              <th scope="row">
-                Proyecto completo
-                <small *ngIf="!cargandoTotalProyectoMA">{{subproyectosProyectoMA}} {{subproyectosProyectoMA === 1 ? 'subproyecto' : 'subproyectos'}}</small>
-              </th>
-              <ng-container *ngIf="!cargandoTotalProyectoMA">
-                <td *ngFor="let total of totalesMAProyecto">{{total}}</td>
-              </ng-container>
-              <ng-container *ngIf="cargandoTotalProyectoMA">
-                <td *ngFor="let indicador of indicadoresMA"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i></td>
-              </ng-container>
-            </tr>
-          </tfoot>
-        </table>
+
+      <div class="sso-acum-grid">
+        <div class="sso-acum-card" *ngFor="let indicador of indicadoresMA; let i = index; trackBy: trackIndicadorMA"
+             [class.sin-datos]="totalesMASubproyectoHistorico[i] === '-'">
+          <div class="sso-acum-top">
+            <span class="sso-ma-ind-icono" [style.color]="indicador.color" [style.background-color]="indicador.fondo">
+              <i class="fa" [ngClass]="indicador.icono" aria-hidden="true"></i>
+            </span>
+            <span class="sso-acum-nombre" [title]="indicador.etiqueta">{{indicador.etiqueta}}</span>
+          </div>
+
+          <div class="sso-acum-valor">
+            <strong>{{totalesMASubproyectoHistorico[i]}}</strong>
+            <small *ngIf="indicador.unidad && totalesMASubproyectoHistorico[i] !== '-'">{{indicador.unidad}}</small>
+          </div>
+          <span class="sso-acum-etiqueta">Este subproyecto</span>
+
+          <div class="sso-acum-proyecto" *ngIf="tieneProyectoMA">
+            <div class="sso-acum-barra">
+              <i [style.width.%]="porcentajesMASubproyecto[i] || 0" [style.background-color]="indicador.color"></i>
+            </div>
+            <span *ngIf="!cargandoTotalProyectoMA">
+              Proyecto: <b>{{totalesMAProyecto[i]}}</b><ng-container *ngIf="indicador.unidad && totalesMAProyecto[i] !== '-'"> {{indicador.unidad}}</ng-container>
+              <ng-container *ngIf="porcentajesMASubproyecto[i] !== null"> · {{porcentajesMASubproyecto[i]}}%</ng-container>
+            </span>
+            <span *ngIf="cargandoTotalProyectoMA"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Calculando proyecto...</span>
+          </div>
+        </div>
       </div>
     </section>
 
