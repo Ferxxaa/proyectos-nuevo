@@ -190,21 +190,32 @@
 
 .sso-formulario-campos {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px 12px;
-  padding: 12px;
+  padding: 8px 12px 12px;
 }
 
-.sso-campo-ancho {
-  grid-column: span 2;
+.sso-form-seccion {
+  margin: 0 12px;
+  padding: 10px 0 4px;
+  border-bottom: 1px solid #e3e6ea;
+  color: #075f91;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
 }
 
-.sso-campo:nth-child(6) {
-  grid-column: 1 / span 2;
-}
+.sso-campo-doble { grid-column: span 2; }
+.sso-campo-triple { grid-column: span 3; }
+.sso-campo-mitad { grid-column: span 3; }
+.sso-campo-completo { grid-column: 1 / -1; }
 
-.sso-campo:nth-child(7) {
-  grid-column: 3 / span 3;
+.sso-ayuda {
+  display: block;
+  margin-top: 4px;
+  color: #6c757d;
+  font-size: 11.5px;
 }
 
 .sso-campo label {
@@ -706,7 +717,259 @@
 }
 
 .sso-tabla.sso-tabla-accidentes {
-  min-width: 900px;
+  min-width: 1240px;
+}
+
+.sso-tabla-accidentes .sso-trabajador {
+  min-width: 130px;
+  max-width: 190px;
+}
+
+.sso-trabajador div {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sso-trabajador small {
+  display: block;
+  overflow: hidden;
+  color: #7b858e;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Declaración / Informe preliminar / Informe definitivo */
+.sso-inf {
+  display: inline-block;
+  margin-right: 3px;
+  padding: 1px 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.sso-inf.inf-si { border-color: #c3e6cb; background: #d4edda; color: #155724; }
+.sso-inf.inf-no { border-color: #f4b6b8; background: #fdeced; color: #a8242a; }
+.sso-inf.inf-proceso { border-color: #ffeeba; background: #fff3cd; color: #856404; }
+.sso-inf.inf-na { border-color: #dde3e8; background: #f4f6f8; color: #8a939b; }
+
+.sso-contador-adjuntos {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #e3f0ff;
+  color: #0b5cad;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Candado (igual que Control de Hallazgos) */
+.sso-tabla-accidentes tr.fila-bloqueada td {
+  background: #f6f6f9;
+}
+
+.sso-tabla-accidentes tr.fila-bloqueada td:first-child {
+  box-shadow: inset 4px 0 0 #6c5ce7;
+}
+
+.sso-candado-fila {
+  margin-left: 4px;
+  color: #6c5ce7;
+  font-size: 11px;
+}
+
+.sso-boton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sso-boton-candado {
+  color: #6c757d;
+}
+
+.sso-boton-candado:hover {
+  border-color: #6c5ce7;
+  background: #efedff;
+  color: #4b3fc4;
+}
+
+.sso-boton-candado.activo {
+  border-color: #6c5ce7;
+  background: #6c5ce7;
+  color: #fff;
+}
+
+.sso-boton-candado.activo:hover {
+  background: #5546d6;
+  color: #fff;
+}
+
+.sso-aviso-bloqueo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 12px 0;
+  padding: 7px 10px;
+  border: 1px solid #d5d0fb;
+  border-radius: 6px;
+  background: #f4f2ff;
+  color: #3d3290;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sso-aviso-bloqueo span {
+  flex: 1;
+}
+
+.sso-aviso-bloqueo button {
+  padding: 2px 10px;
+  border: 1px solid #6c5ce7;
+  border-radius: 12px;
+  background: #fff;
+  color: #4b3fc4;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sso-aviso-bloqueo button:hover {
+  background: #6c5ce7;
+  color: #fff;
+}
+
+/* Detalle del registro */
+.sso-detalle-datos {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  padding: 10px 12px 4px;
+  background: #f0f8fc;
+}
+
+.sso-detalle-datos dt {
+  color: #4a525a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sso-detalle-datos dd {
+  margin: 0;
+  color: #2f363d;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.sso-detalle-adjuntos {
+  padding: 0 12px 14px;
+  background: #f0f8fc;
+}
+
+.sso-detalle-adjuntos > strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #24404f;
+  font-size: 12px;
+}
+
+/* Adjuntos (formulario y detalle) */
+.sso-adjuntos {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sso-adjunto {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 260px;
+  padding: 3px 6px 3px 9px;
+  border: 1px solid #cfe3f8;
+  border-radius: 14px;
+  background: #fff;
+  font-size: 11.5px;
+}
+
+.sso-adjunto .fa {
+  color: #075f91;
+}
+
+.sso-adjunto a,
+.sso-adjunto span {
+  overflow: hidden;
+  color: #025f96;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sso-adjunto-nuevo {
+  border-style: dashed;
+  background: #f5faff;
+}
+
+.sso-adjunto-nuevo span {
+  color: #4a525a;
+}
+
+.sso-adjunto button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f3f5;
+  color: #97a1ac;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.sso-adjunto button:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
+.sso-boton-archivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  margin: 0;
+  color: #075f91;
+}
+
+.sso-boton-archivo input {
+  display: none;
+}
+
+.sso-sin-adjuntos,
+.sso-subiendo {
+  color: #6c757d;
+  font-size: 12px;
+}
+
+.sso-boton-claro {
+  height: 26px;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.sso-boton-claro:hover {
+  border-color: #fff;
+  background: #fff;
+  color: #24404f;
 }
 
 .sso-tabla-accidentes .sso-descripcion-corta {
@@ -892,6 +1155,113 @@
 
 .sso-acciones .sso-boton + .sso-boton {
   margin-left: 4px;
+}
+
+/* Guía de grados (solo en Incidentes): misma grilla que los recuadros de resumen */
+.sso-guia-grados {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sso-guia {
+  --guia-color: #00a84a;
+  --guia-suave: #f2fbf5;
+  --guia-texto: #0b6b32;
+  position: relative;
+  overflow: hidden;
+  padding: 10px 14px 10px 17px;
+  border: 1px solid #dde3e8;
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--guia-suave) 0%, #fff 70%);
+  cursor: help;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+/* Franja de color a la izquierda */
+.sso-guia::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--guia-color);
+}
+
+.sso-guia:hover {
+  box-shadow: 0 4px 14px rgba(36, 64, 79, 0.1);
+  transform: translateY(-1px);
+}
+
+.sso-guia.guia-intermedio {
+  --guia-color: #f2c200;
+  --guia-suave: #fffbea;
+  --guia-texto: #8a6d00;
+}
+
+.sso-guia.guia-grave {
+  --guia-color: #e5484d;
+  --guia-suave: #fff3f3;
+  --guia-texto: #b3262b;
+}
+
+.sso-guia-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.sso-guia-icono {
+  color: var(--guia-color);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.sso-guia-titulo {
+  color: var(--guia-texto);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.sso-guia-ejemplo {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e3e6ea;
+  color: #7b858e;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sso-guia-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #3d454c;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.sso-guia-fila + .sso-guia-fila {
+  margin-top: 5px;
+}
+
+.sso-guia-fila .sso-grado {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 20px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 /* Referencia */
@@ -1416,15 +1786,18 @@
   .sso-grilla { grid-template-columns: minmax(0, 1fr); }
   .sso-tipos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .sso-formulario-campos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .sso-campo:nth-child(6), .sso-campo:nth-child(7) { grid-column: 1 / -1; }
+  .sso-campo-doble, .sso-campo-triple, .sso-campo-mitad { grid-column: 1 / -1; }
+  .sso-detalle-datos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 767px) {
   .sso { margin: 0 0 20px; }
   .sso-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sso-guia-grados { grid-template-columns: minmax(0, 1fr); }
   .sso-ma-encabezado { padding: 0 10px 8px; }
   .sso-ma-controles { flex-wrap: wrap; }
   .sso-detalle { grid-template-columns: minmax(0, 1fr); }
+  .sso-detalle-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sso-hist-lectura { grid-template-columns: minmax(0, 1fr); }
   .sso-hist-ancho { grid-column: auto; }
   .sso-dias-sin { padding: 14px 16px; gap: 12px; }

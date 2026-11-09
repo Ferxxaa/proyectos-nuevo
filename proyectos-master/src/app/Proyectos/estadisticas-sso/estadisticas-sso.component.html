@@ -49,13 +49,43 @@
     <ng-container *ngIf="vistaSubproyecto !== 'ma'">
     <form id="sso-formulario" class="sso-panel sso-formulario" *ngIf="formularioAbierto" (ngSubmit)="guardar()">
       <h6>{{editandoId ? 'Editar' : 'Registrar'}} {{palabraRegistro}}</h6>
+
+      <div class="sso-form-seccion">Trabajador y lugar</div>
+      <div class="sso-formulario-campos">
+        <div class="sso-campo sso-campo-doble">
+          <label for="sso-nombre">Nombre</label>
+          <input id="sso-nombre" type="text" name="nombre" [(ngModel)]="formulario.nombre" placeholder="Nombre del trabajador">
+        </div>
+        <div class="sso-campo">
+          <label for="sso-rut">RUT</label>
+          <input id="sso-rut" type="text" name="rut" [(ngModel)]="formulario.rut" (blur)="formatearRutFormulario()" placeholder="12.345.678-9">
+        </div>
+        <div class="sso-campo">
+          <label for="sso-empresa">Empresa</label>
+          <input id="sso-empresa" type="text" name="empresa" [(ngModel)]="formulario.empresa">
+        </div>
+        <div class="sso-campo sso-campo-doble">
+          <label for="sso-obra">Obra en ejecución</label>
+          <input id="sso-obra" type="text" name="obra" [(ngModel)]="formulario.obra">
+        </div>
+        <div class="sso-campo sso-campo-doble">
+          <label for="sso-lugar">Lugar exacto</label>
+          <input id="sso-lugar" type="text" name="lugar" [(ngModel)]="formulario.lugar" placeholder="Ej: Bodega de máquinas">
+        </div>
+        <div class="sso-campo">
+          <label for="sso-comuna">Comuna</label>
+          <input id="sso-comuna" type="text" name="comuna" [(ngModel)]="formulario.comuna">
+        </div>
+      </div>
+
+      <div class="sso-form-seccion">Evento</div>
       <div class="sso-formulario-campos">
         <div class="sso-campo">
-          <label for="sso-fecha">Fecha</label>
+          <label for="sso-fecha">Fecha del evento</label>
           <input id="sso-fecha" type="date" name="fecha" [max]="hoy" [(ngModel)]="formulario.fecha">
         </div>
         <div class="sso-campo">
-          <label for="sso-tipo">Tipo</label>
+          <label for="sso-tipo">Tipo de {{palabraRegistro}}</label>
           <select id="sso-tipo" name="tipo" [(ngModel)]="formulario.tipo">
             <option value="">Seleccionar</option>
             <option *ngFor="let tipo of tiposFormulario" [value]="tipo.nombre">{{tipo.nombre}}</option>
@@ -73,27 +103,114 @@
           <input id="sso-dias" type="number" min="0" step="1" name="diasPerdidos" [(ngModel)]="formulario.diasPerdidos">
         </div>
         <div class="sso-campo">
+          <label for="sso-alta">Fecha de alta médica</label>
+          <input id="sso-alta" type="date" name="fechaAltaMedica" [min]="formulario.fecha" [(ngModel)]="formulario.fechaAltaMedica">
+        </div>
+        <div class="sso-campo">
           <label for="sso-estado">Estado</label>
           <select id="sso-estado" name="estado" [(ngModel)]="formulario.estado">
             <option value="Abierto">Abierto</option>
             <option value="Cerrado">Cerrado</option>
           </select>
         </div>
-        <div class="sso-campo sso-campo-ancho">
+      </div>
+
+      <div class="sso-form-seccion">Documentación</div>
+      <div class="sso-formulario-campos">
+        <div class="sso-campo">
+          <label for="sso-declaracion">Declaración incidente</label>
+          <select id="sso-declaracion" name="declaracionIncidente" [(ngModel)]="formulario.declaracionIncidente">
+            <option value="">Seleccionar</option>
+            <option *ngFor="let opcion of opcionesDeclaracion" [value]="opcion">{{opcion}}</option>
+          </select>
+        </div>
+        <div class="sso-campo">
+          <label for="sso-preliminar">Informe preliminar</label>
+          <select id="sso-preliminar" name="informePreliminar" [(ngModel)]="formulario.informePreliminar">
+            <option value="">Seleccionar</option>
+            <option *ngFor="let opcion of opcionesInforme" [value]="opcion">{{opcion}}</option>
+          </select>
+        </div>
+        <div class="sso-campo">
+          <label for="sso-definitivo">Informe definitivo</label>
+          <select id="sso-definitivo" name="informeDefinitivo" [(ngModel)]="formulario.informeDefinitivo">
+            <option value="">Seleccionar</option>
+            <option *ngFor="let opcion of opcionesInforme" [value]="opcion">{{opcion}}</option>
+          </select>
+        </div>
+        <div class="sso-campo sso-campo-triple">
+          <label for="sso-resolucion">Resolución Mutual</label>
+          <input id="sso-resolucion" type="text" name="resolucionMutual" list="sso-resoluciones" [(ngModel)]="formulario.resolucionMutual" placeholder="Ej: Trabajo">
+          <datalist id="sso-resoluciones">
+            <option *ngFor="let opcion of resolucionesMutual" [value]="opcion"></option>
+          </datalist>
+        </div>
+        <div class="sso-campo sso-campo-mitad">
           <label for="sso-descripcion">Descripción</label>
           <textarea id="sso-descripcion" rows="3" name="descripcion" [(ngModel)]="formulario.descripcion"></textarea>
         </div>
-        <div class="sso-campo sso-campo-ancho">
+        <div class="sso-campo sso-campo-mitad">
           <label for="sso-medidas">Medidas de control</label>
           <textarea id="sso-medidas" rows="3" name="medidasControl" [(ngModel)]="formulario.medidasControl"></textarea>
         </div>
+        <div class="sso-campo sso-campo-completo">
+          <label>Documentos adjuntos</label>
+          <div class="sso-adjuntos">
+            <span class="sso-adjunto" *ngFor="let adjunto of formulario.adjuntos">
+              <i class="fa" [ngClass]="getIconoArchivo(adjunto.nombre)" aria-hidden="true"></i>
+              <a [href]="adjunto.url" target="_blank" rel="noopener" [title]="adjunto.nombre">{{adjunto.nombre}}</a>
+            </span>
+            <span class="sso-adjunto sso-adjunto-nuevo" *ngFor="let archivo of archivosFormulario; let indice = index">
+              <i class="fa" [ngClass]="getIconoArchivo(archivo.name)" aria-hidden="true"></i>
+              <span [title]="archivo.name">{{archivo.name}}</span>
+              <button type="button" (click)="quitarArchivoFormulario(indice)" [attr.aria-label]="'Quitar ' + archivo.name"><i class="fa fa-times" aria-hidden="true"></i></button>
+            </span>
+            <label class="sso-boton sso-boton-archivo">
+              <i class="fa fa-paperclip" aria-hidden="true"></i> Adjuntar documentos
+              <input type="file" multiple (change)="seleccionarArchivosFormulario($event.target)">
+            </label>
+          </div>
+          <small class="sso-ayuda" *ngIf="archivosFormulario.length">Los archivos nuevos se suben al guardar.</small>
+        </div>
       </div>
+
       <div class="sso-formulario-pie">
         <span class="sso-error" role="alert">{{errorFormulario}}</span>
         <button type="button" class="sso-boton" (click)="cerrarFormulario()">Cancelar</button>
         <button type="submit" class="sso-boton-principal" [disabled]="guardando">{{guardando ? 'Guardando...' : 'Guardar'}}</button>
       </div>
     </form>
+
+    <div class="sso-guia-grados" *ngIf="enIncidentes" aria-label="Clasificación de grados">
+      <div class="sso-guia guia-menor" title="Se consideran todos los incidentes menores. Ej.: golpes, tirones, entre otros (enviados a Mutual).">
+        <div class="sso-guia-cabecera">
+          <span class="sso-guia-icono"><i class="fa fa-check-circle" aria-hidden="true"></i></span>
+          <span class="sso-guia-titulo">Grado menor</span>
+          <span class="sso-guia-ejemplo">Golpes, tirones</span>
+        </div>
+        <div class="sso-guia-fila"><span class="sso-grado grado-1">1</span><span>Sin días perdidos y accidentes de trayecto</span></div>
+        <div class="sso-guia-fila"><span class="sso-grado grado-2">2</span><span>Con días perdidos</span></div>
+      </div>
+      <div class="sso-guia guia-intermedio" title="Se consideran todos los incidentes intermedios. Ej.: cortes con herramientas manuales y eléctricas, golpes de corriente, esguinces, caídas, fracturas, quemaduras de 1er grado, entre otros, con días perdidos.">
+        <div class="sso-guia-cabecera">
+          <span class="sso-guia-icono"><i class="fa fa-exclamation-circle" aria-hidden="true"></i></span>
+          <span class="sso-guia-titulo">Grado intermedio</span>
+          <span class="sso-guia-ejemplo">Con días perdidos</span>
+        </div>
+        <div class="sso-guia-fila"><span class="sso-grado grado-3">3</span><span>Cortes, golpes de corriente, esguinces</span></div>
+        <div class="sso-guia-fila"><span class="sso-grado grado-4">4</span><span>Caídas, fracturas, quemaduras de 1er grado</span></div>
+      </div>
+      <div class="sso-guia guia-grave" title="Grado 5: incidentes de carácter grave (amputaciones, cortes y fracturas expuestas, quemaduras de 1er y 2do grado). Grado 6: incidentes de carácter fatal (atropellos, caídas al vacío, que terminen en invalidez o muerte).">
+        <div class="sso-guia-cabecera">
+          <span class="sso-guia-icono"><i class="fa fa-times-circle" aria-hidden="true"></i></span>
+          <span class="sso-guia-titulo">Grave</span>
+          <span class="sso-guia-ejemplo">Grave y fatal</span>
+        </div>
+        <div class="sso-guia-fila"><span class="sso-grado grado-5">5</span><span>Amputaciones, fracturas expuestas, quemaduras 2do grado</span></div>
+        <div class="sso-guia-fila"><span class="sso-grado grado-6">6</span><span>Fatal: atropellos, caídas al vacío, invalidez o muerte</span></div>
+      </div>
+    </div>
+
 
     <div class="sso-mensaje" *ngIf="!totalVista">Aún no hay {{palabraRegistro}}s registrados en este subproyecto.</div>
 
@@ -123,43 +240,101 @@
 
         <div class="sso-mensaje" *ngIf="!accidentesFiltrados.length">Ningún {{palabraRegistro}} coincide con estos filtros.</div>
 
+        <div class="sso-aviso sso-aviso-panel" *ngIf="errorAdjuntos" role="alert">{{errorAdjuntos}}</div>
+
         <div class="sso-tabla-scroll" *ngIf="accidentesFiltrados.length">
           <table class="sso-tabla sso-tabla-accidentes">
             <thead>
               <tr>
                 <th>Fecha</th>
+                <th>Trabajador</th>
                 <th>Tipo</th>
                 <th>Grado</th>
-                <th class="sso-centro">Días perdidos</th>
+                <th class="sso-centro">Días perd.</th>
+                <th>Obra / Lugar</th>
                 <th>Descripción</th>
+                <th>Informes</th>
                 <th>Estado</th>
+                <th class="sso-centro" title="Documentos adjuntos"><i class="fa fa-paperclip" aria-hidden="true"></i></th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               <ng-container *ngFor="let item of accidentesPagina; trackBy: trackAccidente">
-                <tr [class.detalle-abierto]="detalleAbiertoId === item.id">
-                  <td class="sso-nowrap">{{getFechaTexto(item.fecha)}}</td>
+                <tr [class.detalle-abierto]="detalleAbiertoId === item.id" [class.fila-bloqueada]="item.bloqueado">
+                  <td class="sso-nowrap">
+                    {{getFechaTexto(item.fecha)}}
+                    <i class="fa fa-lock sso-candado-fila" *ngIf="item.bloqueado" [title]="getTituloBloqueo(item)" aria-label="Bloqueado"></i>
+                  </td>
+                  <td class="sso-trabajador">
+                    <div [title]="item.nombre || ''">{{item.nombre || '-'}}</div>
+                    <small *ngIf="item.rut">{{item.rut}}</small>
+                  </td>
                   <td class="sso-nowrap"><span class="sso-chip" [ngClass]="getClaseTipo(item.tipo)">{{item.tipo}}</span></td>
                   <td class="sso-nowrap">
                     <span class="sso-grado" [ngClass]="'grado-' + item.grado">{{item.grado}}</span>
                     <small>{{getClasificacion(item.grado)}}</small>
                   </td>
                   <td class="sso-centro">{{item.diasPerdidos}}</td>
+                  <td class="sso-trabajador">
+                    <div [title]="item.obra || ''">{{item.obra || '-'}}</div>
+                    <small *ngIf="item.lugar || item.comuna">{{item.lugar}}{{item.lugar && item.comuna ? ', ' : ''}}{{item.comuna}}</small>
+                  </td>
                   <td class="sso-descripcion-corta"><div [title]="item.descripcion">{{item.descripcion}}</div></td>
+                  <td class="sso-nowrap">
+                    <span class="sso-inf" [ngClass]="getClaseInforme(item.declaracionIncidente)" [title]="'Declaración incidente: ' + (item.declaracionIncidente || '-')">Decl.</span>
+                    <span class="sso-inf" [ngClass]="getClaseInforme(item.informePreliminar)" [title]="'Informe preliminar: ' + (item.informePreliminar || '-')">Prel.</span>
+                    <span class="sso-inf" [ngClass]="getClaseInforme(item.informeDefinitivo)" [title]="'Informe definitivo: ' + (item.informeDefinitivo || '-')">Def.</span>
+                  </td>
                   <td class="sso-nowrap"><span class="sso-estado" [class.cerrado]="item.estado === 'Cerrado'">{{item.estado}}</span></td>
+                  <td class="sso-centro">
+                    <span class="sso-contador-adjuntos" *ngIf="item.adjuntos?.length" [title]="item.adjuntos.length + ' documento(s)'">{{item.adjuntos.length}}</span>
+                  </td>
                   <td class="sso-acciones">
                     <button type="button" class="sso-boton" (click)="alternarDetalle(item)" [attr.aria-expanded]="detalleAbiertoId === item.id">
                       {{detalleAbiertoId === item.id ? 'Ocultar' : 'Ver'}}
                     </button>
-                    <button type="button" class="sso-boton" *ngIf="!soloLectura" (click)="editar(item)">Editar</button>
-                    <button type="button" class="sso-boton sso-boton-peligro" *ngIf="!soloLectura" (click)="eliminar(item)" [attr.aria-label]="'Eliminar ' + palabraRegistro + ' del ' + getFechaTexto(item.fecha)">
+                    <button type="button" class="sso-boton" *ngIf="!soloLectura" (click)="editar(item)"
+                            [disabled]="item.bloqueado && !esSubGerente"
+                            [title]="item.bloqueado && !esSubGerente ? 'Registro bloqueado' : 'Editar'">Editar</button>
+                    <button type="button" class="sso-boton sso-boton-peligro" *ngIf="!soloLectura" (click)="eliminar(item)"
+                            [disabled]="item.bloqueado && !esSubGerente"
+                            [attr.aria-label]="'Eliminar ' + palabraRegistro + ' del ' + getFechaTexto(item.fecha)">
                       <i class="fa fa-trash" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="sso-boton sso-boton-candado" *ngIf="!soloLectura && esSubGerente"
+                            [class.activo]="item.bloqueado" (click)="toggleBloqueoRegistro(item)"
+                            [title]="getTituloBloqueo(item)" [attr.aria-label]="getTituloBloqueo(item)">
+                      <i class="fa" [ngClass]="item.bloqueado ? 'fa-lock' : 'fa-unlock'" aria-hidden="true"></i>
                     </button>
                   </td>
                 </tr>
                 <tr class="sso-fila-detalle" *ngIf="detalleAbiertoId === item.id">
-                  <td colspan="7">
+                  <td colspan="11">
+                    <div class="sso-aviso-bloqueo" *ngIf="item.bloqueado">
+                      <i class="fa fa-lock" aria-hidden="true"></i>
+                      <span *ngIf="estaBloqueadoParaMi(item)">
+                        Registro bloqueado{{item.bloqueadoPorNombre ? ' por ' + item.bloqueadoPorNombre : ''}}. Solo lectura.
+                      </span>
+                      <span *ngIf="!estaBloqueadoParaMi(item)">Desbloqueado temporalmente con la clave.</span>
+                      <button type="button" *ngIf="esSubGerente && estaBloqueadoParaMi(item)" (click)="pedirAccesoRegistroBloqueado(item)">
+                        <i class="fa fa-key" aria-hidden="true"></i> Desbloquear con clave
+                      </button>
+                    </div>
+                    <dl class="sso-detalle-datos">
+                      <div><dt>Nombre</dt><dd>{{item.nombre || '-'}}</dd></div>
+                      <div><dt>RUT</dt><dd>{{item.rut || '-'}}</dd></div>
+                      <div><dt>Empresa</dt><dd>{{item.empresa || '-'}}</dd></div>
+                      <div><dt>Obra en ejecución</dt><dd>{{item.obra || '-'}}</dd></div>
+                      <div><dt>Lugar exacto</dt><dd>{{item.lugar || '-'}}</dd></div>
+                      <div><dt>Comuna</dt><dd>{{item.comuna || '-'}}</dd></div>
+                      <div><dt>Declaración incidente</dt><dd>{{item.declaracionIncidente || '-'}}</dd></div>
+                      <div><dt>Informe preliminar</dt><dd>{{item.informePreliminar || '-'}}</dd></div>
+                      <div><dt>Informe definitivo</dt><dd>{{item.informeDefinitivo || '-'}}</dd></div>
+                      <div><dt>Fecha de alta médica</dt><dd>{{item.fechaAltaMedica ? getFechaTexto(item.fechaAltaMedica) : '-'}}</dd></div>
+                      <div><dt>Resolución Mutual</dt><dd>{{item.resolucionMutual || '-'}}</dd></div>
+                      <div><dt>Días perdidos</dt><dd>{{item.diasPerdidos}}</dd></div>
+                    </dl>
                     <div class="sso-detalle">
                       <div>
                         <strong>Descripción</strong>
@@ -168,6 +343,26 @@
                       <div>
                         <strong>Medidas de control</strong>
                         <p>{{item.medidasControl || 'Sin medidas registradas'}}</p>
+                      </div>
+                    </div>
+                    <div class="sso-detalle-adjuntos">
+                      <strong>Documentos adjuntos</strong>
+                      <div class="sso-adjuntos">
+                        <span class="sso-adjunto" *ngFor="let adjunto of item.adjuntos">
+                          <i class="fa" [ngClass]="getIconoArchivo(adjunto.nombre)" aria-hidden="true"></i>
+                          <a [href]="adjunto.url" target="_blank" rel="noopener" [title]="adjunto.nombre + ' · ' + formatearTamano(adjunto.tamano)">{{adjunto.nombre}}</a>
+                          <button type="button" *ngIf="puedeModificar(item)" (click)="eliminarAdjunto(item, adjunto)" [attr.aria-label]="'Eliminar ' + adjunto.nombre">
+                            <i class="fa fa-times" aria-hidden="true"></i>
+                          </button>
+                        </span>
+                        <span class="sso-sin-adjuntos" *ngIf="!item.adjuntos?.length && subiendoAdjuntosId !== item.id">Sin documentos.</span>
+                        <span class="sso-subiendo" *ngIf="subiendoAdjuntosId === item.id">
+                          <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Subiendo {{progresoAdjuntos}}%
+                        </span>
+                        <label class="sso-boton sso-boton-archivo" *ngIf="puedeModificar(item) && subiendoAdjuntosId !== item.id">
+                          <i class="fa fa-paperclip" aria-hidden="true"></i> Adjuntar
+                          <input type="file" multiple (change)="adjuntarEnRegistro(item, $event.target)">
+                        </label>
                       </div>
                     </div>
                   </td>
@@ -186,6 +381,7 @@
           </div>
         </div>
       </section>
+
     </ng-container>
     </ng-container>
 

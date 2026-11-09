@@ -2,6 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firestoreDB } from '../../firebase-init';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
+import { sPerfil } from '../../services/sPerfil.service';
 import { ACCIDENTES_HISTORICOS, AccidenteHistorico } from './accidentes-historicos';
 import * as firebase from 'firebase/app';
 import 'firebase/storage';
@@ -16,11 +17,24 @@ const COLECCION = 'accidentesSSO';
 const COLECCION_MA = 'estadisticasMA';
 const COLECCION_CERTIFICADOS_MA = 'certificadosMA';
 const MAX_MB_CERTIFICADO = 50;
+const MAX_MB_ADJUNTO = 50;
+/** Misma clave del candado de Control de Hallazgos (hash + salt en hallazgosConfig). */
+const DOC_CLAVE_GERENCIA = '_claveGerencia';
 const PRIMER_ANIO_SISTEMA = 2026; // Hasta 2025 manda el registro histórico
 
 const MEDIDAS_MENOR = 'Charlas de 5 minutos, uso de EPP, señalización. Reinducción, cumplimiento programa prevención de riesgos, control de los riesgos.';
 const MEDIDAS_INTERMEDIO = 'Charlas de 5 minutos, reinducción, aplicación de procedimientos de trabajo seguro, uso de EPP, inspección de equipos y herramientas, capacitación con el autocuidado, capacitación a línea de mando sobre riesgos asociados, revisar protocolos y procedimientos de ejecución.';
 const MEDIDAS_GRAVE = 'Charlas de 5 minutos, evaluación del riesgo antes de iniciar la faena, aplicación de procedimientos de trabajo seguro, supervisión directa, uso de EPP, aplicación de protocolos de seguridad, inspección de equipos y herramientas, capacitación del personal, revisión matriz de riesgos.';
+
+export interface AdjuntoSSO {
+  nombre: string;
+  ruta: string;
+  url: string;
+  tamano: number;
+  tipo: string;
+  idUsuario: any;
+  fechaSubida: string;
+}
 
 export interface AccidenteSSO {
   id?: string;
@@ -31,6 +45,24 @@ export interface AccidenteSSO {
   descripcion: string;
   medidasControl: string;
   estado: string;
+  // Datos del cuadro Excel de accidentes
+  nombre?: string;
+  rut?: string;
+  lugar?: string;
+  comuna?: string;
+  obra?: string;
+  empresa?: string;
+  declaracionIncidente?: string;
+  informePreliminar?: string;
+  informeDefinitivo?: string;
+  fechaAltaMedica?: string;
+  resolucionMutual?: string;
+  adjuntos?: AdjuntoSSO[];
+  // Candado (igual que Control de Hallazgos)
+  bloqueado?: boolean;
+  bloqueadoPor?: number;
+  bloqueadoPorNombre?: string;
+  fechaBloqueo?: string;
 }
 
 interface IndicadorMA {
@@ -85,7 +117,8 @@ export interface CertificadoMA {
 @Component({
   selector: 'app-estadisticas-sso',
   templateUrl: './estadisticas-sso.component.html',
-  styleUrls: ['./estadisticas-sso.component.css']
+  styleUrls: ['./estadisticas-sso.component.css'],
+  providers: [sPerfil]
 })
 export class EstadisticasSsoComponent implements OnInit {
 
@@ -114,6 +147,10 @@ export class EstadisticasSsoComponent implements OnInit {
     { numero: 5, clasificacion: 'Grave', medidas: MEDIDAS_GRAVE },
     { numero: 6, clasificacion: 'Grave', medidas: MEDIDAS_GRAVE }
   ];
+
+  readonly opcionesDeclaracion: string[] = ['Sí', 'No'];
+  readonly opcionesInforme: string[] = ['Sí', 'No', 'En ejecución', 'N/A'];
+  readonly resolucionesMutual: string[] = ['Trabajo', 'Trayecto', 'Enfermedad Común', 'Enfermedad Profesional', 'N/A'];
 
   readonly hoy: string = this.getFechaHoy();
 
@@ -176,6 +213,21 @@ export class EstadisticasSsoComponent implements OnInit {
   accidentesPagina: AccidenteSSO[] = [];
   resumenAccidentes: any = { total: 0, abiertos: 0, diasPerdidos: 0, graves: 0 };
   detalleAbiertoId: string | null = null;
+  estadisticasSubproyecto: any = this.calcularEstadisticas([], []);
+  verReferenciaGrados: boolean = false;
+
+  // Adjuntos de cada registro (Storage: accidentesSSO/<subproyecto>/<registro>/)
+  archivosFormulario: File[] = [];
+  subiendoAdjuntosId: string | null = null;
+  progresoAdjuntos: number = 0;
+  errorAdjuntos: string = '';
+
+  // Candado: solo el perfil SUB-GERENTE lo ve y lo usa
+  esSubGerente: boolean = false;
+  accesoTemporalBloqueo: { [id: string]: boolean } = {};
+  private idsPerfilesUsuario: number[] = [];
+  private idsPerfilesSubGerente: number[] = [];
+  private usuario: any = null;
 
   accidentes: AccidenteSSO[] = [];
   cargando: boolean = true;
@@ -223,14 +275,17 @@ export class EstadisticasSsoComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private _sUsuariosPerfiles: sUsuariosPerfiles
+    private _sUsuariosPerfiles: sUsuariosPerfiles,
+    private _sPerfil: sPerfil
   ) {}
 
   ngOnInit() {
     this.consolidadoHistorico = this.route.snapshot.data['consolidadoSSO'] === true;
     try {
-      this.idUsuario = JSON.parse(localStorage.getItem('usuario') || '{}').idUsuario || null;
+      this.usuario = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
+      this.idUsuario = this.usuario.idUsuario || null;
     } catch (error) {
+      this.usuario = {};
       this.idUsuario = null;
     }
 
@@ -239,6 +294,7 @@ export class EstadisticasSsoComponent implements OnInit {
       return;
     }
 
+    this.cargarPerfilesCandado();
     this.cargar();
   }
 
@@ -672,6 +728,14 @@ export class EstadisticasSsoComponent implements OnInit {
       this.filtroAnio = 'todos';
     }
 
+    // Clasificación por grado de este subproyecto (pestaña activa), año por año
+    this.estadisticasSubproyecto = this.calcularEstadisticas(
+      this.registrosVista
+        .filter(item => (item.fecha || '').length >= 4)
+        .map(item => ({ anio: item.fecha.substring(0, 4), grado: Number(item.grado) })),
+      this.aniosAccidentes.slice().reverse()
+    );
+
     this.aplicarFiltrosAccidentes();
   }
 
@@ -700,7 +764,10 @@ export class EstadisticasSsoComponent implements OnInit {
       if (this.filtroAnio !== 'todos' && (item.fecha || '').substring(0, 4) !== this.filtroAnio) { return false; }
       if (this.filtroEstado !== 'todos' && item.estado !== this.filtroEstado) { return false; }
       if (!busqueda) { return true; }
-      return this.normalizarTexto([item.tipo, item.descripcion, item.medidasControl].join(' ')).indexOf(busqueda) !== -1;
+      return this.normalizarTexto([
+        item.tipo, item.descripcion, item.medidasControl, item.nombre, item.rut,
+        item.lugar, item.comuna, item.obra, item.empresa, item.resolucionMutual
+      ].join(' ')).indexOf(busqueda) !== -1;
     });
 
     this.resumenAccidentes = {
@@ -1027,12 +1094,12 @@ export class EstadisticasSsoComponent implements OnInit {
               numero: 0,
               fecha: data.fecha,
               anio: anio,
-              lugar: '',
-              comuna: '',
-              obra: data.nombreSubProyecto || '',
-              empresa: '',
+              lugar: data.lugar || '',
+              comuna: data.comuna || '',
+              obra: data.obra || data.nombreSubProyecto || '',
+              empresa: data.empresa || '',
               tipo: this.getTipoHistorico(data.tipo),
-              resolucion: '',
+              resolucion: data.resolucionMutual || '',
               grado: Number(data.grado),
               diasPerdidos: Number(data.diasPerdidos) || 0,
               descripcion: data.descripcion || '',
@@ -1180,7 +1247,11 @@ export class EstadisticasSsoComponent implements OnInit {
   }
 
   private getFormularioVacio(): AccidenteSSO {
-    return { fecha: '', tipo: '', grado: null, diasPerdidos: 0, descripcion: '', medidasControl: '', estado: 'Abierto' };
+    return {
+      fecha: '', tipo: '', grado: null, diasPerdidos: 0, descripcion: '', medidasControl: '', estado: 'Abierto',
+      nombre: '', rut: '', lugar: '', comuna: '', obra: this.nombreSubProyecto || '', empresa: 'Trazas',
+      declaracionIncidente: 'Sí', informePreliminar: '', informeDefinitivo: '', fechaAltaMedica: '', resolucionMutual: ''
+    };
   }
 
   abrirNuevo() {
@@ -1190,22 +1261,28 @@ export class EstadisticasSsoComponent implements OnInit {
     }
     this.editandoId = null;
     this.errorFormulario = '';
+    this.archivosFormulario = [];
     this.formularioAbierto = true;
     this.mostrarFormulario();
   }
 
   editar(item: AccidenteSSO) {
     if (this.soloLectura) { return; }
-    this.formulario = { ...item };
-    this.editandoId = item.id;
-    this.errorFormulario = '';
-    this.formularioAbierto = true;
-    this.mostrarFormulario();
+    this.pedirAccesoRegistroBloqueado(item).then((ok: boolean) => {
+      if (!ok) { return; }
+      this.formulario = { ...this.getFormularioVacio(), ...item, adjuntos: (item.adjuntos || []).slice() };
+      this.editandoId = item.id;
+      this.errorFormulario = '';
+      this.archivosFormulario = [];
+      this.formularioAbierto = true;
+      this.mostrarFormulario();
+    });
   }
 
   cerrarFormulario() {
     this.formularioAbierto = false;
     this.editandoId = null;
+    this.archivosFormulario = [];
   }
 
   /** Propone las medidas del grado, sin pisar lo que ya se escribió. */
@@ -1230,6 +1307,8 @@ export class EstadisticasSsoComponent implements OnInit {
     if (!datos.grado) { return 'Falta el grado.'; }
     if (!(Number(datos.diasPerdidos) >= 0)) { return 'Los días perdidos no pueden ser negativos.'; }
     if (!(datos.descripcion || '').trim()) { return 'Falta la descripción.'; }
+    if ((datos.rut || '').trim() && !this.rutValido(datos.rut)) { return 'El RUT no es válido.'; }
+    if (datos.fechaAltaMedica && datos.fechaAltaMedica < datos.fecha) { return 'El alta médica no puede ser antes del evento.'; }
     return '';
   }
 
@@ -1252,21 +1331,36 @@ export class EstadisticasSsoComponent implements OnInit {
       descripcion: datos.descripcion.trim(),
       medidasControl: (datos.medidasControl || '').trim(),
       estado: datos.estado,
+      nombre: (datos.nombre || '').trim(),
+      rut: (datos.rut || '').trim() ? this.formatearRut(datos.rut) : '',
+      lugar: (datos.lugar || '').trim(),
+      comuna: (datos.comuna || '').trim(),
+      obra: (datos.obra || '').trim(),
+      empresa: (datos.empresa || '').trim(),
+      declaracionIncidente: datos.declaracionIncidente || '',
+      informePreliminar: datos.informePreliminar || '',
+      informeDefinitivo: datos.informeDefinitivo || '',
+      fechaAltaMedica: datos.fechaAltaMedica || '',
+      resolucionMutual: (datos.resolucionMutual || '').trim(),
       idUsuarioActualizacion: this.idUsuario,
       fechaActualizacion: new Date().toISOString()
     };
 
     const coleccion = firestoreDB.collection(COLECCION);
     const idEditado = this.editandoId;
+    const archivos = this.archivosFormulario.slice();
+    // Los adjuntos y el candado se manejan aparte: al editar no se tocan
     const guardado = idEditado
       ? coleccion.doc(idEditado).update(payload).then(() => idEditado)
-      : coleccion.add(payload).then((doc: any) => doc.id);
+      : coleccion.add({ ...payload, adjuntos: [], bloqueado: false }).then((doc: any) => doc.id);
 
     this.guardando = true;
     guardado
       .then((id: string) => {
-        const registro: any = { ...payload, id: id };
+        const previo = this.accidentes.filter(item => item.id === id)[0];
+        const registro: any = { adjuntos: [], bloqueado: false, ...previo, ...payload, id: id };
         this.accidentes = this.accidentes.filter(item => item.id !== id).concat(registro);
+        if (archivos.length) { this.subirAdjuntos(registro, archivos); }
         if (!idEditado) {
           // Un registro nuevo queda visible aunque hubiera filtros puestos
           this.filtroAnio = 'todos';
@@ -1287,6 +1381,10 @@ export class EstadisticasSsoComponent implements OnInit {
 
   eliminar(item: AccidenteSSO) {
     if (this.soloLectura) { return; }
+    if (this.estaBloqueadoParaMi(item)) {
+      this.pedirAccesoRegistroBloqueado(item).then((ok: boolean) => { if (ok) { this.eliminar(item); } });
+      return;
+    }
 
     Swal.fire({
       title: '¿Eliminar este registro?',
@@ -1300,6 +1398,8 @@ export class EstadisticasSsoComponent implements OnInit {
 
       firestoreDB.collection(COLECCION).doc(item.id).delete()
         .then(() => {
+          // Los archivos se borran después, sin bloquear si alguno ya no existía
+          (item.adjuntos || []).forEach(adjunto => this.borrarArchivoStorage(adjunto.ruta).catch(() => null));
           this.accidentes = this.accidentes.filter(accidente => accidente.id !== item.id);
           if (this.editandoId === item.id) { this.cerrarFormulario(); }
           this.recalcular();
@@ -1309,6 +1409,468 @@ export class EstadisticasSsoComponent implements OnInit {
           Swal.fire('Error', 'No se pudo eliminar el registro.', 'error');
         });
     });
+  }
+
+  // ==========================================================
+  // Datos del trabajador: RUT
+  // ==========================================================
+
+  formatearRutFormulario() {
+    if ((this.formulario.rut || '').trim()) {
+      this.formulario.rut = this.formatearRut(this.formulario.rut);
+    }
+  }
+
+  /** 12345678k -> 12.345.678-K */
+  private formatearRut(rut: string): string {
+    const limpio = (rut || '').replace(/[^0-9kK]/g, '').toUpperCase();
+    if (limpio.length < 2) { return limpio; }
+    const cuerpo = limpio.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return cuerpo + '-' + limpio.slice(-1);
+  }
+
+  private rutValido(rut: string): boolean {
+    const limpio = (rut || '').replace(/[^0-9kK]/g, '').toUpperCase();
+    if (!/^\d{6,8}[0-9K]$/.test(limpio)) { return false; }
+    const cuerpo = limpio.slice(0, -1);
+    let suma = 0;
+    let multiplo = 2;
+    for (let i = cuerpo.length - 1; i >= 0; i--) {
+      suma += Number(cuerpo.charAt(i)) * multiplo;
+      multiplo = multiplo === 7 ? 2 : multiplo + 1;
+    }
+    const resto = 11 - (suma % 11);
+    const dv = resto === 11 ? '0' : resto === 10 ? 'K' : String(resto);
+    return dv === limpio.slice(-1);
+  }
+
+  /** Color de los chips de Declaración / Informe preliminar / Informe definitivo. */
+  getClaseInforme(valor: string): string {
+    const texto = this.normalizarTexto(valor);
+    if (texto === 'si') { return 'inf-si'; }
+    if (texto === 'no') { return 'inf-no'; }
+    if (texto.indexOf('ejecucion') !== -1) { return 'inf-proceso'; }
+    return 'inf-na';
+  }
+
+  // ==========================================================
+  // Adjuntos de cada registro
+  // ==========================================================
+
+  seleccionarArchivosFormulario(input: any) {
+    const archivos: File[] = Array.prototype.slice.call(input.files || []);
+    input.value = '';
+    const muyGrande = archivos.filter(archivo => archivo.size > MAX_MB_ADJUNTO * 1024 * 1024)[0];
+    if (muyGrande) {
+      this.errorFormulario = '"' + muyGrande.name + '" pesa más de ' + MAX_MB_ADJUNTO + ' MB.';
+      return;
+    }
+    this.archivosFormulario = this.archivosFormulario.concat(archivos);
+  }
+
+  quitarArchivoFormulario(indice: number) {
+    this.archivosFormulario = this.archivosFormulario.filter((archivo, i) => i !== indice);
+  }
+
+  /** Botón "Adjuntar" del detalle: sube al tiro. */
+  adjuntarEnRegistro(item: AccidenteSSO, input: any) {
+    const archivos: File[] = Array.prototype.slice.call(input.files || []);
+    input.value = '';
+    if (!archivos.length || !this.puedeModificar(item)) { return; }
+
+    const muyGrande = archivos.filter(archivo => archivo.size > MAX_MB_ADJUNTO * 1024 * 1024)[0];
+    if (muyGrande) {
+      this.errorAdjuntos = '"' + muyGrande.name + '" pesa más de ' + MAX_MB_ADJUNTO + ' MB.';
+      return;
+    }
+    this.subirAdjuntos(item, archivos);
+  }
+
+  private subirAdjuntos(item: AccidenteSSO, archivos: File[]): Promise<void> {
+    const totalBytes = archivos.reduce((suma, archivo) => suma + archivo.size, 0) || 1;
+    const transferidos: number[] = archivos.map(() => 0);
+
+    this.subiendoAdjuntosId = item.id;
+    this.progresoAdjuntos = 0;
+    this.errorAdjuntos = '';
+
+    return Promise.all(archivos.map((archivo, indice) => {
+      const ruta = COLECCION + '/' + this.idSubProyecto + '/' + item.id + '/' + Date.now() + '_' + indice + '_' + this.limpiarNombreArchivo(archivo.name);
+      return this.subirArchivoStorage(ruta, archivo, (bytes: number) => {
+        transferidos[indice] = bytes;
+        const suma = transferidos.reduce((total, valor) => total + valor, 0);
+        this.progresoAdjuntos = Math.min(100, Math.round(suma * 100 / totalBytes));
+      }).then((url: string): AdjuntoSSO => ({
+        nombre: archivo.name,
+        ruta: ruta,
+        url: url,
+        tamano: archivo.size,
+        tipo: archivo.type || 'application/octet-stream',
+        idUsuario: this.idUsuario,
+        fechaSubida: new Date().toISOString()
+      }));
+    }))
+      .then((nuevos: AdjuntoSSO[]) => {
+        const adjuntos = (item.adjuntos || []).concat(nuevos);
+        return firestoreDB.collection(COLECCION).doc(item.id).update({ adjuntos: adjuntos }).then(() => {
+          item.adjuntos = adjuntos;
+          this.subiendoAdjuntosId = null;
+        });
+      })
+      .catch((error: any) => {
+        console.error('Error al subir los adjuntos:', error);
+        this.subiendoAdjuntosId = null;
+        this.errorAdjuntos = 'No se pudieron subir todos los archivos. Inténtalo de nuevo.';
+      });
+  }
+
+  eliminarAdjunto(item: AccidenteSSO, adjunto: AdjuntoSSO) {
+    if (!this.puedeModificar(item)) { return; }
+
+    Swal.fire({
+      title: '¿Eliminar este archivo?',
+      text: 'Se borrará "' + adjunto.nombre + '". No se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((resultado: any) => {
+      if (!resultado || !(resultado.value || resultado.isConfirmed)) { return; }
+
+      const adjuntos = (item.adjuntos || []).filter(otro => otro.ruta !== adjunto.ruta);
+      this.borrarArchivoStorage(adjunto.ruta)
+        .then(() => firestoreDB.collection(COLECCION).doc(item.id).update({ adjuntos: adjuntos }))
+        .then(() => {
+          item.adjuntos = adjuntos;
+          if (this.editandoId === item.id) { this.formulario.adjuntos = adjuntos.slice(); }
+        })
+        .catch((error: any) => {
+          console.error('Error al eliminar el adjunto:', error);
+          Swal.fire('Error', 'No se pudo eliminar el archivo.', 'error');
+        });
+    });
+  }
+
+  private subirArchivoStorage(ruta: string, archivo: File, alAvanzar: (bytes: number) => void): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const tarea: any = (firebase as any).storage().ref(ruta).put(archivo, { contentType: archivo.type || 'application/octet-stream' });
+      tarea.on('state_changed',
+        (estado: any) => alAvanzar(estado.bytesTransferred),
+        (error: any) => reject(error),
+        () => {
+          const referencia = tarea.snapshot.ref;
+          const obtenerUrl = referencia && referencia.getDownloadURL
+            ? referencia.getDownloadURL()
+            : Promise.resolve(tarea.snapshot.downloadURL);
+          obtenerUrl.then(resolve, reject);
+        });
+    });
+  }
+
+  /** Si el archivo ya no estaba en Storage se toma como borrado. */
+  private borrarArchivoStorage(ruta: string): Promise<any> {
+    if (!ruta) { return Promise.resolve(); }
+    return (firebase as any).storage().ref(ruta).delete().catch((error: any) => {
+      if (!error || error.code !== 'storage/object-not-found') { throw error; }
+    });
+  }
+
+  // ==========================================================
+  // Candado (misma clave que Control de Hallazgos)
+  // ==========================================================
+
+  private cargarPerfilesCandado() {
+    const idUsuario = Number(this.idUsuario);
+    if (!idUsuario) { return; }
+
+    this._sUsuariosPerfiles.getUsuariosPerfilesbyidUsuario(idUsuario).subscribe(
+      (perfiles: any) => {
+        this.idsPerfilesUsuario = (Array.isArray(perfiles) ? perfiles : [])
+          .filter((perfil: any) => perfil.activo !== false && !perfil.fechaRemocion)
+          .map((perfil: any) => Number(perfil.idPerfil));
+        this.actualizarEsSubGerente();
+      },
+      () => {
+        this.idsPerfilesUsuario = [];
+        this.actualizarEsSubGerente();
+      }
+    );
+
+    // El perfil SUB-GERENTE se busca por nombre, igual que en Control de Hallazgos
+    this._sPerfil.getPerfil().subscribe(
+      (perfiles: any) => {
+        this.idsPerfilesSubGerente = (Array.isArray(perfiles) ? perfiles : [])
+          .filter((perfil: any) => this.esNombrePerfilSubGerente(perfil.nombrePerfil))
+          .map((perfil: any) => Number(perfil.idPerfil));
+        this.actualizarEsSubGerente();
+      },
+      () => {
+        this.idsPerfilesSubGerente = [];
+        this.actualizarEsSubGerente();
+      }
+    );
+  }
+
+  private esNombrePerfilSubGerente(nombre: string): boolean {
+    const limpio = this.normalizarTexto(nombre).toUpperCase().replace(/[^A-Z]/g, '');
+    return limpio.indexOf('SUBGERENTE') === 0;
+  }
+
+  private actualizarEsSubGerente() {
+    this.esSubGerente = this.idsPerfilesUsuario.some((id: number) => this.idsPerfilesSubGerente.indexOf(id) >= 0);
+    if (!this.esSubGerente) { this.accesoTemporalBloqueo = {}; }
+  }
+
+  /** true si está bloqueado y el usuario no lo desbloqueó con la clave en esta sesión. */
+  estaBloqueadoParaMi(item: AccidenteSSO | null): boolean {
+    if (!item || !item.bloqueado) { return false; }
+    return !(item.id && this.esSubGerente && this.accesoTemporalBloqueo[item.id]);
+  }
+
+  puedeModificar(item: AccidenteSSO): boolean {
+    return !this.soloLectura && !!item && !!item.id && !this.estaBloqueadoParaMi(item);
+  }
+
+  getTituloBloqueo(item: AccidenteSSO): string {
+    if (!item.bloqueado) { return 'Bloquear registro'; }
+    const quien = item.bloqueadoPorNombre ? ' por ' + item.bloqueadoPorNombre : '';
+    const cuando = item.fechaBloqueo ? ' el ' + this.getFechaHoraTexto(item.fechaBloqueo) : '';
+    return 'Bloqueado' + quien + cuando + '. Clic para desbloquear.';
+  }
+
+  /** Botón candado: bloquea o desbloquea definitivamente (pide la clave). */
+  toggleBloqueoRegistro(item: AccidenteSSO) {
+    if (this.soloLectura || !item || !item.id || !this.esSubGerente) { return; }
+    if (this.editandoId === item.id) {
+      Swal.fire('Registro en edición', 'Guarda o cancela la edición antes de cambiar el bloqueo.', 'info');
+      return;
+    }
+
+    const bloquear = !item.bloqueado;
+    this.obtenerConfigClave().then((config: any) => {
+      if (!config) {
+        Swal.fire('Sin clave', 'Aún no se ha definido la clave. Defínela en Control de Hallazgos con el botón "Cambiar clave".', 'info');
+        return false;
+      }
+      return this.solicitarYValidarClave(bloquear ? 'Bloquear ' + this.palabraRegistro : 'Desbloquear ' + this.palabraRegistro, config);
+    }).then((ok: boolean) => {
+      if (!ok) { return; }
+
+      const payload: any = bloquear
+        ? {
+            bloqueado: true,
+            bloqueadoPor: Number(this.idUsuario) || null,
+            bloqueadoPorNombre: this.getNombreUsuarioActual(),
+            fechaBloqueo: new Date().toISOString()
+          }
+        : { bloqueado: false, bloqueadoPor: null, bloqueadoPorNombre: '', fechaBloqueo: '' };
+
+      return firestoreDB.collection(COLECCION).doc(item.id).update(payload).then(() => {
+        Object.keys(payload).forEach(campo => (item as any)[campo] = payload[campo]);
+        delete this.accesoTemporalBloqueo[item.id];
+        Swal.fire({
+          icon: 'success',
+          title: bloquear ? 'Registro bloqueado' : 'Registro desbloqueado',
+          text: bloquear
+            ? 'Solo el sub-gerente, con la clave, podrá modificar este registro.'
+            : 'El registro vuelve a ser editable por los usuarios con permiso.',
+          timer: 1800,
+          showConfirmButton: false
+        });
+      });
+    }).catch((error: any) => {
+      Swal.fire('Error', 'No se pudo cambiar el bloqueo: ' + (error && error.message ? error.message : error), 'error');
+    });
+  }
+
+  /** Desbloqueo temporal (solo esta sesión) para que el sub-gerente trabaje en un registro bloqueado. */
+  pedirAccesoRegistroBloqueado(item: AccidenteSSO): Promise<boolean> {
+    if (!item || !item.id) { return Promise.resolve(false); }
+    if (!item.bloqueado || this.accesoTemporalBloqueo[item.id]) { return Promise.resolve(true); }
+
+    if (!this.esSubGerente) {
+      Swal.fire('Registro bloqueado', 'Este registro no se puede modificar.', 'info');
+      return Promise.resolve(false);
+    }
+
+    return this.obtenerConfigClave().then((config: any) => {
+      if (!config) {
+        Swal.fire('Sin clave', 'Aún no se ha definido la clave. Defínela en Control de Hallazgos.', 'info');
+        return false;
+      }
+      return this.solicitarYValidarClave('Registro bloqueado', config);
+    }).then((ok: boolean) => {
+      if (ok) { this.accesoTemporalBloqueo[item.id] = true; }
+      return ok;
+    }).catch((error: any) => {
+      Swal.fire('Error', 'No se pudo validar la clave: ' + (error && error.message ? error.message : error), 'error');
+      return false;
+    });
+  }
+
+  private obtenerConfigClave(): Promise<any> {
+    return firestoreDB.collection('hallazgosConfig').doc(DOC_CLAVE_GERENCIA).get().then((doc: any) => {
+      const data = doc.exists ? doc.data() : null;
+      return data && data.hash && data.salt ? data : null;
+    });
+  }
+
+  /** Pide la clave y la compara contra el hash guardado. */
+  private solicitarYValidarClave(titulo: string, config: any): Promise<boolean> {
+    const promesa = Swal.fire({
+      title: titulo,
+      html:
+        '<p style="font-size:14px;margin-bottom:0">Ingresa la clave</p>' +
+        this.htmlCampoClave('swal-clave-validar', 'Clave', 'off'),
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Confirmar',
+      cancelButtonText: 'Cancelar',
+      footer: '<span style="font-size:12px">¿Olvidaste la clave? Recupérala desde Control de Hallazgos.</span>',
+      preConfirm: () => {
+        const valor = (document.getElementById('swal-clave-validar') as HTMLInputElement).value || '';
+        if (this.sha256(config.salt + ':' + valor) !== config.hash) {
+          Swal.showValidationMessage('Clave incorrecta');
+          return false;
+        }
+        return true;
+      }
+    });
+    setTimeout(() => this.activarOjosClave(), 0);
+
+    return promesa.then((result: any) => !!(result && result.value === true), () => false);
+  }
+
+  private getNombreUsuarioActual(): string {
+    const u = this.usuario || {};
+    return u.nombreUsuario || u.nombre || u.usuario || u.email || '';
+  }
+
+  // Campo de clave con "ojito" (estilos inline porque el popup de SweetAlert queda fuera del CSS del componente)
+    private htmlCampoClave(id: string, placeholder: string, autocomplete: string): string {
+    return '<div style="position:relative;width:100%;margin:1em auto 0">' +
+      '<input id="' + id + '" type="password" class="swal2-input hz-clave-input" placeholder="' + placeholder + '"' +
+      ' autocomplete="' + autocomplete + '" autocapitalize="off" autocorrect="off" spellcheck="false"' +
+      ' style="margin:0;width:100%;padding-right:48px">' +
+      '<button type="button" class="hz-clave-ojo" data-target="' + id + '" title="Mostrar clave" aria-label="Mostrar clave"' +
+      ' style="position:absolute;top:50%;right:8px;transform:translateY(-50%);width:34px;height:34px;padding:0;' +
+      'border:none;border-radius:50%;background:transparent;color:#8a97a5;font-size:17px;cursor:pointer;' +
+      'display:inline-flex;align-items:center;justify-content:center;box-shadow:none;outline:none">' +
+      '<i class="fa fa-eye"></i></button>' +
+      '</div>';
+  }
+
+  /** Conecta los ojitos del popup abierto. enfocarPrimero=false deja el foco donde SweetAlert lo puso. */
+  private activarOjosClave(enfocarPrimero: boolean = true): void {
+    const popup: HTMLElement = (Swal.getPopup && Swal.getPopup()) || document.body;
+    const botones = popup.querySelectorAll('.hz-clave-ojo');
+
+    Array.prototype.forEach.call(botones, (btn: HTMLButtonElement) => {
+      if (btn.getAttribute('data-listo') === '1') { return; }
+      btn.setAttribute('data-listo', '1');
+
+      const input = document.getElementById(btn.getAttribute('data-target')) as HTMLInputElement;
+      if (!input) { return; }
+
+      // Evita que el botón le quite el foco al input
+      btn.addEventListener('mousedown', (e: Event) => e.preventDefault());
+      btn.addEventListener('mouseenter', () => { btn.style.background = '#eef6fb'; });
+      btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
+
+      btn.addEventListener('click', () => {
+        const mostrar = input.type === 'password';
+        input.type = mostrar ? 'text' : 'password';
+        const icono = btn.querySelector('i');
+        if (icono) { icono.className = mostrar ? 'fa fa-eye-slash' : 'fa fa-eye'; }
+        btn.style.color = mostrar ? '#026AA7' : '#8a97a5';
+        const titulo = mostrar ? 'Ocultar clave' : 'Mostrar clave';
+        btn.title = titulo;
+        btn.setAttribute('aria-label', titulo);
+        input.focus();
+        try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) { }
+      });
+
+      // Enter confirma, igual que el input nativo de SweetAlert
+      input.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          Swal.clickConfirm();
+        }
+      });
+    });
+
+    if (enfocarPrimero) {
+      const primero = popup.querySelector('.hz-clave-input') as HTMLInputElement;
+      if (primero) { setTimeout(() => primero.focus(), 50); }
+    }
+  }
+
+    /** SHA-256 síncrono (UTF-8) — sin dependencias, compatible con navegadores antiguos. */
+  private sha256(texto: string): string {
+    const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n));
+    const K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+    const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    // Codificación UTF-8 manual (sin unescape/TextEncoder)
+    const b: number[] = [];
+    for (let i = 0; i < texto.length; i++) {
+      let cp = texto.charCodeAt(i);
+      if (cp >= 0xd800 && cp <= 0xdbff && i + 1 < texto.length) {
+        const lo = texto.charCodeAt(i + 1);
+        if (lo >= 0xdc00 && lo <= 0xdfff) {
+          cp = 0x10000 + ((cp - 0xd800) << 10) + (lo - 0xdc00);
+          i++;
+        }
+      }
+      if (cp < 0x80) {
+        b.push(cp);
+      } else if (cp < 0x800) {
+        b.push(0xc0 | (cp >> 6), 0x80 | (cp & 0x3f));
+      } else if (cp < 0x10000) {
+        b.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+      } else {
+        b.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+      }
+    }
+    const bitLen = b.length * 8;
+    b.push(0x80);
+    while (b.length % 64 !== 56) { b.push(0); }
+    const high = Math.floor(bitLen / 0x100000000);
+    for (let i = 3; i >= 0; i--) { b.push((high >>> (i * 8)) & 0xff); }
+    for (let i = 3; i >= 0; i--) { b.push((bitLen >>> (i * 8)) & 0xff); }
+
+    const w = new Array(64);
+    for (let o = 0; o < b.length; o += 64) {
+      for (let t = 0; t < 16; t++) {
+        w[t] = (b[o + t * 4] << 24) | (b[o + t * 4 + 1] << 16) | (b[o + t * 4 + 2] << 8) | b[o + t * 4 + 3];
+      }
+      for (let t = 16; t < 64; t++) {
+        const s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);
+        const s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
+        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) | 0;
+      }
+      let a = H[0], bb = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (let t = 0; t < 64; t++) {
+        const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        const ch = (e & f) ^ (~e & g);
+        const t1 = (h + S1 + ch + K[t] + w[t]) | 0;
+        const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+        const mj = (a & bb) ^ (a & c) ^ (bb & c);
+        const t2 = (S0 + mj) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = bb; bb = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + bb) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map((x: number) => ('00000000' + (x >>> 0).toString(16)).slice(-8)).join('');
   }
 
   getFechaTexto(fecha: string): string {
