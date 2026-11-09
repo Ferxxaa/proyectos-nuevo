@@ -3,6 +3,8 @@ import { ActivatedRoute } from '@angular/router';
 import { firestoreDB } from '../../firebase-init';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
 import { ACCIDENTES_HISTORICOS, AccidenteHistorico } from './accidentes-historicos';
+import * as firebase from 'firebase/app';
+import 'firebase/storage';
 
 declare var Swal: any;
 
@@ -12,6 +14,8 @@ declare var Swal: any;
  */
 const COLECCION = 'accidentesSSO';
 const COLECCION_MA = 'estadisticasMA';
+const COLECCION_CERTIFICADOS_MA = 'certificadosMA';
+const MAX_MB_CERTIFICADO = 50;
 const PRIMER_ANIO_SISTEMA = 2026; // Hasta 2025 manda el registro histórico
 
 const MEDIDAS_MENOR = 'Charlas de 5 minutos, uso de EPP, señalización. Reinducción, cumplimiento programa prevención de riesgos, control de los riesgos.';
@@ -39,8 +43,43 @@ interface IndicadorMA {
 interface RegistroConsolidadoMA {
   idSubProyecto: string;
   nombre: string;
+  idProyecto: string;
+  nombreProyecto: string;
   anio: number;
   meses: any;
+}
+
+interface FilaHistorico extends AccidenteHistorico {
+  clave: string;
+  numeroFila: number;
+}
+
+interface GrupoHistorico {
+  anio: number;
+  filas: FilaHistorico[];
+  diasPerdidos: number;
+  graves: number;
+}
+
+interface ProyectoConsolidadoMA {
+  nombre: string;
+  subproyectos: number;
+  anios: { anio: number, totales: string[] }[];
+  totales: string[];
+}
+
+export interface CertificadoMA {
+  id?: string;
+  idSubProyecto: any;
+  idProyecto: any;
+  anio: number;
+  nombre: string;
+  ruta: string;
+  url: string;
+  tamano: number;
+  tipo: string;
+  idUsuario: any;
+  fechaSubida: string;
 }
 
 @Component({
@@ -53,6 +92,7 @@ export class EstadisticasSsoComponent implements OnInit {
   @Input() idSubProyecto: any = null;
   @Input() idProyecto: any = null;
   @Input() nombreSubProyecto: string = '';
+  @Input() nombreProyecto: string = '';
   @Input() soloLectura: boolean = false;
   consolidadoHistorico: boolean = false;
 
@@ -90,6 +130,7 @@ export class EstadisticasSsoComponent implements OnInit {
     { campo: 'residuosDomiciliarios', etiqueta: 'Consumo de residuos domiciliarios', unidad: 'TONS.', decimales: 2 },
     { campo: 'disposicionEscombros', etiqueta: 'Disposición de escombros', unidad: 'TONS.', decimales: 2 },
     { campo: 'disposicionChatarraMetalica', etiqueta: 'Disposición de chatarra metálica', unidad: 'TONS.', decimales: 2 },
+    { campo: 'disposicionResiduosPeligrosos', etiqueta: 'Disposición de residuos peligrosos', unidad: 'TONS.', decimales: 2 },
     { campo: 'disposicionAsbesto', etiqueta: 'Disposición de asbesto', unidad: 'TONS.', decimales: 2 },
     { campo: 'disposicionOtros', etiqueta: 'Disposición de otros', unidad: 'TONS.', decimales: 2 },
     { campo: 'disposicionPapel', etiqueta: 'Disposición de papel', unidad: '', decimales: 2 }
@@ -103,6 +144,23 @@ export class EstadisticasSsoComponent implements OnInit {
   cargandoMA: boolean = true;
   errorCargaMA: boolean = false;
   estadoGuardadoMA: string = '';
+
+  // Total acumulado de todos los años: este subproyecto y el proyecto completo
+  totalesMASubproyectoHistorico: string[] = [];
+  totalesMAProyecto: string[] = [];
+  subproyectosProyectoMA: number = 0;
+  cargandoTotalProyectoMA: boolean = false;
+  errorTotalProyectoMA: boolean = false;
+  private otrosSubproyectosMA: { idSubProyecto: string, meses: any }[] = [];
+
+  // Certificado MA: adjuntos por subproyecto y año (Storage + Firestore)
+  certificadosMA: CertificadoMA[] = [];
+  certificadosMAVista: CertificadoMA[] = [];
+  cargandoCertificadosMA: boolean = false;
+  errorCertificadosMA: boolean = false;
+  subiendoCertificadoMA: boolean = false;
+  progresoCertificadoMA: number = 0;
+  errorSubidaCertificadoMA: string = '';
 
   // Pestañas del subproyecto: 'seguridad' (accidentes) | 'ma' | 'incidentes'
   vistaSubproyecto: string = 'seguridad';
@@ -132,7 +190,13 @@ export class EstadisticasSsoComponent implements OnInit {
   historicoAnio: string = 'todos';
   historicoBusqueda: string = '';
   historicoAnios: string[] = [];
-  historicoFilas: AccidenteHistorico[] = [];
+  historicoFilas: FilaHistorico[] = [];
+  historicoGrupos: GrupoHistorico[] = [];
+  filaHistoricoAbierta: string | null = null;
+  diasSinAccidentes: number | null = null;
+  fechaUltimoAccidente: string = '';
+  obraUltimoAccidente: string = '';
+  private historicoTodas: FilaHistorico[] = [];
   historicoResumen: any = { total: 0, diasPerdidos: 0, graves: 0, conDias: 0 };
   historicoEstadisticas: any = this.calcularEstadisticas([], []);
   errorHistoricoSistema: boolean = false;
@@ -145,6 +209,8 @@ export class EstadisticasSsoComponent implements OnInit {
   consolidadoMAFilas: { indicador: IndicadorMA, meses: string[], total: string }[] = [];
   consolidadoMAPorSubproyecto: { nombre: string, totales: string[] }[] = [];
   consolidadoMATotales: string[] = [];
+  consolidadoMAProyectos: ProyectoConsolidadoMA[] = [];
+  consolidadoMATotalesProyectos: string[] = [];
   consolidadoMAResumen: any = { subproyectos: 0, agua: '-', combustible: '-', residuos: '-' };
   errorConsolidadoMA: boolean = false;
 
@@ -194,6 +260,7 @@ export class EstadisticasSsoComponent implements OnInit {
         this.recalcular();
         this.cargando = false;
         this.cargarEstadisticasMA();
+        this.cargarCertificadosMA();
       })
       .catch((error: any) => {
         console.error('Error al cargar los accidentes:', error);
@@ -222,6 +289,7 @@ export class EstadisticasSsoComponent implements OnInit {
         this.prepararAniosMA();
         this.seleccionarAnioMA();
         this.cargandoMA = false;
+        this.cargarTotalProyectoMA();
       })
       .catch((error: any) => {
         console.error('Error al cargar las estadísticas de MA:', error);
@@ -255,6 +323,7 @@ export class EstadisticasSsoComponent implements OnInit {
     });
 
     this.valoresMA = this.datosMAPorAnio[anio];
+    this.filtrarCertificadosMA();
   }
 
   guardarCeldaMA(mes: number, indicador: IndicadorMA, input: any) {
@@ -271,6 +340,7 @@ export class EstadisticasSsoComponent implements OnInit {
 
     this.valoresMA[mes][indicador.campo] = valor;
     input.value = this.getTextoCeldaMA(mes, indicador.campo);
+    this.recalcularTotalesProyectoMA();
     if (valor === this.respaldoMA[clave]) { return; }
 
     const anterior = this.respaldoMA[clave];
@@ -282,6 +352,7 @@ export class EstadisticasSsoComponent implements OnInit {
       idSubProyecto: this.idSubProyecto,
       idProyecto: this.idProyecto === undefined ? null : this.idProyecto,
       nombreSubProyecto: this.nombreSubProyecto || '',
+      nombreProyecto: this.nombreProyecto || '',
       anio: anio,
       idUsuarioActualizacion: this.idUsuario,
       fechaActualizacion: new Date().toISOString(),
@@ -298,6 +369,7 @@ export class EstadisticasSsoComponent implements OnInit {
         this.guardadosPendientesMA--;
         this.respaldoMA[clave] = anterior;
         this.datosMAPorAnio[anio][mes][indicador.campo] = anterior;
+        this.recalcularTotalesProyectoMA();
         this.estadoGuardadoMA = 'error';
       });
   }
@@ -358,6 +430,231 @@ export class EstadisticasSsoComponent implements OnInit {
 
   trackIndicadorMA(index: number, indicador: IndicadorMA) {
     return indicador.campo;
+  }
+
+  /** Trae los demás subproyectos del mismo proyecto (todos los años). */
+  cargarTotalProyectoMA() {
+    this.errorTotalProyectoMA = false;
+    this.otrosSubproyectosMA = [];
+
+    if (!this.tieneProyectoMA) {
+      this.recalcularTotalesProyectoMA();
+      return;
+    }
+
+    this.cargandoTotalProyectoMA = true;
+    firestoreDB.collection(COLECCION_MA).where('idProyecto', '==', this.idProyecto).get()
+      .then((snapshot: any) => {
+        const propio = String(this.idSubProyecto);
+        const otros: { idSubProyecto: string, meses: any }[] = [];
+        snapshot.forEach((doc: any) => {
+          const data = doc.data();
+          // Este subproyecto se toma de lo que está en pantalla, así refleja lo recién editado
+          if (String(data.idSubProyecto) !== propio) {
+            otros.push({ idSubProyecto: String(data.idSubProyecto), meses: data.meses || {} });
+          }
+        });
+        this.otrosSubproyectosMA = otros;
+        this.cargandoTotalProyectoMA = false;
+        this.recalcularTotalesProyectoMA();
+      })
+      .catch((error: any) => {
+        console.error('Error al cargar el total del proyecto de MA:', error);
+        this.cargandoTotalProyectoMA = false;
+        this.errorTotalProyectoMA = true;
+        this.recalcularTotalesProyectoMA();
+      });
+  }
+
+  private recalcularTotalesProyectoMA() {
+    const propios = Object.keys(this.datosMAPorAnio).map(anio => ({ meses: this.datosMAPorAnio[Number(anio)] || {} }));
+    const todos = propios.concat(this.otrosSubproyectosMA);
+
+    this.totalesMASubproyectoHistorico = this.getTotalesMA(propios);
+    this.totalesMAProyecto = this.getTotalesMA(todos);
+
+    const subproyectos: { [id: string]: boolean } = {};
+    if (propios.some(registro => this.tieneDatosMA(registro))) { subproyectos[String(this.idSubProyecto)] = true; }
+    this.otrosSubproyectosMA
+      .filter(registro => this.tieneDatosMA(registro))
+      .forEach(registro => subproyectos[registro.idSubProyecto] = true);
+    this.subproyectosProyectoMA = Object.keys(subproyectos).length;
+  }
+
+  get tieneProyectoMA(): boolean {
+    return this.idProyecto !== null && this.idProyecto !== undefined && this.idProyecto !== '';
+  }
+
+  // ===== Certificado MA =====
+
+  cargarCertificadosMA() {
+    if (!this.idSubProyecto) { return; }
+    this.cargandoCertificadosMA = true;
+    this.errorCertificadosMA = false;
+
+    firestoreDB.collection(COLECCION_CERTIFICADOS_MA).where('idSubProyecto', '==', this.idSubProyecto).get()
+      .then((snapshot: any) => {
+        const certificados: CertificadoMA[] = [];
+        snapshot.forEach((doc: any) => certificados.push({ ...doc.data(), id: doc.id }));
+        this.certificadosMA = certificados;
+        this.filtrarCertificadosMA();
+        this.cargandoCertificadosMA = false;
+      })
+      .catch((error: any) => {
+        console.error('Error al cargar los certificados de MA:', error);
+        this.cargandoCertificadosMA = false;
+        this.errorCertificadosMA = true;
+      });
+  }
+
+  private filtrarCertificadosMA() {
+    const anio = Number(this.anioMA);
+    this.certificadosMAVista = this.certificadosMA
+      .filter(item => Number(item.anio) === anio)
+      .sort((a, b) => (b.fechaSubida || '').localeCompare(a.fechaSubida || ''));
+  }
+
+  subirCertificadosMA(input: any) {
+    const archivos: File[] = Array.prototype.slice.call(input.files || []);
+    input.value = '';
+    if (!archivos.length || this.soloLectura || this.subiendoCertificadoMA) { return; }
+
+    const muyGrande = archivos.filter(archivo => archivo.size > MAX_MB_CERTIFICADO * 1024 * 1024)[0];
+    if (muyGrande) {
+      this.errorSubidaCertificadoMA = '"' + muyGrande.name + '" pesa más de ' + MAX_MB_CERTIFICADO + ' MB.';
+      return;
+    }
+
+    const anio = Number(this.anioMA);
+    const totalBytes = archivos.reduce((suma, archivo) => suma + archivo.size, 0) || 1;
+    const transferidos: number[] = archivos.map(() => 0);
+
+    this.subiendoCertificadoMA = true;
+    this.progresoCertificadoMA = 0;
+    this.errorSubidaCertificadoMA = '';
+
+    Promise.all(archivos.map((archivo, indice) => this.subirCertificadoMA(archivo, anio, (bytes: number) => {
+      transferidos[indice] = bytes;
+      const suma = transferidos.reduce((total, valor) => total + valor, 0);
+      this.progresoCertificadoMA = Math.min(100, Math.round(suma * 100 / totalBytes));
+    })))
+      .then((nuevos: CertificadoMA[]) => {
+        this.certificadosMA = nuevos.concat(this.certificadosMA);
+        this.filtrarCertificadosMA();
+        this.subiendoCertificadoMA = false;
+      })
+      .catch((error: any) => {
+        console.error('Error al subir el certificado de MA:', error);
+        this.subiendoCertificadoMA = false;
+        this.errorSubidaCertificadoMA = 'No se pudieron subir todos los archivos. Inténtalo de nuevo.';
+        this.cargarCertificadosMA();
+      });
+  }
+
+  private subirCertificadoMA(archivo: File, anio: number, alAvanzar: (bytes: number) => void): Promise<CertificadoMA> {
+    const ruta = 'certificadosMA/' + this.idSubProyecto + '/' + anio + '/' + Date.now() + '_' + this.limpiarNombreArchivo(archivo.name);
+    const tipo = archivo.type || 'application/octet-stream';
+
+    return new Promise((resolve, reject) => {
+      const tarea: any = (firebase as any).storage().ref(ruta).put(archivo, { contentType: tipo });
+      tarea.on('state_changed',
+        (estado: any) => alAvanzar(estado.bytesTransferred),
+        (error: any) => reject(error),
+        () => {
+          const referencia = tarea.snapshot.ref;
+          const obtenerUrl = referencia && referencia.getDownloadURL
+            ? referencia.getDownloadURL()
+            : Promise.resolve(tarea.snapshot.downloadURL);
+
+          obtenerUrl
+            .then((url: string) => {
+              const datos: CertificadoMA = {
+                idSubProyecto: this.idSubProyecto,
+                idProyecto: this.idProyecto === undefined ? null : this.idProyecto,
+                anio: anio,
+                nombre: archivo.name,
+                ruta: ruta,
+                url: url,
+                tamano: archivo.size,
+                tipo: tipo,
+                idUsuario: this.idUsuario,
+                fechaSubida: new Date().toISOString()
+              };
+              return firestoreDB.collection(COLECCION_CERTIFICADOS_MA).add(datos)
+                .then((doc: any) => resolve({ ...datos, id: doc.id }));
+            })
+            .catch(reject);
+        });
+    });
+  }
+
+  eliminarCertificadoMA(item: CertificadoMA) {
+    if (this.soloLectura) { return; }
+
+    Swal.fire({
+      title: '¿Eliminar este archivo?',
+      text: 'Se borrará "' + item.nombre + '". No se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((resultado: any) => {
+      if (!resultado || !(resultado.value || resultado.isConfirmed)) { return; }
+
+      // Si el archivo ya no está en Storage igual se borra el registro
+      const borrarArchivo = item.ruta
+        ? (firebase as any).storage().ref(item.ruta).delete().catch((error: any) => {
+            if (!error || error.code !== 'storage/object-not-found') { throw error; }
+          })
+        : Promise.resolve();
+
+      borrarArchivo
+        .then(() => firestoreDB.collection(COLECCION_CERTIFICADOS_MA).doc(item.id).delete())
+        .then(() => {
+          this.certificadosMA = this.certificadosMA.filter(certificado => certificado.id !== item.id);
+          this.filtrarCertificadosMA();
+        })
+        .catch((error: any) => {
+          console.error('Error al eliminar el certificado de MA:', error);
+          Swal.fire('Error', 'No se pudo eliminar el archivo.', 'error');
+        });
+    });
+  }
+
+  private limpiarNombreArchivo(nombre: string): string {
+    return (nombre || 'archivo')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w.\-]+/g, '_')
+      .substring(0, 120);
+  }
+
+  formatearTamano(bytes: number): string {
+    const valor = Number(bytes) || 0;
+    if (valor < 1024) { return valor + ' B'; }
+    if (valor < 1024 * 1024) { return Math.round(valor / 1024) + ' KB'; }
+    return (Math.round(valor / 1024 / 1024 * 10) / 10).toString().replace('.', ',') + ' MB';
+  }
+
+  getFechaHoraTexto(iso: string): string {
+    const fecha = new Date(iso);
+    if (isNaN(fecha.getTime())) { return '-'; }
+    const dos = (numero: number) => ('0' + numero).slice(-2);
+    return dos(fecha.getDate()) + '-' + dos(fecha.getMonth() + 1) + '-' + fecha.getFullYear()
+      + ' ' + dos(fecha.getHours()) + ':' + dos(fecha.getMinutes());
+  }
+
+  getIconoArchivo(nombre: string): string {
+    const extension = ((nombre || '').split('.').pop() || '').toLowerCase();
+    if (extension === 'pdf') { return 'fa-file-pdf-o'; }
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'heic'].indexOf(extension) !== -1) { return 'fa-file-image-o'; }
+    if (['doc', 'docx'].indexOf(extension) !== -1) { return 'fa-file-word-o'; }
+    if (['xls', 'xlsx', 'csv'].indexOf(extension) !== -1) { return 'fa-file-excel-o'; }
+    if (['zip', 'rar', '7z'].indexOf(extension) !== -1) { return 'fa-file-archive-o'; }
+    return 'fa-file-o';
+  }
+
+  trackCertificadoMA(index: number, item: CertificadoMA) {
+    return item.id;
   }
 
   private recalcular() {
@@ -582,6 +879,8 @@ export class EstadisticasSsoComponent implements OnInit {
           registros.push({
             idSubProyecto: String(data.idSubProyecto),
             nombre: data.nombreSubProyecto || ('Subproyecto ' + data.idSubProyecto),
+            idProyecto: data.idProyecto === null || data.idProyecto === undefined ? '' : String(data.idProyecto),
+            nombreProyecto: data.nombreProyecto || '',
             anio: Number(data.anio),
             meses: data.meses || {}
           });
@@ -614,7 +913,47 @@ export class EstadisticasSsoComponent implements OnInit {
       .map(id => ({ id: id, nombre: subproyectos[id] }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
+    this.prepararProyectosMA();
     this.recalcularConsolidadoMA();
+  }
+
+  /** Total por proyecto con todos sus años (no depende de los filtros de arriba). */
+  private prepararProyectosMA() {
+    const conDatos = this.registrosConsolidadoMA.filter(registro => this.tieneDatosMA(registro));
+    const grupos: { [clave: string]: { nombre: string, registros: RegistroConsolidadoMA[] } } = {};
+
+    conDatos.forEach(registro => {
+      const clave = registro.idProyecto || 'sin-proyecto';
+      const grupo = grupos[clave] || (grupos[clave] = { nombre: '', registros: [] });
+      if (!grupo.nombre && registro.nombreProyecto) { grupo.nombre = registro.nombreProyecto; }
+      grupo.registros.push(registro);
+    });
+
+    this.consolidadoMAProyectos = Object.keys(grupos).map(clave => {
+      const grupo = grupos[clave];
+      const anios: { [anio: number]: boolean } = {};
+      const subproyectos: { [id: string]: boolean } = {};
+      grupo.registros.forEach(registro => {
+        anios[registro.anio] = true;
+        subproyectos[registro.idSubProyecto] = true;
+      });
+
+      return {
+        nombre: grupo.nombre || (clave === 'sin-proyecto' ? 'Sin proyecto' : 'Proyecto ' + clave),
+        subproyectos: Object.keys(subproyectos).length,
+        anios: Object.keys(anios).map(Number).sort((a, b) => b - a).map(anio => ({
+          anio: anio,
+          totales: this.getTotalesMA(grupo.registros.filter(registro => registro.anio === anio))
+        })),
+        totales: this.getTotalesMA(grupo.registros)
+      };
+    }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    this.consolidadoMATotalesProyectos = this.getTotalesMA(conDatos);
+  }
+
+  private getTotalesMA(registros: { meses: any }[]): string[] {
+    return this.indicadoresMA.map(indicador => this.formatearMA(this.sumarMA(registros, indicador.campo)));
   }
 
   recalcularConsolidadoMA() {
@@ -634,7 +973,7 @@ export class EstadisticasSsoComponent implements OnInit {
 
     this.consolidadoMAPorSubproyecto = registros.map(registro => ({
       nombre: registro.nombre,
-      totales: this.indicadoresMA.map(indicador => this.formatearMA(this.sumarMA([registro], indicador.campo)))
+      totales: this.getTotalesMA([registro])
     }));
 
     this.consolidadoMATotales = this.consolidadoMAFilas.map(fila => fila.total);
@@ -648,14 +987,14 @@ export class EstadisticasSsoComponent implements OnInit {
   }
 
   /** Suma un indicador de todo el año, o de un solo mes si viene el número. */
-  private sumarMA(registros: RegistroConsolidadoMA[], campo: string, mes?: number): number | null {
+  private sumarMA(registros: { meses: any }[], campo: string, mes?: number): number | null {
     const meses = mes ? [mes] : this.mesesMA.map(item => item.numero);
     let total: number = 0;
     let hayValores = false;
 
     registros.forEach(registro => {
       meses.forEach(numero => {
-        const delMes = registro.meses[numero];
+        const delMes = registro.meses ? registro.meses[numero] : null;
         const valor = delMes ? delMes[campo] : null;
         if (valor !== null && valor !== undefined) {
           total += Number(valor);
@@ -667,7 +1006,7 @@ export class EstadisticasSsoComponent implements OnInit {
     return hayValores ? total : null;
   }
 
-  private tieneDatosMA(registro: RegistroConsolidadoMA): boolean {
+  private tieneDatosMA(registro: { meses: any }): boolean {
     return this.indicadoresMA.some(indicador => this.sumarMA([registro], indicador.campo) !== null);
   }
 
@@ -731,6 +1070,13 @@ export class EstadisticasSsoComponent implements OnInit {
       anios.push(String(anio));
     }
 
+    // N° correlativo: el más antiguo es el 1, como en el reporte de mejoras
+    this.historicoTodas = this.registrosHistorico.slice()
+      .sort((a, b) => a.anio - b.anio || (a.fecha || '').localeCompare(b.fecha || ''))
+      .map((item, indice) => ({ ...item, clave: 'h' + indice, numeroFila: indice + 1 }));
+
+    this.calcularDiasSinAccidentes();
+
     this.historicoAnios = anios.slice().reverse();
     this.historicoEstadisticas = this.calcularEstadisticas(
       this.registrosHistorico.map(item => ({ anio: String(item.anio), grado: item.grado })),
@@ -742,14 +1088,27 @@ export class EstadisticasSsoComponent implements OnInit {
   recalcularHistorico() {
     const busqueda = this.normalizarTexto(this.historicoBusqueda);
 
-    const filas = this.registrosHistorico.filter(item => {
+    const filas = this.historicoTodas.filter(item => {
       if (this.historicoAnio !== 'todos' && String(item.anio) !== this.historicoAnio) { return false; }
       if (!busqueda) { return true; }
       return this.normalizarTexto([item.obra, item.lugar, item.comuna, item.empresa, item.descripcion].join(' ')).indexOf(busqueda) !== -1;
     });
 
-    this.historicoFilas = filas.slice().sort((a, b) =>
-      b.anio - a.anio || (b.fecha || '').localeCompare(a.fecha || ''));
+    this.historicoFilas = filas.slice().sort((a, b) => b.numeroFila - a.numeroFila);
+    this.filaHistoricoAbierta = null;
+
+    const grupos: GrupoHistorico[] = [];
+    this.historicoFilas.forEach(item => {
+      let grupo = grupos[grupos.length - 1];
+      if (!grupo || grupo.anio !== item.anio) {
+        grupo = { anio: item.anio, filas: [], diasPerdidos: 0, graves: 0 };
+        grupos.push(grupo);
+      }
+      grupo.filas.push(item);
+      grupo.diasPerdidos += item.diasPerdidos || 0;
+      if (item.grado >= 5) { grupo.graves++; }
+    });
+    this.historicoGrupos = grupos;
 
     this.historicoResumen = {
       total: filas.length,
@@ -757,6 +1116,44 @@ export class EstadisticasSsoComponent implements OnInit {
       graves: filas.filter(item => item.grado >= 5).length,
       conDias: filas.filter(item => (item.diasPerdidos || 0) > 0).length
     };
+  }
+
+  /** Días desde el último accidente de trabajo o de trayecto (los incidentes y enfermedades no cuentan). */
+  private calcularDiasSinAccidentes() {
+    let ultimo: AccidenteHistorico = null;
+    this.registrosHistorico.forEach(item => {
+      if (item.tipo !== 'Trabajo' && item.tipo !== 'Trayecto') { return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(item.fecha || '') || item.fecha > this.hoy) { return; }
+      if (!ultimo || item.fecha > ultimo.fecha) { ultimo = item; }
+    });
+
+    if (!ultimo) {
+      this.diasSinAccidentes = null;
+      this.fechaUltimoAccidente = '';
+      this.obraUltimoAccidente = '';
+      return;
+    }
+
+    const aFecha = (texto: string) => {
+      const partes = texto.split('-').map(Number);
+      return new Date(partes[0], partes[1] - 1, partes[2]);
+    };
+    // Math.round evita el desfase de una hora en los cambios de horario
+    this.diasSinAccidentes = Math.max(0, Math.round((aFecha(this.hoy).getTime() - aFecha(ultimo.fecha).getTime()) / 86400000));
+    this.fechaUltimoAccidente = ultimo.fecha;
+    this.obraUltimoAccidente = ultimo.obra || ultimo.lugar || '';
+  }
+
+  toggleFilaHistorico(item: FilaHistorico) {
+    this.filaHistoricoAbierta = this.filaHistoricoAbierta === item.clave ? null : item.clave;
+  }
+
+  trackGrupoHistorico(index: number, grupo: GrupoHistorico) {
+    return grupo.anio;
+  }
+
+  trackFilaHistorico(index: number, item: FilaHistorico) {
+    return item.clave;
   }
 
   private normalizarTexto(texto: string): string {
@@ -916,7 +1313,7 @@ export class EstadisticasSsoComponent implements OnInit {
 
   getFechaTexto(fecha: string): string {
     const partes = (fecha || '').split('-');
-    return partes.length === 3 ? partes[2] + '-' + partes[1] + '-' + partes[0] : '-';
+    return partes.length === 3 ? partes[2] + '-' + partes[1] + '-' + partes[0] : (fecha || '-');
   }
 
   getClaseTipo(nombre: string): string {
