@@ -1680,6 +1680,292 @@
   font-weight: 600;
 }
 
+/* Adjuntos por indicador de MA */
+.sso-ma-clip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border: 1px solid #d6e2ec;
+  border-radius: 10px;
+  background: #fff;
+  color: #7b858e;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background-color .15s;
+}
+
+.sso-ma-clip:hover {
+  border-color: #8fb8d0;
+  color: #075f91;
+}
+
+.sso-ma-clip.con-archivos {
+  border-color: #b6d4fe;
+  background: #e3f0ff;
+  color: #0b5cad;
+}
+
+.sso-ma-clip.abierto {
+  border-color: #075f91;
+  background: #075f91;
+  color: #fff;
+}
+
+.sso-ma-clip-flecha {
+  font-size: 8px;
+}
+
+.sso-tabla-ma tbody tr.ma-fila-abierta th,
+.sso-tabla-ma tbody tr.ma-fila-abierta td {
+  background: #f0f8fc;
+}
+
+/* Desplegable flotante con los documentos del indicador */
+.sso-ma-pop {
+  position: fixed;
+  z-index: 1050; /* bajo SweetAlert (1060) para que sus avisos queden encima */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 400px;
+  max-height: 70vh;
+  padding: 12px;
+  overflow-y: auto;
+  border: 1px solid #d6e2ec;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(15, 35, 52, .2);
+  text-align: left;
+}
+
+.sso-ma-pop-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.sso-ma-pop-cabecera strong {
+  display: block;
+  color: #24404f;
+  font-size: 13px;
+}
+
+.sso-ma-pop-cabecera span {
+  color: #8f979f;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sso-ma-pop-cerrar {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #8f979f;
+  cursor: pointer;
+}
+
+.sso-ma-pop-cerrar:hover { background: #f1f3f5; color: #24404f; }
+
+.sso-ma-pop-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sso-ma-pop-lista li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid #eef1f4;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.sso-ma-pop-archivo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sso-ma-pop-icono {
+  flex: 0 0 auto;
+  width: 18px;
+  color: #075f91;
+  font-size: 16px;
+  text-align: center;
+}
+
+.sso-ma-pop-archivo a {
+  flex: 1 1 auto;
+  text-decoration: none;
+  min-width: 0;
+  overflow: hidden;
+  color: #24404f;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sso-ma-pop-archivo a:hover { color: #075f91; }
+
+.sso-ma-pop-meta {
+  padding-left: 26px;
+  color: #7b858e;
+  font-size: 11px;
+}
+
+.sso-ma-pop-meta .fa { color: #9fb3c4; }
+
+.sso-ma-pop-texto {
+  margin: 2px 0 0 26px;
+  padding: 6px 8px;
+  border-left: 3px solid #8fb8d0;
+  border-radius: 0 6px 6px 0;
+  background: #fff;
+  color: #3d454c;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.sso-ma-pop-texto.editable { cursor: text; }
+.sso-ma-pop-texto.editable:hover { background: #f4f8fb; }
+
+.sso-ma-pop-agregar {
+  align-self: flex-start;
+  margin-left: 22px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #075f91;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sso-ma-pop-agregar:hover { background: #eaf3fb; }
+
+.sso-ma-pop-desglose {
+  margin-left: 26px;
+}
+
+.sso-ma-pop textarea {
+  width: 100%;
+  font-family: inherit;
+  padding: 6px 8px;
+  border: 1px solid #cfd6dc;
+  border-radius: 6px;
+  color: #2f363d;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.sso-ma-pop textarea:focus {
+  border-color: #075f91;
+  outline: 2px solid rgba(7, 95, 145, .2);
+}
+
+.sso-ma-pop-desglose-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.sso-ma-pop-desglose-acciones .sso-boton,
+.sso-ma-pop-desglose-acciones .sso-boton-principal {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11.5px;
+}
+
+.sso-ma-pop-nuevo label {
+  display: block;
+  margin: 0 0 3px;
+  color: #4a525a;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.sso-ma-pop-nuevo label small {
+  color: #8f979f;
+  font-weight: 600;
+}
+
+.sso-ma-pop-borrar {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #c98a8a;
+  cursor: pointer;
+}
+
+.sso-ma-pop-borrar:hover { background: #fdeced; color: #c22f35; }
+
+.sso-ma-pop-vacio {
+  padding: 6px 2px;
+  color: #8f979f;
+  font-size: 12px;
+}
+
+.sso-ma-pop-progreso span {
+  display: block;
+  margin-bottom: 4px;
+  color: #075f91;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.sso-ma-pop .sso-error { margin: 0; }
+
+/* zona "por adjuntar" */
+.sso-ma-pop-subir {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 12px;
+  border: 1.5px dashed #9fbfe3;
+  border-radius: 8px;
+  background: #f5faff;
+  color: #075f91;
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s;
+}
+
+.sso-ma-pop-subir:hover { border-color: #075f91; background: #eaf3fb; }
+.sso-ma-pop-subir .fa { font-size: 20px; }
+.sso-ma-pop-subir span { font-size: 12px; font-weight: 700; }
+.sso-ma-pop-subir small { color: #8f979f; font-size: 10.5px; }
+.sso-ma-pop-subir input { display: none; }
+.sso-ma-pop-subir.deshabilitado { opacity: .55; cursor: progress; }
+
+.sso-boton-archivo.deshabilitado {
+  opacity: .55;
+  cursor: progress;
+}
+
 /* Certificado MA */
 .sso-boton-adjuntar {
   display: inline-flex;

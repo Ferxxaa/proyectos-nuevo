@@ -405,7 +405,7 @@
         No se pudieron cargar las estadísticas de MA.
         <button type="button" (click)="cargarEstadisticasMA()">Reintentar</button>
       </div>
-      <div class="sso-tabla-scroll" *ngIf="!cargandoMA && !errorCargaMA">
+      <div class="sso-tabla-scroll" *ngIf="!cargandoMA && !errorCargaMA" (scroll)="cerrarAdjuntosIndicador()">
         <table class="sso-tabla sso-tabla-ma">
           <thead>
             <tr>
@@ -415,9 +415,20 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let indicador of indicadoresMA; trackBy: trackIndicadorMA">
+            <ng-container *ngFor="let indicador of indicadoresMA; trackBy: trackIndicadorMA">
+            <tr [class.ma-fila-abierta]="indicadorMAAbierto === indicador.campo">
               <th scope="row" class="sso-ma-indicador">
                 {{indicador.etiqueta}} <small *ngIf="indicador.unidad">{{indicador.unidad}}</small>
+                <button type="button" class="sso-ma-clip"
+                        [class.con-archivos]="cantidadAdjuntosIndicador(indicador.campo)"
+                        [class.abierto]="indicadorMAAbierto === indicador.campo"
+                        (click)="toggleAdjuntosIndicador(indicador.campo, $event)"
+                        [attr.aria-expanded]="indicadorMAAbierto === indicador.campo"
+                        [title]="'Documentos de ' + indicador.etiqueta + ' ' + anioMA">
+                  <i class="fa fa-paperclip" aria-hidden="true"></i>
+                  {{cantidadAdjuntosIndicador(indicador.campo) ? cantidadAdjuntosIndicador(indicador.campo) + ' adjunto' + (cantidadAdjuntosIndicador(indicador.campo) === 1 ? '' : 's') : 'Adjuntar'}}
+                  <i class="fa sso-ma-clip-flecha" [ngClass]="indicadorMAAbierto === indicador.campo ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+                </button>
               </th>
               <td *ngFor="let mes of mesesMA; trackBy: trackMesMA" [class.mes-actual]="esMesActualMA(mes.numero)">
                 <input type="text" inputmode="decimal" autocomplete="off"
@@ -427,8 +438,84 @@
               </td>
               <td class="sso-ma-total">{{getTotalMA(indicador.campo)}}</td>
             </tr>
+
+            </ng-container>
           </tbody>
         </table>
+      </div>
+
+      <!-- Desplegable de documentos del indicador -->
+      <div class="sso-ma-pop" *ngIf="indicadorMAAbierto" role="dialog"
+           [attr.aria-label]="'Documentos de ' + getEtiquetaIndicadorMA(indicadorMAAbierto)"
+           [style.top.px]="posicionAdjuntosMA.top" [style.left.px]="posicionAdjuntosMA.left"
+           (click)="$event.stopPropagation()">
+        <div class="sso-ma-pop-cabecera">
+          <div>
+            <strong>{{getEtiquetaIndicadorMA(indicadorMAAbierto)}}</strong>
+            <span>Documentos {{anioMA}}</span>
+          </div>
+          <button type="button" class="sso-ma-pop-cerrar" (click)="cerrarAdjuntosIndicador()" aria-label="Cerrar">
+            <i class="fa fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <ul class="sso-ma-pop-lista" *ngIf="cantidadAdjuntosIndicador(indicadorMAAbierto)">
+          <li *ngFor="let archivo of adjuntosIndicadorMA[indicadorMAAbierto]; trackBy: trackCertificadoMA">
+            <div class="sso-ma-pop-archivo">
+              <i class="fa sso-ma-pop-icono" [ngClass]="getIconoArchivo(archivo.nombre)" aria-hidden="true"></i>
+              <a [href]="archivo.url" target="_blank" rel="noopener" [title]="archivo.nombre">{{archivo.nombre}}</a>
+              <button type="button" *ngIf="!soloLectura" class="sso-ma-pop-borrar" (click)="eliminarCertificadoMA(archivo)" [attr.aria-label]="'Eliminar ' + archivo.nombre">
+                <i class="fa fa-trash-o" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <div class="sso-ma-pop-meta">
+              <i class="fa fa-calendar" aria-hidden="true"></i> Subido el {{getFechaSubidaTexto(archivo.fechaSubida)}}
+              <ng-container *ngIf="archivo.subidoPor"> · por {{archivo.subidoPor}}</ng-container>
+              · {{formatearTamano(archivo.tamano)}}
+            </div>
+
+            <!-- Desglose -->
+            <div class="sso-ma-pop-desglose" *ngIf="editandoDescripcionMA === archivo.id">
+              <textarea rows="2" [(ngModel)]="textoDescripcionMA" placeholder="Escribe el desglose: período, medidor, cantidad, observaciones..."
+                        (keydown.escape)="$event.stopPropagation(); cancelarDescripcionAdjuntoMA()"></textarea>
+              <div class="sso-ma-pop-desglose-acciones">
+                <button type="button" class="sso-boton" (click)="cancelarDescripcionAdjuntoMA()">Cancelar</button>
+                <button type="button" class="sso-boton-principal" (click)="guardarDescripcionAdjuntoMA(archivo)">Guardar</button>
+              </div>
+            </div>
+            <ng-container *ngIf="editandoDescripcionMA !== archivo.id">
+              <p class="sso-ma-pop-texto" *ngIf="archivo.descripcion" [class.editable]="!soloLectura"
+                 (click)="editarDescripcionAdjuntoMA(archivo)" [title]="soloLectura ? '' : 'Clic para editar'">{{archivo.descripcion}}</p>
+              <button type="button" class="sso-ma-pop-agregar" *ngIf="!archivo.descripcion && !soloLectura" (click)="editarDescripcionAdjuntoMA(archivo)">
+                <i class="fa fa-pencil" aria-hidden="true"></i> Agregar desglose
+              </button>
+            </ng-container>
+          </li>
+        </ul>
+
+        <div class="sso-ma-pop-vacio" *ngIf="!cantidadAdjuntosIndicador(indicadorMAAbierto) && subiendoIndicadorMA !== indicadorMAAbierto">
+          <i class="fa fa-folder-open-o" aria-hidden="true"></i> Aún no hay documentos.
+        </div>
+
+        <div class="sso-ma-pop-progreso" *ngIf="subiendoCertificadoMA && subiendoIndicadorMA === indicadorMAAbierto">
+          <span>Subiendo {{progresoCertificadoMA}}%</span>
+          <div class="sso-progreso"><span [style.width.%]="progresoCertificadoMA"></span></div>
+        </div>
+
+        <span class="sso-error" *ngIf="errorIndicadorMA && errorIndicadorMACampo === indicadorMAAbierto" role="alert">{{errorIndicadorMA}}</span>
+
+        <div class="sso-ma-pop-nuevo" *ngIf="!soloLectura">
+          <label for="sso-ma-desglose-nuevo">Desglose del archivo <small>(opcional, se guarda con lo que subas)</small></label>
+          <textarea id="sso-ma-desglose-nuevo" rows="2" [(ngModel)]="descripcionNuevaMA" [disabled]="subiendoCertificadoMA"
+                    placeholder="Ej: Boleta de agua octubre, medidor 2, 1.250 LTS"></textarea>
+        </div>
+        <label class="sso-ma-pop-subir" *ngIf="!soloLectura" [class.deshabilitado]="subiendoCertificadoMA">
+          <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+          <span>Por adjuntar: haz clic para subir archivos</span>
+          <small>Cualquier tipo · hasta 50 MB cada uno</small>
+          <input type="file" multiple [disabled]="subiendoCertificadoMA" (change)="subirCertificadosMA($event.target, indicadorMAAbierto)">
+        </label>
       </div>
     </section>
 
@@ -472,45 +559,6 @@
       </div>
     </section>
 
-    <section class="sso-panel" *ngIf="vistaSubproyecto === 'ma' && !cargandoMA && !errorCargaMA">
-      <div class="sso-ma-encabezado">
-        <h6>Certificado MA {{anioMA}}</h6>
-        <div class="sso-ma-controles" *ngIf="!soloLectura">
-          <label class="sso-boton-adjuntar" [class.deshabilitado]="subiendoCertificadoMA">
-            <i class="fa" [ngClass]="subiendoCertificadoMA ? 'fa-spinner fa-spin' : 'fa-paperclip'" aria-hidden="true"></i>
-            {{subiendoCertificadoMA ? 'Subiendo ' + progresoCertificadoMA + '%' : 'Adjuntar archivos'}}
-            <input type="file" multiple [disabled]="subiendoCertificadoMA" (change)="subirCertificadosMA($event.target)">
-          </label>
-        </div>
-      </div>
-      <div class="sso-progreso" *ngIf="subiendoCertificadoMA"><span [style.width.%]="progresoCertificadoMA"></span></div>
-      <div class="sso-aviso sso-aviso-panel" *ngIf="errorSubidaCertificadoMA" role="alert">{{errorSubidaCertificadoMA}}</div>
-
-      <div class="sso-mensaje" *ngIf="cargandoCertificadosMA"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando certificados...</div>
-      <div class="sso-mensaje" *ngIf="errorCertificadosMA" role="alert">
-        No se pudieron cargar los certificados.
-        <button type="button" (click)="cargarCertificadosMA()">Reintentar</button>
-      </div>
-      <div class="sso-mensaje" *ngIf="!cargandoCertificadosMA && !errorCertificadosMA && !certificadosMAVista.length">
-        Aún no hay certificados de MA para {{anioMA}}.
-      </div>
-
-      <ul class="sso-certificados" *ngIf="!cargandoCertificadosMA && certificadosMAVista.length">
-        <li *ngFor="let certificado of certificadosMAVista; trackBy: trackCertificadoMA">
-          <i class="fa sso-certificado-icono" [ngClass]="getIconoArchivo(certificado.nombre)" aria-hidden="true"></i>
-          <div class="sso-certificado-info">
-            <a [href]="certificado.url" target="_blank" rel="noopener" [title]="certificado.nombre">{{certificado.nombre}}</a>
-            <small>{{formatearTamano(certificado.tamano)}} · {{getFechaHoraTexto(certificado.fechaSubida)}}</small>
-          </div>
-          <a class="sso-boton sso-boton-link" [href]="certificado.url" target="_blank" rel="noopener">
-            <i class="fa fa-download" aria-hidden="true"></i> Abrir
-          </a>
-          <button type="button" class="sso-boton sso-boton-peligro" *ngIf="!soloLectura" (click)="eliminarCertificadoMA(certificado)" [attr.aria-label]="'Eliminar ' + certificado.nombre">
-            <i class="fa fa-trash" aria-hidden="true"></i>
-          </button>
-        </li>
-      </ul>
-    </section>
     </ng-container>
 
     <ng-container *ngIf="verHistorico">

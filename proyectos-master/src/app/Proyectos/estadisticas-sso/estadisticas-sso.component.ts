@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, HostListener, Input, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firestoreDB } from '../../firebase-init';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
@@ -112,6 +112,11 @@ export interface CertificadoMA {
   tipo: string;
   idUsuario: any;
   fechaSubida: string;
+  /** Campo del indicador (consumoAgua, ...). Vacío = certificado general del año. */
+  indicador?: string;
+  /** Desglose o nota que escribe quien sube el archivo. */
+  descripcion?: string;
+  subidoPor?: string;
 }
 
 @Component({
@@ -198,6 +203,16 @@ export class EstadisticasSsoComponent implements OnInit {
   subiendoCertificadoMA: boolean = false;
   progresoCertificadoMA: number = 0;
   errorSubidaCertificadoMA: string = '';
+  // Adjuntos de cada indicador de MA (se abren debajo de la fila)
+  adjuntosIndicadorMA: { [campo: string]: CertificadoMA[] } = {};
+  indicadorMAAbierto: string | null = null;
+  posicionAdjuntosMA: { top: number, left: number } = { top: 0, left: 0 };
+  descripcionNuevaMA: string = '';          // desglose para los archivos que se van a subir
+  editandoDescripcionMA: string | null = null;
+  textoDescripcionMA: string = '';
+  subiendoIndicadorMA: string = '';   // campo que se está subiendo ('' = certificado general)
+  errorIndicadorMA: string = '';
+  errorIndicadorMACampo: string = '';
 
   // Pestañas del subproyecto: 'seguridad' (accidentes) | 'ma' | 'incidentes'
   vistaSubproyecto: string = 'seguridad';
@@ -563,33 +578,145 @@ export class EstadisticasSsoComponent implements OnInit {
       });
   }
 
+  /** Separa los del año: generales (panel Certificado MA) y los de cada indicador. */
   private filtrarCertificadosMA() {
     const anio = Number(this.anioMA);
-    this.certificadosMAVista = this.certificadosMA
+    const delAnio = this.certificadosMA
       .filter(item => Number(item.anio) === anio)
       .sort((a, b) => (b.fechaSubida || '').localeCompare(a.fechaSubida || ''));
+
+    this.certificadosMAVista = delAnio.filter(item => !item.indicador);
+
+    const porIndicador: { [campo: string]: CertificadoMA[] } = {};
+    this.indicadoresMA.forEach(indicador => porIndicador[indicador.campo] = []);
+    delAnio.filter(item => !!item.indicador).forEach(item => {
+      (porIndicador[item.indicador] || (porIndicador[item.indicador] = [])).push(item);
+    });
+    this.adjuntosIndicadorMA = porIndicador;
   }
 
-  subirCertificadosMA(input: any) {
+  /** Abre el desplegable de documentos justo debajo del botón del indicador. */
+  toggleAdjuntosIndicador(campo: string, evento?: any) {
+    if (evento) { evento.stopPropagation(); }
+    if (this.indicadorMAAbierto === campo) {
+      this.cerrarAdjuntosIndicador();
+      return;
+    }
+
+    const boton = evento && evento.currentTarget ? (evento.currentTarget as HTMLElement) : null;
+    if (boton) {
+      const rect = boton.getBoundingClientRect();
+      const ancho = 380;
+      this.posicionAdjuntosMA = {
+        top: rect.bottom + 6,
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - ancho - 12))
+      };
+    }
+    this.indicadorMAAbierto = campo;
+    if (this.errorIndicadorMACampo !== campo) { this.errorIndicadorMA = ''; }
+    this.descripcionNuevaMA = '';
+    this.editandoDescripcionMA = null;
+  }
+
+  cerrarAdjuntosIndicador() {
+    this.indicadorMAAbierto = null;
+    this.editandoDescripcionMA = null;
+  }
+
+  /** "09-11-2026 a las 16:20" */
+  getFechaSubidaTexto(iso: string): string {
+    const texto = this.getFechaHoraTexto(iso);
+    const partes = texto.split(' ');
+    return partes.length === 2 ? partes[0] + ' a las ' + partes[1] : texto;
+  }
+
+  editarDescripcionAdjuntoMA(archivo: CertificadoMA) {
+    if (this.soloLectura) { return; }
+    this.editandoDescripcionMA = archivo.id;
+    this.textoDescripcionMA = archivo.descripcion || '';
+  }
+
+  cancelarDescripcionAdjuntoMA() {
+    this.editandoDescripcionMA = null;
+    this.textoDescripcionMA = '';
+  }
+
+  guardarDescripcionAdjuntoMA(archivo: CertificadoMA) {
+    if (this.soloLectura || !archivo.id) { return; }
+    const texto = (this.textoDescripcionMA || '').trim();
+    const anterior = archivo.descripcion || '';
+    this.editandoDescripcionMA = null;
+    if (texto === anterior) { return; }
+
+    archivo.descripcion = texto;
+    firestoreDB.collection(COLECCION_CERTIFICADOS_MA).doc(archivo.id).update({ descripcion: texto })
+      .catch((error: any) => {
+        console.error('Error al guardar el desglose del adjunto:', error);
+        archivo.descripcion = anterior;
+        Swal.fire('Error', 'No se pudo guardar el desglose.', 'error');
+      });
+  }
+
+  getEtiquetaIndicadorMA(campo: string): string {
+    const indicador = this.indicadoresMA.filter(item => item.campo === campo)[0];
+    return indicador ? indicador.etiqueta : '';
+  }
+
+  /** Clic afuera, Esc, scroll o cambio de tamaño cierran el desplegable (no mientras hay un aviso de SweetAlert). */
+  @HostListener('document:click')
+  alClickDocumento() {
+    if (!this.indicadorMAAbierto || document.querySelector('.swal2-container')) { return; }
+    this.cerrarAdjuntosIndicador();
+  }
+
+  @HostListener('document:keydown.escape')
+  alEscape() {
+    if (this.indicadorMAAbierto) { this.cerrarAdjuntosIndicador(); }
+  }
+
+  @HostListener('window:resize')
+  @HostListener('window:scroll')
+  alMoverVentana() {
+    if (this.indicadorMAAbierto && !document.querySelector('.swal2-container')) { this.cerrarAdjuntosIndicador(); }
+  }
+
+  cantidadAdjuntosIndicador(campo: string): number {
+    return (this.adjuntosIndicadorMA[campo] || []).length;
+  }
+
+  /** indicador vacío = certificado general del año; con campo = adjunto de ese indicador. */
+  subirCertificadosMA(input: any, indicador: string = '') {
     const archivos: File[] = Array.prototype.slice.call(input.files || []);
     input.value = '';
     if (!archivos.length || this.soloLectura || this.subiendoCertificadoMA) { return; }
 
+    const mostrarError = (texto: string) => {
+      if (indicador) {
+        this.errorIndicadorMA = texto;
+        this.errorIndicadorMACampo = indicador;
+      } else {
+        this.errorSubidaCertificadoMA = texto;
+      }
+    };
+
     const muyGrande = archivos.filter(archivo => archivo.size > MAX_MB_CERTIFICADO * 1024 * 1024)[0];
     if (muyGrande) {
-      this.errorSubidaCertificadoMA = '"' + muyGrande.name + '" pesa más de ' + MAX_MB_CERTIFICADO + ' MB.';
+      mostrarError('"' + muyGrande.name + '" pesa más de ' + MAX_MB_CERTIFICADO + ' MB.');
       return;
     }
 
     const anio = Number(this.anioMA);
+    const descripcion = indicador ? (this.descripcionNuevaMA || '').trim() : '';
     const totalBytes = archivos.reduce((suma, archivo) => suma + archivo.size, 0) || 1;
     const transferidos: number[] = archivos.map(() => 0);
 
     this.subiendoCertificadoMA = true;
+    this.subiendoIndicadorMA = indicador;
     this.progresoCertificadoMA = 0;
     this.errorSubidaCertificadoMA = '';
+    this.errorIndicadorMA = '';
 
-    Promise.all(archivos.map((archivo, indice) => this.subirCertificadoMA(archivo, anio, (bytes: number) => {
+    Promise.all(archivos.map((archivo, indice) => this.subirCertificadoMA(archivo, anio, indicador, descripcion, (bytes: number) => {
       transferidos[indice] = bytes;
       const suma = transferidos.reduce((total, valor) => total + valor, 0);
       this.progresoCertificadoMA = Math.min(100, Math.round(suma * 100 / totalBytes));
@@ -598,17 +725,21 @@ export class EstadisticasSsoComponent implements OnInit {
         this.certificadosMA = nuevos.concat(this.certificadosMA);
         this.filtrarCertificadosMA();
         this.subiendoCertificadoMA = false;
+        this.subiendoIndicadorMA = '';
+        this.descripcionNuevaMA = '';
       })
       .catch((error: any) => {
         console.error('Error al subir el certificado de MA:', error);
         this.subiendoCertificadoMA = false;
-        this.errorSubidaCertificadoMA = 'No se pudieron subir todos los archivos. Inténtalo de nuevo.';
+        this.subiendoIndicadorMA = '';
+        mostrarError('No se pudieron subir todos los archivos. Inténtalo de nuevo.');
         this.cargarCertificadosMA();
       });
   }
 
-  private subirCertificadoMA(archivo: File, anio: number, alAvanzar: (bytes: number) => void): Promise<CertificadoMA> {
-    const ruta = 'certificadosMA/' + this.idSubProyecto + '/' + anio + '/' + Date.now() + '_' + this.limpiarNombreArchivo(archivo.name);
+  private subirCertificadoMA(archivo: File, anio: number, indicador: string, descripcion: string, alAvanzar: (bytes: number) => void): Promise<CertificadoMA> {
+    const carpeta = indicador ? indicador + '/' : '';
+    const ruta = 'certificadosMA/' + this.idSubProyecto + '/' + anio + '/' + carpeta + Date.now() + '_' + this.limpiarNombreArchivo(archivo.name);
     const tipo = archivo.type || 'application/octet-stream';
 
     return new Promise((resolve, reject) => {
@@ -634,7 +765,10 @@ export class EstadisticasSsoComponent implements OnInit {
                 tamano: archivo.size,
                 tipo: tipo,
                 idUsuario: this.idUsuario,
-                fechaSubida: new Date().toISOString()
+                fechaSubida: new Date().toISOString(),
+                indicador: indicador || '',
+                descripcion: descripcion || '',
+                subidoPor: this.getNombreUsuarioActual()
               };
               return firestoreDB.collection(COLECCION_CERTIFICADOS_MA).add(datos)
                 .then((doc: any) => resolve({ ...datos, id: doc.id }));
