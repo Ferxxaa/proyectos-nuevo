@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
 import { ProgramaSsoService, ProgramaMes, ActividadPrograma } from './programa-sso.service';
 import { getFeriadosChile } from '../estadisticas-hh/control-asistencia.component';
 
@@ -91,6 +91,7 @@ interface DiaInfo {
   finde: boolean;
   feriado: boolean;
   rojo: boolean;
+  hoy: boolean;
 }
 
 interface CeldaVista {
@@ -167,6 +168,13 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   totalCtrl = 0;
   pctTotal = 0;
   pctGlobal = 0;
+
+  @ViewChild('scrollGrilla') scrollGrilla: ElementRef;
+
+  /** Arrastre: mantener apretado el clic y pasar por los días los marca (o desmarca) todos. */
+  arrastrando = false;
+  private modoArrastre: 'agregar' | 'quitar' = 'agregar';
+  private huboCambiosArrastre = false;
 
   private nombreUsuario = '';
   private timerGuardar: any = null;
@@ -273,6 +281,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       this.programa = p ? this.normalizar(p) : null;
       this.recalcular();
       this.cargando = false;
+      this.irAHoy();
     }).catch(err => {
       if (token !== this.cargaToken) { return; }
       console.error('programaSSO obtener', err);
@@ -452,12 +461,14 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   private construirDias(feriados: number[]): DiaInfo[] {
     const n = new Date(this.anio, this.mesSel, 0).getDate();
+    const ahora = new Date();
+    const diaHoy = ahora.getFullYear() === this.anio && ahora.getMonth() + 1 === this.mesSel ? ahora.getDate() : 0;
     const res: DiaInfo[] = [];
     for (let d = 1; d <= n; d++) {
       const dow = new Date(this.anio, this.mesSel - 1, d).getDay();
       const finde = dow === 0 || dow === 6;
       const feriado = feriados.indexOf(d) >= 0;
-      res.push({ dia: d, dow: dow, letra: LETRAS[dow], finde: finde, feriado: feriado, rojo: finde || feriado });
+      res.push({ dia: d, dow: dow, letra: LETRAS[dow], finde: finde, feriado: feriado, rojo: finde || feriado, hoy: d === diaHoy });
     }
     return res;
   }
@@ -607,24 +618,68 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   // ===================== Interacción =====================
 
-  clickCelda(f: FilaVista, c: CeldaVista) {
+  /** Al apretar el clic: decide si se va a marcar o desmarcar según cómo estaba el primer día. */
+  inicioArrastre(f: FilaVista, c: CeldaVista, evento: MouseEvent) {
     if (!this.programa || !this.celdaClicable(c, f)) { return; }
+    if (evento && evento.button !== 0) { return; }
+    if (evento) { evento.preventDefault(); } // evita que se seleccione texto al arrastrar
+
+    const marcado = this.enControl
+      ? f.act.realizados.indexOf(c.dia) >= 0
+      : f.act.programados.indexOf(c.dia) >= 0;
+    this.modoArrastre = marcado ? 'quitar' : 'agregar';
+    this.arrastrando = true;
+    this.huboCambiosArrastre = false;
+    this.aplicarArrastre(f, c);
+  }
+
+  /** Mientras se mantiene apretado, cada día por el que pasa el mouse toma la misma acción. */
+  entrarCelda(f: FilaVista, c: CeldaVista) {
+    if (!this.arrastrando || !this.programa || !this.celdaClicable(c, f)) { return; }
+    this.aplicarArrastre(f, c);
+  }
+
+  @HostListener('document:mouseup')
+  finArrastre() {
+    if (!this.arrastrando) { return; }
+    this.arrastrando = false;
+    if (this.huboCambiosArrastre) { this.programarGuardado(); }
+  }
+
+  private aplicarArrastre(f: FilaVista, c: CeldaVista) {
     const a = f.act;
     const d = c.dia;
+    const agregar = this.modoArrastre === 'agregar';
+    let cambio = false;
 
     if (this.enControl) {
-      this.toggle(a.realizados, d);
+      const esta = a.realizados.indexOf(d) >= 0;
+      if (agregar && !esta) { a.realizados.push(d); a.realizados.sort((x, y) => x - y); cambio = true; }
+      if (!agregar && esta) { this.quitar(a.realizados, d); cambio = true; }
     } else if (this.enEdicion) {
-      if (a.programados.indexOf(d) >= 0) {
-        this.quitar(a.programados, d);
-        this.quitar(a.realizados, d);
-      } else {
-        a.programados.push(d);
-        a.programados.sort((x, y) => x - y);
-      }
+      const esta = a.programados.indexOf(d) >= 0;
+      if (agregar && !esta) { a.programados.push(d); a.programados.sort((x, y) => x - y); cambio = true; }
+      if (!agregar && esta) { this.quitar(a.programados, d); this.quitar(a.realizados, d); cambio = true; }
     }
-    this.recalcular();
-    this.programarGuardado();
+
+    if (cambio) {
+      this.huboCambiosArrastre = true;
+      this.recalcular();
+    }
+  }
+
+  /** Lleva el scroll horizontal hasta el día de hoy (si el mes visible es el actual). */
+  private irAHoy() {
+    setTimeout(() => {
+      const contenedor: HTMLElement = this.scrollGrilla && this.scrollGrilla.nativeElement;
+      if (!contenedor) { return; }
+      const hoy = contenedor.querySelector('th.dia-hoy') as HTMLElement;
+      if (!hoy) { return; }
+      const fija = 300; // columna de actividades
+      const visible = contenedor.clientWidth - fija;
+      const destino = hoy.offsetLeft - fija - visible / 2 + hoy.offsetWidth / 2;
+      contenedor.scrollLeft = Math.max(0, destino);
+    }, 0);
   }
 
   clickDia(d: DiaInfo) {
@@ -780,7 +835,12 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   /** Ancho mínimo: si la pantalla es más ancha, el espacio sobrante se lo lleva Actividades. */
   get anchoMinimoTabla(): number {
-    return 110 + 300 + 170 + this.dias.length * 30 + 276;
+    return 300 + 150 + this.dias.length * 30 + 150;
+  }
+
+  /** Columnas totales de la grilla (para las filas de ítem que ocupan todo el ancho). */
+  get totalColumnas(): number {
+    return this.dias.length + 3;
   }
 
   // ===================== trackBy =====================

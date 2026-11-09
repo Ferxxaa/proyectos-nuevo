@@ -63,7 +63,7 @@
         </span>
 
         <span class="psso-meta" *ngIf="estado === 'borrador' && editable">
-          Haz clic en los días que corresponde cada actividad y luego presiona <b>Guardar programación</b>. Después no se podrá modificar.
+          Haz clic en los días que corresponde cada actividad (o mantén apretado y arrastra para marcar varios) y luego presiona <b>Guardar programación</b>. Después no se podrá modificar.
         </span>
         <span class="psso-meta" *ngIf="estado === 'pendiente'">
           Programado por <b>{{ programa.programadoPor || '—' }}</b>
@@ -112,52 +112,78 @@
       Rechazado por <b>{{ programa.validadoPor || '—' }}</b>: {{ programa.motivoRechazo }}
     </div>
 
+    <!-- Resumen del mes -->
+    <div class="psso-resumen">
+      <div class="psso-kpi">
+        <span>Programadas</span>
+        <strong>{{ totalProg }}</strong>
+      </div>
+      <div class="psso-kpi">
+        <span>Realizadas</span>
+        <strong>{{ totalCtrl }}</strong>
+      </div>
+      <div class="psso-kpi psso-kpi-avance">
+        <div>
+          <span>Cumplimiento del mes</span>
+          <strong [ngClass]="'txt-' + claseSemaforo(totalProg ? pctTotal : null)">{{ totalProg ? pctTotal + '%' : '-' }}</strong>
+        </div>
+        <div class="psso-barra grande"><i [ngClass]="claseSemaforo(totalProg ? pctTotal : null)" [style.width.%]="pctTotal"></i></div>
+      </div>
+      <div class="psso-kpi">
+        <span>Promedio por ítem</span>
+        <strong [ngClass]="'txt-' + claseSemaforo(totalProg ? pctGlobal : null)">{{ totalProg ? pctGlobal + '%' : '-' }}</strong>
+      </div>
+    </div>
+
     <!-- Grilla -->
     <div class="psso-marco">
-      <div class="psso-scroll">
-        <table class="psso-tabla" [class.edicion]="enEdicion" [style.min-width.px]="anchoMinimoTabla">
+      <div class="psso-scroll" #scrollGrilla>
+        <table class="psso-tabla" [class.edicion]="enEdicion" [class.control]="enControl" [class.arrastrando]="arrastrando"
+               [style.min-width.px]="anchoMinimoTabla">
           <colgroup>
-            <col style="width: 110px">
-            <col>
-            <col style="width: 170px">
+            <col class="c-actividad">
+            <col style="width: 150px">
             <col *ngFor="let d of dias; trackBy: trackDia" style="width: 30px">
-            <col style="width: 72px">
-            <col style="width: 72px">
-            <col style="width: 60px">
-            <col style="width: 72px">
+            <col style="width: 150px">
           </colgroup>
           <thead>
             <tr>
-              <th rowspan="2" class="col-item sticky-1">Ítem</th>
-              <th rowspan="2" class="col-act sticky-2">Actividades</th>
-              <th rowspan="2" class="col-frec">Frecuencia</th>
-              <th [attr.colspan]="dias.length" class="col-mes">{{ meses[mesSel - 1] | uppercase }} {{ anio }}</th>
-              <th rowspan="2" class="col-num">Total<br>días</th>
-              <th rowspan="2" class="col-num">Contro-<br>lados</th>
-              <th rowspan="2" class="col-num">%</th>
-              <th rowspan="2" class="col-num col-total">Total</th>
-            </tr>
-            <tr>
+              <th class="col-act sticky-1">Actividad</th>
+              <th class="col-frec">Frecuencia</th>
               <th *ngFor="let d of dias; trackBy: trackDia" class="col-dia dia-head"
                   [class.dia-rojo]="d.rojo"
+                  [class.dia-hoy]="d.hoy"
                   [class.clicable]="enEdicion && !d.finde"
                   [title]="d.feriado ? 'Feriado' : (d.finde ? 'Fin de semana' : (enEdicion ? 'Clic para marcar feriado' : ''))"
                   (click)="clickDia(d)">
-                <span class="dia-letra">{{ d.letra }}</span>
+                <span class="dia-letra">{{ d.hoy ? 'Hoy' : d.letra }}</span>
                 <span class="dia-num">{{ d.dia }}</span>
               </th>
+              <th class="col-avance">Avance</th>
             </tr>
           </thead>
 
           <tbody>
             <ng-container *ngFor="let g of grupos; trackBy: trackGrupo">
 
-              <tr *ngFor="let f of g.filas; let i = index; trackBy: trackFila" [class.inicio-grupo]="i === 0">
-                <td *ngIf="i === 0" class="col-item grupo sticky-1"
-                    [attr.rowspan]="g.filas.length + (enEdicion ? 1 : 0)">{{ g.nombre }}</td>
+              <!-- Ítem -->
+              <tr class="fila-grupo">
+                <td [attr.colspan]="totalColumnas">
+                  <div class="grupo-cabecera">
+                    <span class="grupo-nombre">{{ g.nombre }}</span>
+                    <span class="grupo-cantidad">{{ g.filas.length }} {{ g.filas.length === 1 ? 'actividad' : 'actividades' }}</span>
+                    <span class="pct" [ngClass]="claseSemaforo(g.pct)">{{ g.pct === null ? 'Sin programar' : g.pct + '%' }}</span>
+                    <button *ngIf="enEdicion && g.filas.length === 0" type="button" class="btn-del" title="Eliminar ítem" (click)="eliminarGrupo(g.nombre)">
+                      <i class="fa fa-trash-o"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
 
-                <td class="col-act sticky-2">
-                  <span *ngIf="!enEdicion" class="act-nombre">{{ f.act.nombre }}</span>
+              <!-- Actividades -->
+              <tr *ngFor="let f of g.filas; trackBy: trackFila" class="fila-act">
+                <td class="col-act sticky-1">
+                  <span *ngIf="!enEdicion" class="act-nombre" [title]="f.act.nombre">{{ f.act.nombre }}</span>
                   <div *ngIf="enEdicion" class="edit-act">
                     <input type="text" [(ngModel)]="f.act.nombre" (ngModelChange)="programarGuardado()">
                     <button type="button" class="btn-del" title="Eliminar actividad" (click)="eliminarActividad(f.act)">
@@ -175,50 +201,41 @@
                   </select>
                 </td>
 
-                <td *ngFor="let c of f.celdas; trackBy: trackDia"
+                <td *ngFor="let c of f.celdas; let di = index; trackBy: trackDia"
                     class="col-dia celda"
-                    [ngClass]="c.clase"
-                    [class.hecho]="c.x"
+                    [class.dia-rojo]="c.clase === 'c-rojo'"
+                    [class.dia-hoy]="dias[di]?.hoy"
                     [class.clicable]="celdaClicable(c, f)"
-                    (click)="clickCelda(f, c)">{{ c.x ? 'x' : '' }}</td>
+                    [class.vacia]="c.clase !== 'c-azul' && c.clase !== 'c-verde'"
+                    [title]="c.clase === 'c-azul' || c.clase === 'c-verde' ? (c.x ? 'Realizado' : 'Programado') : ''"
+                    (mousedown)="inicioArrastre(f, c, $event)"
+                    (mouseenter)="entrarCelda(f, c)">
+                  <span *ngIf="c.clase === 'c-azul' || c.clase === 'c-verde'" class="marca"
+                        [class.m-azul]="c.clase === 'c-azul'" [class.m-verde]="c.clase === 'c-verde'" [class.hecho]="c.x">
+                    <i *ngIf="c.x" class="fa fa-check" aria-hidden="true"></i>
+                  </span>
+                </td>
 
-                <td class="col-num">{{ f.total }}</td>
-                <td class="col-num">{{ f.ctrl }}</td>
-                <td class="col-num"><span class="pct" [ngClass]="claseSemaforo(f.pct)">{{ f.pct === null ? '-' : f.pct + '%' }}</span></td>
-
-                <td *ngIf="i === 0" class="col-num col-total"
-                    [attr.rowspan]="g.filas.length + (enEdicion ? 1 : 0)">
-                  <span class="pct grande" [ngClass]="claseSemaforo(g.pct)">{{ g.pct === null ? '-' : g.pct + '%' }}</span>
+                <td class="col-avance">
+                  <div class="avance" *ngIf="f.pct !== null">
+                    <div class="psso-barra"><i [ngClass]="claseSemaforo(f.pct)" [style.width.%]="f.pct"></i></div>
+                    <span class="avance-texto">{{ f.ctrl }}/{{ f.total }}</span>
+                    <span class="avance-pct" [ngClass]="'txt-' + claseSemaforo(f.pct)">{{ f.pct }}%</span>
+                  </div>
+                  <span class="avance-vacio" *ngIf="f.pct === null">Sin programar</span>
                 </td>
               </tr>
 
               <!-- agregar actividad (solo en borrador) -->
               <tr *ngIf="enEdicion" class="fila-agregar">
-                <td *ngIf="g.filas.length === 0" class="col-item grupo sticky-1">
-                  {{ g.nombre }}
-                  <button type="button" class="btn-del" title="Eliminar ítem" (click)="eliminarGrupo(g.nombre)"><i class="fa fa-trash-o"></i></button>
-                </td>
-                <td class="col-act sticky-2">
+                <td class="col-act sticky-1">
                   <button type="button" class="psso-link" (click)="agregarActividad(g.nombre)"><i class="fa fa-plus"></i> Agregar actividad</button>
                 </td>
-                <td [attr.colspan]="dias.length + 4"></td>
-                <td *ngIf="g.filas.length === 0" class="col-num col-total"></td>
+                <td [attr.colspan]="dias.length + 2"></td>
               </tr>
 
             </ng-container>
           </tbody>
-
-          <tfoot>
-            <tr>
-              <td class="sticky-1"></td>
-              <td class="sticky-2 lbl-total">TOTAL {{ esMA ? 'MA' : 'SSO' }}</td>
-              <td [attr.colspan]="dias.length + 1"></td>
-              <td class="col-num">{{ totalProg }}</td>
-              <td class="col-num">{{ totalCtrl }}</td>
-              <td class="col-num"><span class="pct" [ngClass]="claseSemaforo(pctTotal)">{{ pctTotal }}%</span></td>
-              <td class="col-num col-total"><span class="pct grande" [ngClass]="claseSemaforo(pctGlobal)">{{ pctGlobal }}%</span></td>
-            </tr>
-          </tfoot>
         </table>
       </div>
     </div>
@@ -227,10 +244,11 @@
       <button *ngIf="enEdicion" type="button" class="psso-link" (click)="agregarGrupo()"><i class="fa fa-plus"></i> Agregar ítem</button>
       <div class="psso-doc">Código: {{ programa.codigo }} · Versión: {{ programa.version }}</div>
       <div class="psso-leyenda">
-        <span><i class="ley c-azul"></i> Corresponde realizar lo programado</span>
-        <span><i class="ley c-verde"></i> Siempre que sea necesario</span>
-        <span><i class="ley c-rojo"></i> Fin de semana o feriado</span>
-        <span><i class="ley c-azul hecho">x</i> Realizado</span>
+        <span><i class="marca m-azul"></i> Programado</span>
+        <span><i class="marca m-verde"></i> Según necesidad</span>
+        <span><i class="marca m-azul hecho"><b class="fa fa-check"></b></i> Realizado</span>
+        <span><i class="ley-rojo"></i> Fin de semana o feriado</span>
+        <span><i class="ley-hoy"></i> Hoy</span>
       </div>
     </div>
 
