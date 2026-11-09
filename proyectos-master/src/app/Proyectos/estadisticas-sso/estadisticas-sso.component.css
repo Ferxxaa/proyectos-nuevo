@@ -1177,7 +1177,6 @@
   border: 1px solid #dde3e8;
   border-radius: 8px;
   background: linear-gradient(180deg, var(--guia-suave) 0%, #fff 70%);
-  cursor: help;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
@@ -1244,15 +1243,31 @@
 
 .sso-guia-fila {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
   color: #3d454c;
   font-size: 12px;
-  line-height: 1.3;
+  line-height: 1.45;
+}
+
+.sso-guia-fila b {
+  color: #24404f;
+  font-weight: 800;
+}
+
+/* números juntos (3 y 4, 5 y 6) a la izquierda del texto */
+.sso-guia-numeros {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  min-width: 43px;
+  padding-top: 1px;
 }
 
 .sso-guia-fila + .sso-guia-fila {
-  margin-top: 5px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px dashed #e3e8ed;
 }
 
 .sso-guia-fila .sso-grado {

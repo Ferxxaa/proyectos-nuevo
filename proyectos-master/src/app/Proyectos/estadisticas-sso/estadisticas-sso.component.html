@@ -182,32 +182,40 @@
     </form>
 
     <div class="sso-guia-grados" *ngIf="enIncidentes" aria-label="Clasificación de grados">
-      <div class="sso-guia guia-menor" title="Se consideran todos los incidentes menores. Ej.: golpes, tirones, entre otros (enviados a Mutual).">
+      <div class="sso-guia guia-menor">
         <div class="sso-guia-cabecera">
           <span class="sso-guia-icono"><i class="fa fa-check-circle" aria-hidden="true"></i></span>
           <span class="sso-guia-titulo">Grado menor</span>
-          <span class="sso-guia-ejemplo">Golpes, tirones</span>
         </div>
-        <div class="sso-guia-fila"><span class="sso-grado grado-1">1</span><span>Sin días perdidos y accidentes de trayecto</span></div>
-        <div class="sso-guia-fila"><span class="sso-grado grado-2">2</span><span>Con días perdidos</span></div>
+        <div class="sso-guia-fila">
+          <span class="sso-guia-numeros"><span class="sso-grado grado-1">1</span></span>
+          <span>Se consideran todos los incidentes menores. Ej.: golpes, tirones, entre otros (enviados a Mutual) <b>sin días perdidos, y accidentes de trayecto</b>.</span>
+        </div>
+        <div class="sso-guia-fila">
+          <span class="sso-guia-numeros"><span class="sso-grado grado-2">2</span></span>
+          <span>Se consideran todos los incidentes menores. Ej.: golpes, tirones, entre otros (enviados a Mutual) <b>con días perdidos</b>.</span>
+        </div>
       </div>
-      <div class="sso-guia guia-intermedio" title="Se consideran todos los incidentes intermedios. Ej.: cortes con herramientas manuales y eléctricas, golpes de corriente, esguinces, caídas, fracturas, quemaduras de 1er grado, entre otros, con días perdidos.">
+      <div class="sso-guia guia-intermedio">
         <div class="sso-guia-cabecera">
           <span class="sso-guia-icono"><i class="fa fa-exclamation-circle" aria-hidden="true"></i></span>
           <span class="sso-guia-titulo">Grado intermedio</span>
-          <span class="sso-guia-ejemplo">Con días perdidos</span>
         </div>
-        <div class="sso-guia-fila"><span class="sso-grado grado-3">3</span><span>Cortes, golpes de corriente, esguinces</span></div>
-        <div class="sso-guia-fila"><span class="sso-grado grado-4">4</span><span>Caídas, fracturas, quemaduras de 1er grado</span></div>
+        <div class="sso-guia-fila">
+          <span class="sso-guia-numeros"><span class="sso-grado grado-3">3</span><span class="sso-grado grado-4">4</span></span>
+          <span>Se consideran todos los incidentes intermedios. Ej.: cortes con herramientas manuales y eléctricas, golpes de corriente, esguinces, caídas, fracturas, quemaduras de 1er grado, entre otros, <b>con días perdidos</b>.</span>
+        </div>
       </div>
-      <div class="sso-guia guia-grave" title="Grado 5: incidentes de carácter grave (amputaciones, cortes y fracturas expuestas, quemaduras de 1er y 2do grado). Grado 6: incidentes de carácter fatal (atropellos, caídas al vacío, que terminen en invalidez o muerte).">
+      <div class="sso-guia guia-grave">
         <div class="sso-guia-cabecera">
           <span class="sso-guia-icono"><i class="fa fa-times-circle" aria-hidden="true"></i></span>
           <span class="sso-guia-titulo">Grave</span>
-          <span class="sso-guia-ejemplo">Grave y fatal</span>
         </div>
-        <div class="sso-guia-fila"><span class="sso-grado grado-5">5</span><span>Amputaciones, fracturas expuestas, quemaduras 2do grado</span></div>
-        <div class="sso-guia-fila"><span class="sso-grado grado-6">6</span><span>Fatal: atropellos, caídas al vacío, invalidez o muerte</span></div>
+        <div class="sso-guia-fila">
+          <span class="sso-guia-numeros"><span class="sso-grado grado-5">5</span><span class="sso-grado grado-6">6</span></span>
+          <span>Se consideran todos los incidentes de carácter grave. Ej.: amputaciones, cortes y fracturas expuestas, quemaduras de 1er y 2do grado, entre otros.
+            También los de carácter fatal. Ej.: atropellos, caídas al vacío, que terminen en invalidez o muerte.</span>
+        </div>
       </div>
     </div>
 
