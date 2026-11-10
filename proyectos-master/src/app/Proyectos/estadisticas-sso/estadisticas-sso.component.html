@@ -452,7 +452,9 @@
               </th>
               <td *ngFor="let mes of mesesMA; trackBy: trackMesMA" [class.mes-actual]="esMesActualMA(mes.numero)">
                 <input type="text" inputmode="decimal" autocomplete="off" placeholder="–"
-                       [value]="getTextoCeldaMA(mes.numero, indicador.campo)" [disabled]="soloLectura"
+                       [class.desde-programa]="esDeProgramaMA(mes.numero, indicador.campo)"
+                       [title]="esDeProgramaMA(mes.numero, indicador.campo) ? 'Viene de los registros del Programa de actividades MA' : ''"
+                       [value]="getTextoCeldaMA(mes.numero, indicador.campo)" [disabled]="soloLectura || esDeProgramaMA(mes.numero, indicador.campo)"
                        (change)="guardarCeldaMA(mes.numero, indicador, $event.target)"
                        [attr.aria-label]="indicador.etiqueta + ' de ' + mes.nombre">
               </td>

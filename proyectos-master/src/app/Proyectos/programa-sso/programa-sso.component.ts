@@ -5,7 +5,12 @@ import {
   AdjuntoRegistro, RegistroDia, NIVELES_CUMPLIMIENTO, VALORES_CUMPLIMIENTO, CAMPOS_HH, ENTIDADES_ESPECIFICAS, TAMANO_MAXIMO_ADJUNTO,
   registrosDe, sumarHHPrograma, hhDeRegistro, redondear, subirAdjunto, borrarAdjunto
 } from './programa-registro';
-import { exportarProgramaExcel } from './programa-excel';
+import { exportarProgramaExcel, exportarConsolidadoAnualExcel } from './programa-excel';
+import { firestoreDB } from '../../firebase-init';
+import { ConsumoMA, consumoMADe, CONSUMOS_MA } from './programa-registro';
+
+/** Tabla de Medio Ambiente (pestaña MA de Estadísticas SSO/MA/INCS). */
+const COLECCION_ESTADISTICAS_MA = 'estadisticasMA';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -144,6 +149,29 @@ interface GrupoVista {
   pct: number;
 }
 
+/** Resumen de un programa (SSO o MA) para el Consolidado del mes. */
+interface ResumenGrupo { nombre: string; prog: number; real: number; pct: number; secciones: { nombre: string; prog: number; real: number; pct: number }[]; }
+interface ResumenPrograma {
+  tipo: string;            // 'SSO' | 'MA'
+  existe: boolean;
+  estado: string;
+  textoEstado: string;
+  validadoPor: string;
+  totalProg: number;
+  totalCtrl: number;
+  pct: number;             // null = sin días programados
+  promedioItems: number;   // null = sin días programados
+  grupos: ResumenGrupo[];
+  hhCapacitadas: number;
+  hhEspecificas: number;
+  hhOperacionales: number;
+  consumos: { etiqueta: string; unidad: string; valor: number }[];
+}
+
+/** Consolidado anual */
+interface CeldaAnual { mes: number; tipo: string; existe: boolean; pct: number; pendiente: boolean; }
+interface FilaAnual { id: string; nombre: string; actual: boolean; celdas: CeldaAnual[]; totalSSO: number; totalMA: number; }
+
 /** Datos del popup de registro de un día. */
 interface ModalRegistro {
   act: ActividadPrograma;
@@ -152,8 +180,10 @@ interface ModalRegistro {
   soloLectura: boolean;
   existente: boolean;
   cumplimiento: number;
-  hh: { [campo: string]: number };   // hhCapacitacion, hhEspecificas, hhOperacional
+  hh: { [campo: string]: number };   // hhEspecificas, hhOperacional (capacitadas = la suma)
   entidad: string;                   // entidad de las HH específicas
+  consumoDef: ConsumoMA;             // solo MA: consumo que se registra en esta actividad (o null)
+  consumo: number;
   observacion: string;
   adjuntos: AdjuntoRegistro[];
   registradoPor: string;
@@ -173,6 +203,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   @Input() editable: boolean = true;       // false = cliente / solo lectura
   @Input() puedeValidar: boolean = false;  // Director de Proyecto o Sub-gerente
   @Input() tipoPrograma: string = 'SSO';
+  @Input() idProyecto: any = null;          // opcional: se guarda en la tabla de MA si el documento es nuevo
 
   meses = MESES;
   nivelesCumplimiento = NIVELES_CUMPLIMIENTO;
@@ -262,6 +293,16 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     return this.tipoPrograma === 'MA';
   }
 
+  /** Pestaña "Consolidado del mes": SSO y MA juntos, solo lectura. */
+  get esConsolidado(): boolean {
+    return this.tipoPrograma === 'CONSOLIDADO';
+  }
+
+  /** Pestaña "Consolidado anual": cumplimiento SSO / MA por obra y mes (como la planilla REG). */
+  get esAnual(): boolean {
+    return this.tipoPrograma === 'ANUAL';
+  }
+
   seleccionarTipoPrograma(tipo: string) {
     if (tipo === this.tipoPrograma) { return; }
     this.flushGuardado();
@@ -311,11 +352,17 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   // ===================== Carga =====================
 
   cargarAnio() {
+    if (this.esAnual) { this.cargarAnual(); return; }
     const anio = this.anio;
     this.mesesConPrograma = [];
-    this.sPrograma.mesesExistentes(this.idSubProyecto, anio, this.coleccionPrograma).then(meses => {
-      if (anio === this.anio) { this.mesesConPrograma = meses; }
-    }).catch(err => console.error('programaSSO meses', err));
+    const colecciones = this.esConsolidado ? ['programaSSO', 'programaMA'] : [this.coleccionPrograma];
+    Promise.all(colecciones.map(c => Promise.resolve(this.sPrograma.mesesExistentes(this.idSubProyecto, anio, c))))
+      .then((listas: number[][]) => {
+        if (anio !== this.anio) { return; }
+        const union: number[] = [];
+        listas.forEach(l => (l || []).forEach(m => { if (union.indexOf(m) < 0) { union.push(m); } }));
+        this.mesesConPrograma = union;
+      }).catch(err => console.error('programaSSO meses', err));
     this.cargarMes();
   }
 
@@ -347,6 +394,26 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.cargando = true;
     this.programa = null;
     this.grupos = [];
+    this.consolidado = null;
+
+    if (this.esConsolidado) {
+      Promise.all(['programaSSO', 'programaMA'].map(c =>
+        Promise.resolve(this.sPrograma.obtener(this.idSubProyecto, this.anio, this.mesSel, c)).catch(err => {
+          console.error('consolidado ' + c, err);
+          return null;
+        })
+      )).then((lista: ProgramaMes[]) => {
+        if (token !== this.cargaToken) { return; }
+        this.consolidado = {
+          sso: this.resumenDe(lista[0], 'SSO'),
+          ma: this.resumenDe(lista[1], 'MA')
+        };
+        this.dias = this.construirDias([]);
+        this.cargando = false;
+      });
+      return;
+    }
+
     this.sPrograma.obtener(this.idSubProyecto, this.anio, this.mesSel, this.coleccionPrograma).then(p => {
       if (token !== this.cargaToken) { return; }
       this.programa = p ? this.normalizar(p) : null;
@@ -358,6 +425,263 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       console.error('programaSSO obtener', err);
       this.cargando = false;
     });
+  }
+
+  // ===================== Consolidado del mes =====================
+
+  consolidado: { sso: ResumenPrograma; ma: ResumenPrograma } = null;
+
+  /** % global del mes: realizadas / programadas de SSO + MA. */
+  get pctConsolidado(): number {
+    if (!this.consolidado) { return null; }
+    const prog = this.consolidado.sso.totalProg + this.consolidado.ma.totalProg;
+    const real = this.consolidado.sso.totalCtrl + this.consolidado.ma.totalCtrl;
+    return prog > 0 ? Math.round(real * 100 / prog) : null;
+  }
+
+  get realConsolidado(): number {
+    return this.consolidado ? redondear(this.consolidado.sso.totalCtrl + this.consolidado.ma.totalCtrl) : 0;
+  }
+
+  get progConsolidado(): number {
+    return this.consolidado ? this.consolidado.sso.totalProg + this.consolidado.ma.totalProg : 0;
+  }
+
+  // ===================== Consolidado anual (todas las obras) =====================
+
+  anual: FilaAnual[] = null;
+  totalesMesAnual: CeldaAnual[] = [];     // 24 celdas: ene SSO, ene MA, feb SSO...
+  totalSSOAnual: number = null;
+  totalMAAnual: number = null;
+  pendientesAnual = 0;
+  errorAnual = false;
+  /** Columnas de la tabla anual: mes + tipo */
+  readonly columnasAnual = (() => {
+    const res: { mes: number; tipo: string }[] = [];
+    for (let m = 1; m <= 12; m++) { res.push({ mes: m, tipo: 'SSO' }, { mes: m, tipo: 'MA' }); }
+    return res;
+  })();
+  readonly mesesCortos = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+  /**
+   * Lee los programas SSO y MA del año de todas las obras (el cliente solo ve su subproyecto)
+   * y calcula el % de cumplimiento de cada mes con la misma lógica de la grilla.
+   */
+  cargarAnual() {
+    if (this.modal) { this.cancelarRegistro(); }
+    const token = ++this.cargaToken;
+    const anio = this.anio;
+    this.cargando = true;
+    this.errorAnual = false;
+    this.programa = null;
+    this.consolidado = null;
+    this.anual = null;
+
+    const soloEste = !this.editable;
+    const consulta = (col: string) => soloEste
+      ? firestoreDB.collection(col).where('idSubProyecto', '==', String(this.idSubProyecto)).get()
+      : firestoreDB.collection(col).where('anio', '==', anio).get();
+
+    // nombres de las obras: del propio programa, o de las estadísticas de HH / MA del año
+    const nombres: { [id: string]: string } = {};
+    const leerNombres = (col: string) => firestoreDB.collection(col).where('anio', '==', anio).get()
+      .then((snap: any) => snap.forEach((doc: any) => {
+        const d = doc.data();
+        if (d && d.idSubProyecto !== undefined && d.nombreSubProyecto) { nombres[String(d.idSubProyecto)] = d.nombreSubProyecto; }
+      }))
+      .catch(() => null);
+
+    Promise.all([consulta('programaSSO'), consulta('programaMA'),
+      soloEste ? Promise.resolve(null) : leerNombres('estadisticasHH'),
+      soloEste ? Promise.resolve(null) : leerNombres('estadisticasMA')])
+      .then((res: any[]) => {
+        if (token !== this.cargaToken) { return; }
+        const filas: { [id: string]: FilaAnual } = {};
+        const procesar = (snap: any, tipo: string) => snap.forEach((doc: any) => {
+          const p = doc.data();
+          if (!p || Number(p.anio) !== anio || !p.mes) { return; }
+          const id = String(p.idSubProyecto);
+          if (p.nombreSubProyecto) { nombres[id] = p.nombreSubProyecto; }
+          const fila = filas[id] || (filas[id] = this.filaAnualVacia(id));
+          const r = this.resumenDe(p, tipo);
+          const celda = fila.celdas[(Number(p.mes) - 1) * 2 + (tipo === 'MA' ? 1 : 0)];
+          celda.existe = true;
+          celda.pct = r.pct;
+          celda.pendiente = r.estado !== 'validado';
+        });
+        procesar(res[0], 'SSO');
+        procesar(res[1], 'MA');
+
+        if (nombres[String(this.idSubProyecto)] === undefined && this.nombreSubProyecto) {
+          nombres[String(this.idSubProyecto)] = this.nombreSubProyecto;
+        }
+        const lista = Object.keys(filas).map(id => {
+          const f = filas[id];
+          f.nombre = nombres[id] || ('Subproyecto ' + id);
+          f.totalSSO = this.promedio(f.celdas.filter(c => c.tipo === 'SSO').map(c => c.pct));
+          f.totalMA = this.promedio(f.celdas.filter(c => c.tipo === 'MA').map(c => c.pct));
+          return f;
+        }).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
+
+        this.totalesMesAnual = this.columnasAnual.map((col, i) => ({
+          mes: col.mes, tipo: col.tipo, existe: true, pendiente: false,
+          pct: this.promedio(lista.map(f => f.celdas[i].pct))
+        }));
+        this.totalSSOAnual = this.promedio(this.totalesMesAnual.filter(c => c.tipo === 'SSO').map(c => c.pct));
+        this.totalMAAnual = this.promedio(this.totalesMesAnual.filter(c => c.tipo === 'MA').map(c => c.pct));
+        this.pendientesAnual = 0;
+        lista.forEach(f => f.celdas.forEach(c => { if (c.existe && c.pendiente) { this.pendientesAnual++; } }));
+
+        this.anual = lista;
+        this.cargando = false;
+      })
+      .catch((err: any) => {
+        if (token !== this.cargaToken) { return; }
+        console.error('consolidado anual', err);
+        this.errorAnual = true;
+        this.anual = [];
+        this.cargando = false;
+      });
+  }
+
+  private filaAnualVacia(id: string): FilaAnual {
+    return {
+      id: id,
+      nombre: '',
+      actual: String(id) === String(this.idSubProyecto),
+      celdas: this.columnasAnual.map(c => ({ mes: c.mes, tipo: c.tipo, existe: false, pct: null, pendiente: false })),
+      totalSSO: null,
+      totalMA: null
+    };
+  }
+
+  /** Promedio de los valores que existen (null si no hay ninguno), redondeado a 1 decimal. */
+  private promedio(valores: number[]): number {
+    const v = valores.filter(x => x !== null && x !== undefined);
+    if (!v.length) { return null; }
+    let s = 0;
+    v.forEach(x => s += x);
+    return Math.round(s * 10 / v.length) / 10;
+  }
+
+  claseCeldaAnual(c: CeldaAnual): string {
+    if (!c || !c.existe) { return 'pan-vacia'; }
+    if (c.pct === null) { return 'pan-sin'; }
+    return 'pan-' + this.claseSemaforo(c.pct);
+  }
+
+  tituloCeldaAnual(f: FilaAnual, c: CeldaAnual): string {
+    if (!c.existe) { return f.nombre + ' · ' + this.meses[c.mes - 1] + ' ' + c.tipo + ': sin programa'; }
+    let t = f.nombre + ' · ' + this.meses[c.mes - 1] + ' ' + c.tipo + ': ' + (c.pct === null ? 'sin días programados' : c.pct + '%');
+    if (c.pendiente) { t += ' · programa sin validar (falta revisión)'; }
+    return t;
+  }
+
+  /** Abre el programa SSO o MA de esa obra/mes (solo si es el subproyecto actual). */
+  abrirDesdeAnual(f: FilaAnual, c: CeldaAnual) {
+    if (!f.actual || !c.existe) { return; }
+    this.mesSel = c.mes;
+    this.seleccionarTipoPrograma(c.tipo);
+  }
+
+  exportarAnualExcel() {
+    if (!this.anual) { return; }
+    try {
+      exportarConsolidadoAnualExcel({
+        anio: this.anio,
+        meses: this.mesesCortos,
+        filas: this.anual,
+        totalesMes: this.totalesMesAnual,
+        totalSSO: this.totalSSOAnual,
+        totalMA: this.totalMAAnual
+      });
+    } catch (e) {
+      console.error('consolidado anual excel', e);
+      alert('No se pudo generar el Excel: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  /** Abre el programa SSO o MA del mismo mes desde el consolidado. */
+  verPrograma(tipo: string) {
+    this.seleccionarTipoPrograma(tipo);
+  }
+
+  /**
+   * Calcula el resumen con la misma lógica de la grilla: se pone el programa como actual un momento,
+   * se arman las filas y se vuelve al estado anterior.
+   */
+  private resumenDe(p: ProgramaMes, tipo: string): ResumenPrograma {
+    const vacio: ResumenPrograma = {
+      tipo: tipo, existe: false, estado: '', textoEstado: 'Sin programa', validadoPor: '',
+      totalProg: 0, totalCtrl: 0, pct: null, promedioItems: null, grupos: [],
+      hhCapacitadas: 0, hhEspecificas: 0, hhOperacionales: 0, consumos: []
+    };
+    if (!p) { return vacio; }
+
+    const progAnt = this.programa;
+    const diasAnt = this.dias;
+    const gruposAnt = this.grupos;
+    const tot = [this.totalProg, this.totalCtrl, this.pctTotal, this.pctGlobal,
+      this.hhCapacitacion, this.hhEspecificas, this.hhOperacional, this.hhTotal];
+    try {
+      this.programa = this.normalizar(p);
+      this.recalcular();
+      const r: ResumenPrograma = {
+        tipo: tipo,
+        existe: true,
+        estado: this.estado,
+        textoEstado: this.textoEstado,
+        validadoPor: this.estado === 'validado' ? (p.validadoPor || '') : '',
+        totalProg: this.totalProg,
+        totalCtrl: this.totalCtrl,
+        pct: this.totalProg > 0 ? this.pctTotal : null,
+        promedioItems: this.totalProg > 0 ? this.pctGlobal : null,
+        grupos: this.grupos.map(g => {
+          let prog = 0;
+          let real = 0;
+          g.filas.forEach(f => { prog += f.total; real += f.ctrl; });
+          return {
+            nombre: g.nombre, prog: prog, real: redondear(real), pct: g.pct,
+            secciones: g.secciones.filter(s => !!s.nombre).map(s => {
+              let sp = 0;
+              let sr = 0;
+              s.filas.forEach(f => { sp += f.total; sr += f.ctrl; });
+              return { nombre: s.nombre, prog: sp, real: redondear(sr), pct: s.pct };
+            })
+          };
+        }),
+        hhCapacitadas: this.hhCapacitacion,
+        hhEspecificas: this.hhEspecificas,
+        hhOperacionales: this.hhOperacional,
+        consumos: []
+      };
+      // consumos de MA registrados en el mes
+      CONSUMOS_MA.forEach(def => {
+        let suma = 0;
+        let hay = false;
+        p.actividades.forEach(a => {
+          const regs = registrosDe(a);
+          Object.keys(regs).forEach(k => {
+            const reg = regs[k];
+            if (reg && reg.consumoCampo === def.campo && reg.consumo !== null && reg.consumo !== undefined) {
+              suma += Number(reg.consumo) || 0;
+              hay = true;
+            }
+          });
+        });
+        if (hay) { r.consumos.push({ etiqueta: def.etiqueta, unidad: def.unidad, valor: redondear(suma) }); }
+      });
+      return r;
+    } catch (e) {
+      console.error('consolidado ' + tipo, e);
+      return vacio;
+    } finally {
+      this.programa = progAnt;
+      this.dias = diasAnt;
+      this.grupos = gruposAnt;
+      this.totalProg = tot[0]; this.totalCtrl = tot[1]; this.pctTotal = tot[2]; this.pctGlobal = tot[3];
+      this.hhCapacitacion = tot[4]; this.hhEspecificas = tot[5]; this.hhOperacional = tot[6]; this.hhTotal = tot[7];
+    }
   }
 
   private normalizar(p: ProgramaMes): ProgramaMes {
@@ -423,6 +747,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
         actividades: actividades,
         estado: 'borrador'
       };
+      (p as any).nombreSubProyecto = this.nombreSubProyecto || '';
 
       this.programa = p;
       // La grilla parte en blanco: solo fines de semana y feriados quedan marcados
@@ -532,7 +857,15 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.guardarInmediato('Programación reabierta');
   }
 
+  /** Guarda el nombre del subproyecto en el programa (lo usa el Consolidado anual). */
+  private marcarNombre(p: ProgramaMes) {
+    if (p && this.nombreSubProyecto && !(p as any).nombreSubProyecto) {
+      (p as any).nombreSubProyecto = this.nombreSubProyecto;
+    }
+  }
+
   private guardarInmediato(mensaje: string) {
+    this.marcarNombre(this.programa);
     if (this.timerGuardar) { clearTimeout(this.timerGuardar); this.timerGuardar = null; }
     this.pendiente = null;
     this.procesando = true;
@@ -575,13 +908,15 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   // ===================== Calendario =====================
 
-  private construirDias(feriados: number[]): DiaInfo[] {
-    const n = new Date(this.anio, this.mesSel, 0).getDate();
+  private construirDias(feriados: number[], anioDias?: number, mesDias?: number): DiaInfo[] {
+    const anio = anioDias || this.anio;
+    const mes = mesDias || this.mesSel;
+    const n = new Date(anio, mes, 0).getDate();
     const ahora = new Date();
-    const diaHoy = ahora.getFullYear() === this.anio && ahora.getMonth() + 1 === this.mesSel ? ahora.getDate() : 0;
+    const diaHoy = ahora.getFullYear() === anio && ahora.getMonth() + 1 === mes ? ahora.getDate() : 0;
     const res: DiaInfo[] = [];
     for (let d = 1; d <= n; d++) {
-      const dow = new Date(this.anio, this.mesSel - 1, d).getDay();
+      const dow = new Date(anio, mes - 1, d).getDay();
       const finde = dow === 0 || dow === 6;
       const feriado = feriados.indexOf(d) >= 0;
       res.push({ dia: d, dow: dow, letra: LETRAS[dow], finde: finde, feriado: feriado, rojo: finde || feriado, hoy: d === diaHoy });
@@ -644,7 +979,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       this.hhCapacitacion = 0; this.hhEspecificas = 0; this.hhOperacional = 0; this.hhTotal = 0;
       return;
     }
-    this.dias = this.construirDias(this.programa.feriados);
+    this.dias = this.construirDias(this.programa.feriados,
+      Number(this.programa.anio) || this.anio, Number(this.programa.mes) || this.mesSel);
 
     let totalProg = 0;
     let totalCtrl = 0;
@@ -1018,7 +1354,9 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       observacion: reg ? (reg.observacion || '') : '',
       adjuntos: reg && reg.adjuntos ? reg.adjuntos.slice() : [],
       registradoPor: reg ? (reg.registradoPor || '') : '',
-      fechaRegistro: reg ? (reg.fechaRegistro || '') : ''
+      fechaRegistro: reg ? (reg.fechaRegistro || '') : '',
+      consumoDef: this.esMA ? consumoMADe(a.nombre) : null,
+      consumo: reg && reg.consumo !== null && reg.consumo !== undefined ? reg.consumo : null
     };
     this.adjNuevos = [];
     this.adjQuitados = [];
@@ -1078,8 +1416,14 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (this.subiendo) { this.errorModal = 'Espera a que terminen de subir los archivos.'; return; }
 
     const hh: { [campo: string]: number } = {};
+    let consumo: number = null;
     try {
       CAMPOS_HH.forEach(c => { hh[c.k] = this.valorHH(m.hh[c.k], c.t); });
+      if (m.consumoDef && m.consumo !== null && m.consumo !== undefined && String(m.consumo) !== '') {
+        consumo = Number(String(m.consumo).replace(',', '.'));
+        if (!isFinite(consumo) || consumo < 0) { throw new Error('El consumo debe ser un número mayor o igual a 0.'); }
+        consumo = redondear(consumo);
+      }
     } catch (e) {
       this.errorModal = e.message;
       return;
@@ -1087,10 +1431,12 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
     const reg: RegistroDia = {
       cumplimiento: VALORES_CUMPLIMIENTO.indexOf(m.cumplimiento) >= 0 ? m.cumplimiento : 100,
-      hhCapacitacion: hh['hhCapacitacion'],
+      hhCapacitacion: redondear((hh['hhEspecificas'] || 0) + (hh['hhOperacional'] || 0)),
       hhEspecificas: hh['hhEspecificas'],
       entidadEspecifica: hh['hhEspecificas'] > 0 ? (m.entidad || 'OTROS') : '',
       hhOperacional: hh['hhOperacional'],
+      consumo: consumo,
+      consumoCampo: m.consumoDef ? m.consumoDef.campo : '',
       observacion: (m.observacion || '').trim(),
       adjuntos: m.adjuntos.map(x => ({
         nombre: x.nombre || '', url: x.url || '', path: x.path || '', tipo: x.tipo || '', tamano: x.tamano || 0
@@ -1113,6 +1459,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.adjQuitados = [];
     this.modal = null;
     this.guardarInmediato('Registro guardado');
+    if (m.consumoDef) { this.sincronizarConsumoMA(m.consumoDef.campo); }
   }
 
   quitarRegistro() {
@@ -1134,6 +1481,60 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.adjQuitados = [];
     this.modal = null;
     this.guardarInmediato('Registro eliminado');
+    if (m.consumoDef) { this.sincronizarConsumoMA(m.consumoDef.campo); }
+  }
+
+  /**
+   * Programa MA: suma el consumo registrado en el mes (agua, combustible o residuos) y lo deja
+   * en la tabla de Medio Ambiente (estadisticasMA, meses.{mes}.{campo}). La celda queda marcada
+   * con meses.{mes}.programaMA.{campo} = true para que allá se vea que viene del programa.
+   * Si no hay consumos registrados y la celda venía del programa, se limpia; si la escribieron
+   * a mano, no se toca.
+   */
+  private sincronizarConsumoMA(campo: string) {
+    if (!this.esMA || !campo || !this.programa) { return; }
+    const p = this.programa;
+    const anio = Number(p.anio);
+    const mes = Number(p.mes);
+
+    let suma = 0;
+    let hay = false;
+    p.actividades.forEach(a => {
+      const def = consumoMADe(a.nombre);
+      if (!def || def.campo !== campo) { return; }
+      const regs = registrosDe(a);
+      Object.keys(regs).forEach(k => {
+        const r = regs[k];
+        if (r && r.consumo !== null && r.consumo !== undefined) {
+          suma += Number(r.consumo) || 0;
+          hay = true;
+        }
+      });
+    });
+
+    const ref = firestoreDB.collection(COLECCION_ESTADISTICAS_MA).doc(this.idSubProyecto + '_' + anio);
+    ref.get().then((doc: any) => {
+      const data = doc.exists ? doc.data() : null;
+      const delMes = data && data.meses ? (data.meses[mes] || data.meses[String(mes)] || {}) : {};
+      const veniaDelPrograma = !!(delMes.programaMA && delMes.programaMA[campo]);
+      if (!hay && !veniaDelPrograma) { return; } // nada que pasar y lo que hay lo escribieron a mano
+
+      const datos: any = {
+        anio: anio,
+        fechaActualizacion: new Date().toISOString(),
+        meses: { [mes]: { [campo]: hay ? redondear(suma) : null, programaMA: { [campo]: hay } } }
+      };
+      if (!doc.exists) {
+        // documento nuevo: mismos datos base que usa la tabla de MA
+        datos.idSubProyecto = this.idSubProyecto;
+        datos.idProyecto = this.idProyecto === undefined ? null : this.idProyecto;
+        datos.nombreSubProyecto = this.nombreSubProyecto || '';
+      }
+      return ref.set(datos, { merge: true }).then(() => this.mostrarEstado('Consumo enviado a Medio Ambiente'));
+    }).catch((err: any) => {
+      console.error('programaMA consumo -> estadisticasMA', err);
+      this.mostrarEstado('Error al pasar el consumo a MA');
+    });
   }
 
   seleccionarArchivos(evento: any) {
@@ -1202,6 +1603,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   programarGuardado() {
     if (!this.programa) { return; }
+    this.marcarNombre(this.programa);
     this.pendiente = this.programa;
     this.estadoGuardado = 'Guardando...';
     if (this.timerGuardar) { clearTimeout(this.timerGuardar); }

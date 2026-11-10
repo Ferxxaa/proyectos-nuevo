@@ -405,8 +405,14 @@ export class EstadisticasSsoComponent implements OnInit {
     this.filtrarCertificadosMA();
   }
 
+  /** El valor de ese mes viene del Programa MA (popup de consumo): no se escribe a mano. */
+  esDeProgramaMA(mes: number, campo: string): boolean {
+    const delMes = this.valoresMA[mes] || {};
+    return !!(delMes.programaMA && delMes.programaMA[campo]);
+  }
+
   guardarCeldaMA(mes: number, indicador: IndicadorMA, input: any) {
-    if (this.soloLectura) { return; }
+    if (this.soloLectura || this.esDeProgramaMA(mes, indicador.campo)) { return; }
 
     const anio = Number(this.anioMA);
     const clave = this.getClaveMA(anio, mes, indicador.campo);

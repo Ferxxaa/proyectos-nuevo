@@ -1,5 +1,5 @@
 import { ProgramaMes } from './programa-sso.service';
-import { registrosDe, RegistroDia, hhDeRegistro, redondear, CAMPOS_HH, textoEntidad } from './programa-registro';
+import { registrosDe, RegistroDia, hhDeRegistro, redondear, CAMPOS_HH, textoEntidad, CONSUMOS_MA } from './programa-registro';
 
 /**
  * Exporta el programa del mes a Excel (.xlsx real) con colores, sin librerías externas.
@@ -59,7 +59,16 @@ const ESTILOS: { [nombre: string]: DefEstilo } = {
   totalNum: { fill: '24404F', color: 'FFFFFF', bold: true, align: 'center', borde: true },
   totalPct: { fill: '24404F', color: 'FFFFFF', bold: true, align: 'center', borde: true, pct: true },
   link: { color: '075F91', underline: true, borde: true },
-  textoWrap: { borde: true, wrap: true }
+  textoWrap: { borde: true, wrap: true },
+  pctOk: { fill: 'DFF2E1', color: '2D6E36', bold: true, align: 'center', borde: true, pct: true },
+  pctMedio: { fill: 'FCF1D3', color: '8A6514', bold: true, align: 'center', borde: true, pct: true },
+  pctBajo: { fill: 'FAE3E2', color: 'A33A3A', bold: true, align: 'center', borde: true, pct: true },
+  pctPend: { fill: 'FFF3C4', color: '8A6514', bold: true, align: 'center', borde: true, pct: true },
+  headSSO: { fill: '075F91', color: 'FFFFFF', bold: true, align: 'center', borde: true },
+  headMA: { fill: '3F9A52', color: 'FFFFFF', bold: true, align: 'center', borde: true },
+  pieSSO: { fill: '075F91', color: 'FFFFFF', bold: true, align: 'center', borde: true, pct: true },
+  pieMA: { fill: '3F9A52', color: 'FFFFFF', bold: true, align: 'center', borde: true, pct: true },
+  aviso: { fill: 'FFF3C4', color: '8A6514', bold: true }
 };
 
 const NOMBRES_ESTILO = Object.keys(ESTILOS);  // 'normal' queda en el índice 0
@@ -258,6 +267,12 @@ function estiloCumplimiento(c: number): string {
   return 'nohecho';
 }
 
+function textoConsumo(r: any): string {
+  if (r.consumo === null || r.consumo === undefined || !r.consumoCampo) { return ''; }
+  const def = CONSUMOS_MA.filter(c => c.campo === r.consumoCampo)[0];
+  return String(r.consumo).replace('.', ',') + (def ? ' ' + def.unidad : '');
+}
+
 function fechaISO(iso: string): string {
   if (!iso) { return ''; }
   const d = new Date(iso);
@@ -387,7 +402,7 @@ function registrosOrdenados(p: ProgramaMes): FilaRegistro[] {
 function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
   const anchos = [26, 44, 11, 17];
   CAMPOS_HH.forEach(() => anchos.push(13));
-  anchos.push(14, 10, 40, 18, 36);
+  anchos.push(14, 10, 26, 40, 18, 36);
   const nc = anchos.length;
   const h = new Hoja('Registro HH', anchos, { filas: 4, cols: 0 });
 
@@ -398,7 +413,7 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
 
   const titulos = ['Ítem', 'Actividad', 'Fecha', 'Cumplimiento'];
   CAMPOS_HH.forEach(c => titulos.push(c.t));
-  titulos.push('Entidad (específicas)', 'HH total', 'Observación', 'Registrado por', 'Adjuntos');
+  titulos.push('Entidad (específicas)', 'HH capacitadas', 'Consumo (MA)', 'Observación', 'Registrado por', 'Adjuntos');
   f = h.fila(30);
   titulos.forEach((t, i) => h.set(f, i + 1, t, 'head'));
 
@@ -421,6 +436,7 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
     });
     h.set(f, col++, Number(r.hhEspecificas) > 0 ? textoEntidad(r.entidadEspecifica) : '', 'centro');
     h.set(f, col++, hhDeRegistro(r), 'centro');
+    h.set(f, col++, textoConsumo(r), 'centro');
     h.set(f, col++, r.observacion || '', 'textoWrap');
     h.set(f, col++, r.registradoPor || '', 'centro');
     if (adj.length === 1 && adj[0].url) {
@@ -445,7 +461,7 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
   });
   h.set(f, col++, '', 'total');   // Entidad
   h.set(f, col++, redondear(suma), 'totalNum');
-  h.set(f, col, '', 'total', { merge: 2 });
+  h.set(f, col, '', 'total', { merge: 3 });
   return h;
 }
 
@@ -663,7 +679,10 @@ export function exportarProgramaExcel(d: DatosExcelPrograma) {
 
   const nombre = ('Programa_' + d.tipo + '_' + (d.subproyecto || 'subproyecto') + '_' + d.mesNombre + '_' + d.anio)
     .replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '_') + '.xlsx';
+  descargarXlsx(bytes, nombre);
+}
 
+function descargarXlsx(bytes: Uint8Array, nombre: string) {
   const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const nav: any = window.navigator;
   if (nav && nav.msSaveOrOpenBlob) { nav.msSaveOrOpenBlob(blob, nombre); return; }
@@ -679,4 +698,81 @@ export function exportarProgramaExcel(d: DatosExcelPrograma) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, 1500);
+}
+
+
+// =====================================================================
+// Consolidado anual: cumplimiento SSO / MA por obra y mes
+// =====================================================================
+
+export interface DatosExcelAnual {
+  anio: number;
+  meses: string[];      // ENE..DIC
+  filas: any[];         // FilaAnual[]
+  totalesMes: any[];    // 24 celdas
+  totalSSO: number;
+  totalMA: number;
+}
+
+function estiloPct(pct: number, pendiente?: boolean): string {
+  if (pendiente) { return 'pctPend'; }
+  if (pct >= 90) { return 'pctOk'; }
+  if (pct >= 75) { return 'pctMedio'; }
+  return 'pctBajo';
+}
+
+export function exportarConsolidadoAnualExcel(d: DatosExcelAnual) {
+  const anchos = [5, 38];
+  for (let i = 0; i < 24; i++) { anchos.push(7.5); }
+  anchos.push(9, 9);
+  const nc = anchos.length;
+  const h = new Hoja('Cumplimiento ' + d.anio, anchos, { filas: 6, cols: 2 });
+
+  let f = h.fila(26); h.set(f, 1, 'CUMPLIMIENTO DE PROGRAMA SSO-MA · AÑO ' + d.anio, 'titulo', { merge: nc - 1 });
+  f = h.fila(); h.set(f, 1, 'Planilla resumen seguimiento, cumplimiento objetivos programa Seguridad, Salud Ocupacional y Medio Ambiente', 'meta', { merge: nc - 1 });
+  let pendientes = 0;
+  d.filas.forEach(x => x.celdas.forEach((c: any) => { if (c.existe && c.pendiente) { pendientes++; } }));
+  f = h.fila();
+  if (pendientes) { h.set(f, 1, 'FALTA REVISIÓN DE ' + pendientes + (pendientes === 1 ? ' PROGRAMA' : ' PROGRAMAS') + ' (marcados en amarillo)', 'aviso', { merge: 14 }); }
+  h.fila();
+
+  const f1 = h.fila(18);
+  const f2 = h.fila(16);
+  h.set(f1, 1, 'N°', 'head', { down: 1 });
+  h.set(f1, 2, 'OBRAS ' + d.anio, 'head', { down: 1 });
+  d.meses.forEach((m, i) => {
+    h.set(f1, 3 + i * 2, m, 'head', { merge: 1 });
+    h.set(f2, 3 + i * 2, 'SSO', 'headSSO');
+    h.set(f2, 4 + i * 2, 'MA', 'headMA');
+  });
+  h.set(f1, 27, 'TOTAL', 'head', { merge: 1 });
+  h.set(f2, 27, 'SSO', 'headSSO');
+  h.set(f2, 28, 'MA', 'headMA');
+
+  d.filas.forEach((x, n) => {
+    f = h.fila(17);
+    h.set(f, 1, n + 1, 'centro');
+    h.set(f, 2, x.nombre, 'act');
+    x.celdas.forEach((c: any, i: number) => {
+      if (!c.existe) { h.set(f, 3 + i, '', 'vacio'); return; }
+      if (c.pct === null) { h.set(f, 3 + i, 's/p', 'centro'); return; }
+      h.set(f, 3 + i, c.pct / 100, estiloPct(c.pct, c.pendiente));
+    });
+    if (x.totalSSO === null) { h.set(f, 27, '-', 'centro'); } else { h.set(f, 27, x.totalSSO / 100, estiloPct(x.totalSSO)); }
+    if (x.totalMA === null) { h.set(f, 28, '-', 'centro'); } else { h.set(f, 28, x.totalMA / 100, estiloPct(x.totalMA)); }
+  });
+
+  f = h.fila(20);
+  h.set(f, 1, 'TOTAL POR MES', 'total', { merge: 1 });
+  d.totalesMes.forEach((c: any, i: number) => {
+    const est = c.tipo === 'MA' ? 'pieMA' : 'pieSSO';
+    h.set(f, 3 + i, c.pct === null ? '' : c.pct / 100, est);
+  });
+  h.set(f, 27, d.totalSSO === null ? '' : d.totalSSO / 100, 'pieSSO');
+  h.set(f, 28, d.totalMA === null ? '' : d.totalMA / 100, 'pieMA');
+
+  h.fila();
+  f = h.fila(); h.set(f, 1, '% de cada mes = realizadas ÷ programadas (100% / 75% / 50% / 0%). Total de la obra = promedio de sus meses; total por mes = promedio de las obras. s/p = sin días programados.', 'meta', { merge: nc - 1 });
+
+  descargarXlsx(armarXlsx([h]), 'Cumplimiento_programas_SSO_MA_' + d.anio + '.xlsx');
 }

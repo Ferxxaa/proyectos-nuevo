@@ -1920,6 +1920,16 @@
   color: #3d454c;
 }
 
+/* valor que viene del Programa de actividades MA (popup de consumo) */
+.sso-tabla-ma.sso-tabla-ma-editable tbody td input.desde-programa,
+.sso-tabla-ma.sso-tabla-ma-editable tbody td input.desde-programa:disabled {
+  border-color: transparent;
+  background: #e3f2dc;
+  box-shadow: inset 3px 0 0 #7cc47f;
+  color: #2d6e36;
+  cursor: help;
+}
+
 /* separación muy suave entre meses */
 .sso-tabla-ma.sso-tabla-ma-editable tbody td + td {
   box-shadow: inset 1px 0 0 #f4f6f8;

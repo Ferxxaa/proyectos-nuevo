@@ -33,6 +33,8 @@ export interface IndicadorHH {
   capacitacion?: boolean;
   inicioCapacitacion?: boolean;
   programa?: boolean;   // solo viene de los Programas SSO/MA (solo lectura)
+  detalle?: boolean;    // fila con sangría (parte de la fila de arriba)
+  nota?: string;        // texto chico bajo el nombre
 }
 
 export const INDICADORES_HH: IndicadorHH[] = [
@@ -40,9 +42,10 @@ export const INDICADORES_HH: IndicadorHH[] = [
   { campo: 'hh', etiqueta: 'HH trabajadas', decimales: 2 },
   { campo: 'horasExtra', etiqueta: 'Horas extra', decimales: 2 },
   { campo: 'hhCharlasDiarias', etiqueta: 'Charlas diarias', decimales: 2, capacitacion: true, inicioCapacitacion: true },
-  { campo: 'hhCapacitacion', etiqueta: 'HH capacitadas', decimales: 2, capacitacion: true, programa: true },
-  { campo: 'hhEspecificas', etiqueta: 'HH específicas', decimales: 2, capacitacion: true, programa: true },
-  { campo: 'hhOperacional', etiqueta: 'HH operacionales', decimales: 2, capacitacion: true, programa: true },
+  // HH capacitadas = HH específicas + HH operacionales
+  { campo: 'hhCapacitacion', etiqueta: 'HH capacitadas', decimales: 2, programa: true, nota: 'Específicas + operacionales' },
+  { campo: 'hhEspecificas', etiqueta: 'HH específicas', decimales: 2, programa: true, detalle: true },
+  { campo: 'hhOperacional', etiqueta: 'HH operacionales', decimales: 2, programa: true, detalle: true },
   { campo: 'incidentes', etiqueta: 'N° incidentes', decimales: 0 },
   { campo: 'diasPerdidos', etiqueta: 'Días perdidos', decimales: 0 }
 ];

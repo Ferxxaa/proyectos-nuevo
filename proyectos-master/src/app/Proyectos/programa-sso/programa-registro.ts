@@ -18,10 +18,12 @@ export interface AdjuntoRegistro {
 
 export interface RegistroDia {
   cumplimiento: number;   // 100 = realizado | 75 / 50 = parcial | 0 = no hecho
-  hhCapacitacion: number;      // HH capacitadas
+  hhCapacitacion: number;      // HH capacitadas = específicas + operacionales (se calcula)
   hhEspecificas: number;       // HH específicas (Mutual, OTEC, Mandante, Otros)
   entidadEspecifica: string;   // MUTUAL | OTEC | MANDANTE | OTROS | ''
   hhOperacional: number;       // HH operacionales
+  consumo?: number;            // solo MA: consumo del día (agua / combustible / residuos)
+  consumoCampo?: string;       // indicador de la tabla MA al que va (consumoAgua, ...)
   observacion: string;
   adjuntos: AdjuntoRegistro[];
   registradoPor: string;
@@ -54,8 +56,8 @@ export const NIVELES_CUMPLIMIENTO = [
 export const VALORES_CUMPLIMIENTO = [100, 75, 50, 0];
 
 /** Campos de HH del registro (en este orden se muestran en el popup y en el Excel). */
+/** Campos que se escriben. HH capacitadas no se escribe: es la suma de estos dos. */
 export const CAMPOS_HH = [
-  { k: 'hhCapacitacion', t: 'HH capacitadas' },
   { k: 'hhEspecificas', t: 'HH específicas' },
   { k: 'hhOperacional', t: 'HH operacionales' }
 ];
@@ -67,6 +69,31 @@ export const ENTIDADES_ESPECIFICAS = [
   { v: 'MANDANTE', t: 'Mandante' },
   { v: 'OTROS', t: 'Otros' }
 ];
+
+/**
+ * Consumos de Medio Ambiente que se registran desde el Programa MA.
+ * El campo es el mismo indicador de la tabla de MA (colección estadisticasMA).
+ */
+export interface ConsumoMA { campo: string; etiqueta: string; unidad: string; }
+
+export const CONSUMOS_MA: ConsumoMA[] = [
+  { campo: 'consumoAgua', etiqueta: 'Consumo de agua potable', unidad: 'LTS' },
+  { campo: 'consumoCombustible', etiqueta: 'Consumo de combustible', unidad: 'LTS' },
+  { campo: 'residuosDomiciliarios', etiqueta: 'Residuos orgánicos y/o domiciliarios', unidad: 'TONS.' }
+];
+
+function claveTexto(t: string): string {
+  return (String(t || '') as any).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+/** Según el nombre de la actividad, a qué consumo de MA corresponde (o null). */
+export function consumoMADe(nombreActividad: string): ConsumoMA {
+  const n = claveTexto(nombreActividad);
+  if (n.indexOf('combustible') >= 0) { return CONSUMOS_MA[1]; }
+  if (n.indexOf('agua') >= 0 && (n.indexOf('consumo') >= 0 || n.indexOf('potable') >= 0)) { return CONSUMOS_MA[0]; }
+  if (n.indexOf('residuo') >= 0 && (n.indexOf('organico') >= 0 || n.indexOf('domiciliario') >= 0)) { return CONSUMOS_MA[2]; }
+  return null;
+}
 
 export function textoEntidad(v: string): string {
   const e = ENTIDADES_ESPECIFICAS.filter(x => x.v === v)[0];
@@ -120,6 +147,7 @@ export function sumarHHPrograma(p: ProgramaMes, acumulado?: ResumenHH): ResumenH
         (r as any)[campo.k] += v;
         (r.porDia[dia] as any)[campo.k] = redondear((r.porDia[dia] as any)[campo.k] + v);
       });
+      r.porDia[dia].hhCapacitacion = redondear(r.porDia[dia].hhEspecificas + r.porDia[dia].hhOperacional);
     });
   });
   let total = 0;
@@ -128,6 +156,7 @@ export function sumarHHPrograma(p: ProgramaMes, acumulado?: ResumenHH): ResumenH
     total += (r as any)[campo.k];
   });
   r.total = redondear(total);
+  r.hhCapacitacion = r.total;   // HH capacitadas = específicas + operacionales
   return r;
 }
 

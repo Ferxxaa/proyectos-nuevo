@@ -50,10 +50,10 @@
         </thead>
         <tbody>
           <ng-container *ngFor="let indicador of indicadores; trackBy: trackCampo">
-            <tr [class.ehh-fila-programa]="indicador.programa">
+            <tr [class.ehh-fila-programa]="indicador.programa" [class.ehh-fila-detalle]="indicador.detalle">
               <th scope="row" class="ehh-col-indicador">
                 {{indicador.etiqueta}}
-                <small *ngIf="indicador.programa">Programas SSO/MA</small>
+                <small *ngIf="indicador.programa">{{ indicador.nota || 'Programas SSO/MA' }}</small>
               </th>
               <td *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">
                 <input type="text" inputmode="decimal" autocomplete="off"
