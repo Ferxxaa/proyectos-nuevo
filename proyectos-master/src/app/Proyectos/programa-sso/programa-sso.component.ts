@@ -1,12 +1,18 @@
 import { Component, ElementRef, HostListener, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
 import { ProgramaSsoService, ProgramaMes, ActividadPrograma } from './programa-sso.service';
 import { getFeriadosChile } from '../estadisticas-hh/control-asistencia.component';
+import {
+  AdjuntoRegistro, RegistroDia, NIVELES_CUMPLIMIENTO, VALORES_CUMPLIMIENTO, CAMPOS_HH, TAMANO_MAXIMO_ADJUNTO,
+  registrosDe, sumarHHPrograma, hhDeRegistro, redondear, subirAdjunto, borrarAdjunto
+} from './programa-registro';
+import { exportarProgramaExcel } from './programa-excel';
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 const LETRAS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']; // indice = getDay()
 const NOMBRE_DIA = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
+const NOMBRE_DIA_LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 // Feriados de Chile: mismo cálculo del Control de asistencia. Igual se pueden marcar o desmarcar a mano.
 
@@ -19,16 +25,30 @@ const GRUPOS_BASE = [
   'REUNIONES Y COMUNICACIÓN'
 ];
 
-// [grupo, nombre, frecuencia, diaSemana]
+// Secciones (subtítulos) dentro de un ítem
+const SECCION_CAP_OPERACIONAL = 'Capacitación Operacional';
+const SECCION_CAP_ESPECIFICA = 'Capacitaciones Específicas';
+
+/** Para programas ya creados sin sección: se asigna según el nombre de la actividad. */
+const SECCION_POR_NOMBRE: { [nombre: string]: string } = {
+  'charla diaria de seguridad': SECCION_CAP_OPERACIONAL,
+  'analisis de riesgo de trabajo': SECCION_CAP_OPERACIONAL,
+  'capacitacion de procedimiento': SECCION_CAP_OPERACIONAL,
+  'induccion a personal nuevo (odi, riohs, epp)': SECCION_CAP_OPERACIONAL,
+  'induccion procedimientos trabajo seguro': SECCION_CAP_OPERACIONAL,
+  'capacitacion planeada con mutual de seguridad': SECCION_CAP_ESPECIFICA
+};
+
+// [grupo, nombre, frecuencia, diaSemana, seccion?]
 const PLANTILLA: any[] = [
   [0, 'Participación de Jefe de Obra como relator', 'DIARIA', 0],
   [0, 'Participación de Jefe de obra en inspecciones', 'SEMANAL', 4],
-  [1, 'Charla Diaria de seguridad', 'DIARIA', 0],
-  [1, 'Análisis de Riesgo de Trabajo', 'DIARIA', 0],
-  [1, 'Capacitación de procedimiento', 'SEMANAL', 3],
-  [1, 'Inducción a personal nuevo (ODI, RIOHS, EPP)', 'SEGUN_NECESIDADES', 0],
-  [1, 'Inducción procedimientos trabajo seguro', 'SEGUN_NECESIDADES', 0],
-  [1, 'Capacitación planeada con Mutual de Seguridad', 'SEGUN_NECESIDADES', 0],
+  [1, 'Charla Diaria de seguridad', 'DIARIA', 0, SECCION_CAP_OPERACIONAL],
+  [1, 'Análisis de Riesgo de Trabajo', 'DIARIA', 0, SECCION_CAP_OPERACIONAL],
+  [1, 'Capacitación de procedimiento', 'SEMANAL', 3, SECCION_CAP_OPERACIONAL],
+  [1, 'Inducción a personal nuevo (ODI, RIOHS, EPP)', 'SEGUN_NECESIDADES', 0, SECCION_CAP_OPERACIONAL],
+  [1, 'Inducción procedimientos trabajo seguro', 'SEGUN_NECESIDADES', 0, SECCION_CAP_OPERACIONAL],
+  [1, 'Capacitación planeada con Mutual de Seguridad', 'SEGUN_NECESIDADES', 0, SECCION_CAP_ESPECIFICA],
   [2, 'Ipal Enel', 'DIARIA', 0],
   [2, 'Revisión herramientas Manuales', 'SEMANAL', 5],
   [2, 'Revisión herramientas Eléctricas', 'SEMANAL', 5],
@@ -97,21 +117,46 @@ interface DiaInfo {
 interface CeldaVista {
   dia: number;
   clase: string;  // c-rojo | c-verde | c-azul | ''
-  x: boolean;
+  x: boolean;     // realizado (cumplimiento > 0)
+  cump: number;   // 100 | 75 | 50 | 0 | null (sin registro)
+  adj: number;    // cantidad de adjuntos
+  hh: number;     // HH registradas ese día
 }
 
 interface FilaVista {
   act: ActividadPrograma;
   celdas: CeldaVista[];
   total: number;
-  ctrl: number;
+  ctrl: number;   // ponderado por cumplimiento (75% = 0,75 / 50% = 0,5)
   pct: number;    // null = sin programación
+}
+
+interface SeccionVista {
+  nombre: string;      // '' = sin subtítulo
+  filas: FilaVista[];
+  pct: number;
 }
 
 interface GrupoVista {
   nombre: string;
   filas: FilaVista[];
+  secciones: SeccionVista[];
   pct: number;
+}
+
+/** Datos del popup de registro de un día. */
+interface ModalRegistro {
+  act: ActividadPrograma;
+  dia: number;
+  fechaTexto: string;
+  soloLectura: boolean;
+  existente: boolean;
+  cumplimiento: number;
+  hh: { [campo: string]: number };   // hhTrabajadas, hhCharlas, hhCapacitacion, hhOperacional, hhOtros
+  observacion: string;
+  adjuntos: AdjuntoRegistro[];
+  registradoPor: string;
+  fechaRegistro: string;
 }
 
 @Component({
@@ -129,6 +174,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   @Input() tipoPrograma: string = 'SSO';
 
   meses = MESES;
+  nivelesCumplimiento = NIVELES_CUMPLIMIENTO;
+  camposHH = CAMPOS_HH;
   frecuencias = [
     { v: 'DIARIA', t: 'Diaria' },
     { v: 'SEMANAL', t: 'Semanal' },
@@ -170,9 +217,25 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   pctTotal = 0;
   pctGlobal = 0;
 
+  // HH registradas en el mes (van a Estadísticas HH)
+  hhTrabajadas = 0;
+  hhCharlas = 0;
+  hhCapacitacion = 0;
+  hhOperacional = 0;
+  hhOtros = 0;
+  hhTotal = 0;
+
+  // Popup de registro
+  modal: ModalRegistro = null;
+  subiendo = 0;
+  progresoSubida = 0;
+  errorModal = '';
+  private adjNuevos: AdjuntoRegistro[] = [];     // subidos en este popup (se borran si se cancela)
+  private adjQuitados: AdjuntoRegistro[] = [];   // existentes que se quitan al guardar
+
   @ViewChild('scrollGrilla') scrollGrilla: ElementRef;
 
-  /** Arrastre: mantener apretado el clic y pasar por los días los marca (o desmarca) todos. */
+  /** Arrastre (solo en borrador): mantener apretado el clic y pasar por los días los marca (o desmarca) todos. */
   arrastrando = false;
   private modoArrastre: 'agregar' | 'quitar' = 'agregar';
   private huboCambiosArrastre = false;
@@ -217,6 +280,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.modal) { this.cancelarRegistro(); }
     this.flushGuardado();
     if (this.timerEstado) { clearTimeout(this.timerEstado); }
   }
@@ -233,7 +297,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     return this.editable && this.estado === 'borrador';
   }
 
-  // Control (marcar x): solo cuando la programación ya fue validada
+  // Control (registrar realizado): solo cuando la programación ya fue validada
   get enControl(): boolean {
     return this.editable && this.estado === 'validado';
   }
@@ -278,6 +342,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   }
 
   cargarMes() {
+    if (this.modal) { this.cancelarRegistro(); }
     const token = ++this.cargaToken;
     this.cargando = true;
     this.programa = null;
@@ -303,6 +368,17 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       a.programados = a.programados || [];
       a.realizados = a.realizados || [];
       a.diaSemana = a.diaSemana || 0;
+      const x: any = a;
+      if (x.seccion === undefined || x.seccion === null) {
+        x.seccion = SECCION_POR_NOMBRE[this.claveNombre(a.nombre)] || '';
+      }
+      const regs = registrosDe(a);
+      Object.keys(regs).forEach(k => {
+        const r = regs[k];
+        if (!r) { delete regs[k]; return; }
+        r.adjuntos = r.adjuntos || [];
+        if (VALORES_CUMPLIMIENTO.indexOf(r.cumplimiento) < 0) { r.cumplimiento = 100; }
+      });
     });
     if (!p.grupos || !p.grupos.length) {
       p.grupos = [];
@@ -327,12 +403,13 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       if (prev && prev.actividades && prev.actividades.length) {
         prev = this.normalizar(prev);
         grupos = prev.grupos.slice();
-        actividades = prev.actividades.map(a => this.nuevaActividad(a.grupo, a.nombre, a.frecuencia, a.diaSemana));
+        actividades = prev.actividades.map(a =>
+          this.nuevaActividad(a.grupo, a.nombre, a.frecuencia, a.diaSemana, (a as any).seccion || ''));
       } else {
         const gruposBase = this.esMA ? GRUPOS_MA : GRUPOS_BASE;
         const plantilla = this.esMA ? PLANTILLA_MA : PLANTILLA;
         grupos = gruposBase.slice();
-        actividades = plantilla.map(t => this.nuevaActividad(gruposBase[t[0]], t[1], t[2], t[3]));
+        actividades = plantilla.map(t => this.nuevaActividad(gruposBase[t[0]], t[1], t[2], t[3], t[4] || ''));
       }
 
       const p: ProgramaMes = {
@@ -363,8 +440,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     });
   }
 
-  private nuevaActividad(grupo: string, nombre: string, frecuencia: string, diaSemana: number): ActividadPrograma {
-    return {
+  private nuevaActividad(grupo: string, nombre: string, frecuencia: string, diaSemana: number, seccion: string = ''): ActividadPrograma {
+    const a: ActividadPrograma = {
       id: this.nuevoId(),
       grupo: grupo,
       nombre: nombre,
@@ -373,6 +450,13 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       programados: [],
       realizados: []
     };
+    (a as any).seccion = seccion || '';
+    registrosDe(a);
+    return a;
+  }
+
+  private claveNombre(nombre: string): string {
+    return (String(nombre || '') as any).normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   }
 
   private nuevoId(): string {
@@ -438,7 +522,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   reabrir() {
     if (!this.programa || !this.puedeValidar || this.estado !== 'validado') { return; }
     if (!confirm('¿Reabrir la programación?\n\nEl programa vuelve a borrador y se tendrá que guardar y validar de nuevo. ' +
-      'Las x ya marcadas se mantienen.')) { return; }
+      'Los registros ya hechos (cumplimiento, HH y adjuntos) se mantienen.')) { return; }
 
     const p = this.programa;
     p.estado = 'borrador';
@@ -461,6 +545,32 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       this.procesando = false;
       this.mostrarEstado('Error al guardar');
     });
+  }
+
+  // ===================== Excel =====================
+
+  exportarExcel() {
+    if (!this.programa) { return; }
+    try {
+      exportarProgramaExcel({
+        tipo: this.esMA ? 'MA' : 'SSO',
+        subproyecto: this.nombreSubProyecto,
+        mesNombre: this.meses[this.mesSel - 1],
+        anio: this.anio,
+        mes: this.mesSel,
+        programa: this.programa,
+        dias: this.dias,
+        grupos: this.grupos,
+        textoEstado: this.textoEstado,
+        etiquetaFrecuencia: (a: any) => this.etiquetaFrecuencia(a),
+        totalProg: this.totalProg,
+        totalCtrl: this.totalCtrl,
+        pctTotal: this.pctTotal
+      });
+    } catch (e) {
+      console.error('programaSSO excel', e);
+      alert('No se pudo generar el Excel: ' + (e && e.message ? e.message : e));
+    }
   }
 
   // ===================== Calendario =====================
@@ -531,6 +641,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       this.dias = this.construirDias([]);
       this.grupos = [];
       this.totalProg = 0; this.totalCtrl = 0; this.pctTotal = 0; this.pctGlobal = 0;
+      this.hhTrabajadas = 0; this.hhCharlas = 0; this.hhCapacitacion = 0; this.hhOperacional = 0;
+      this.hhOtros = 0; this.hhTotal = 0;
       return;
     }
     this.dias = this.construirDias(this.programa.feriados);
@@ -554,13 +666,39 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       });
       const pct = n > 0 ? Math.round(suma / n) : null;
       if (pct !== null) { sumaGrupos += pct; nGrupos++; }
-      return { nombre: nombre, filas: filas, pct: pct };
+      return { nombre: nombre, filas: filas, secciones: this.armarSecciones(filas), pct: pct };
     });
 
     this.totalProg = totalProg;
-    this.totalCtrl = totalCtrl;
+    this.totalCtrl = redondear(totalCtrl);
     this.pctTotal = totalProg > 0 ? Math.round(totalCtrl * 100 / totalProg) : 0;
     this.pctGlobal = nGrupos > 0 ? Math.round(sumaGrupos / nGrupos) : 0;
+
+    const hh = sumarHHPrograma(this.programa);
+    this.hhTrabajadas = hh.hhTrabajadas;
+    this.hhCharlas = hh.hhCharlas;
+    this.hhCapacitacion = hh.hhCapacitacion;
+    this.hhOperacional = hh.hhOperacional;
+    this.hhOtros = hh.hhOtros;
+    this.hhTotal = hh.total;
+  }
+
+  /** Agrupa las filas por sección en el orden en que aparecen; las sin sección van primero. */
+  private armarSecciones(filas: FilaVista[]): SeccionVista[] {
+    const orden: string[] = [];
+    const mapa: { [s: string]: FilaVista[] } = {};
+    filas.forEach(f => {
+      const s = (f.act as any).seccion || '';
+      if (!mapa[s]) { mapa[s] = []; orden.push(s); }
+      mapa[s].push(f);
+    });
+    orden.sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0)); // '' primero, el resto en su orden
+    return orden.map(s => {
+      let suma = 0;
+      let n = 0;
+      mapa[s].forEach(f => { if (f.pct !== null) { suma += f.pct; n++; } });
+      return { nombre: s, filas: mapa[s], pct: n > 0 ? Math.round(suma / n) : null };
+    });
   }
 
   private esSegunNecesidad(a: ActividadPrograma): boolean {
@@ -575,25 +713,45 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   private construirFila(a: ActividadPrograma): FilaVista {
     const sn = this.esSegunNecesidad(a);
     const antiguo = this.esFormatoAntiguo(a);
+    const regs = registrosDe(a);
+
     const celdas: CeldaVista[] = this.dias.map(d => {
       let clase = '';
       if (d.rojo) { clase = 'c-rojo'; }
       else if (antiguo) { clase = 'c-verde'; }
       else if (a.programados.indexOf(d.dia) >= 0) { clase = sn ? 'c-verde' : 'c-azul'; }
-      const x = (clase === 'c-azul' || clase === 'c-verde') && a.realizados.indexOf(d.dia) >= 0;
-      return { dia: d.dia, clase: clase, x: x };
+
+      const marcada = clase === 'c-azul' || clase === 'c-verde';
+      const reg = regs[String(d.dia)];
+      let cump: number = null;
+      if (marcada) {
+        if (reg) { cump = reg.cumplimiento; }
+        else if (a.realizados.indexOf(d.dia) >= 0) { cump = 100; } // marcas antiguas sin registro
+      }
+      return {
+        dia: d.dia,
+        clase: clase,
+        x: cump !== null && cump > 0,
+        cump: cump,
+        adj: marcada && reg && reg.adjuntos ? reg.adjuntos.length : 0,
+        hh: marcada && reg ? hhDeRegistro(reg) : 0
+      };
     });
 
+    const marcadas = celdas.filter(c => c.clase === 'c-azul' || c.clase === 'c-verde');
     let total: number;
     let ctrl: number;
     if (antiguo) {
       total = 1;
-      ctrl = celdas.some(c => c.x) ? 1 : 0;
+      ctrl = 0;
+      marcadas.forEach(c => { if (c.cump !== null && c.cump / 100 > ctrl) { ctrl = c.cump / 100; } });
     } else {
-      // Cuenta los días marcados, en azul o en verde
-      total = celdas.filter(c => c.clase === 'c-azul' || c.clase === 'c-verde').length;
-      ctrl = celdas.filter(c => (c.clase === 'c-azul' || c.clase === 'c-verde') && c.x).length;
+      // Cuenta los días marcados (azul o verde); el realizado pondera por cumplimiento
+      total = marcadas.length;
+      ctrl = 0;
+      marcadas.forEach(c => { if (c.cump !== null) { ctrl += c.cump / 100; } });
     }
+    ctrl = redondear(ctrl);
     const pct = total > 0 ? Math.round(ctrl * 100 / total) : null;
     return { act: a, celdas: celdas, total: total, ctrl: ctrl, pct: pct };
   }
@@ -615,24 +773,46 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     return 'pct-bajo';
   }
 
-  celdaClicable(c: CeldaVista, f: FilaVista): boolean {
-    if (c.clase === 'c-rojo') { return false; }
-    if (this.enControl) { return c.clase === 'c-azul' || c.clase === 'c-verde'; }
-    if (this.enEdicion) { return true; }
-    return false;
+  esMarcada(c: CeldaVista): boolean {
+    return c.clase === 'c-azul' || c.clase === 'c-verde';
   }
 
-  // ===================== Interacción =====================
+  celdaClicable(c: CeldaVista, f: FilaVista): boolean {
+    if (c.clase === 'c-rojo') { return false; }
+    if (this.enEdicion) { return true; }
+    if (!this.esMarcada(c)) { return false; }
+    if (this.enControl) { return true; }
+    return c.cump !== null; // solo lectura: se puede ver el detalle de lo registrado
+  }
 
-  /** Al apretar el clic: decide si se va a marcar o desmarcar según cómo estaba el primer día. */
+  tituloCelda(c: CeldaVista): string {
+    if (!this.esMarcada(c)) { return ''; }
+    let t = c.clase === 'c-verde' ? 'Según necesidad' : 'Programado';
+    if (c.cump === 100) { t = 'Realizado (100%)'; }
+    else if (c.cump === 75) { t = 'Parcial (75%)'; }
+    else if (c.cump === 50) { t = 'Parcial (50%)'; }
+    else if (c.cump === 0) { t = 'No hecho (0%)'; }
+    if (c.hh) { t += ' · ' + c.hh + ' HH'; }
+    if (c.adj) { t += ' · ' + c.adj + (c.adj === 1 ? ' adjunto' : ' adjuntos'); }
+    if (this.enControl) { t += c.cump === null ? ' — clic para registrar' : ' — clic para ver o editar'; }
+    else if (c.cump !== null && !this.enEdicion) { t += ' — clic para ver el detalle'; }
+    return t;
+  }
+
+  // ===================== Interacción grilla =====================
+
+  /** Al apretar el clic: en borrador marca/desmarca (con arrastre); en control abre el popup de registro. */
   inicioArrastre(f: FilaVista, c: CeldaVista, evento: MouseEvent) {
     if (!this.programa || !this.celdaClicable(c, f)) { return; }
     if (evento && evento.button !== 0) { return; }
     if (evento) { evento.preventDefault(); } // evita que se seleccione texto al arrastrar
 
-    const marcado = this.enControl
-      ? f.act.realizados.indexOf(c.dia) >= 0
-      : f.act.programados.indexOf(c.dia) >= 0;
+    if (!this.enEdicion) {
+      this.abrirRegistro(f, c);
+      return;
+    }
+
+    const marcado = f.act.programados.indexOf(c.dia) >= 0;
     this.modoArrastre = marcado ? 'quitar' : 'agregar';
     this.arrastrando = true;
     this.huboCambiosArrastre = false;
@@ -641,7 +821,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   /** Mientras se mantiene apretado, cada día por el que pasa el mouse toma la misma acción. */
   entrarCelda(f: FilaVista, c: CeldaVista) {
-    if (!this.arrastrando || !this.programa || !this.celdaClicable(c, f)) { return; }
+    if (!this.arrastrando || !this.programa || !this.enEdicion || !this.celdaClicable(c, f)) { return; }
     this.aplicarArrastre(f, c);
   }
 
@@ -653,19 +833,19 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   }
 
   private aplicarArrastre(f: FilaVista, c: CeldaVista) {
+    if (!this.enEdicion) { return; }
     const a = f.act;
     const d = c.dia;
     const agregar = this.modoArrastre === 'agregar';
+    const esta = a.programados.indexOf(d) >= 0;
     let cambio = false;
 
-    if (this.enControl) {
-      const esta = a.realizados.indexOf(d) >= 0;
-      if (agregar && !esta) { a.realizados.push(d); a.realizados.sort((x, y) => x - y); cambio = true; }
-      if (!agregar && esta) { this.quitar(a.realizados, d); cambio = true; }
-    } else if (this.enEdicion) {
-      const esta = a.programados.indexOf(d) >= 0;
-      if (agregar && !esta) { a.programados.push(d); a.programados.sort((x, y) => x - y); cambio = true; }
-      if (!agregar && esta) { this.quitar(a.programados, d); this.quitar(a.realizados, d); cambio = true; }
+    if (agregar && !esta) { a.programados.push(d); a.programados.sort((x, y) => x - y); cambio = true; }
+    if (!agregar && esta) {
+      this.quitar(a.programados, d);
+      this.quitar(a.realizados, d);
+      delete registrosDe(a)[String(d)];
+      cambio = true;
     }
 
     if (cambio) {
@@ -699,6 +879,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       p.actividades.forEach(a => {
         this.quitar(a.programados, d.dia);
         this.quitar(a.realizados, d.dia);
+        delete registrosDe(a)[String(d.dia)];
       });
     }
     this.recalcular();
@@ -717,10 +898,12 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   /** Deja la grilla en blanco; solo quedan los fines de semana y feriados. */
   limpiarProgramacion() {
     if (!this.programa || !this.enEdicion) { return; }
-    if (!confirm('Se borran todos los días programados de ' + this.meses[this.mesSel - 1] + '. ¿Continuar?')) { return; }
+    if (!confirm('Se borran todos los días programados de ' + this.meses[this.mesSel - 1] +
+      ' (y sus registros de cumplimiento y HH). ¿Continuar?')) { return; }
     this.programa.actividades.forEach(a => {
       a.programados = [];
       a.realizados = [];
+      (a as any).registros = {};
     });
     this.recalcular();
     this.programarGuardado();
@@ -731,6 +914,10 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (this.esSegunNecesidad(a)) { return; }
     a.programados = this.diasProgramados(a);
     a.realizados = a.realizados.filter(d => a.programados.indexOf(d) >= 0);
+    const regs = registrosDe(a);
+    Object.keys(regs).forEach(k => {
+      if (a.programados.indexOf(Number(k)) < 0) { delete regs[k]; }
+    });
   }
 
   cambiarFrecuencia(a: ActividadPrograma, valor: string) {
@@ -761,11 +948,14 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.programarGuardado();
   }
 
-  agregarActividad(grupo: string) {
+  agregarActividad(grupo: string, seccion: string = '') {
     if (!this.programa || !this.enEdicion) { return; }
-    const a = this.nuevaActividad(grupo, 'Nueva actividad', 'SEMANAL', 1);
+    const a = this.nuevaActividad(grupo, 'Nueva actividad', 'SEMANAL', 1, seccion);
     let idx = -1;
     this.programa.actividades.forEach((x, i) => { if (x.grupo === grupo) { idx = i; } });
+    this.programa.actividades.forEach((x, i) => {
+      if (x.grupo === grupo && ((x as any).seccion || '') === (seccion || '')) { idx = i; }
+    });
     if (idx >= 0) { this.programa.actividades.splice(idx + 1, 0, a); }
     else { this.programa.actividades.push(a); }
     this.recalcular();
@@ -810,7 +1000,208 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (i >= 0) { arr.splice(i, 1); }
   }
 
-  // ===================== Guardado automático (borrador y control) =====================
+  // ===================== Popup de registro =====================
+
+  abrirRegistro(f: FilaVista, c: CeldaVista) {
+    const a = f.act;
+    const reg = registrosDe(a)[String(c.dia)];
+    const enRealizados = a.realizados.indexOf(c.dia) >= 0;
+    const info = this.dias[c.dia - 1];
+
+    this.modal = {
+      act: a,
+      dia: c.dia,
+      fechaTexto: (info ? NOMBRE_DIA_LARGO[info.dow] + ' ' : '') + c.dia + ' de ' +
+        this.meses[this.mesSel - 1].toLowerCase() + ' ' + this.anio,
+      soloLectura: !this.enControl,
+      existente: !!reg || enRealizados,
+      cumplimiento: reg ? reg.cumplimiento : 100,
+      hh: this.hhInicial(reg),
+      observacion: reg ? (reg.observacion || '') : '',
+      adjuntos: reg && reg.adjuntos ? reg.adjuntos.slice() : [],
+      registradoPor: reg ? (reg.registradoPor || '') : '',
+      fechaRegistro: reg ? (reg.fechaRegistro || '') : ''
+    };
+    this.adjNuevos = [];
+    this.adjQuitados = [];
+    this.errorModal = '';
+    this.progresoSubida = 0;
+  }
+
+  private hhInicial(reg: RegistroDia): { [campo: string]: number } {
+    const res: { [campo: string]: number } = {};
+    CAMPOS_HH.forEach(c => {
+      const v = reg ? Number((reg as any)[c.k]) : 0;
+      res[c.k] = v ? v : null;
+    });
+    return res;
+  }
+
+  elegirCumplimiento(v: number) {
+    if (this.modal && !this.modal.soloLectura) { this.modal.cumplimiento = v; }
+  }
+
+  get totalHHModal(): number {
+    if (!this.modal) { return 0; }
+    let t = 0;
+    CAMPOS_HH.forEach(c => { t += Number(this.modal.hh[c.k]) || 0; });
+    return redondear(t);
+  }
+
+  clickFondoModal(evento: MouseEvent) {
+    if (evento.target === evento.currentTarget && !this.subiendo) { this.cancelarRegistro(); }
+  }
+
+  @HostListener('document:keydown.escape')
+  escapeModal() {
+    if (this.modal && !this.subiendo) { this.cancelarRegistro(); }
+  }
+
+  cancelarRegistro() {
+    // lo que se subió en este popup y no se guardó, se borra de Storage
+    this.adjNuevos.forEach(adj => borrarAdjunto(adj));
+    this.adjNuevos = [];
+    this.adjQuitados = [];
+    this.modal = null;
+    this.errorModal = '';
+  }
+
+  private valorHH(v: any, campo: string): number {
+    if (v === null || v === undefined || v === '') { return 0; }
+    const n = Number(String(v).replace(',', '.'));
+    if (!isFinite(n) || n < 0) { throw new Error('Las ' + campo + ' deben ser un número mayor o igual a 0.'); }
+    if (n > 10000) { throw new Error('Las ' + campo + ' parecen demasiadas, revisa el valor.'); }
+    return redondear(n);
+  }
+
+  guardarRegistro() {
+    const m = this.modal;
+    if (!m || m.soloLectura || !this.enControl) { return; }
+    if (this.subiendo) { this.errorModal = 'Espera a que terminen de subir los archivos.'; return; }
+
+    const hh: { [campo: string]: number } = {};
+    try {
+      CAMPOS_HH.forEach(c => { hh[c.k] = this.valorHH(m.hh[c.k], c.t); });
+    } catch (e) {
+      this.errorModal = e.message;
+      return;
+    }
+
+    const reg: RegistroDia = {
+      cumplimiento: VALORES_CUMPLIMIENTO.indexOf(m.cumplimiento) >= 0 ? m.cumplimiento : 100,
+      hhTrabajadas: hh['hhTrabajadas'],
+      hhCharlas: hh['hhCharlas'],
+      hhCapacitacion: hh['hhCapacitacion'],
+      hhOperacional: hh['hhOperacional'],
+      hhOtros: hh['hhOtros'],
+      observacion: (m.observacion || '').trim(),
+      adjuntos: m.adjuntos.map(x => ({
+        nombre: x.nombre || '', url: x.url || '', path: x.path || '', tipo: x.tipo || '', tamano: x.tamano || 0
+      })),
+      registradoPor: this.nombreUsuario || '',
+      fechaRegistro: new Date().toISOString()
+    };
+
+    const a = m.act;
+    registrosDe(a)[String(m.dia)] = reg;
+    // "realizados" queda solo con lo hecho (100%, 75% o 50%); el 0% queda registrado pero no cuenta como hecho
+    if (reg.cumplimiento > 0) {
+      if (a.realizados.indexOf(m.dia) < 0) { a.realizados.push(m.dia); a.realizados.sort((x, y) => x - y); }
+    } else {
+      this.quitar(a.realizados, m.dia);
+    }
+
+    this.adjQuitados.forEach(adj => borrarAdjunto(adj));
+    this.adjNuevos = [];
+    this.adjQuitados = [];
+    this.modal = null;
+    this.guardarInmediato('Registro guardado');
+  }
+
+  quitarRegistro() {
+    const m = this.modal;
+    if (!m || m.soloLectura || !this.enControl) { return; }
+    if (!confirm('¿Quitar el registro del ' + m.fechaTexto + '?\n\nSe borran el cumplimiento, las HH y los archivos adjuntos de ese día.')) { return; }
+
+    const a = m.act;
+    const reg = registrosDe(a)[String(m.dia)];
+    const todos: AdjuntoRegistro[] = [];
+    (reg && reg.adjuntos ? reg.adjuntos : []).forEach(x => todos.push(x));
+    this.adjNuevos.forEach(x => { if (todos.indexOf(x) < 0) { todos.push(x); } });
+    todos.forEach(adj => borrarAdjunto(adj));
+
+    delete registrosDe(a)[String(m.dia)];
+    this.quitar(a.realizados, m.dia);
+
+    this.adjNuevos = [];
+    this.adjQuitados = [];
+    this.modal = null;
+    this.guardarInmediato('Registro eliminado');
+  }
+
+  seleccionarArchivos(evento: any) {
+    const m = this.modal;
+    const input = evento && evento.target;
+    const archivos: File[] = input && input.files ? Array.prototype.slice.call(input.files) : [];
+    if (input) { input.value = ''; }
+    if (!m || m.soloLectura || !archivos.length) { return; }
+
+    this.errorModal = '';
+    const carpeta = 'programas/' + this.coleccionPrograma + '/' + this.idSubProyecto + '/' +
+      this.anio + '-' + (this.mesSel < 10 ? '0' : '') + this.mesSel + '/' + m.act.id + '/' + m.dia;
+
+    archivos.forEach(archivo => {
+      if (archivo.size > TAMANO_MAXIMO_ADJUNTO) {
+        this.errorModal = '"' + archivo.name + '" pesa más de 20 MB.';
+        return;
+      }
+      this.subiendo++;
+      this.progresoSubida = 0;
+      subirAdjunto(carpeta, archivo, pct => this.progresoSubida = pct).then(adj => {
+        if (this.modal !== m) { borrarAdjunto(adj); return; } // se cerró el popup mientras subía
+        m.adjuntos.push(adj);
+        this.adjNuevos.push(adj);
+      }).catch(err => {
+        console.error('programaSSO adjunto', err);
+        if (this.modal === m) { this.errorModal = 'No se pudo subir "' + archivo.name + '".'; }
+      }).then(() => {
+        this.subiendo = Math.max(0, this.subiendo - 1);
+      });
+    });
+  }
+
+  quitarAdjunto(adj: AdjuntoRegistro) {
+    const m = this.modal;
+    if (!m || m.soloLectura) { return; }
+    this.quitar(m.adjuntos, adj);
+    const i = this.adjNuevos.indexOf(adj);
+    if (i >= 0) {
+      this.adjNuevos.splice(i, 1);
+      borrarAdjunto(adj); // recién subido: se borra al tiro
+    } else {
+      this.adjQuitados.push(adj); // existente: se borra al guardar
+    }
+  }
+
+  iconoArchivo(adj: AdjuntoRegistro): string {
+    const n = (adj.nombre || '').toLowerCase();
+    const t = (adj.tipo || '').toLowerCase();
+    if (t.indexOf('image') === 0 || /\.(png|jpe?g|gif|bmp|webp|heic)$/.test(n)) { return 'fa-file-image-o'; }
+    if (t.indexOf('pdf') >= 0 || /\.pdf$/.test(n)) { return 'fa-file-pdf-o'; }
+    if (/\.(xlsx?|xlsm|csv)$/.test(n) || t.indexOf('sheet') >= 0 || t.indexOf('excel') >= 0) { return 'fa-file-excel-o'; }
+    if (/\.(docx?|rtf|odt)$/.test(n) || t.indexOf('word') >= 0) { return 'fa-file-word-o'; }
+    if (/\.(pptx?)$/.test(n)) { return 'fa-file-powerpoint-o'; }
+    if (/\.(zip|rar|7z)$/.test(n)) { return 'fa-file-archive-o'; }
+    return 'fa-file-o';
+  }
+
+  tamanoTexto(bytes: number): string {
+    if (!bytes) { return ''; }
+    if (bytes < 1024 * 1024) { return Math.max(1, Math.round(bytes / 1024)) + ' KB'; }
+    return (Math.round(bytes / 1024 / 1024 * 10) / 10) + ' MB';
+  }
+
+  // ===================== Guardado automático (borrador) =====================
 
   programarGuardado() {
     if (!this.programa) { return; }
@@ -853,5 +1244,6 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   trackGrupo(i: number, g: GrupoVista) { return g.nombre; }
   trackFila(i: number, f: FilaVista) { return f.act.id; }
+  trackSeccion(i: number, s: SeccionVista) { return s.nombre; }
   trackDia(i: number, d: any) { return d.dia; }
 }

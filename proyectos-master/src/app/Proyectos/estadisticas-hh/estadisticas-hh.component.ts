@@ -1,6 +1,8 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { firestoreDB } from '../../firebase-init';
 import { CAMPO_CAPACITACION } from './control-asistencia.component';
+import { sumarHHPrograma, redondear } from '../programa-sso/programa-registro';
+import { ProgramaSsoService } from '../programa-sso/programa-sso.service';
 
 /**
  * Estadísticas mensuales de HH por subproyecto.
@@ -10,18 +12,38 @@ import { CAMPO_CAPACITACION } from './control-asistencia.component';
 const COLECCION = 'estadisticasHH';
 const ANIOS_ANTERIORES = 5;
 
+/**
+ * HH registradas en los Programas SSO / MA (popup de cada día).
+ * Se suman a la misma fila que el Control de asistencia: no se guardan en 'estadisticasHH',
+ * se calculan al cargar. Campo del registro -> indicador de esta tabla.
+ */
+const COLECCIONES_PROGRAMA = ['programaSSO', 'programaMA'];
+const MAPA_PROGRAMA: { [campoRegistro: string]: string } = {
+  hhTrabajadas: 'hh',
+  hhCharlas: 'hhCharlasDiarias',
+  hhCapacitacion: 'hhCapacitacion',
+  hhOperacional: 'hhOperacional',
+  hhOtros: 'hhOtros'
+};
+/** Indicadores que solo vienen de los programas (no se escriben a mano). */
+export const CAMPOS_SOLO_PROGRAMA = ['hhCapacitacion', 'hhOperacional', 'hhOtros'];
+
 export interface IndicadorHH {
   campo: string;
   etiqueta: string;
   decimales: number;
   capacitacion?: boolean;
   inicioCapacitacion?: boolean;
+  programa?: boolean;   // solo viene de los Programas SSO/MA (solo lectura)
 }
 
 export const INDICADORES_HH: IndicadorHH[] = [
   { campo: 'hh', etiqueta: 'HH trabajadas', decimales: 2 },
   { campo: 'horasExtra', etiqueta: 'Horas extra', decimales: 2 },
+  { campo: 'hhOperacional', etiqueta: 'HH operacional', decimales: 2, programa: true },
+  { campo: 'hhOtros', etiqueta: 'HH otros', decimales: 2, programa: true },
   { campo: 'hhCharlasDiarias', etiqueta: 'Charlas diarias', decimales: 2, capacitacion: true, inicioCapacitacion: true },
+  { campo: 'hhCapacitacion', etiqueta: 'Capacitación', decimales: 2, capacitacion: true, programa: true },
   { campo: 'trabajadores', etiqueta: 'N° de trabajadores', decimales: 0 },
   { campo: 'incidentes', etiqueta: 'N° incidentes', decimales: 0 },
   { campo: 'accidentesBaja', etiqueta: 'Accidentes con baja', decimales: 0 },
@@ -42,7 +64,8 @@ export const INDICES_HH = [
 @Component({
   selector: 'app-estadisticas-hh',
   templateUrl: './estadisticas-hh.component.html',
-  styleUrls: ['./estadisticas-hh.component.css']
+  styleUrls: ['./estadisticas-hh.component.css'],
+  providers: [ProgramaSsoService]
 })
 export class EstadisticasHhComponent implements OnInit {
 
@@ -72,6 +95,13 @@ export class EstadisticasHhComponent implements OnInit {
   estadoGuardado: string = ''; // '', 'guardando', 'guardado' o 'error'
 
   datosPorAnio: { [anio: number]: any } = {};
+  /** HH de los Programas SSO/MA por indicador: hhProgramas[anio][mes][campo] (solo los que tienen horas) */
+  hhProgramas: { [anio: number]: any } = {};
+  cargandoProgramas: boolean = false;
+  errorProgramas: boolean = false;
+  private cargaProgramas: number = 0;
+
+  constructor(private sPrograma: ProgramaSsoService) {}
   private respaldo: { [clave: string]: number | null } = {};
   private guardadosPendientes: number = 0;
   private idUsuario: any = null;
@@ -95,8 +125,14 @@ export class EstadisticasHhComponent implements OnInit {
       return;
     }
 
-    firestoreDB.collection(COLECCION).where('idSubProyecto', '==', this.idSubProyecto).get()
-      .then((snapshot: any) => {
+    this.hhProgramas = {};
+    const estadisticas = firestoreDB.collection(COLECCION).where('idSubProyecto', '==', this.idSubProyecto).get();
+    // los programas del año se leen en paralelo; si fallan, igual se muestran las estadísticas
+    const programas = this.cargarProgramasAnio(Number(this.anio));
+
+    Promise.all([estadisticas, programas])
+      .then((resultado: any[]) => {
+        const snapshot = resultado[0];
         snapshot.forEach((doc: any) => {
           const data = doc.data();
           this.datosPorAnio[Number(data.anio)] = data.meses || {};
@@ -110,6 +146,58 @@ export class EstadisticasHhComponent implements OnInit {
         this.cargando = false;
         this.errorCarga = true;
       });
+  }
+
+  /**
+   * Lee los Programas SSO y MA de los 12 meses del año con el mismo servicio de la pestaña Programas
+   * y suma por mes las HH registradas en el popup de cada día.
+   */
+  private cargarProgramasAnio(anio: number): Promise<void> {
+    const carga = ++this.cargaProgramas;
+    this.cargandoProgramas = true;
+    this.errorProgramas = false;
+
+    const lecturas: Promise<any>[] = [];
+    let fallas = 0;
+    this.meses.forEach(mes => {
+      COLECCIONES_PROGRAMA.forEach(coleccion => {
+        lecturas.push(
+          Promise.resolve(this.sPrograma.obtener(this.idSubProyecto, anio, mes.numero, coleccion))
+            .catch((error: any) => {
+              fallas++;
+              console.error('Error al leer ' + coleccion + ' ' + mes.numero + '/' + anio + ':', error);
+              return null;
+            })
+            .then((programa: any) => ({ mes: mes.numero, programa: programa }))
+        );
+      });
+    });
+
+    return Promise.all(lecturas).then((lista: any[]) => {
+      if (carga !== this.cargaProgramas) { return; }
+      const delAnio: any = {};
+      lista.forEach(item => {
+        if (!item.programa) { return; }
+        const hh: any = sumarHHPrograma(item.programa);
+        Object.keys(MAPA_PROGRAMA).forEach(campoRegistro => {
+          const horas = Number(hh[campoRegistro]) || 0;
+          if (horas <= 0) { return; }
+          const campo = MAPA_PROGRAMA[campoRegistro];
+          const delMes = delAnio[item.mes] || (delAnio[item.mes] = {});
+          delMes[campo] = redondear((delMes[campo] || 0) + horas);
+        });
+      });
+      this.hhProgramas[anio] = delAnio;
+      this.cargandoProgramas = false;
+      this.errorProgramas = fallas === lista.length && lista.length > 0;
+    });
+  }
+
+  /** Botón "Actualizar": vuelve a leer lo registrado en los programas del año visible. */
+  actualizarProgramas() {
+    const anio = Number(this.anio);
+    delete this.hhProgramas[anio];
+    this.cargarProgramasAnio(anio);
   }
 
   private prepararAnios() {
@@ -131,6 +219,7 @@ export class EstadisticasHhComponent implements OnInit {
     this.meses.forEach(mes => {
       const delMes = this.datosPorAnio[anio][mes.numero] || (this.datosPorAnio[anio][mes.numero] = {});
       this.indicadores.forEach(indicador => {
+        // aquí queda solo lo guardado (asistencia o manual); lo de programas se suma al mostrar
         const valor = delMes[indicador.campo];
         delMes[indicador.campo] = valor === undefined ? null : valor;
         this.respaldo[this.getClave(anio, mes.numero, indicador.campo)] = delMes[indicador.campo];
@@ -138,6 +227,11 @@ export class EstadisticasHhComponent implements OnInit {
     });
 
     this.valores = this.datosPorAnio[anio];
+
+    // las HH de programas se leen por año, la primera vez que se abre
+    if (!this.hhProgramas[anio] && !this.cargando) {
+      this.cargarProgramasAnio(anio);
+    }
   }
 
   /** El Control de asistencia ya guardó estos valores: solo se reflejan en la tabla. */
@@ -150,10 +244,56 @@ export class EstadisticasHhComponent implements OnInit {
     });
   }
 
-  esCalculado(mes: number, campo: string): boolean {
+  // ===================== Asistencia + Programas =====================
+
+  /** HH que aportan los Programas SSO/MA a ese indicador y mes (null si no hay). */
+  getProgramas(mes: number, campo: string): number | null {
+    const delAnio = this.hhProgramas[Number(this.anio)];
+    const delMes = delAnio ? delAnio[mes] : null;
+    const valor = delMes ? delMes[campo] : null;
+    return valor === null || valor === undefined ? null : Number(valor);
+  }
+
+  /** Valor que se muestra: lo guardado (asistencia o manual) + lo de programas. */
+  getValor(mes: number, campo: string): number | null {
+    const base = (this.valores[mes] || {})[campo];
+    const programas = this.getProgramas(mes, campo);
+    const hayBase = base !== null && base !== undefined;
+    if (!hayBase && programas === null) { return null; }
+    return redondear((hayBase ? Number(base) : 0) + (programas || 0));
+  }
+
+  /** Viene del Control de asistencia. */
+  esDeAsistencia(mes: number, campo: string): boolean {
     const delMes = this.valores[mes] || {};
     if (campo === CAMPO_CAPACITACION) { return !!delMes.asistenciaCapacitacion; }
     return !!delMes.asistencia && (campo === 'hh' || campo === 'horasExtra' || campo === 'trabajadores');
+  }
+
+  /** Tiene horas de los Programas SSO/MA (o es un indicador que solo sale de ahí). */
+  esDePrograma(mes: number, campo: string): boolean {
+    return CAMPOS_SOLO_PROGRAMA.indexOf(campo) >= 0 || this.getProgramas(mes, campo) !== null;
+  }
+
+  /** No se puede escribir a mano: lo calcula la asistencia y/o los programas. */
+  esCalculado(mes: number, campo: string): boolean {
+    return this.esDeAsistencia(mes, campo) || this.esDePrograma(mes, campo);
+  }
+
+  getTituloCelda(mes: number, campo: string): string {
+    const partes: string[] = [];
+    const base = (this.valores[mes] || {})[campo];
+    const programas = this.getProgramas(mes, campo);
+    if (base !== null && base !== undefined && CAMPOS_SOLO_PROGRAMA.indexOf(campo) < 0) {
+      partes.push((this.esDeAsistencia(mes, campo) ? 'Control de asistencia: ' : 'Ingresado a mano: ') + this.formatear(base));
+    }
+    if (programas !== null) {
+      partes.push('Programas SSO/MA: ' + this.formatear(programas));
+    }
+    if (!partes.length && CAMPOS_SOLO_PROGRAMA.indexOf(campo) >= 0) {
+      return 'Se calcula desde los registros de los Programas SSO y MA';
+    }
+    return partes.length > 1 ? partes.join(' + ') : (partes[0] || '');
   }
 
   guardarCelda(mes: number, indicador: IndicadorHH, input: any) {
@@ -232,12 +372,17 @@ export class EstadisticasHhComponent implements OnInit {
   private sumar(campo: string): number | null {
     let total: number | null = null;
     this.meses.forEach(mes => {
-      const valor = this.valores[mes.numero] ? this.valores[mes.numero][campo] : null;
-      if (valor !== null && valor !== undefined) {
-        total = (total || 0) + Number(valor);
+      const valor = this.getValor(mes.numero, campo);
+      if (valor !== null) {
+        total = (total || 0) + valor;
       }
     });
     return total;
+  }
+
+  /** HH de exposición del mes: asistencia/manual + HH trabajadas de los programas. */
+  private getHhExposicion(mes: number): number {
+    return getHhIndice(this.valores[mes] || {}) + (this.getProgramas(mes, 'hh') || 0);
   }
 
   private calcularIndice(cantidad: number | null, hh: number | null, base: number): number | null {
@@ -252,17 +397,16 @@ export class EstadisticasHhComponent implements OnInit {
   }
 
   getTextoCelda(mes: number, campo: string): string {
-    const delMes = this.valores[mes] || {};
-    return delMes[campo] === null || delMes[campo] === undefined ? '' : this.formatear(delMes[campo]);
+    const valor = this.getValor(mes, campo);
+    return valor === null ? '' : this.formatear(valor);
   }
 
   private sumarCapacitacionMes(mes: number): number | null {
-    const delMes = this.valores[mes] || {};
     let total: number | null = null;
     this.indicadores.filter(indicador => indicador.capacitacion).forEach(indicador => {
-      const valor = delMes[indicador.campo];
-      if (valor !== null && valor !== undefined) {
-        total = (total || 0) + Number(valor);
+      const valor = this.getValor(mes, indicador.campo);
+      if (valor !== null) {
+        total = (total || 0) + valor;
       }
     });
     return total;
@@ -289,11 +433,11 @@ export class EstadisticasHhComponent implements OnInit {
 
   getIndiceMes(mes: number, indice: any): string {
     const delMes = this.valores[mes] || {};
-    return this.formatear(this.calcularIndice(delMes[indice.campo], getHhIndice(delMes), indice.base));
+    return this.formatear(this.calcularIndice(delMes[indice.campo], this.getHhExposicion(mes), indice.base));
   }
 
   getIndiceAnual(indice: any): string {
-    const hh = this.meses.reduce((suma, mes) => suma + getHhIndice(this.valores[mes.numero] || {}), 0);
+    const hh = this.meses.reduce((suma, mes) => suma + this.getHhExposicion(mes.numero), 0);
     return this.formatear(this.calcularIndice(this.sumar(indice.campo), hh, indice.base));
   }
 

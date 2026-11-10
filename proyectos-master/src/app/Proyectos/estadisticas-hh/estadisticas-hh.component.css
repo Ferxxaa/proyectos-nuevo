@@ -311,6 +311,29 @@
   font-weight: 600;
 }
 
+.ehh-programas-estado {
+  color: #626b75;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ehh-programas-estado.error { color: #c22f35; }
+
+.ehh-actualizar {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #b9c3cb;
+  border-radius: 6px;
+  background: #fff;
+  color: #24404f;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ehh-actualizar:hover:not(:disabled) { background: #f4f6f8; border-color: #8f979f; }
+.ehh-actualizar:disabled { opacity: .55; cursor: default; }
+
 .ehh-estado.guardando { color: #626b75; }
 .ehh-estado.guardado { color: #16743d; }
 .ehh-estado.error { color: #c22f35; }
@@ -423,6 +446,35 @@
   color: #064f78;
 }
 
+.ehh-tabla input.ehh-programa:disabled,
+.ehh-tabla input.ehh-calculado.ehh-programa:disabled {
+  border-color: transparent;
+  background: #e3f2dc;
+  color: #2d6e36;
+}
+
+/* asistencia + programas en la misma celda */
+.ehh-tabla input.ehh-calculado.ehh-programa:disabled {
+  background: linear-gradient(90deg, #dcebf5 0%, #dcebf5 50%, #e3f2dc 50%, #e3f2dc 100%);
+  color: #24404f;
+}
+
+/* celdas calculadas sin horas: sin fondo, para que no parezcan llenas */
+.ehh-tabla input.ehh-sin-valor:disabled,
+.ehh-tabla input.ehh-calculado.ehh-sin-valor:disabled,
+.ehh-tabla input.ehh-programa.ehh-sin-valor:disabled {
+  background: transparent;
+}
+
+.ehh-tabla tbody .ehh-fila-programa .ehh-col-indicador {
+  box-shadow: inset 3px 0 0 #7cc47f;
+}
+
+.ehh-tabla tbody .ehh-fila-programa .ehh-col-indicador small {
+  color: #3f9a52;
+  font-weight: 600;
+}
+
 .ehh-tabla .ehh-col-total {
   width: 104px;
   background: #2f5f8f;
@@ -478,6 +530,25 @@
   color: #6c757d;
   font-size: 11.5px;
 }
+
+.ehh-leyenda {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 12px;
+  white-space: nowrap;
+}
+
+.ehh-leyenda i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.ehh-ley-asistencia { background: #dcebf5; box-shadow: inset 0 0 0 1px #a9c9e2; }
+.ehh-ley-programa { background: #e3f2dc; box-shadow: inset 0 0 0 1px #a8d59a; }
+.ehh-ley-mixto { background: linear-gradient(90deg, #dcebf5 50%, #e3f2dc 50%); box-shadow: inset 0 0 0 1px #b5cfc0; }
 
 @media (max-width: 767px) {
   .ehh {

@@ -85,12 +85,16 @@
         <span class="psso-meta" *ngIf="estado === 'validado'">
           Validado por <b>{{ programa.validadoPor || '—' }}</b>
           <ng-container *ngIf="programa.fechaValidado"> el {{ programa.fechaValidado | date:'dd/MM/yyyy HH:mm' }}</ng-container>.
-          <ng-container *ngIf="editable"> Haz clic en una celda programada para marcarla como realizada.</ng-container>
+          <ng-container *ngIf="editable"> Haz clic en un día programado para registrar el cumplimiento, las HH y adjuntar respaldos.</ng-container>
         </span>
       </div>
 
       <div class="psso-estado-acciones">
         <span class="psso-guardado" [class.error]="estadoGuardado === 'Error al guardar'">{{ estadoGuardado }}</span>
+
+        <button type="button" class="psso-btn excel" (click)="exportarExcel()" title="Descargar el programa del mes en Excel">
+          <i class="fa fa-file-excel-o"></i> Descargar Excel
+        </button>
 
         <ng-container *ngIf="enEdicion">
           <button type="button" class="psso-btn" (click)="limpiarProgramacion()" [disabled]="procesando">
@@ -132,7 +136,7 @@
       </div>
       <div class="psso-kpi">
         <span>Realizadas</span>
-        <strong>{{ totalCtrl }}</strong>
+        <strong>{{ totalCtrl | number:'1.0-2' }}</strong>
       </div>
       <div class="psso-kpi psso-kpi-avance">
         <div>
@@ -144,6 +148,11 @@
       <div class="psso-kpi">
         <span>Promedio por ítem</span>
         <strong [ngClass]="'txt-' + claseSemaforo(totalProg ? pctGlobal : null)">{{ totalProg ? pctGlobal + '%' : '-' }}</strong>
+      </div>
+      <div class="psso-kpi psso-kpi-hh" title="Estas horas se suman en Estadísticas HH">
+        <span>HH registradas</span>
+        <strong>{{ hhTotal | number:'1.0-2' }}</strong>
+        <small>Trab. {{ hhTrabajadas | number:'1.0-2' }} · Charlas {{ hhCharlas | number:'1.0-2' }} · Capac. {{ hhCapacitacion | number:'1.0-2' }} · Operac. {{ hhOperacional | number:'1.0-2' }} · Otros {{ hhOtros | number:'1.0-2' }}</small>
       </div>
     </div>
 
@@ -192,54 +201,81 @@
                 </td>
               </tr>
 
-              <!-- Actividades -->
-              <tr *ngFor="let f of g.filas; trackBy: trackFila" class="fila-act">
-                <td class="col-act sticky-1">
-                  <span *ngIf="!enEdicion" class="act-nombre" [title]="f.act.nombre">{{ f.act.nombre }}</span>
-                  <div *ngIf="enEdicion" class="edit-act">
-                    <input type="text" [(ngModel)]="f.act.nombre" (ngModelChange)="programarGuardado()">
-                    <button type="button" class="btn-del" title="Eliminar actividad" (click)="eliminarActividad(f.act)">
-                      <i class="fa fa-trash-o"></i>
+              <!-- Secciones del ítem (subtítulos) y sus actividades -->
+              <ng-container *ngFor="let s of g.secciones; trackBy: trackSeccion">
+                <tr *ngIf="s.nombre" class="fila-seccion">
+                  <td [attr.colspan]="totalColumnas">
+                    <div class="seccion-cabecera">
+                      <span class="seccion-nombre">{{ s.nombre }}</span>
+                      <span class="grupo-cantidad">{{ s.filas.length }} {{ s.filas.length === 1 ? 'actividad' : 'actividades' }}</span>
+                      <span class="pct" [ngClass]="claseSemaforo(s.pct)">{{ s.pct === null ? 'Sin programar' : s.pct + '%' }}</span>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr *ngFor="let f of s.filas; trackBy: trackFila" class="fila-act">
+                  <td class="col-act sticky-1">
+                    <span *ngIf="!enEdicion" class="act-nombre" [title]="f.act.nombre">{{ f.act.nombre }}</span>
+                    <div *ngIf="enEdicion" class="edit-act">
+                      <input type="text" [(ngModel)]="f.act.nombre" (ngModelChange)="programarGuardado()">
+                      <button type="button" class="btn-del" title="Eliminar actividad" (click)="eliminarActividad(f.act)">
+                        <i class="fa fa-trash-o"></i>
+                      </button>
+                    </div>
+                  </td>
+
+                  <td class="col-frec">
+                    <span *ngIf="!enEdicion" class="frec-chip" [ngClass]="'frec-' + f.act.frecuencia">{{ etiquetaFrecuencia(f.act) }}</span>
+                    <select *ngIf="enEdicion" class="sel-frec" [ngClass]="'frec-' + f.act.frecuencia"
+                            [ngModel]="valorFrecuencia(f.act)" (ngModelChange)="cambiarFrecuenciaCompuesta(f.act, $event)"
+                            [attr.aria-label]="'Frecuencia de ' + f.act.nombre">
+                      <option *ngFor="let fr of opcionesFrecuencia" [value]="fr.v">{{ fr.t }}</option>
+                    </select>
+                  </td>
+
+                  <td *ngFor="let c of f.celdas; let di = index; trackBy: trackDia"
+                      class="col-dia celda"
+                      [class.dia-rojo]="c.clase === 'c-rojo'"
+                      [class.dia-hoy]="dias[di]?.hoy"
+                      [class.clicable]="celdaClicable(c, f)"
+                      [class.vacia]="!esMarcada(c)"
+                      [title]="tituloCelda(c)"
+                      (mousedown)="inicioArrastre(f, c, $event)"
+                      (mouseenter)="entrarCelda(f, c)">
+                    <span *ngIf="esMarcada(c)" class="marca"
+                          [class.m-azul]="c.clase === 'c-azul'" [class.m-verde]="c.clase === 'c-verde'"
+                          [class.hecho]="c.cump === 100" [class.parcial]="c.cump === 75" [class.medio]="c.cump === 50" [class.nohecho]="c.cump === 0">
+                      <i *ngIf="c.cump === 100" class="fa fa-check" aria-hidden="true"></i>
+                      <b *ngIf="c.cump === 75" class="marca-txt">¾</b>
+                      <b *ngIf="c.cump === 50" class="marca-txt">½</b>
+                      <i *ngIf="c.cump === 0" class="fa fa-times" aria-hidden="true"></i>
+                      <em *ngIf="c.adj" class="marca-clip" aria-hidden="true"></em>
+                    </span>
+                  </td>
+
+                  <td class="col-avance">
+                    <div class="avance" *ngIf="f.pct !== null">
+                      <div class="psso-barra"><i [ngClass]="claseSemaforo(f.pct)" [style.width.%]="f.pct"></i></div>
+                      <span class="avance-texto">{{ f.ctrl | number:'1.0-2' }}/{{ f.total }}</span>
+                      <span class="avance-pct" [ngClass]="'txt-' + claseSemaforo(f.pct)">{{ f.pct }}%</span>
+                    </div>
+                    <span class="avance-vacio" *ngIf="f.pct === null">Sin programar</span>
+                  </td>
+                </tr>
+
+                <!-- agregar actividad en la sección (solo en borrador) -->
+                <tr *ngIf="enEdicion" class="fila-agregar">
+                  <td class="col-act sticky-1">
+                    <button type="button" class="psso-link" (click)="agregarActividad(g.nombre, s.nombre)">
+                      <i class="fa fa-plus"></i> Agregar actividad<ng-container *ngIf="s.nombre"> en {{ s.nombre }}</ng-container>
                     </button>
-                  </div>
-                </td>
+                  </td>
+                  <td [attr.colspan]="dias.length + 2"></td>
+                </tr>
+              </ng-container>
 
-                <td class="col-frec">
-                  <span *ngIf="!enEdicion" class="frec-chip" [ngClass]="'frec-' + f.act.frecuencia">{{ etiquetaFrecuencia(f.act) }}</span>
-                  <select *ngIf="enEdicion" class="sel-frec" [ngClass]="'frec-' + f.act.frecuencia"
-                          [ngModel]="valorFrecuencia(f.act)" (ngModelChange)="cambiarFrecuenciaCompuesta(f.act, $event)"
-                          [attr.aria-label]="'Frecuencia de ' + f.act.nombre">
-                    <option *ngFor="let fr of opcionesFrecuencia" [value]="fr.v">{{ fr.t }}</option>
-                  </select>
-                </td>
-
-                <td *ngFor="let c of f.celdas; let di = index; trackBy: trackDia"
-                    class="col-dia celda"
-                    [class.dia-rojo]="c.clase === 'c-rojo'"
-                    [class.dia-hoy]="dias[di]?.hoy"
-                    [class.clicable]="celdaClicable(c, f)"
-                    [class.vacia]="c.clase !== 'c-azul' && c.clase !== 'c-verde'"
-                    [title]="c.clase === 'c-azul' || c.clase === 'c-verde' ? (c.x ? 'Realizado' : 'Programado') : ''"
-                    (mousedown)="inicioArrastre(f, c, $event)"
-                    (mouseenter)="entrarCelda(f, c)">
-                  <span *ngIf="c.clase === 'c-azul' || c.clase === 'c-verde'" class="marca"
-                        [class.m-azul]="c.clase === 'c-azul'" [class.m-verde]="c.clase === 'c-verde'" [class.hecho]="c.x">
-                    <i *ngIf="c.x" class="fa fa-check" aria-hidden="true"></i>
-                  </span>
-                </td>
-
-                <td class="col-avance">
-                  <div class="avance" *ngIf="f.pct !== null">
-                    <div class="psso-barra"><i [ngClass]="claseSemaforo(f.pct)" [style.width.%]="f.pct"></i></div>
-                    <span class="avance-texto">{{ f.ctrl }}/{{ f.total }}</span>
-                    <span class="avance-pct" [ngClass]="'txt-' + claseSemaforo(f.pct)">{{ f.pct }}%</span>
-                  </div>
-                  <span class="avance-vacio" *ngIf="f.pct === null">Sin programar</span>
-                </td>
-              </tr>
-
-              <!-- agregar actividad (solo en borrador) -->
-              <tr *ngIf="enEdicion" class="fila-agregar">
+              <!-- ítem sin actividades -->
+              <tr *ngIf="enEdicion && !g.secciones.length" class="fila-agregar">
                 <td class="col-act sticky-1">
                   <button type="button" class="psso-link" (click)="agregarActividad(g.nombre)"><i class="fa fa-plus"></i> Agregar actividad</button>
                 </td>
@@ -258,11 +294,132 @@
       <div class="psso-leyenda">
         <span><i class="marca m-azul"></i> Programado</span>
         <span><i class="marca m-verde"></i> Según necesidad</span>
-        <span><i class="marca m-azul hecho"><b class="fa fa-check"></b></i> Realizado</span>
+        <span><i class="marca m-azul hecho"><b class="fa fa-check"></b></i> Realizado 100%</span>
+        <span><i class="marca m-azul parcial"><b class="marca-txt">¾</b></i> Parcial 75%</span>
+        <span><i class="marca m-azul medio"><b class="marca-txt">½</b></i> Parcial 50%</span>
+        <span><i class="marca m-azul nohecho"><b class="fa fa-times"></b></i> No hecho 0%</span>
+        <span><i class="marca m-azul"><em class="marca-clip"></em></i> Con adjuntos</span>
         <span><i class="ley-rojo"></i> Fin de semana o feriado</span>
         <span><i class="ley-hoy"></i> Hoy</span>
       </div>
     </div>
 
   </ng-container>
+
+  <!-- ===================== Popup de registro ===================== -->
+  <div class="psso-modal-fondo" *ngIf="modal" (mousedown)="clickFondoModal($event)">
+    <div class="psso-modal" role="dialog" aria-modal="true" aria-labelledby="psso-modal-titulo">
+
+      <header class="psso-modal-cab">
+        <div class="psso-modal-cab-texto">
+          <span class="psso-modal-kicker">{{ modal.soloLectura ? 'Detalle del registro' : 'Registrar actividad' }} · {{ esMA ? 'MA' : 'SSO' }}</span>
+          <h6 id="psso-modal-titulo">{{ modal.act.nombre }}</h6>
+          <p><i class="fa fa-calendar" aria-hidden="true"></i> {{ modal.fechaTexto }}</p>
+        </div>
+        <button type="button" class="psso-modal-cerrar" (click)="cancelarRegistro()" [disabled]="subiendo" title="Cerrar" aria-label="Cerrar">
+          <i class="fa fa-times"></i>
+        </button>
+      </header>
+
+      <div class="psso-modal-cuerpo">
+
+        <!-- Cumplimiento -->
+        <div class="psso-campo">
+          <span class="psso-campo-titulo">Cumplimiento</span>
+          <div class="psso-niveles" role="radiogroup" aria-label="Cumplimiento">
+            <button *ngFor="let n of nivelesCumplimiento" type="button" role="radio"
+                    class="psso-nivel" [ngClass]="'nivel-' + n.v"
+                    [class.activo]="modal.cumplimiento === n.v"
+                    [attr.aria-checked]="modal.cumplimiento === n.v"
+                    [disabled]="modal.soloLectura && modal.cumplimiento !== n.v"
+                    (click)="elegirCumplimiento(n.v)">
+              <strong>{{ n.d }}</strong>
+              <span>{{ n.t }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- HH -->
+        <div class="psso-campo">
+          <span class="psso-campo-titulo">
+            Horas hombre
+            <small><i class="fa fa-bar-chart" aria-hidden="true"></i> se suman a Estadísticas HH</small>
+          </span>
+          <div class="psso-hh">
+            <label class="psso-hh-campo" *ngFor="let campo of camposHH">
+              <span>{{ campo.t }}</span>
+              <input type="number" min="0" step="0.5" placeholder="0" [name]="campo.k"
+                     [(ngModel)]="modal.hh[campo.k]" [disabled]="modal.soloLectura">
+            </label>
+            <div class="psso-hh-total">
+              <span>Total</span>
+              <strong>{{ totalHHModal | number:'1.0-2' }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Observación -->
+        <label class="psso-campo">
+          <span class="psso-campo-titulo">Observación</span>
+          <textarea rows="2" name="observacion" placeholder="Opcional"
+                    [(ngModel)]="modal.observacion" [disabled]="modal.soloLectura"></textarea>
+        </label>
+
+        <!-- Adjuntos -->
+        <div class="psso-campo">
+          <span class="psso-campo-titulo">Respaldos adjuntos</span>
+
+          <ul class="psso-adjuntos" *ngIf="modal.adjuntos.length">
+            <li *ngFor="let ad of modal.adjuntos">
+              <i class="fa" [ngClass]="iconoArchivo(ad)" aria-hidden="true"></i>
+              <a [href]="ad.url" target="_blank" rel="noopener" [title]="ad.nombre">{{ ad.nombre }}</a>
+              <span class="psso-adj-tam">{{ tamanoTexto(ad.tamano) }}</span>
+              <button *ngIf="!modal.soloLectura" type="button" class="btn-del" title="Quitar archivo" (click)="quitarAdjunto(ad)">
+                <i class="fa fa-trash-o"></i>
+              </button>
+            </li>
+          </ul>
+          <p class="psso-sin-adj" *ngIf="!modal.adjuntos.length && modal.soloLectura">Sin archivos adjuntos.</p>
+
+          <label *ngIf="!modal.soloLectura" class="psso-subir" [class.ocupado]="subiendo">
+            <input type="file" multiple (change)="seleccionarArchivos($event)">
+            <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+            <span>
+              <b>Adjuntar archivos</b>
+              <small>Excel, PDF, Word, imágenes o lo que necesites · máx. 20 MB c/u</small>
+            </span>
+          </label>
+
+          <div class="psso-subiendo" *ngIf="subiendo">
+            <div class="psso-spinner"></div>
+            Subiendo {{ subiendo }} {{ subiendo === 1 ? 'archivo' : 'archivos' }}... {{ progresoSubida }}%
+          </div>
+        </div>
+
+        <div class="psso-modal-error" *ngIf="errorModal" role="alert">
+          <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ errorModal }}
+        </div>
+
+        <p class="psso-modal-autor" *ngIf="modal.registradoPor || modal.fechaRegistro">
+          Registrado por <b>{{ modal.registradoPor || '—' }}</b>
+          <ng-container *ngIf="modal.fechaRegistro"> el {{ modal.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</ng-container>
+        </p>
+      </div>
+
+      <footer class="psso-modal-pie">
+        <button *ngIf="!modal.soloLectura && modal.existente" type="button" class="psso-btn peligro"
+                (click)="quitarRegistro()" [disabled]="subiendo || procesando">
+          <i class="fa fa-eraser"></i> Quitar registro
+        </button>
+        <span class="psso-modal-espacio"></span>
+        <button type="button" class="psso-btn" (click)="cancelarRegistro()" [disabled]="subiendo">
+          {{ modal.soloLectura ? 'Cerrar' : 'Cancelar' }}
+        </button>
+        <button *ngIf="!modal.soloLectura" type="button" class="psso-btn primario"
+                (click)="guardarRegistro()" [disabled]="subiendo || procesando">
+          <i class="fa fa-check"></i> Guardar registro
+        </button>
+      </footer>
+    </div>
+  </div>
 </div>

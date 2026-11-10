@@ -19,6 +19,12 @@
         <ng-container *ngIf="estadoGuardado === 'guardado'"><i class="fa fa-check" aria-hidden="true"></i> Guardado</ng-container>
         <ng-container *ngIf="estadoGuardado === 'error'"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> No se pudo guardar</ng-container>
       </span>
+      <span class="ehh-programas-estado" *ngIf="cargandoProgramas"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Leyendo programas...</span>
+      <span class="ehh-programas-estado error" *ngIf="!cargandoProgramas && errorProgramas">No se pudieron leer los programas</span>
+      <button type="button" class="ehh-actualizar" (click)="actualizarProgramas()" [disabled]="cargando || cargandoProgramas"
+              title="Volver a leer las HH registradas en los Programas SSO y MA">
+        <i class="fa fa-refresh" aria-hidden="true"></i> Actualizar
+      </button>
       <label for="ehh-anio">Año</label>
       <select id="ehh-anio" class="ehh-anio" [(ngModel)]="anio" (ngModelChange)="seleccionarAnio()" [disabled]="cargando || errorCarga">
         <option *ngFor="let opcion of anios" [ngValue]="opcion">{{opcion}}</option>
@@ -44,18 +50,18 @@
         </thead>
         <tbody>
           <ng-container *ngFor="let indicador of indicadores; trackBy: trackCampo">
-            <tr class="ehh-fila-subtotal" *ngIf="indicador.inicioCapacitacion">
-              <th scope="row" class="ehh-col-indicador">HH capacitadas</th>
-              <td *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">{{getCapacitacionMes(mes.numero)}}</td>
-              <td class="ehh-col-total">{{getCapacitacionTotal()}}</td>
-            </tr>
-            <tr [class.ehh-fila-detalle]="indicador.capacitacion">
-              <th scope="row" class="ehh-col-indicador">{{indicador.etiqueta}}</th>
+            <tr [class.ehh-fila-programa]="indicador.programa">
+              <th scope="row" class="ehh-col-indicador">
+                {{indicador.etiqueta}}
+                <small *ngIf="indicador.programa">Programas SSO/MA</small>
+              </th>
               <td *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">
                 <input type="text" inputmode="decimal" autocomplete="off"
-                       [class.ehh-calculado]="esCalculado(mes.numero, indicador.campo)"
+                       [class.ehh-calculado]="esDeAsistencia(mes.numero, indicador.campo)"
+                       [class.ehh-programa]="esDePrograma(mes.numero, indicador.campo)"
+                       [class.ehh-sin-valor]="getValor(mes.numero, indicador.campo) === null"
                        [value]="getTextoCelda(mes.numero, indicador.campo)" [disabled]="soloLectura || esCalculado(mes.numero, indicador.campo)"
-                       [title]="esCalculado(mes.numero, indicador.campo) ? 'Se calcula desde el Control de asistencia' : ''"
+                       [title]="getTituloCelda(mes.numero, indicador.campo)"
                        (change)="guardarCelda(mes.numero, indicador, $event.target)"
                        [attr.aria-label]="indicador.etiqueta + ' de ' + mes.nombre">
               </td>
@@ -72,7 +78,11 @@
     </div>
     <p class="ehh-nota">
       IF = accidentes con baja × 1.000.000 / HH. IS = días perdidos × 1.000 / HH. Las HH incluyen jornadas, horas extra y, con asistencia, capacitación.
-      Las celdas en azul se calculan desde el Control de asistencia.
+      Cada fila suma el Control de asistencia (o lo escrito a mano) y los registros de los Programas SSO y MA;
+      pasa el mouse por una celda para ver el detalle. Las HH trabajadas de los programas también entran en IF/IS.
+      <span class="ehh-leyenda"><i class="ehh-ley-asistencia"></i> Control de asistencia</span>
+      <span class="ehh-leyenda"><i class="ehh-ley-programa"></i> Programas SSO/MA</span>
+      <span class="ehh-leyenda"><i class="ehh-ley-mixto"></i> Ambos</span>
     </p>
   </ng-container>
   </ng-container>
