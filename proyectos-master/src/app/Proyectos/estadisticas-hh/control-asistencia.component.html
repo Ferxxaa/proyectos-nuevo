@@ -1,5 +1,26 @@
-<section class="ca">
-  <div class="ca-encabezado">
+<section class="ca" [class.ca-embebido]="embebido">
+  <!-- CORE: franja del subproyecto con sus totales -->
+  <div class="ca-grupo" *ngIf="embebido">
+    <div class="ca-grupo-nombre">
+      <i class="fa fa-map-marker" aria-hidden="true"></i>
+      <span class="ca-grupo-kicker">Subproyecto</span>
+      <strong>{{nombreSubProyecto}}</strong>
+    </div>
+    <dl class="ca-grupo-resumen" *ngIf="!cargando && !errorCarga">
+      <div><dt>Trabajadores</dt><dd>{{trabajadores.length}}</dd></div>
+      <div><dt>HH</dt><dd>{{formatear(resumen.hh)}}</dd></div>
+      <div><dt>Días</dt><dd>{{formatear(resumen.jornadas)}}</dd></div>
+      <div><dt>H.E.</dt><dd>{{formatear(resumen.extra)}}</dd></div>
+      <div><dt>Cap.</dt><dd>{{formatear(resumen.capacitacion)}}</dd></div>
+    </dl>
+    <span class="ca-estado" [ngClass]="estadoGuardado" *ngIf="estadoGuardado" role="status">
+      <ng-container *ngIf="estadoGuardado === 'guardando'"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Guardando...</ng-container>
+      <ng-container *ngIf="estadoGuardado === 'guardado'"><i class="fa fa-check" aria-hidden="true"></i> Guardado</ng-container>
+      <ng-container *ngIf="estadoGuardado === 'error'"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> No se pudo guardar</ng-container>
+    </span>
+  </div>
+
+  <div class="ca-encabezado" *ngIf="!embebido">
     <div class="ca-titulo">
       <span class="ca-icono"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
       <div>
@@ -39,7 +60,7 @@
       <button type="button" (click)="copiarMesAnterior()">Copiar a {{nombreMes}}</button>
     </div>
 
-    <div class="ca-barra">
+    <div class="ca-barra" *ngIf="!embebido">
       <div class="ca-vistas">
         <button type="button" [class.activa]="quincena === 1" [attr.aria-pressed]="quincena === 1" (click)="seleccionarQuincena(1)">1° quincena</button>
         <button type="button" [class.activa]="quincena === 2" [attr.aria-pressed]="quincena === 2" (click)="seleccionarQuincena(2)">2° quincena</button>
@@ -90,7 +111,8 @@
             <td class="ca-fijo ca-col-numero">{{trabajador.nuevo ? '+' : n + 1}}</td>
             <td *ngFor="let item of camposTrabajador" [ngClass]="item.clase">
               <input type="text" autocomplete="off" class="ca-dato-texto" [value]="trabajador[item.campo]" [title]="trabajador[item.campo]" [disabled]="soloLectura"
-                     [attr.placeholder]="trabajador.nuevo && item.campo === 'nombre' ? 'Agregar...' : null"
+                     [attr.list]="trabajador.nuevo && (item.campo === 'nombre' || item.campo === 'rut') && agenda?.length ? idListaAgenda : null"
+                     [attr.placeholder]="trabajador.nuevo && item.campo === 'nombre' ? (agenda?.length ? 'Agregar o buscar...' : 'Agregar...') : null"
                      (change)="guardarDato(trabajador, item.campo, $event.target)"
                      [attr.aria-label]="item.etiqueta + (trabajador.nuevo ? ' del trabajador nuevo' : ' de ' + trabajador.nombre + ' ' + trabajador.apellido)">
             </td>
@@ -98,9 +120,12 @@
               <button type="button" *ngIf="!trabajador.nuevo" (click)="eliminar(trabajador)" [attr.aria-label]="'Quitar a ' + trabajador.nombre" title="Quitar"><i class="fa fa-trash" aria-hidden="true"></i></button>
             </td>
             <ng-container *ngFor="let dia of diasVisibles; trackBy: trackDia">
-              <td *ngFor="let item of campos; let i = index; trackBy: trackCampo" [class.ca-inicio-dia]="i === 0" [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado">
+              <td *ngFor="let item of campos; let i = index; trackBy: trackCampo" [class.ca-inicio-dia]="i === 0" [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado"
+                  [class.ca-otro-sp]="!trabajador.nuevo && otroSp(trabajador, dia.numero)"
+                  [class.ca-otro-lleno]="!trabajador.nuevo && otroSp(trabajador, dia.numero)?.lleno"
+                  [attr.title]="!trabajador.nuevo && otroSp(trabajador, dia.numero) ? otroSp(trabajador, dia.numero).texto : null">
                 <input type="text" inputmode="decimal" autocomplete="off"
-                       [value]="getTextoCelda(trabajador, dia.numero, item.campo)" [disabled]="soloLectura || trabajador.nuevo"
+                       [value]="getTextoCelda(trabajador, dia.numero, item.campo)" [disabled]="soloLectura || trabajador.nuevo || bloqueadoPorOtro(trabajador, dia.numero, item.campo)"
                        (change)="guardarCelda(trabajador, dia.numero, item.campo, $event.target)"
                        [attr.aria-label]="item.titulo + ' del día ' + dia.numero + ' de ' + trabajador.nombre + ' ' + trabajador.apellido">
               </td>
@@ -116,7 +141,7 @@
             <td class="ca-fijo ca-col-numero"></td>
             <th scope="row" class="ca-fijo ca-col-nombre ca-izquierda">Total por día</th>
             <td class="ca-fijo ca-col-apellido"></td>
-            <td [attr.colspan]="soloLectura ? 3 : 4"></td>
+            <td [attr.colspan]="colspanPie"></td>
             <ng-container *ngFor="let dia of diasVisibles; trackBy: trackDia">
               <td *ngFor="let item of campos; let i = index; trackBy: trackCampo" [class.ca-inicio-dia]="i === 0">{{getTotalDia(dia.numero, item.campo)}}</td>
             </ng-container>
@@ -128,7 +153,12 @@
         </tfoot>
       </table>
     </div>
-    <p class="ca-nota">
+    <!-- autocompletar desde la agenda de CORE -->
+    <datalist [id]="idListaAgenda" *ngIf="agenda?.length && !soloLectura">
+      <option *ngFor="let t of agenda" [value]="etiquetaAgenda(t)">{{t.cargo}}</option>
+    </datalist>
+
+    <p class="ca-nota" *ngIf="!embebido">
       Día: 1 es jornada completa ({{formatear(horasJornada)}} h) y 0,5 media jornada. H.E. y Cap. van en horas, y Cap. se carga en Charlas diarias.
       HH = días × {{formatear(horasJornada)}} + horas extra + capacitación. Para agregar un trabajador, escríbelo en la última fila. En rojo, los feriados.
     </p>

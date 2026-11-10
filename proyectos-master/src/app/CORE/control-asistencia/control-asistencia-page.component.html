@@ -11,103 +11,224 @@
               <div>
                 <span class="ehh-kicker">CORE</span>
                 <h2>Control Asistencia</h2>
-                <p>Control de asistencia diario del subproyecto</p>
+                <p>Asistencia diaria de todos los subproyectos y agenda de trabajadores</p>
               </div>
             </div>
           </header>
 
           <div class="widget-body ehh-cuerpo">
-            <div class="ehh-mensaje" *ngIf="cargandoPermisos" role="status">
-              <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Verificando permisos...
+            <div class="ehh-mensaje" *ngIf="cargandoPermisos || cargandoSubProyectos" role="status">
+              <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando...
+            </div>
+            <div class="ehh-mensaje" *ngIf="!cargandoPermisos && !cargandoSubProyectos && errorCarga" role="alert">
+              No se pudieron cargar los subproyectos disponibles.
             </div>
 
-            <ng-container *ngIf="!cargandoPermisos">
-              <div class="ehh-mensaje" *ngIf="cargandoSubProyectos" role="status">
-                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando subproyectos...
+            <ng-container *ngIf="!cargandoPermisos && !cargandoSubProyectos && !errorCarga">
+
+              <!-- Pestañas -->
+              <div class="core-pestanas" role="tablist">
+                <button type="button" role="tab" [class.activa]="vista === 'asistencia'" [attr.aria-selected]="vista === 'asistencia'" (click)="vista = 'asistencia'">
+                  <i class="fa fa-calendar-check-o" aria-hidden="true"></i> Control de asistencia
+                </button>
+                <button type="button" role="tab" *ngIf="!soloLectura" [class.activa]="vista === 'trabajadores'" [attr.aria-selected]="vista === 'trabajadores'" (click)="vista = 'trabajadores'">
+                  <i class="fa fa-address-book-o" aria-hidden="true"></i> Trabajadores
+                  <span class="core-contador">{{agenda.length}}</span>
+                </button>
               </div>
 
-              <div class="ehh-mensaje" *ngIf="!cargandoSubProyectos && errorCarga" role="alert">
-                No se pudieron cargar los subproyectos disponibles.
-              </div>
+              <!-- ===================== CONTROL DE ASISTENCIA ===================== -->
+              <div [hidden]="vista !== 'asistencia'">
 
-              <ng-container *ngIf="!cargandoSubProyectos && !errorCarga">
-                <div class="ehh-mensaje" *ngIf="!subProyectos.length">
-                  No hay subproyectos disponibles para tu usuario.
-                </div>
-
-                <div class="ehh-selector" *ngIf="subProyectos.length">
-                  <label for="ehh-subproyecto">Subproyecto</label>
-
-                  <div class="ehh-combo" [class.abierto]="listaAbierta">
-                    <i class="fa fa-search ehh-combo-icono" aria-hidden="true"></i>
-                    <input #buscador id="ehh-subproyecto" type="text" autocomplete="off"
-                      placeholder="Busca por proyecto o subproyecto"
-                      role="combobox" aria-autocomplete="list" aria-controls="ehh-lista-subproyectos"
-                      [attr.aria-expanded]="listaAbierta"
-                      [attr.aria-activedescendant]="listaAbierta && indiceActivo >= 0 ? 'ehh-opcion-' + indiceActivo : null"
-                      [ngModel]="busqueda"
-                      (ngModelChange)="filtrarSubProyectos($event)"
-                      (focus)="buscador.select(); abrirLista()"
-                      (click)="abrirLista()"
-                      (blur)="cerrarLista()"
-                      (keydown)="manejarTeclado($event)">
-
-                    <button type="button" class="ehh-combo-limpiar" *ngIf="idSubProyectoSeleccionado !== ''"
-                      title="Quitar selección" aria-label="Quitar selección"
-                      (mousedown)="$event.preventDefault()"
-                      (click)="limpiarSeleccion(); buscador.focus()">
-                      <i class="fa fa-times" aria-hidden="true"></i>
-                    </button>
-
-                    <div class="ehh-combo-panel" *ngIf="listaAbierta" (mousedown)="$event.preventDefault()">
-                      <div class="ehh-combo-resumen">
-                        {{subProyectosFiltrados.length}} de {{subProyectos.length}} subproyectos
-                      </div>
-
-                      <ul id="ehh-lista-subproyectos" class="ehh-combo-lista" role="listbox"
-                        aria-label="Subproyectos" *ngIf="subProyectosFiltrados.length">
-                        <li *ngFor="let opcion of subProyectosFiltrados; let i = index; trackBy: identificarSubProyecto"
-                          [id]="'ehh-opcion-' + i" role="option"
-                          [attr.aria-selected]="esSeleccionado(opcion)"
-                          [class.activa]="i === indiceActivo"
-                          [class.seleccionada]="esSeleccionado(opcion)"
-                          (mouseenter)="indiceActivo = i"
-                          (click)="elegirSubProyecto(opcion)">
-                          <span class="ehh-opcion-textos">
-                            <span class="ehh-opcion-subproyecto">{{opcion.nombreSubProyecto}}</span>
-                            <span class="ehh-opcion-proyecto">{{opcion.nombreProyecto}}</span>
-                          </span>
-                          <i class="fa fa-check" aria-hidden="true" *ngIf="esSeleccionado(opcion)"></i>
-                        </li>
-                      </ul>
-
-                      <div class="ehh-combo-vacio" *ngIf="!subProyectosFiltrados.length">
-                        No encontramos subproyectos con esa búsqueda.
-                      </div>
+                <div class="core-barra">
+                  <div class="core-periodo">
+                    <label for="core-mes">Mes</label>
+                    <select id="core-mes" [(ngModel)]="mes" (ngModelChange)="cambiarPeriodo()">
+                      <option *ngFor="let m of meses; let i = index" [ngValue]="i + 1">{{m}}</option>
+                    </select>
+                    <label for="core-anio">Año</label>
+                    <select id="core-anio" [(ngModel)]="anio" (ngModelChange)="cambiarPeriodo()">
+                      <option *ngFor="let a of anios" [ngValue]="a">{{a}}</option>
+                    </select>
+                    <div class="core-quincenas">
+                      <button type="button" [class.activa]="quincena === 1" (click)="seleccionarQuincena(1)">1° quincena</button>
+                      <button type="button" [class.activa]="quincena === 2" (click)="seleccionarQuincena(2)">2° quincena</button>
                     </div>
                   </div>
+                  <dl class="core-totales">
+                    <div><dt>Subproyectos</dt><dd>{{grupos.length}}</dd></div>
+                    <div><dt>Trabajadores</dt><dd>{{totalTrabajadoresMes}}</dd></div>
+                    <div><dt>HH del mes</dt><dd>{{formatear(totalHH)}}</dd></div>
+                  </dl>
                 </div>
 
-                <div class="ehh-mensaje" *ngIf="cargandoSeleccion" role="status">
-                  <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando subproyecto...
+                <!-- Agregar trabajador de la agenda a un subproyecto -->
+                <form class="core-agregar" *ngIf="!soloLectura" (ngSubmit)="agregarTrabajador()">
+                  <span class="core-agregar-titulo"><i class="fa fa-user-plus" aria-hidden="true"></i> Agregar trabajador</span>
+                  <div class="core-campo core-campo-ancho">
+                    <label for="core-trabajador">Trabajador (agenda)</label>
+                    <input id="core-trabajador" name="trabajador" type="text" autocomplete="off" list="core-lista-agenda"
+                           placeholder="Busca por nombre o RUT" [(ngModel)]="textoTrabajador">
+                  </div>
+                  <div class="core-campo core-campo-ancho">
+                    <label for="core-subproyecto">Lugar de trabajo (subproyecto)</label>
+                    <input id="core-subproyecto" name="subproyecto" type="text" autocomplete="off" list="core-lista-subproyectos"
+                           placeholder="Busca el subproyecto" [(ngModel)]="textoSubProyecto">
+                  </div>
+                  <button type="submit" class="core-boton-principal" [disabled]="agregando || cargandoAgenda">
+                    <i class="fa" [ngClass]="agregando ? 'fa-spinner fa-spin' : 'fa-plus'" aria-hidden="true"></i> Agregar
+                  </button>
+                  <span class="core-ok" *ngIf="mensajeAgregar"><i class="fa fa-check" aria-hidden="true"></i> {{mensajeAgregar}}</span>
+                  <span class="core-error" *ngIf="errorAgregar">{{errorAgregar}}</span>
+
+                  <datalist id="core-lista-agenda">
+                    <option *ngFor="let t of agenda" [value]="etiquetaAgenda(t)">{{t.cargo}}</option>
+                  </datalist>
+                  <datalist id="core-lista-subproyectos">
+                    <option *ngFor="let sp of subProyectos" [value]="etiquetaSubProyecto(sp)"></option>
+                  </datalist>
+                </form>
+
+                <!-- Subproyectos que tenían gente el mes anterior y este mes aún no -->
+                <div class="core-anterior" *ngIf="!cargandoGrupos && !soloLectura && delMesAnterior.length">
+                  <span><i class="fa fa-history" aria-hidden="true"></i> En {{nombreMesAnterior}} había trabajadores en:</span>
+                  <button type="button" *ngFor="let item of delMesAnterior" (click)="traerDelMesAnterior(item)"
+                          [title]="'Abrir ' + item.grupo.nombre + ' para copiar sus trabajadores a ' + nombreMes">
+                    {{item.grupo.nombre}} <b>{{item.cantidad}}</b> <i class="fa fa-arrow-down" aria-hidden="true"></i>
+                  </button>
                 </div>
 
-                <div class="ehh-mensaje" *ngIf="errorSeleccion" role="alert">
-                  No se pudo cargar el subproyecto seleccionado.
-                  <button type="button" (click)="seleccionarSubProyecto(idSubProyectoSeleccionado)">Reintentar</button>
+                <div class="ehh-mensaje" *ngIf="cargandoGrupos"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando {{nombreMes}}...</div>
+                <div class="ehh-mensaje" *ngIf="!cargandoGrupos && errorGrupos" role="alert">
+                  No se pudo cargar la asistencia de {{nombreMes}}.
+                  <button type="button" (click)="cargarGrupos()">Reintentar</button>
+                </div>
+                <div class="core-vacio" *ngIf="!cargandoGrupos && !errorGrupos && !grupos.length">
+                  <i class="fa fa-users" aria-hidden="true"></i>
+                  <strong>No hay trabajadores en {{nombreMes}} {{anio}}</strong>
+                  <p *ngIf="!soloLectura">Agrega el primero arriba: eliges el trabajador de la agenda y el subproyecto donde trabaja.</p>
                 </div>
 
-                <div class="ehh-mensaje"
-                  *ngIf="subProyectos.length && !subProyecto && !cargandoSeleccion && !errorSeleccion">
-                  Selecciona un subproyecto para ver su control de asistencia.
-                </div>
-              </ng-container>
+                <!-- Un bloque por subproyecto, ordenados por nombre -->
+                <ng-container *ngIf="!cargandoGrupos && !errorGrupos">
+                  <div *ngFor="let g of grupos; trackBy: trackGrupo" [id]="'core-grupo-' + g.id" class="core-grupo">
+                    <app-control-asistencia
+                      [embebido]="true"
+                      [idSubProyecto]="g.idSubProyecto" [idProyecto]="g.idProyecto" [nombreSubProyecto]="g.nombre"
+                      [soloLectura]="soloLectura" [anios]="anios"
+                      [mesExterno]="mes" [anioExterno]="anio" [quincenaExterna]="quincena"
+                      [agenda]="agenda" [ocupacion]="ocupacion"
+                      (trabajadorNuevo)="agregarAAgendaDesdeAsistencia($event)"
+                      (resumenCambio)="actualizarResumen($event)">
+                    </app-control-asistencia>
+                  </div>
+                </ng-container>
 
-              <!-- Las Estadísticas mensuales de HH están en Tablero de Control > Estadísticas SSO/MA/INCS > Seguridad -->
-              <app-estadisticas-hh *ngIf="subProyecto && !cargandoSeleccion" modo="asistencia"
-                [idSubProyecto]="subProyecto.idSubProyecto" [idProyecto]="subProyecto.idProyecto"
-                [nombreSubProyecto]="subProyecto.nombreSubProyecto" [soloLectura]="soloLectura">
-              </app-estadisticas-hh>
+                <p class="core-nota">
+                  Día: 1 es jornada completa (8,5 h) y 0,5 media jornada. H.E. y Cap. van en horas. HH = días × 8,5 + horas extra + capacitación.
+                  Si un trabajador está en dos subproyectos, aparece en los dos: marca cada día en el subproyecto donde trabajó.
+                  <span class="core-ley core-ley-claro"></span> ya tiene horas ese día en otro subproyecto ·
+                  <span class="core-ley core-ley-oscuro"></span> jornada completa en otro subproyecto (bloqueado; pasa el mouse para ver dónde).
+                  Las horas de cada subproyecto pasan a sus Estadísticas HH (Tablero de Control › Estadísticas SSO/MA/INCS › Seguridad).
+                </p>
+              </div>
+
+              <!-- ===================== TRABAJADORES (agenda) ===================== -->
+              <div *ngIf="vista === 'trabajadores' && !soloLectura">
+
+                <form class="core-panel core-form" (ngSubmit)="guardarFormulario()">
+                  <h6>
+                    <i class="fa" [ngClass]="formulario.id ? 'fa-pencil' : 'fa-user-plus'" aria-hidden="true"></i>
+                    {{formulario.id ? 'Editar trabajador' : 'Nuevo trabajador'}}
+                  </h6>
+                  <div class="core-form-campos">
+                    <div class="core-campo">
+                      <label for="core-form-nombre">Nombre *</label>
+                      <input id="core-form-nombre" name="nombre" type="text" autocomplete="off" [(ngModel)]="formulario.nombre">
+                    </div>
+                    <div class="core-campo">
+                      <label for="core-form-apellido">Apellido *</label>
+                      <input id="core-form-apellido" name="apellido" type="text" autocomplete="off" [(ngModel)]="formulario.apellido">
+                    </div>
+                    <div class="core-campo">
+                      <label for="core-form-rut">RUT</label>
+                      <input id="core-form-rut" name="rut" type="text" autocomplete="off" placeholder="12.345.678-9"
+                             [(ngModel)]="formulario.rut" (blur)="formatearRutFormulario()">
+                    </div>
+                    <div class="core-campo">
+                      <label for="core-form-cargo">Cargo</label>
+                      <input id="core-form-cargo" name="cargo" type="text" autocomplete="off" placeholder="Ej: Maestro eléctrico" [(ngModel)]="formulario.cargo">
+                    </div>
+                    <div class="core-form-acciones">
+                      <button type="button" class="core-boton" *ngIf="formulario.id" (click)="cancelarFormulario()">Cancelar</button>
+                      <button type="submit" class="core-boton-principal" [disabled]="guardandoFormulario">
+                        <i class="fa" [ngClass]="guardandoFormulario ? 'fa-spinner fa-spin' : 'fa-check'" aria-hidden="true"></i>
+                        {{formulario.id ? 'Guardar cambios' : 'Agregar a la agenda'}}
+                      </button>
+                    </div>
+                  </div>
+                  <div class="core-error core-form-error" *ngIf="errorFormulario">{{errorFormulario}}</div>
+                </form>
+
+                <section class="core-panel">
+                  <div class="core-agenda-barra">
+                    <div class="core-buscador">
+                      <i class="fa fa-search" aria-hidden="true"></i>
+                      <input type="text" placeholder="Buscar por nombre, RUT o cargo" [(ngModel)]="busquedaAgenda" name="busquedaAgenda">
+                    </div>
+                    <span class="core-ok" *ngIf="mensajeAgenda"><i class="fa fa-check" aria-hidden="true"></i> {{mensajeAgenda}}</span>
+                    <span class="core-agenda-cuenta">{{agendaFiltrada.length}} de {{agenda.length}} trabajadores</span>
+                  </div>
+
+                  <div class="ehh-mensaje" *ngIf="cargandoAgenda"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando agenda...</div>
+                  <div class="ehh-mensaje" *ngIf="!cargandoAgenda && errorAgenda" role="alert">
+                    No se pudo cargar la agenda (revisa que 'trabajadoresCore' esté en las reglas de Firestore).
+                    <button type="button" (click)="cargarAgenda()">Reintentar</button>
+                  </div>
+                  <div class="core-vacio" *ngIf="!cargandoAgenda && !errorAgenda && !agenda.length">
+                    <i class="fa fa-address-book-o" aria-hidden="true"></i>
+                    <strong>La agenda está vacía</strong>
+                    <p>Agrega trabajadores arriba. También se agregan solos cuando escribes uno nuevo en el control de asistencia.</p>
+                  </div>
+
+                  <div class="core-tabla-scroll" *ngIf="!cargandoAgenda && !errorAgenda && agenda.length">
+                    <table class="core-tabla">
+                      <thead>
+                        <tr>
+                          <th class="core-col-num">N°</th>
+                          <th>Nombre</th>
+                          <th>Apellido</th>
+                          <th>RUT</th>
+                          <th>Cargo</th>
+                          <th>Subproyectos · {{nombreMes}}</th>
+                          <th class="core-col-acciones"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let t of agendaFiltrada; let n = index; trackBy: trackTrabajador" [class.core-editando]="formulario.id === t.id">
+                          <td class="core-col-num">{{n + 1}}</td>
+                          <td class="core-negrita">{{t.nombre}}</td>
+                          <td class="core-negrita">{{t.apellido}}</td>
+                          <td class="core-rut">{{t.rut || '—'}}</td>
+                          <td>{{t.cargo || '—'}}</td>
+                          <td>
+                            <span class="core-chip" *ngFor="let s of subProyectosDe(t)">{{s}}</span>
+                            <span class="core-sin" *ngIf="!subProyectosDe(t).length">Sin asignar</span>
+                          </td>
+                          <td class="core-col-acciones">
+                            <button type="button" class="core-icono" title="Editar" (click)="editarTrabajador(t)"><i class="fa fa-pencil" aria-hidden="true"></i></button>
+                            <button type="button" class="core-icono core-icono-peligro" title="Eliminar de la agenda" (click)="borrarTrabajador(t)"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+                          </td>
+                        </tr>
+                        <tr *ngIf="!agendaFiltrada.length">
+                          <td colspan="7" class="core-sin-resultados">Nadie coincide con "{{busquedaAgenda}}".</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
+
             </ng-container>
           </div>
         </section>

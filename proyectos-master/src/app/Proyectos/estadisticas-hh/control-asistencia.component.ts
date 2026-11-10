@@ -1,5 +1,6 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { firestoreDB } from '../../firebase-init';
+import { TrabajadorCore, etiquetaTrabajador, buscarEnAgenda, limpiarRut, formatearRut, clavesTrabajador } from '../../CORE/trabajadores/trabajadores-core';
 
 declare var Swal: any;
 
@@ -105,6 +106,7 @@ export interface TrabajadorAsistencia {
   orden: number;
   dias: any;
   nuevo?: boolean;
+  idTrabajador?: string;   // id en la agenda de CORE (trabajadoresCore)
 }
 
 @Component({
@@ -112,7 +114,7 @@ export interface TrabajadorAsistencia {
   templateUrl: './control-asistencia.component.html',
   styleUrls: ['./control-asistencia.component.css']
 })
-export class ControlAsistenciaComponent implements OnInit {
+export class ControlAsistenciaComponent implements OnInit, OnChanges {
 
   @Input() idSubProyecto: any = null;
   @Input() idProyecto: any = null;
@@ -121,6 +123,29 @@ export class ControlAsistenciaComponent implements OnInit {
   @Input() anios: number[] = [];
   @Input() datosHH: any = {};
   @Output() resumenActualizado = new EventEmitter<any>();
+
+  /**
+   * Modo CORE: varios subproyectos en la misma página. El mes, el año y la quincena los
+   * controla la página; este componente muestra la franja del subproyecto y su tabla.
+   */
+  @Input() embebido: boolean = false;
+  @Input() mesExterno: number = null;
+  @Input() anioExterno: number = null;
+  @Input() quincenaExterna: number = null;
+  /** Agenda de CORE para autocompletar al agregar trabajadores. */
+  @Input() agenda: TrabajadorCore[] = [];
+  /** Trabajador escrito a mano (no estaba en la agenda): la página lo agrega a la agenda. */
+  @Output() trabajadorNuevo = new EventEmitter<TrabajadorAsistencia>();
+  /** Resumen del mes del subproyecto (para los totales de la página). */
+  @Output() resumenCambio = new EventEmitter<any>();
+  /**
+   * Días que cada trabajador ya tiene en OTROS subproyectos este mes:
+   * ocupacion[clave][dia][idSubProyecto] = { nombre, jornada, extra, capacitacion }.
+   */
+  @Input() ocupacion: any = null;
+
+  /** Por fila: días ocupados en otro subproyecto (gris claro) o con jornada completa (gris oscuro). */
+  private otros: { [idFila: string]: { [dia: string]: { lleno: boolean; texto: string } } } = {};
 
   readonly horasJornada: number = HORAS_JORNADA;
   readonly meses = [
@@ -134,13 +159,31 @@ export class ControlAsistenciaComponent implements OnInit {
     { campo: 'extra', etiqueta: 'H.E.', titulo: 'Horas extra' },
     { campo: 'capacitacion', etiqueta: 'Cap.', titulo: 'Capacitación' }
   ];
-  readonly camposTrabajador = [
+  private readonly todosCamposTrabajador = [
     { campo: 'nombre', etiqueta: 'Nombre', clase: 'ca-fijo ca-col-nombre', ancho: 96 },
     { campo: 'apellido', etiqueta: 'Apellido', clase: 'ca-fijo ca-col-apellido', ancho: 96 },
     { campo: 'rut', etiqueta: 'RUT', clase: '', ancho: 88 },
     { campo: 'lugar', etiqueta: 'Lugar de trabajo', clase: '', ancho: 78 },
     { campo: 'cargo', etiqueta: 'Profesión / ocupación', clase: '', ancho: 96 }
   ];
+
+  /** En CORE el lugar de trabajo es el subproyecto del grupo: no se muestra la columna. */
+  get camposTrabajador() {
+    return this.embebido ? this.todosCamposTrabajador.filter(c => c.campo !== 'lugar') : this.todosCamposTrabajador;
+  }
+
+  /** Columnas vacías del pie (RUT / lugar / cargo / acciones). */
+  get colspanPie(): number {
+    return this.camposTrabajador.length - 2 + (this.soloLectura ? 0 : 1);
+  }
+
+  get idListaAgenda(): string {
+    return 'ca-agenda-' + this.idSubProyecto;
+  }
+
+  etiquetaAgenda(t: TrabajadorCore): string {
+    return etiquetaTrabajador(t);
+  }
 
   anio: number = new Date().getFullYear();
   mes: number = new Date().getMonth() + 1;
@@ -170,10 +213,28 @@ export class ControlAsistenciaComponent implements OnInit {
     } catch (error) {
       this.idUsuario = null;
     }
+    if (this.embebido) {
+      if (this.anioExterno) { this.anio = Number(this.anioExterno); }
+      if (this.mesExterno) { this.mes = Number(this.mesExterno); }
+    }
     if (this.anios.indexOf(this.anio) === -1) {
       this.anios = [this.anio].concat(this.anios);
     }
     this.cargarMes();
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['ocupacion']) { this.calcularOtros(); }
+    if (!this.embebido) { return; }
+    const cambioMes = changes['mesExterno'] && !changes['mesExterno'].firstChange;
+    const cambioAnio = changes['anioExterno'] && !changes['anioExterno'].firstChange;
+    if (cambioMes || cambioAnio) {
+      this.anio = Number(this.anioExterno) || this.anio;
+      this.mes = Number(this.mesExterno) || this.mes;
+      this.cargarMes();
+    } else if (changes['quincenaExterna'] && !changes['quincenaExterna'].firstChange && this.quincenaExterna) {
+      this.seleccionarQuincena(Number(this.quincenaExterna));
+    }
   }
 
   cargarMes() {
@@ -189,7 +250,14 @@ export class ControlAsistenciaComponent implements OnInit {
     this.borrador = this.crearBorrador();
     this.prepararDias(anio, mes);
     const hoy = new Date();
-    this.seleccionarQuincena(anio === hoy.getFullYear() && mes === hoy.getMonth() + 1 && hoy.getDate() > 15 ? 2 : 1);
+    if (this.embebido && this.quincenaExterna) {
+      this.seleccionarQuincena(Number(this.quincenaExterna));
+    } else {
+      this.seleccionarQuincena(anio === hoy.getFullYear() && mes === hoy.getMonth() + 1 && hoy.getDate() > 15 ? 2 : 1);
+    }
+
+    // En CORE la página no trae las estadísticas: se leen aquí para saber qué había antes en el mes
+    if (this.embebido && this.idSubProyecto) { this.cargarDatosHH(anio); }
 
     if (!this.idSubProyecto) {
       this.cargando = false;
@@ -229,7 +297,8 @@ export class ControlAsistenciaComponent implements OnInit {
             lugar: mapa[id].lugar || '',
             cargo: mapa[id].cargo || '',
             orden: Number(mapa[id].orden) || 0,
-            dias: mapa[id].dias || {}
+            dias: mapa[id].dias || {},
+            idTrabajador: mapa[id].idTrabajador || ''
           }))
           .sort((a, b) => a.orden - b.orden);
       });
@@ -293,6 +362,18 @@ export class ControlAsistenciaComponent implements OnInit {
     resumen.hh = this.redondear(resumen.hh);
     resumen.capacitacion = this.redondear(resumen.capacitacion);
     this.resumen = resumen;
+    if (this.embebido) {
+      this.calcularOtros();
+      const r = {
+        idSubProyecto: this.idSubProyecto,
+        resumen: resumen,
+        trabajadores: this.trabajadores.length,
+        filas: this.trabajadores.map(t => ({
+          idTrabajador: t.idTrabajador || '', rut: t.rut, nombre: t.nombre, apellido: t.apellido, dias: t.dias
+        }))
+      };
+      Promise.resolve().then(() => this.resumenCambio.emit(r));
+    }
     this.totalesFila = totalesFila;
     this.totalesDia = totalesDia;
   }
@@ -348,6 +429,12 @@ export class ControlAsistenciaComponent implements OnInit {
         this.guardadosPendientes--;
         if (!this.guardadosPendientes && this.estadoGuardado !== 'error') {
           this.estadoGuardado = 'guardado';
+        }
+        if (this.embebido) {
+          // deja lo guardado como "lo anterior" para el próximo cambio
+          const delAnio = this.datosHH[anio] || (this.datosHH[anio] = {});
+          const delMes = delAnio[mes] || (delAnio[mes] = {});
+          Object.keys(valoresMes).forEach(k => delMes[k] = valoresMes[k]);
         }
         this.resumenActualizado.emit({ anio: anio, mes: mes, valores: valoresMes });
         return true;
@@ -467,7 +554,7 @@ export class ControlAsistenciaComponent implements OnInit {
   guardarDato(trabajador: TrabajadorAsistencia, campo: string, input: any) {
     if (this.soloLectura) { return; }
 
-    const valor = (input.value || '').trim();
+    let valor = (input.value || '').trim();
     const anterior = trabajador[campo];
     this.errorFila = '';
     input.value = valor;
@@ -478,6 +565,23 @@ export class ControlAsistenciaComponent implements OnInit {
       this.errorFila = 'El trabajador debe tener nombre y apellido.';
       return;
     }
+    // Fila nueva: si lo escrito calza con alguien de la agenda, se completa solo
+    if (trabajador.nuevo && (campo === 'nombre' || campo === 'rut')) {
+      const deAgenda = campo === 'nombre'
+        ? this.agenda.filter(t => etiquetaTrabajador(t) === valor)[0]
+        : buscarEnAgenda(this.agenda, { rut: valor });
+      if (deAgenda) {
+        input.value = '';
+        this.agregarDesdeAgenda(deAgenda);
+        return;
+      }
+    }
+
+    if (campo === 'rut' && valor) {
+      valor = formatearRut(valor);
+      input.value = valor;
+    }
+
     if (campo === 'rut' && this.rutRepetido(valor, trabajador.id)) {
       input.value = anterior;
       this.errorFila = 'Ya hay un trabajador con ese RUT en este mes.';
@@ -487,7 +591,10 @@ export class ControlAsistenciaComponent implements OnInit {
     trabajador[campo] = valor;
 
     if (trabajador.nuevo) {
-      if (trabajador.nombre && trabajador.apellido) { this.confirmarBorrador(trabajador); }
+      if (trabajador.nombre && trabajador.apellido) {
+        this.confirmarBorrador(trabajador);
+        if (this.embebido) { this.trabajadorNuevo.emit(trabajador); }
+      }
       return;
     }
 
@@ -509,6 +616,99 @@ export class ControlAsistenciaComponent implements OnInit {
     });
   }
 
+  /**
+   * Agrega a este subproyecto un trabajador de la agenda de CORE.
+   * Devuelve false si ya estaba en este subproyecto este mes.
+   */
+  agregarDesdeAgenda(t: TrabajadorCore): boolean {
+    if (this.soloLectura || !t) { return false; }
+    this.errorFila = '';
+    const rut = limpiarRut(t.rut);
+    const ya = this.trabajadores.some(item =>
+      (t.id && item.idTrabajador === t.id) || (!!rut && this.limpiarRut(item.rut) === rut.toLowerCase()));
+    if (ya) {
+      this.errorFila = t.nombre + ' ' + t.apellido + ' ya está en ' + (this.nombreSubProyecto || 'este subproyecto') + ' este mes.';
+      return false;
+    }
+
+    const trabajador: TrabajadorAsistencia = {
+      id: this.getIdNuevo(),
+      nombre: t.nombre || '',
+      apellido: t.apellido || '',
+      rut: t.rut || '',
+      lugar: this.nombreSubProyecto || '',
+      cargo: t.cargo || '',
+      orden: this.getSiguienteOrden(),
+      dias: {},
+      idTrabajador: t.id || ''
+    };
+    this.trabajadores = this.trabajadores.concat(trabajador);
+    this.trabajadoresAnteriores = [];
+    this.persistir({ trabajadores: { [trabajador.id]: this.getDatosTrabajador(trabajador) } }, () => {
+      this.trabajadores = this.trabajadores.filter(item => item.id !== trabajador.id);
+    });
+    return true;
+  }
+
+  // ===================== Días en otros subproyectos (CORE) =====================
+
+  private calcularOtros() {
+    const res: { [idFila: string]: any } = {};
+    const propio = String(this.idSubProyecto);
+    if (this.ocupacion && this.trabajadores) {
+      this.trabajadores.forEach(t => {
+        const porDia: { [dia: string]: { [idSp: string]: any } } = {};
+        clavesTrabajador(t).forEach(c => {
+          const mapa = this.ocupacion[c];
+          if (!mapa) { return; }
+          Object.keys(mapa).forEach(dia => Object.keys(mapa[dia]).forEach(idSp => {
+            if (idSp === propio) { return; }
+            (porDia[dia] || (porDia[dia] = {}))[idSp] = mapa[dia][idSp];
+          }));
+        });
+        const fila: { [dia: string]: { lleno: boolean; texto: string } } = {};
+        Object.keys(porDia).forEach(dia => {
+          const lista = Object.keys(porDia[dia]).map(k => porDia[dia][k]);
+          let jornada = 0;
+          const textos = lista.map(o => {
+            jornada += Number(o.jornada) || 0;
+            const partes: string[] = [];
+            if (o.jornada) { partes.push(this.formatear(o.jornada) + (o.jornada === 1 ? ' día' : ' días')); }
+            if (o.extra) { partes.push(this.formatear(o.extra) + ' h extra'); }
+            if (o.capacitacion) { partes.push(this.formatear(o.capacitacion) + ' h cap.'); }
+            return o.nombre + (partes.length ? ' (' + partes.join(', ') + ')' : '');
+          });
+          fila[dia] = { lleno: jornada >= 1, texto: 'Este día trabajó en ' + textos.join(' y ') };
+        });
+        res[t.id] = fila;
+      });
+    }
+    this.otros = res;
+  }
+
+  /** Lo que ese trabajador tiene ese día en otro subproyecto (o null). */
+  otroSp(trabajador: TrabajadorAsistencia, dia: number) {
+    const fila = trabajador && this.otros[trabajador.id];
+    return fila ? (fila[dia] || null) : null;
+  }
+
+  /** Celda bloqueada: el día ya tiene jornada completa en otro subproyecto y aquí no hay nada. */
+  bloqueadoPorOtro(trabajador: TrabajadorAsistencia, dia: number, campo: string): boolean {
+    const o = this.otroSp(trabajador, dia);
+    return !!o && o.lleno && !this.getTextoCelda(trabajador, dia, campo);
+  }
+
+  /** CORE: lee las estadísticas del subproyecto en el año (para no pisar lo escrito a mano). */
+  private cargarDatosHH(anio: number) {
+    if (this.datosHH && this.datosHH[anio]) { return; }
+    if (!this.datosHH) { this.datosHH = {}; }
+    firestoreDB.collection(COLECCION_HH).doc(this.idSubProyecto + '_' + anio).get()
+      .then((doc: any) => {
+        if (!this.datosHH[anio]) { this.datosHH[anio] = doc.exists ? ((doc.data() || {}).meses || {}) : {}; }
+      })
+      .catch((error: any) => console.error('No se pudieron leer las estadísticas HH:', error));
+  }
+
   private rutRepetido(rut: string, id: string): boolean {
     const limpio = this.limpiarRut(rut);
     return !!limpio && this.trabajadores.some(item => item.id !== id && this.limpiarRut(item.rut) === limpio);
@@ -526,7 +726,8 @@ export class ControlAsistenciaComponent implements OnInit {
       lugar: item.lugar,
       cargo: item.cargo,
       orden: orden + indice,
-      dias: {}
+      dias: {},
+      idTrabajador: item.idTrabajador || ''
     }));
     const datos: any = {};
     nuevos.forEach(item => datos[item.id] = this.getDatosTrabajador(item));
@@ -566,7 +767,8 @@ export class ControlAsistenciaComponent implements OnInit {
       rut: trabajador.rut,
       lugar: trabajador.lugar,
       cargo: trabajador.cargo,
-      orden: trabajador.orden
+      orden: trabajador.orden,
+      idTrabajador: trabajador.idTrabajador || ''
     };
   }
 
