@@ -1051,6 +1051,20 @@ thead .sticky-1 { z-index: 3; }
 }
 .psso-hh-campo input { height: 34px; padding: 0 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .psso-campo textarea { padding: 7px 10px; resize: vertical; min-height: 54px; font-size: 12px; }
+.psso-hh-select {
+  width: 100%;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px solid #dfe3e8;
+  border-radius: 7px;
+  background: #fff;
+  color: #2f363d;
+  font-size: 13px;
+  font-weight: 600;
+}
+.psso-hh-select:focus { outline: none; border-color: #7fa9d8; box-shadow: 0 0 0 3px rgba(127, 169, 216, .2); }
+.psso-hh-select:disabled { background: #f5f7f9; color: #4a525a; }
 .psso-hh-campo input:focus,
 .psso-campo textarea:focus { outline: none; border-color: #7fa9d8; box-shadow: 0 0 0 3px rgba(127, 169, 216, .2); }
 .psso-hh-campo input:disabled,

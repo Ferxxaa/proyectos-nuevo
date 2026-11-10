@@ -152,7 +152,7 @@
       <div class="psso-kpi psso-kpi-hh" title="Estas horas se suman en Estadísticas HH">
         <span>HH registradas</span>
         <strong>{{ hhTotal | number:'1.0-2' }}</strong>
-        <small>Trab. {{ hhTrabajadas | number:'1.0-2' }} · Charlas {{ hhCharlas | number:'1.0-2' }} · Capac. {{ hhCapacitacion | number:'1.0-2' }} · Operac. {{ hhOperacional | number:'1.0-2' }} · Otros {{ hhOtros | number:'1.0-2' }}</small>
+        <small>Capac. {{ hhCapacitacion | number:'1.0-2' }} · Específ. {{ hhEspecificas | number:'1.0-2' }} · Operac. {{ hhOperacional | number:'1.0-2' }}</small>
       </div>
     </div>
 
@@ -346,11 +346,21 @@
             <small><i class="fa fa-bar-chart" aria-hidden="true"></i> se suman a Estadísticas HH</small>
           </span>
           <div class="psso-hh">
-            <label class="psso-hh-campo" *ngFor="let campo of camposHH">
-              <span>{{ campo.t }}</span>
-              <input type="number" min="0" step="0.5" placeholder="0" [name]="campo.k"
-                     [(ngModel)]="modal.hh[campo.k]" [disabled]="modal.soloLectura">
-            </label>
+            <ng-container *ngFor="let campo of camposHH">
+              <label class="psso-hh-campo">
+                <span>{{ campo.t }}</span>
+                <input type="number" min="0" step="0.5" placeholder="0" [name]="campo.k"
+                       [(ngModel)]="modal.hh[campo.k]" [disabled]="modal.soloLectura">
+              </label>
+              <!-- entidad de las HH específicas -->
+              <label class="psso-hh-campo" *ngIf="campo.k === 'hhEspecificas'">
+                <span>Entidad (específicas)</span>
+                <select name="entidadEspecifica" class="psso-hh-select"
+                        [(ngModel)]="modal.entidad" [disabled]="modal.soloLectura">
+                  <option *ngFor="let e of entidadesEspecificas" [value]="e.v">{{ e.t }}</option>
+                </select>
+              </label>
+            </ng-container>
             <div class="psso-hh-total">
               <span>Total</span>
               <strong>{{ totalHHModal | number:'1.0-2' }}</strong>

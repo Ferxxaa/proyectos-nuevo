@@ -2,7 +2,7 @@ import { Component, ElementRef, HostListener, Input, OnChanges, OnDestroy, Simpl
 import { ProgramaSsoService, ProgramaMes, ActividadPrograma } from './programa-sso.service';
 import { getFeriadosChile } from '../estadisticas-hh/control-asistencia.component';
 import {
-  AdjuntoRegistro, RegistroDia, NIVELES_CUMPLIMIENTO, VALORES_CUMPLIMIENTO, CAMPOS_HH, TAMANO_MAXIMO_ADJUNTO,
+  AdjuntoRegistro, RegistroDia, NIVELES_CUMPLIMIENTO, VALORES_CUMPLIMIENTO, CAMPOS_HH, ENTIDADES_ESPECIFICAS, TAMANO_MAXIMO_ADJUNTO,
   registrosDe, sumarHHPrograma, hhDeRegistro, redondear, subirAdjunto, borrarAdjunto
 } from './programa-registro';
 import { exportarProgramaExcel } from './programa-excel';
@@ -152,7 +152,8 @@ interface ModalRegistro {
   soloLectura: boolean;
   existente: boolean;
   cumplimiento: number;
-  hh: { [campo: string]: number };   // hhTrabajadas, hhCharlas, hhCapacitacion, hhOperacional, hhOtros
+  hh: { [campo: string]: number };   // hhCapacitacion, hhEspecificas, hhOperacional
+  entidad: string;                   // entidad de las HH específicas
   observacion: string;
   adjuntos: AdjuntoRegistro[];
   registradoPor: string;
@@ -176,6 +177,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   meses = MESES;
   nivelesCumplimiento = NIVELES_CUMPLIMIENTO;
   camposHH = CAMPOS_HH;
+  entidadesEspecificas = ENTIDADES_ESPECIFICAS;
   frecuencias = [
     { v: 'DIARIA', t: 'Diaria' },
     { v: 'SEMANAL', t: 'Semanal' },
@@ -218,11 +220,9 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   pctGlobal = 0;
 
   // HH registradas en el mes (van a Estadísticas HH)
-  hhTrabajadas = 0;
-  hhCharlas = 0;
   hhCapacitacion = 0;
+  hhEspecificas = 0;
   hhOperacional = 0;
-  hhOtros = 0;
   hhTotal = 0;
 
   // Popup de registro
@@ -641,8 +641,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       this.dias = this.construirDias([]);
       this.grupos = [];
       this.totalProg = 0; this.totalCtrl = 0; this.pctTotal = 0; this.pctGlobal = 0;
-      this.hhTrabajadas = 0; this.hhCharlas = 0; this.hhCapacitacion = 0; this.hhOperacional = 0;
-      this.hhOtros = 0; this.hhTotal = 0;
+      this.hhCapacitacion = 0; this.hhEspecificas = 0; this.hhOperacional = 0; this.hhTotal = 0;
       return;
     }
     this.dias = this.construirDias(this.programa.feriados);
@@ -675,11 +674,9 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.pctGlobal = nGrupos > 0 ? Math.round(sumaGrupos / nGrupos) : 0;
 
     const hh = sumarHHPrograma(this.programa);
-    this.hhTrabajadas = hh.hhTrabajadas;
-    this.hhCharlas = hh.hhCharlas;
     this.hhCapacitacion = hh.hhCapacitacion;
+    this.hhEspecificas = hh.hhEspecificas;
     this.hhOperacional = hh.hhOperacional;
-    this.hhOtros = hh.hhOtros;
     this.hhTotal = hh.total;
   }
 
@@ -1017,6 +1014,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       existente: !!reg || enRealizados,
       cumplimiento: reg ? reg.cumplimiento : 100,
       hh: this.hhInicial(reg),
+      entidad: reg && reg.entidadEspecifica ? reg.entidadEspecifica : 'MUTUAL',
       observacion: reg ? (reg.observacion || '') : '',
       adjuntos: reg && reg.adjuntos ? reg.adjuntos.slice() : [],
       registradoPor: reg ? (reg.registradoPor || '') : '',
@@ -1089,11 +1087,10 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
     const reg: RegistroDia = {
       cumplimiento: VALORES_CUMPLIMIENTO.indexOf(m.cumplimiento) >= 0 ? m.cumplimiento : 100,
-      hhTrabajadas: hh['hhTrabajadas'],
-      hhCharlas: hh['hhCharlas'],
       hhCapacitacion: hh['hhCapacitacion'],
+      hhEspecificas: hh['hhEspecificas'],
+      entidadEspecifica: hh['hhEspecificas'] > 0 ? (m.entidad || 'OTROS') : '',
       hhOperacional: hh['hhOperacional'],
-      hhOtros: hh['hhOtros'],
       observacion: (m.observacion || '').trim(),
       adjuntos: m.adjuntos.map(x => ({
         nombre: x.nombre || '', url: x.url || '', path: x.path || '', tipo: x.tipo || '', tamano: x.tamano || 0

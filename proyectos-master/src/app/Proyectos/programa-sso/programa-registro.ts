@@ -18,11 +18,10 @@ export interface AdjuntoRegistro {
 
 export interface RegistroDia {
   cumplimiento: number;   // 100 = realizado | 75 / 50 = parcial | 0 = no hecho
-  hhTrabajadas: number;
-  hhCharlas: number;
-  hhCapacitacion: number;
-  hhOperacional: number;
-  hhOtros: number;
+  hhCapacitacion: number;      // HH capacitadas
+  hhEspecificas: number;       // HH específicas (Mutual, OTEC, Mandante, Otros)
+  entidadEspecifica: string;   // MUTUAL | OTEC | MANDANTE | OTROS | ''
+  hhOperacional: number;       // HH operacionales
   observacion: string;
   adjuntos: AdjuntoRegistro[];
   registradoPor: string;
@@ -30,21 +29,19 @@ export interface RegistroDia {
 }
 
 export interface HHDia {
-  hhTrabajadas: number;
-  hhCharlas: number;
   hhCapacitacion: number;
+  hhEspecificas: number;
   hhOperacional: number;
-  hhOtros: number;
 }
 
 export interface ResumenHH {
-  hhTrabajadas: number;
-  hhCharlas: number;
   hhCapacitacion: number;
+  hhEspecificas: number;
   hhOperacional: number;
-  hhOtros: number;
   total: number;
   porDia: { [dia: number]: HHDia };
+  /** HH específicas por entidad: { MUTUAL: 4, OTEC: 2, ... } */
+  porEntidad: { [entidad: string]: number };
 }
 
 export const NIVELES_CUMPLIMIENTO = [
@@ -58,12 +55,23 @@ export const VALORES_CUMPLIMIENTO = [100, 75, 50, 0];
 
 /** Campos de HH del registro (en este orden se muestran en el popup y en el Excel). */
 export const CAMPOS_HH = [
-  { k: 'hhTrabajadas', t: 'HH trabajadas' },
-  { k: 'hhCharlas', t: 'HH charlas' },
-  { k: 'hhCapacitacion', t: 'HH capacitación' },
-  { k: 'hhOperacional', t: 'HH operacional' },
-  { k: 'hhOtros', t: 'HH otros' }
+  { k: 'hhCapacitacion', t: 'HH capacitadas' },
+  { k: 'hhEspecificas', t: 'HH específicas' },
+  { k: 'hhOperacional', t: 'HH operacionales' }
 ];
+
+/** Quién dictó la capacitación específica. */
+export const ENTIDADES_ESPECIFICAS = [
+  { v: 'MUTUAL', t: 'Mutual' },
+  { v: 'OTEC', t: 'OTEC' },
+  { v: 'MANDANTE', t: 'Mandante' },
+  { v: 'OTROS', t: 'Otros' }
+];
+
+export function textoEntidad(v: string): string {
+  const e = ENTIDADES_ESPECIFICAS.filter(x => x.v === v)[0];
+  return e ? e.t : '';
+}
 
 export const TAMANO_MAXIMO_ADJUNTO = 20 * 1024 * 1024; // 20 MB
 
@@ -80,12 +88,13 @@ export function redondear(n: number): number {
 
 export function hhDeRegistro(r: RegistroDia): number {
   if (!r) { return 0; }
-  return redondear((r.hhTrabajadas || 0) + (r.hhCharlas || 0) + (r.hhCapacitacion || 0) +
-    (r.hhOperacional || 0) + (r.hhOtros || 0));
+  let t = 0;
+  CAMPOS_HH.forEach(c => { t += Number((r as any)[c.k]) || 0; });
+  return redondear(t);
 }
 
 export function resumenHHVacio(): ResumenHH {
-  return { hhTrabajadas: 0, hhCharlas: 0, hhCapacitacion: 0, hhOperacional: 0, hhOtros: 0, total: 0, porDia: {} };
+  return { hhCapacitacion: 0, hhEspecificas: 0, hhOperacional: 0, total: 0, porDia: {}, porEntidad: {} };
 }
 
 /** Suma las HH registradas en un programa (SSO o MA). Se puede acumular sobre otro resumen. */
@@ -99,7 +108,12 @@ export function sumarHHPrograma(p: ProgramaMes, acumulado?: ResumenHH): ResumenH
       if (!reg) { return; }
       const dia = Number(k);
       if (!r.porDia[dia]) {
-        r.porDia[dia] = { hhTrabajadas: 0, hhCharlas: 0, hhCapacitacion: 0, hhOperacional: 0, hhOtros: 0 };
+        r.porDia[dia] = { hhCapacitacion: 0, hhEspecificas: 0, hhOperacional: 0 };
+      }
+      const esp = Number(reg.hhEspecificas) || 0;
+      if (esp > 0) {
+        const ent = reg.entidadEspecifica || 'OTROS';
+        r.porEntidad[ent] = redondear((r.porEntidad[ent] || 0) + esp);
       }
       CAMPOS_HH.forEach(campo => {
         const v = Number((reg as any)[campo.k]) || 0;

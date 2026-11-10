@@ -14,7 +14,7 @@
         <p *ngIf="!consolidadoHistorico" class="sso-subproyecto">{{nombreSubProyecto}}</p>
       </div>
     </div>
-    <button type="button" class="sso-boton-principal" *ngIf="!consolidadoHistorico && vistaSubproyecto !== 'ma' && !soloLectura && !cargando && !errorCarga" (click)="abrirNuevo()">
+    <button type="button" class="sso-boton-principal" *ngIf="!consolidadoHistorico && vistaSubproyecto === 'incidentes' && !soloLectura && !cargando && !errorCarga" (click)="abrirNuevo()">
       <i class="fa fa-plus" aria-hidden="true"></i> Registrar {{palabraRegistro}}
     </button>
     <a *ngIf="consolidadoHistorico" class="btn sso-volver" [routerLink]="['/Proyectos-MisProyectos']">
@@ -36,17 +36,18 @@
     <ng-container *ngIf="!verHistorico">
     <div class="sso-vistas">
       <button type="button" [class.activa]="vistaSubproyecto === 'seguridad'" [attr.aria-pressed]="vistaSubproyecto === 'seguridad'" (click)="cambiarVista('seguridad')">
-        <i class="fa fa-shield" aria-hidden="true"></i> Seguridad ({{totalSeguridad}})
+        <i class="fa fa-shield" aria-hidden="true"></i> Seguridad
       </button>
       <button type="button" [class.activa]="vistaSubproyecto === 'ma'" [attr.aria-pressed]="vistaSubproyecto === 'ma'" (click)="cambiarVista('ma')">
         <i class="fa fa-leaf" aria-hidden="true"></i> Medio Ambiente (MA)
       </button>
       <button type="button" [class.activa]="vistaSubproyecto === 'incidentes'" [attr.aria-pressed]="vistaSubproyecto === 'incidentes'" (click)="cambiarVista('incidentes')">
-        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Incidentes ({{totalIncidentes}})
+        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Incidentes ({{totalSeguridad + totalIncidentes}})
       </button>
     </div>
 
-    <ng-container *ngIf="vistaSubproyecto !== 'ma'">
+    <!-- Incidentes: lista y registro de accidentes e incidentes -->
+    <ng-container *ngIf="vistaSubproyecto === 'incidentes'">
     <form id="sso-formulario" class="sso-panel sso-formulario" *ngIf="formularioAbierto" (ngSubmit)="guardar()">
       <h6>{{editandoId ? 'Editar' : 'Registrar'}} {{palabraRegistro}}</h6>
 
@@ -582,6 +583,12 @@
         </div>
       </div>
     </section>
+
+    <!-- Seguridad: Seguimiento de seguridad = Estadísticas mensuales de HH (antes en la página Estadísticas HH) -->
+    <app-estadisticas-hh *ngIf="vistaSubproyecto === 'seguridad'" modo="mensual"
+                         [idSubProyecto]="idSubProyecto" [idProyecto]="idProyecto"
+                         [nombreSubProyecto]="nombreSubProyecto" [soloLectura]="soloLectura">
+    </app-estadisticas-hh>
 
     </ng-container>
 

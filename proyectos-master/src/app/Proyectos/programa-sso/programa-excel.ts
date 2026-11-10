@@ -1,5 +1,5 @@
 import { ProgramaMes } from './programa-sso.service';
-import { registrosDe, RegistroDia, hhDeRegistro, redondear, CAMPOS_HH } from './programa-registro';
+import { registrosDe, RegistroDia, hhDeRegistro, redondear, CAMPOS_HH, textoEntidad } from './programa-registro';
 
 /**
  * Exporta el programa del mes a Excel (.xlsx real) con colores, sin librerías externas.
@@ -38,12 +38,12 @@ const ESTILOS: { [nombre: string]: DefEstilo } = {
   metaB: { color: '24404F', bold: true },
   head: { fill: '075F91', color: 'FFFFFF', bold: true, align: 'center', wrap: true, borde: true },
   headRojo: { fill: 'D07070', color: 'FFFFFF', bold: true, align: 'center', borde: true },
-  grupo: { fill: 'E8EFF6', color: '24404F', bold: true, borde: true },
-  grupoNum: { fill: 'E8EFF6', color: '24404F', bold: true, align: 'center', borde: true },
-  grupoPct: { fill: 'E8EFF6', color: '24404F', bold: true, align: 'center', borde: true, pct: true },
-  seccion: { fill: 'FFF6D6', color: '8A6514', bold: true, borde: true },
-  seccionNum: { fill: 'FFF6D6', color: '8A6514', bold: true, align: 'center', borde: true },
-  seccionPct: { fill: 'FFF6D6', color: '8A6514', bold: true, align: 'center', borde: true, pct: true },
+  grupo: { fill: 'DCEAF8', color: '064F78', bold: true, borde: true },
+  grupoNum: { fill: 'DCEAF8', color: '064F78', bold: true, align: 'center', borde: true },
+  grupoPct: { fill: 'DCEAF8', color: '064F78', bold: true, align: 'center', borde: true, pct: true },
+  seccion: { fill: 'F5F8FB', color: '2D5D8F', bold: true, borde: true },
+  seccionNum: { fill: 'F5F8FB', color: '2D5D8F', bold: true, align: 'center', borde: true },
+  seccionPct: { fill: 'F5F8FB', color: '2D5D8F', bold: true, align: 'center', borde: true, pct: true },
   act: { borde: true },
   centro: { borde: true, align: 'center' },
   pct: { borde: true, align: 'center', pct: true },
@@ -387,7 +387,7 @@ function registrosOrdenados(p: ProgramaMes): FilaRegistro[] {
 function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
   const anchos = [26, 44, 11, 17];
   CAMPOS_HH.forEach(() => anchos.push(13));
-  anchos.push(10, 40, 18, 36);
+  anchos.push(14, 10, 40, 18, 36);
   const nc = anchos.length;
   const h = new Hoja('Registro HH', anchos, { filas: 4, cols: 0 });
 
@@ -398,7 +398,7 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
 
   const titulos = ['Ítem', 'Actividad', 'Fecha', 'Cumplimiento'];
   CAMPOS_HH.forEach(c => titulos.push(c.t));
-  titulos.push('HH total', 'Observación', 'Registrado por', 'Adjuntos');
+  titulos.push('Entidad (específicas)', 'HH total', 'Observación', 'Registrado por', 'Adjuntos');
   f = h.fila(30);
   titulos.forEach((t, i) => h.set(f, i + 1, t, 'head'));
 
@@ -419,6 +419,7 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
       totales[c.k] += v;
       h.set(f, col++, v, 'centro');
     });
+    h.set(f, col++, Number(r.hhEspecificas) > 0 ? textoEntidad(r.entidadEspecifica) : '', 'centro');
     h.set(f, col++, hhDeRegistro(r), 'centro');
     h.set(f, col++, r.observacion || '', 'textoWrap');
     h.set(f, col++, r.registradoPor || '', 'centro');
@@ -442,6 +443,7 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
     suma += totales[c.k];
     h.set(f, col++, redondear(totales[c.k]), 'totalNum');
   });
+  h.set(f, col++, '', 'total');   // Entidad
   h.set(f, col++, redondear(suma), 'totalNum');
   h.set(f, col, '', 'total', { merge: 2 });
   return h;

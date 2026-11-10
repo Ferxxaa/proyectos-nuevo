@@ -11,7 +11,7 @@
               <div>
                 <span class="ehh-kicker">ANÁLISIS DE PROYECTOS</span>
                 <h2>Estadísticas HH</h2>
-                <p>Horas hombre, capacitaciones e indicadores del subproyecto</p>
+                <p>Control de asistencia diario del subproyecto</p>
               </div>
             </div>
           </header>
@@ -103,7 +103,8 @@
                 </div>
               </ng-container>
 
-              <app-estadisticas-hh *ngIf="subProyecto && !cargandoSeleccion"
+              <!-- Las Estadísticas mensuales de HH ahora están en Tablero de Control > Estadísticas SSO/MA/INCS > HH mensuales -->
+              <app-estadisticas-hh *ngIf="subProyecto && !cargandoSeleccion" modo="asistencia"
                 [idSubProyecto]="subProyecto.idSubProyecto" [idProyecto]="subProyecto.idProyecto"
                 [nombreSubProyecto]="subProyecto.nombreSubProyecto" [soloLectura]="soloLectura">
               </app-estadisticas-hh>

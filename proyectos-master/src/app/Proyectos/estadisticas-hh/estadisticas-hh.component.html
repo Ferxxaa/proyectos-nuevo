@@ -1,12 +1,12 @@
-<section class="ehh">
-  <div class="ehh-vistas">
+<section class="ehh" [class.ehh-embebido]="modo === 'mensual'">
+  <div class="ehh-vistas" *ngIf="modo === 'completo'">
     <button type="button" [class.activa]="vista === 'mensual'" [attr.aria-pressed]="vista === 'mensual'" (click)="vista = 'mensual'">Estadísticas mensuales</button>
     <button type="button" [class.activa]="vista === 'asistencia'" [attr.aria-pressed]="vista === 'asistencia'" (click)="vista = 'asistencia'">Control de asistencia</button>
   </div>
 
   <ng-container *ngIf="vista === 'mensual'">
   <div class="ehh-encabezado">
-    <div class="ehh-titulo">
+    <div class="ehh-titulo" *ngIf="modo !== 'mensual'">
       <span class="ehh-icono"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
       <div>
         <h5>Estadísticas mensuales de HH</h5>
@@ -77,9 +77,9 @@
       </table>
     </div>
     <p class="ehh-nota">
-      IF = accidentes con baja × 1.000.000 / HH. IS = días perdidos × 1.000 / HH. Las HH incluyen jornadas, horas extra y, con asistencia, capacitación.
+      IS = días perdidos × 1.000 / HH. Las HH incluyen jornadas, horas extra y, con asistencia, capacitación.
       Cada fila suma el Control de asistencia (o lo escrito a mano) y los registros de los Programas SSO y MA;
-      pasa el mouse por una celda para ver el detalle. Las HH trabajadas de los programas también entran en IF/IS.
+      pasa el mouse por una celda para ver el detalle. 
       <span class="ehh-leyenda"><i class="ehh-ley-asistencia"></i> Control de asistencia</span>
       <span class="ehh-leyenda"><i class="ehh-ley-programa"></i> Programas SSO/MA</span>
       <span class="ehh-leyenda"><i class="ehh-ley-mixto"></i> Ambos</span>

@@ -19,14 +19,12 @@ const ANIOS_ANTERIORES = 5;
  */
 const COLECCIONES_PROGRAMA = ['programaSSO', 'programaMA'];
 const MAPA_PROGRAMA: { [campoRegistro: string]: string } = {
-  hhTrabajadas: 'hh',
-  hhCharlas: 'hhCharlasDiarias',
   hhCapacitacion: 'hhCapacitacion',
-  hhOperacional: 'hhOperacional',
-  hhOtros: 'hhOtros'
+  hhEspecificas: 'hhEspecificas',
+  hhOperacional: 'hhOperacional'
 };
 /** Indicadores que solo vienen de los programas (no se escriben a mano). */
-export const CAMPOS_SOLO_PROGRAMA = ['hhCapacitacion', 'hhOperacional', 'hhOtros'];
+export const CAMPOS_SOLO_PROGRAMA = ['hhCapacitacion', 'hhEspecificas', 'hhOperacional'];
 
 export interface IndicadorHH {
   campo: string;
@@ -38,15 +36,14 @@ export interface IndicadorHH {
 }
 
 export const INDICADORES_HH: IndicadorHH[] = [
+  { campo: 'trabajadores', etiqueta: 'N° de trabajadores', decimales: 0 },
   { campo: 'hh', etiqueta: 'HH trabajadas', decimales: 2 },
   { campo: 'horasExtra', etiqueta: 'Horas extra', decimales: 2 },
-  { campo: 'hhOperacional', etiqueta: 'HH operacional', decimales: 2, programa: true },
-  { campo: 'hhOtros', etiqueta: 'HH otros', decimales: 2, programa: true },
   { campo: 'hhCharlasDiarias', etiqueta: 'Charlas diarias', decimales: 2, capacitacion: true, inicioCapacitacion: true },
-  { campo: 'hhCapacitacion', etiqueta: 'Capacitación', decimales: 2, capacitacion: true, programa: true },
-  { campo: 'trabajadores', etiqueta: 'N° de trabajadores', decimales: 0 },
+  { campo: 'hhCapacitacion', etiqueta: 'HH capacitadas', decimales: 2, capacitacion: true, programa: true },
+  { campo: 'hhEspecificas', etiqueta: 'HH específicas', decimales: 2, capacitacion: true, programa: true },
+  { campo: 'hhOperacional', etiqueta: 'HH operacionales', decimales: 2, capacitacion: true, programa: true },
   { campo: 'incidentes', etiqueta: 'N° incidentes', decimales: 0 },
-  { campo: 'accidentesBaja', etiqueta: 'Accidentes con baja', decimales: 0 },
   { campo: 'diasPerdidos', etiqueta: 'Días perdidos', decimales: 0 }
 ];
 
@@ -57,7 +54,6 @@ export function getHhIndice(delMes: any): number {
 }
 
 export const INDICES_HH = [
-  { campo: 'accidentesBaja', etiqueta: 'IF', titulo: 'Índice de frecuencia', base: 1000000 },
   { campo: 'diasPerdidos', etiqueta: 'IS', titulo: 'Índice de severidad', base: 1000 }
 ];
 
@@ -73,6 +69,8 @@ export class EstadisticasHhComponent implements OnInit {
   @Input() idProyecto: any = null;
   @Input() nombreSubProyecto: string = '';
   @Input() soloLectura: boolean = false;
+  /** 'completo' = con botones Mensuales / Asistencia · 'mensual' = solo la tabla (pestaña SSO) · 'asistencia' = solo el control */
+  @Input() modo: string = 'completo';
 
   readonly meses = [
     { numero: 1, nombre: 'Enero' }, { numero: 2, nombre: 'Febrero' }, { numero: 3, nombre: 'Marzo' },
@@ -112,6 +110,7 @@ export class EstadisticasHhComponent implements OnInit {
     } catch (error) {
       this.idUsuario = null;
     }
+    if (this.modo === 'mensual' || this.modo === 'asistencia') { this.vista = this.modo; }
     this.cargar();
   }
 

@@ -219,7 +219,10 @@ export class EstadisticasSsoComponent implements OnInit {
   errorIndicadorMA: string = '';
   errorIndicadorMACampo: string = '';
 
-  // Pestañas del subproyecto: 'seguridad' (accidentes) | 'ma' | 'incidentes'
+  // Pestañas del subproyecto:
+  //   'seguridad'  = Seguimiento de seguridad: estadísticas mensuales de HH (componente app-estadisticas-hh)
+  //   'ma'         = Medio Ambiente
+  //   'incidentes' = todos los registros: accidentes e incidentes
   vistaSubproyecto: string = 'seguridad';
   totalSeguridad: number = 0;
   totalIncidentes: number = 0;
@@ -955,24 +958,22 @@ export class EstadisticasSsoComponent implements OnInit {
     return this.vistaSubproyecto === 'incidentes';
   }
 
+  /** Incidentes muestra todo: accidentes e incidentes. */
   get registrosVista(): AccidenteSSO[] {
-    const incidentes = this.enIncidentes;
-    return this.accidentes.filter(item => incidentes ? this.esIncidente(item) : !this.esIncidente(item));
+    return this.accidentes;
   }
 
   get totalVista(): number {
-    return this.enIncidentes ? this.totalIncidentes : this.totalSeguridad;
+    return this.accidentes.length;
   }
 
   get palabraRegistro(): string {
-    return this.enIncidentes ? 'incidente' : 'accidente';
+    return 'incidente';
   }
 
+  /** En Incidentes se puede registrar cualquier tipo (accidentes e incidentes). */
   get tiposFormulario() {
-    const incidentes = this.enIncidentes;
-    return this.tipos.filter(tipo => incidentes
-      ? tipo.nombre.indexOf('Incidente') !== -1
-      : tipo.nombre.indexOf('Incidente') === -1);
+    return this.tipos;
   }
 
   get tituloVista(): string {
