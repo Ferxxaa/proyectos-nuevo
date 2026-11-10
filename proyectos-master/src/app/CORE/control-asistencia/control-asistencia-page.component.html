@@ -1,0 +1,117 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <div class="row">
+      <div class="col-lg-12">
+        <section class="widget ehh-pagina">
+          <header class="ehh-cabecera">
+            <div class="ehh-titulo">
+              <span class="ehh-icono"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
+              <div>
+                <span class="ehh-kicker">CORE</span>
+                <h2>Control Asistencia</h2>
+                <p>Control de asistencia diario del subproyecto</p>
+              </div>
+            </div>
+          </header>
+
+          <div class="widget-body ehh-cuerpo">
+            <div class="ehh-mensaje" *ngIf="cargandoPermisos" role="status">
+              <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Verificando permisos...
+            </div>
+
+            <ng-container *ngIf="!cargandoPermisos">
+              <div class="ehh-mensaje" *ngIf="cargandoSubProyectos" role="status">
+                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando subproyectos...
+              </div>
+
+              <div class="ehh-mensaje" *ngIf="!cargandoSubProyectos && errorCarga" role="alert">
+                No se pudieron cargar los subproyectos disponibles.
+              </div>
+
+              <ng-container *ngIf="!cargandoSubProyectos && !errorCarga">
+                <div class="ehh-mensaje" *ngIf="!subProyectos.length">
+                  No hay subproyectos disponibles para tu usuario.
+                </div>
+
+                <div class="ehh-selector" *ngIf="subProyectos.length">
+                  <label for="ehh-subproyecto">Subproyecto</label>
+
+                  <div class="ehh-combo" [class.abierto]="listaAbierta">
+                    <i class="fa fa-search ehh-combo-icono" aria-hidden="true"></i>
+                    <input #buscador id="ehh-subproyecto" type="text" autocomplete="off"
+                      placeholder="Busca por proyecto o subproyecto"
+                      role="combobox" aria-autocomplete="list" aria-controls="ehh-lista-subproyectos"
+                      [attr.aria-expanded]="listaAbierta"
+                      [attr.aria-activedescendant]="listaAbierta && indiceActivo >= 0 ? 'ehh-opcion-' + indiceActivo : null"
+                      [ngModel]="busqueda"
+                      (ngModelChange)="filtrarSubProyectos($event)"
+                      (focus)="buscador.select(); abrirLista()"
+                      (click)="abrirLista()"
+                      (blur)="cerrarLista()"
+                      (keydown)="manejarTeclado($event)">
+
+                    <button type="button" class="ehh-combo-limpiar" *ngIf="idSubProyectoSeleccionado !== ''"
+                      title="Quitar selección" aria-label="Quitar selección"
+                      (mousedown)="$event.preventDefault()"
+                      (click)="limpiarSeleccion(); buscador.focus()">
+                      <i class="fa fa-times" aria-hidden="true"></i>
+                    </button>
+
+                    <div class="ehh-combo-panel" *ngIf="listaAbierta" (mousedown)="$event.preventDefault()">
+                      <div class="ehh-combo-resumen">
+                        {{subProyectosFiltrados.length}} de {{subProyectos.length}} subproyectos
+                      </div>
+
+                      <ul id="ehh-lista-subproyectos" class="ehh-combo-lista" role="listbox"
+                        aria-label="Subproyectos" *ngIf="subProyectosFiltrados.length">
+                        <li *ngFor="let opcion of subProyectosFiltrados; let i = index; trackBy: identificarSubProyecto"
+                          [id]="'ehh-opcion-' + i" role="option"
+                          [attr.aria-selected]="esSeleccionado(opcion)"
+                          [class.activa]="i === indiceActivo"
+                          [class.seleccionada]="esSeleccionado(opcion)"
+                          (mouseenter)="indiceActivo = i"
+                          (click)="elegirSubProyecto(opcion)">
+                          <span class="ehh-opcion-textos">
+                            <span class="ehh-opcion-subproyecto">{{opcion.nombreSubProyecto}}</span>
+                            <span class="ehh-opcion-proyecto">{{opcion.nombreProyecto}}</span>
+                          </span>
+                          <i class="fa fa-check" aria-hidden="true" *ngIf="esSeleccionado(opcion)"></i>
+                        </li>
+                      </ul>
+
+                      <div class="ehh-combo-vacio" *ngIf="!subProyectosFiltrados.length">
+                        No encontramos subproyectos con esa búsqueda.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="ehh-mensaje" *ngIf="cargandoSeleccion" role="status">
+                  <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando subproyecto...
+                </div>
+
+                <div class="ehh-mensaje" *ngIf="errorSeleccion" role="alert">
+                  No se pudo cargar el subproyecto seleccionado.
+                  <button type="button" (click)="seleccionarSubProyecto(idSubProyectoSeleccionado)">Reintentar</button>
+                </div>
+
+                <div class="ehh-mensaje"
+                  *ngIf="subProyectos.length && !subProyecto && !cargandoSeleccion && !errorSeleccion">
+                  Selecciona un subproyecto para ver su control de asistencia.
+                </div>
+              </ng-container>
+
+              <!-- Las Estadísticas mensuales de HH están en Tablero de Control > Estadísticas SSO/MA/INCS > Seguridad -->
+              <app-estadisticas-hh *ngIf="subProyecto && !cargandoSeleccion" modo="asistencia"
+                [idSubProyecto]="subProyecto.idSubProyecto" [idProyecto]="subProyecto.idProyecto"
+                [nombreSubProyecto]="subProyecto.nombreSubProyecto" [soloLectura]="soloLectura">
+              </app-estadisticas-hh>
+            </ng-container>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>

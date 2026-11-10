@@ -14,6 +14,7 @@ export class NavComponent implements OnInit {
   isProyectosRoute: boolean = false;
   isLicitacionesRoute: boolean = false;
   isTareasRoute: boolean = false;
+  isCoreRoute: boolean = false;
 
   //Perfiles
   Sistema: boolean;
@@ -135,6 +136,8 @@ export class NavComponent implements OnInit {
     // Detectar sección de Tareas
     this.isTareasRoute = normalized.includes('/Ver-Tareas') || 
                          normalized.includes('/Calendario-Tareas');
+
+    this.isCoreRoute = normalized.toUpperCase().startsWith('/CORE');
   }
 
   private updateFromWindowLocation() {
@@ -153,6 +156,10 @@ export class NavComponent implements OnInit {
     // Detectar sección de Tareas desde URL externa
     if (currentPath.includes('/Ver-Tareas') || currentPath.includes('/Calendario-Tareas')) {
       this.isTareasRoute = true;
+    }
+
+    if (currentPath.toUpperCase().startsWith('/CORE')) {
+      this.isCoreRoute = true;
     }
   }
 

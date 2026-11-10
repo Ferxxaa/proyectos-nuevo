@@ -50,8 +50,9 @@ import { sSubProyecto } from './services/sSubProyecto.service';
 import { sCorreo } from './services/Personalizados/sCorreo.service';
 import { EstadisticasHhComponent } from './Proyectos/estadisticas-hh/estadisticas-hh.component';
 import { ConsolidadoHhComponent } from './Proyectos/estadisticas-hh/consolidado-hh.component';
-import { EstadisticasHhPageComponent } from './Proyectos/estadisticas-hh/estadisticas-hh-page.component';
 import { EstadisticasSsoComponent } from './Proyectos/estadisticas-sso/estadisticas-sso.component';
+// CORE
+import { ControlAsistenciaPageComponent } from './CORE/control-asistencia/control-asistencia-page.component';
 
 //Material
 import { MaterialModule } from './material';
@@ -158,9 +159,16 @@ const route = [
     path: 'Proyectos-ConsolidadoHH',
     component: ConsolidadoHhComponent
   },
+  // CORE > Control Asistencia
+  {
+    path: 'CORE-ControlAsistencia',
+    component: ControlAsistenciaPageComponent
+  },
+  // Ruta antigua (Reportes > Estadísticas HH): sigue funcionando y lleva a lo mismo
   {
     path: 'Proyectos-EstadisticasHH',
-    component: EstadisticasHhPageComponent
+    redirectTo: '/CORE-ControlAsistencia',
+    pathMatch: 'full'
   },
   {
     path: 'Configuracion-SubProyecto',
@@ -290,7 +298,7 @@ const route = [
     ReportesHallazgosComponent,
     ConsolidadoHallazgosComponent,
     EstadisticasHhComponent,
-    EstadisticasHhPageComponent,
+    ControlAsistenciaPageComponent,
     ConsolidadoHhComponent,
     EstadisticasSsoComponent,
     ProgramaSsoComponent

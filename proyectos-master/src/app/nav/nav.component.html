@@ -1,4 +1,4 @@
-<nav id="sidebar" class="sidebar" role="navigation" [style.background-color]="isHomeRoute ? '#4b4b4d' : (isProyectosRoute ? '#0879b2' : (isLicitacionesRoute ? '#ff891b' : (isTareasRoute ? '#900090' : '#169b00')))">
+<nav id="sidebar" class="sidebar" role="navigation" [style.background-color]="isHomeRoute ? '#4b4b4d' : (isProyectosRoute ? '#0879b2' : (isLicitacionesRoute ? '#ff891b' : (isTareasRoute ? '#900090' : (isCoreRoute ? '#006b6b' : '#169b00'))))">
     <!-- need this .js class to initiate slimscroll -->
     <div class="js-sidebar-content">
         <header class="logo hidden-sm-down">
@@ -128,11 +128,6 @@
                     <li>
                         <a [routerLink]="['/Proyectos-ConsolidadoHallazgos']" routerLinkActive="router-link-active">
                             Hallazgos Anuales
-                        </a>
-                    </li>
-                    <li>
-                        <a [routerLink]="['/Proyectos-EstadisticasHH']" routerLinkActive="router-link-active">
-                            Estadísticas HH
                         </a>
                     </li>
                     <li *ngIf="!Cliente">
@@ -351,6 +346,32 @@
                     <li><a [attr.href]="Cliente ? null : 'http://finanzas.trazas-nbi.com/Consolidado'" (click)="bloquearAcceso($event)">Consolidado Rentabilidad</a></li>
                 </ul>
             </li>
+                </ul>
+            </div>
+        </div>
+
+        <ul class="sidebar-nav">
+            <li>
+                <a class="sidebar-section-core" href="#sidebar-group-core" data-toggle="collapse" aria-expanded="false">
+                    CORE
+                    <span class="icon">
+                        <i class="fa fa-users" aria-hidden="true"></i>
+                    </span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="collapse" id="sidebar-group-core" [class.in]="isCoreRoute">
+            <div id="sidebar-core-accordion">
+                <ul class="sidebar-nav">
+                    <li>
+                        <a [routerLink]="['/CORE-ControlAsistencia']" routerLinkActive="router-link-active">
+                            Control Asistencia
+                            <span class="icon">
+                                <i class="fa fa-calendar-check-o" aria-hidden="true"></i>
+                            </span>
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>

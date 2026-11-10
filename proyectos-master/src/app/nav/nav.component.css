@@ -7,6 +7,8 @@
     --nav-purple-light: #d565d5;
     --nav-orange: #ff891b;
     --nav-orange-light: #f4a953;
+    --nav-teal: #04acac;
+    --nav-teal-light: #4da6a6;
     --nav-submenu: #6e7178;
 }
 
@@ -42,6 +44,7 @@ li a {
 /* Quita el espacio/gap entre los items del sidebar */
 .sidebar-nav > li,
 .sidebar-nav > li > ul > li,
+#sidebar-core-accordion .sidebar-nav > li,
 #sidebar-proyectos-accordion .sidebar-nav > li,
 #sidebar-tareas-accordion .sidebar-nav > li,
 #sidebar-licitaciones-accordion .sidebar-nav > li,
@@ -59,7 +62,7 @@ li a {
     padding: 0 !important;
 }
 
-/* Espacio entre secciones del menú (Home, Proyectos, Tareas, Licitaciones, Finanzas) */
+/* Espacio entre secciones del menú (Home, Proyectos, Tareas, Licitaciones, Finanzas, CORE) */
 .js-sidebar-content > ul.sidebar-nav {
     margin-top: 16px !important;
 }
@@ -134,6 +137,19 @@ a.sidebar-section-licitaciones:focus {
     text-decoration: none;
 }
 
+a.sidebar-section-core {
+    background-color: var(--nav-teal) !important;
+    color: white !important;
+    display: block;
+}
+
+a.sidebar-section-core:hover,
+a.sidebar-section-core:focus {
+    background-color: var(--nav-teal) !important;
+    color: white !important;
+    text-decoration: none;
+}
+
 #sidebar-proyectos-accordion .sidebar-nav > li > a {
     background-color: var(--nav-blue-light) !important;
 }
@@ -169,6 +185,34 @@ a.sidebar-section-licitaciones:focus {
 
 #sidebar-finanzas-accordion .sidebar-nav > li > a {
     background-color: var(--nav-green-light) !important;
+}
+
+#sidebar-core-accordion .sidebar-nav > li > a {
+    background-color: var(--nav-teal-light) !important;
+}
+
+#sidebar-core-accordion .sidebar-nav > li > a:hover,
+#sidebar-core-accordion .sidebar-nav > li > a:focus {
+    background-color: var(--nav-teal-light) !important;
+    color: #1a1a1a !important;
+    text-decoration: none;
+}
+
+/* ítem de CORE abierto (página actual) */
+#sidebar-core-accordion .sidebar-nav > li > a.router-link-active {
+    background-color: #006b6b !important;
+    color: white !important;
+}
+
+#sidebar-core-accordion .sidebar-nav > li > a.router-link-active .icon i {
+    color: white !important;
+}
+
+#sidebar-core-accordion .core-placeholder {
+    display: block;
+    padding: 8px 15px;
+    background-color: var(--nav-teal-light);
+    color: #1a1a1a;
 }
 
 #sidebar-finanzas-accordion .sidebar-nav > li > a:hover,
@@ -234,11 +278,19 @@ a.sidebar-section-grafico:focus {
     color: #1a1a1a !important;
 }
 
+#sidebar-core-accordion a {
+    color: #1a1a1a !important;
+}
+
 
 #sidebar-proyectos-accordion .icon i,
 #sidebar-tareas-accordion .icon i,
 #sidebar-licitaciones-accordion .icon i,
 #sidebar-finanzas-accordion .icon i {
+    color: #1a1a1a !important;
+}
+
+#sidebar-core-accordion .icon i {
     color: #1a1a1a !important;
 }
 
@@ -250,10 +302,18 @@ a.sidebar-section-grafico:focus {
     color: white !important;
 }
 
+#sidebar-core-accordion .sidebar-nav > li ul li a {
+    color: white !important;
+}
+
 #sidebar-proyectos-accordion .sidebar-nav > li ul li .icon i,
 #sidebar-tareas-accordion .sidebar-nav > li ul li .icon i,
 #sidebar-licitaciones-accordion .sidebar-nav > li ul li .icon i,
 #sidebar-finanzas-accordion .sidebar-nav > li ul li .icon i {
+    color: white !important;
+}
+
+#sidebar-core-accordion .sidebar-nav > li ul li .icon i {
     color: white !important;
 }
 
