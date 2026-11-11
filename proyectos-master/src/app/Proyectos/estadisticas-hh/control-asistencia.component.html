@@ -2,16 +2,17 @@
   <!-- CORE: franja del subproyecto con sus totales -->
   <div class="ca-grupo" *ngIf="embebido">
     <div class="ca-grupo-nombre">
-      <i class="fa fa-map-marker" aria-hidden="true"></i>
-      <span class="ca-grupo-kicker">Subproyecto</span>
-      <strong>{{nombreSubProyecto}}</strong>
+      <span class="ca-grupo-icono"><i class="fa fa-map-marker" aria-hidden="true"></i></span>
+      <div>
+        <span class="ca-grupo-kicker">Subproyecto</span>
+        <strong>{{nombreSubProyecto}}</strong>
+      </div>
     </div>
     <dl class="ca-grupo-resumen" *ngIf="!cargando && !errorCarga">
       <div><dt>Trabajadores</dt><dd>{{trabajadores.length}}</dd></div>
       <div><dt>HH</dt><dd>{{formatear(resumen.hh)}}</dd></div>
       <div><dt>Días</dt><dd>{{formatear(resumen.jornadas)}}</dd></div>
       <div><dt>H.E.</dt><dd>{{formatear(resumen.extra)}}</dd></div>
-      <div><dt>Cap.</dt><dd>{{formatear(resumen.capacitacion)}}</dd></div>
     </dl>
     <span class="ca-estado" [ngClass]="estadoGuardado" *ngIf="estadoGuardado" role="status">
       <ng-container *ngIf="estadoGuardado === 'guardando'"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Guardando...</ng-container>
@@ -70,40 +71,53 @@
         <div><dt>Trabajadores</dt><dd>{{resumen.trabajadores}}</dd></div>
         <div><dt>Días</dt><dd>{{formatear(resumen.jornadas)}}</dd></div>
         <div><dt>H. extra</dt><dd>{{formatear(resumen.extra)}}</dd></div>
-        <div><dt>Capacitación</dt><dd>{{formatear(resumen.capacitacion)}}</dd></div>
       </dl>
+    </div>
+
+    <!-- Días hábiles pasados sin marcar -->
+    <div class="ca-pendientes" *ngIf="avisoPendientes && !soloLectura" role="alert"
+         title="Marca la jornada (1 o 0,5) o escribe 0 si no trabajó ese día">
+      <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
+      <b>{{avisoPendientes.dias.length}} {{avisoPendientes.dias.length === 1 ? 'día' : 'días'}} sin llenar</b>
+      <span class="ca-pendientes-dias">{{textoDiasPendientes}}</span>
+      <span class="ca-pendientes-nombres">· {{textoNombresPendientes}}<ng-container *ngIf="avisoPendientes.otraQuincena"> · incluye la {{quincena === 1 ? '2°' : '1°'}} quincena</ng-container></span>
+      <small>Se llena día a día: completa el primero pendiente para seguir · 0 si no trabajó</small>
     </div>
 
     <div class="ca-error" *ngIf="errorFila" role="alert">{{errorFila}}</div>
 
-    <div class="ca-marco">
-      <table class="ca-tabla" [style.width.px]="anchoTabla" [style.min-width.px]="anchoTabla">
+    <div class="ca-marco" #marco>
+      <table class="ca-tabla" [style.min-width.px]="anchoTabla">
         <colgroup>
           <col [style.width.px]="28">
           <col *ngFor="let item of camposTrabajador" [style.width.px]="item.ancho">
           <col *ngIf="!soloLectura" [style.width.px]="26">
           <ng-container *ngFor="let dia of diasVisibles; trackBy: trackDia">
-            <col *ngFor="let item of campos" [style.width.px]="36">
+            <col *ngFor="let item of campos" class="ca-col-dia">
           </ng-container>
-          <col [style.width.px]="44"><col [style.width.px]="44"><col [style.width.px]="44"><col [style.width.px]="60">
+          <col [style.width.px]="44"><col [style.width.px]="44"><col [style.width.px]="60">
         </colgroup>
         <thead>
           <tr>
             <th class="ca-fijo ca-col-numero" rowspan="2">N°</th>
             <th *ngFor="let item of camposTrabajador" [ngClass]="item.clase" class="ca-izquierda" rowspan="2">{{item.etiqueta}}</th>
             <th rowspan="2" *ngIf="!soloLectura"></th>
-            <th *ngFor="let dia of diasVisibles; trackBy: trackDia" colspan="3" class="ca-inicio-dia" [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado" [attr.title]="dia.feriado || null">{{dia.fecha}}</th>
-            <th class="ca-inicio-dia" colspan="3">Total mes</th>
+            <th *ngFor="let dia of diasVisibles; trackBy: trackDia" [attr.colspan]="campos.length" class="ca-inicio-dia ca-dia-cab"
+                [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado" [class.ca-hoy]="dia.hoy" [class.ca-dia-pendiente]="dia.pendiente && !soloLectura"
+                [attr.title]="dia.fecha + (dia.feriado ? ' · ' + dia.feriado : '') + (dia.hoy ? ' · hoy' : '') + (dia.pendiente && !soloLectura ? ' · hay trabajadores sin marcar' : '')">
+              <span class="ca-dia-letra">{{dia.hoy ? 'Hoy' : dia.letra}}</span>
+              <span class="ca-dia-num">{{dia.numero}}</span>
+            </th>
+            <th class="ca-inicio-dia ca-total-cab" colspan="2">Total mes</th>
             <th class="ca-col-hh" rowspan="2">HH</th>
           </tr>
           <tr>
             <ng-container *ngFor="let dia of diasVisibles; trackBy: trackDia">
               <th *ngFor="let item of campos; let i = index; trackBy: trackCampo" class="ca-subcolumna" [class.ca-inicio-dia]="i === 0"
-                  [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado" [title]="item.titulo">{{item.etiqueta}}</th>
+                  [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado" [class.ca-hoy]="dia.hoy" [title]="item.titulo">{{item.etiqueta}}</th>
             </ng-container>
-            <th class="ca-subcolumna ca-inicio-dia">Días</th>
-            <th class="ca-subcolumna">H.E.</th>
-            <th class="ca-subcolumna">Cap.</th>
+            <th class="ca-subcolumna ca-inicio-dia ca-total-cab">Días</th>
+            <th class="ca-subcolumna ca-total-cab">H.E.</th>
           </tr>
         </thead>
         <tbody>
@@ -121,18 +135,19 @@
             </td>
             <ng-container *ngFor="let dia of diasVisibles; trackBy: trackDia">
               <td *ngFor="let item of campos; let i = index; trackBy: trackCampo" [class.ca-inicio-dia]="i === 0" [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado"
+                  [class.ca-hoy]="dia.hoy" [class.ca-pendiente]="!soloLectura && !trabajador.nuevo && esPendiente(trabajador, dia.numero)"
                   [class.ca-otro-sp]="!trabajador.nuevo && otroSp(trabajador, dia.numero)"
                   [class.ca-otro-lleno]="!trabajador.nuevo && otroSp(trabajador, dia.numero)?.lleno"
-                  [attr.title]="!trabajador.nuevo && otroSp(trabajador, dia.numero) ? otroSp(trabajador, dia.numero).texto : null">
+                  [class.ca-bloqueado]="!soloLectura && bloqueadoSecuencia(trabajador, dia.numero)"
+                  [attr.title]="tituloCelda(trabajador, dia.numero)">
                 <input type="text" inputmode="decimal" autocomplete="off"
-                       [value]="getTextoCelda(trabajador, dia.numero, item.campo)" [disabled]="soloLectura || trabajador.nuevo || bloqueadoPorOtro(trabajador, dia.numero, item.campo)"
+                       [value]="getTextoCelda(trabajador, dia.numero, item.campo)" [disabled]="soloLectura || trabajador.nuevo || bloqueadoPorOtro(trabajador, dia.numero, item.campo) || bloqueadoSecuencia(trabajador, dia.numero)"
                        (change)="guardarCelda(trabajador, dia.numero, item.campo, $event.target)"
                        [attr.aria-label]="item.titulo + ' del día ' + dia.numero + ' de ' + trabajador.nombre + ' ' + trabajador.apellido">
               </td>
             </ng-container>
             <td class="ca-total ca-inicio-dia">{{trabajador.nuevo ? '' : formatear(totalesFila[trabajador.id]?.jornada)}}</td>
             <td class="ca-total">{{trabajador.nuevo ? '' : formatear(totalesFila[trabajador.id]?.extra)}}</td>
-            <td class="ca-total">{{trabajador.nuevo ? '' : formatear(totalesFila[trabajador.id]?.capacitacion)}}</td>
             <td class="ca-col-hh">{{trabajador.nuevo ? '' : formatear(totalesFila[trabajador.id]?.hh)}}</td>
           </tr>
         </tbody>
@@ -143,11 +158,11 @@
             <td class="ca-fijo ca-col-apellido"></td>
             <td [attr.colspan]="colspanPie"></td>
             <ng-container *ngFor="let dia of diasVisibles; trackBy: trackDia">
-              <td *ngFor="let item of campos; let i = index; trackBy: trackCampo" [class.ca-inicio-dia]="i === 0">{{getTotalDia(dia.numero, item.campo)}}</td>
+              <td *ngFor="let item of campos; let i = index; trackBy: trackCampo" [class.ca-inicio-dia]="i === 0" [class.ca-hoy]="dia.hoy"
+                  [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado">{{getTotalDia(dia.numero, item.campo)}}</td>
             </ng-container>
             <td class="ca-inicio-dia">{{formatear(resumen.jornadas)}}</td>
             <td>{{formatear(resumen.extra)}}</td>
-            <td>{{formatear(resumen.capacitacion)}}</td>
             <td class="ca-col-hh">{{formatear(resumen.hh)}}</td>
           </tr>
         </tfoot>
@@ -159,8 +174,10 @@
     </datalist>
 
     <p class="ca-nota" *ngIf="!embebido">
-      Día: 1 es jornada completa ({{formatear(horasJornada)}} h) y 0,5 media jornada. H.E. y Cap. van en horas, y Cap. se carga en Charlas diarias.
-      HH = días × {{formatear(horasJornada)}} + horas extra + capacitación. Para agregar un trabajador, escríbelo en la última fila. En rojo, los feriados.
+      Día: 1 es jornada completa ({{formatear(horasJornada)}} h), 0,5 media jornada y 0 si no trabajó. H.E. va en horas.
+      HH = días × {{formatear(horasJornada)}} + horas extra. La capacitación se registra en el Programa SSO/MA (HH Capacitación).
+      Se llena día a día: hasta completar el primer día pendiente de un trabajador no se pueden llenar los siguientes, ni los días que aún no llegan.
+      Para agregar un trabajador, escríbelo en la última fila. En rojo, los feriados; en azul, hoy; con punto rojo, los días hábiles pasados sin marcar.
     </p>
   </ng-container>
 </section>

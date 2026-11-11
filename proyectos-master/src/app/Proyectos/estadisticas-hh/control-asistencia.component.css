@@ -197,12 +197,13 @@
 
 .ca-marco {
   overflow-x: auto;
-  border: 1px solid #cfd6dc;
-  border-radius: 8px;
+  border: 1px solid #e3e8ed;
+  border-radius: 10px;
   background: #fff;
 }
 
 .ca-tabla {
+  width: 100%;              /* llega al otro costado; min-width (en el html) evita que se aplaste */
   max-width: none;
   margin: 0;
   border-collapse: separate;
@@ -217,39 +218,114 @@
   overflow: hidden;
 }
 
+/* ---------- encabezado claro ---------- */
 .ca-tabla thead th {
-  padding: 6px 4px;
-  border-right: 1px solid #6c7379;
-  border-bottom: 1px solid #6c7379;
-  background: #4a4f55;
-  color: #fff;
-  font-size: 12px;
+  padding: 4px 2px;
+  border-right: 1px solid #edf1f4;
+  border-bottom: 1px solid #e3e8ed;
+  background: #f7f9fb;
+  color: #24404f;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.15;
   text-align: center;
   vertical-align: middle;
 }
 
-.ca-tabla thead .ca-subcolumna {
-  padding: 3px 0;
-  font-size: 10.5px;
+.ca-tabla thead .ca-izquierda {
+  padding-left: 8px;
+  color: #6b7580;
+  font-size: 10px;
+  letter-spacing: .4px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.ca-tabla thead .ca-col-numero {
+  color: #6b7580;
+  font-size: 10px;
+}
+
+.ca-tabla thead .ca-dia-cab {
+  height: 38px;
+  white-space: nowrap;
+}
+
+.ca-dia-letra {
+  display: block;
+  color: #8f979f;
+  font-size: 9.5px;
   font-weight: 600;
 }
 
-.ca-tabla thead .ca-fin-semana {
-  background: #6b7076;
+.ca-dia-num {
+  display: inline-block;
+  min-width: 22px;
+  height: 20px;
+  border-radius: 10px;
+  color: #24404f;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 20px;
 }
 
+.ca-tabla thead .ca-subcolumna {
+  height: 20px;
+  padding: 0;
+  background: #fbfcfd;
+  color: #8f979f;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+
+/* fines de semana y feriados: en rojo, con sus líneas remarcadas */
+.ca-tabla thead .ca-fin-semana,
 .ca-tabla thead .ca-feriado {
-  background: #b23b42;
+  background: #fbe4e4;
+}
+.ca-tabla thead .ca-fin-semana .ca-dia-num,
+.ca-tabla thead .ca-fin-semana .ca-dia-letra,
+.ca-tabla thead .ca-feriado .ca-dia-num,
+.ca-tabla thead .ca-feriado .ca-dia-letra,
+.ca-tabla thead .ca-subcolumna.ca-fin-semana,
+.ca-tabla thead .ca-subcolumna.ca-feriado { color: #c0392b; }
+.ca-tabla thead .ca-subcolumna.ca-fin-semana,
+.ca-tabla thead .ca-subcolumna.ca-feriado { background: #f9dcdc; }
+.ca-tabla thead th.ca-dia-cab.ca-fin-semana,
+.ca-tabla thead th.ca-dia-cab.ca-feriado { box-shadow: inset 2px 0 0 #e08585, inset -2px 0 0 #e08585; }
+.ca-tabla thead th.ca-subcolumna.ca-inicio-dia.ca-fin-semana,
+.ca-tabla thead th.ca-subcolumna.ca-inicio-dia.ca-feriado { box-shadow: inset 2px 0 0 #e08585; }
+.ca-tabla thead th.ca-subcolumna.ca-fin-semana:not(.ca-inicio-dia),
+.ca-tabla thead th.ca-subcolumna.ca-feriado:not(.ca-inicio-dia) { box-shadow: inset -2px 0 0 #e08585; }
+
+/* total del mes */
+.ca-tabla thead .ca-total-cab {
+  background: #eef2f6;
+  color: #24404f;
 }
 
-.ca-tabla thead .ca-izquierda {
-  padding-left: 5px;
-  font-size: 11px;
-  text-align: left;
+/* día con trabajadores sin marcar: punto rojo en el encabezado */
+.ca-tabla thead .ca-dia-pendiente {
+  background-image: radial-gradient(circle at calc(100% - 7px) 7px, #e2706b 3px, transparent 3.5px);
+  background-repeat: no-repeat;
 }
 
+/* hoy: número en círculo azul y columna marcada */
+.ca-tabla thead th.ca-hoy {
+  background-color: #eaf3fa;
+  box-shadow: inset 0 3px 0 #075f91;
+}
+.ca-tabla thead th.ca-subcolumna.ca-hoy {
+  background: #eaf3fa;
+  box-shadow: none;
+  color: #075f91;
+}
+.ca-tabla thead .ca-hoy .ca-dia-letra { color: #075f91; font-weight: 800; text-transform: uppercase; }
+.ca-tabla thead .ca-hoy .ca-dia-num { background: #075f91; color: #fff; }
+
+/* columnas fijas */
 .ca-tabla .ca-fijo {
   position: sticky;
   z-index: 2;
@@ -266,39 +342,60 @@
 
 .ca-tabla .ca-col-apellido {
   left: 124px;
-  border-right: 2px solid #b9c3cb;
+  box-shadow: inset -1px 0 0 #dfe5eb, 4px 0 8px -6px rgba(31, 45, 61, .2);
 }
 
+/* ---------- cuerpo ---------- */
 .ca-tabla tbody td {
-  height: 34px;
+  height: 32px;
   padding: 0;
-  border-right: 1px solid #e3e6ea;
-  border-bottom: 1px solid #e3e6ea;
+  border-right: 1px solid #f0f2f5;
+  border-bottom: 1px solid #edf1f4;
   background: #fff;
   text-align: center;
 }
 
 .ca-tabla tbody td.ca-fijo {
-  background: #f4f6f8;
+  background: #fff;
 }
 
-.ca-tabla tbody td.ca-fin-semana {
-  background: #f1f3f5;
-}
-
+.ca-tabla tbody td.ca-fin-semana,
 .ca-tabla tbody tr td.ca-feriado,
-.ca-tabla tbody tr.ca-fila-nueva td.ca-feriado {
-  background: #fbe3e4;
+.ca-tabla tbody tr.ca-fila-nueva td.ca-fin-semana,
+.ca-tabla tbody tr.ca-fila-nueva td.ca-feriado,
+.ca-tabla tbody tr:hover td.ca-fin-semana,
+.ca-tabla tbody tr:hover td.ca-feriado,
+.ca-tabla tfoot td.ca-fin-semana,
+.ca-tabla tfoot td.ca-feriado {
+  background: repeating-linear-gradient(135deg, #fdf1f1 0 4px, #f9e3e3 4px 8px);
+  color: #c0392b;
 }
+
+/* líneas rojas remarcadas a los lados del día */
+.ca-tabla tbody td.ca-fin-semana.ca-inicio-dia,
+.ca-tabla tbody td.ca-feriado.ca-inicio-dia,
+.ca-tabla tfoot td.ca-fin-semana.ca-inicio-dia,
+.ca-tabla tfoot td.ca-feriado.ca-inicio-dia { box-shadow: inset 2px 0 0 #e08585; }
+.ca-tabla tbody td.ca-fin-semana:not(.ca-inicio-dia),
+.ca-tabla tbody td.ca-feriado:not(.ca-inicio-dia),
+.ca-tabla tfoot td.ca-fin-semana:not(.ca-inicio-dia),
+.ca-tabla tfoot td.ca-feriado:not(.ca-inicio-dia) { box-shadow: inset -2px 0 0 #e08585; }
+.ca-tabla tbody td.ca-fin-semana input,
+.ca-tabla tbody td.ca-feriado input { color: #a8322d; }
 
 .ca-tabla tbody td.ca-col-numero {
-  color: #7b858e;
-  font-size: 12px;
-  font-weight: 600;
+  color: #a3abb3;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.ca-tabla tbody tr:hover td,
+.ca-tabla tbody tr:hover td.ca-fijo {
+  background: #f5f9fd;
 }
 
 .ca-tabla tbody tr.ca-fila-nueva td {
-  background: #f7fbfd;
+  background: #fbfcfd;
 }
 
 .ca-tabla tbody tr.ca-fila-nueva td.ca-col-numero {
@@ -308,7 +405,23 @@
 }
 
 .ca-tabla .ca-inicio-dia {
-  border-left: 1px solid #aeb8bf;
+  border-left: 1px solid #e3e8ed;
+}
+
+/* hoy */
+.ca-tabla tbody td.ca-hoy,
+.ca-tabla tfoot td.ca-hoy {
+  background: #f2f8fd;
+}
+.ca-tabla tbody td.ca-hoy.ca-inicio-dia,
+.ca-tabla tfoot td.ca-hoy.ca-inicio-dia { box-shadow: inset 2px 0 0 #075f91; }
+.ca-tabla tbody td.ca-hoy:not(.ca-inicio-dia),
+.ca-tabla tfoot td.ca-hoy:not(.ca-inicio-dia) { box-shadow: inset -2px 0 0 #075f91; }
+
+/* día hábil pasado sin marcar: punto rojo discreto en la celda del día */
+.ca-tabla tbody tr td.ca-pendiente.ca-inicio-dia {
+  background-image: radial-gradient(circle at 6px 6px, #e2706b 2.5px, transparent 3px);
+  background-repeat: no-repeat;
 }
 
 .ca-tabla tbody input {
@@ -316,7 +429,7 @@
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  height: 33px;
+  height: 31px;
   margin: 0;
   padding: 0 2px;
   border: 0;
@@ -326,13 +439,15 @@
   box-shadow: none;
   color: #24404f;
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 700;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .ca-tabla tbody input.ca-dato-texto {
-  padding: 0 5px;
-  font-size: 11px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 600;
   text-align: left;
   text-overflow: ellipsis;
 }
@@ -344,7 +459,7 @@
 }
 
 .ca-tabla tbody input:hover:not(:disabled) {
-  background: #eef6fb;
+  background: #eaf3fa;
 }
 
 .ca-tabla tbody input:focus {
@@ -362,23 +477,25 @@
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: 5px;
   background: transparent;
-  color: #c22f35;
+  color: #c9a3a3;
   cursor: pointer;
 }
 
 .ca-col-acciones button:hover {
   background: #fdeced;
+  color: #c22f35;
 }
 
 .ca-tabla tbody td.ca-total {
-  background: #f4f6f8;
+  background: #f7f9fb;
   color: #24404f;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
+/* HH: columna fija a la derecha */
 .ca-tabla .ca-col-hh,
 .ca-tabla thead .ca-col-hh,
 .ca-tabla tbody td.ca-col-hh {
@@ -386,22 +503,27 @@
   right: 0;
   z-index: 2;
   border-right: 0;
-  background: #2f5f8f;
+  background: #075f91;
   color: #fff;
-  font-weight: 700;
+  font-weight: 800;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  box-shadow: -4px 0 8px -6px rgba(31, 45, 61, .25);
 }
+.ca-tabla thead .ca-col-hh { font-size: 11px; letter-spacing: .4px; }
+.ca-tabla tbody tr:hover td.ca-col-hh { background: #064f78; }
 
+/* ---------- pie ---------- */
 .ca-tabla tfoot th,
 .ca-tabla tfoot td {
   height: 32px;
   padding: 3px 1px;
-  border-right: 1px solid #dfe4e8;
-  background: #eef1f4;
+  border-top: 2px solid #dfe5eb;
+  border-right: 1px solid #edf1f4;
+  background: #f7f9fb;
   color: #24404f;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   text-align: center;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -409,12 +531,16 @@
 
 .ca-tabla tfoot .ca-izquierda {
   overflow: visible;
-  padding-left: 5px;
+  padding-left: 8px;
+  color: #6b7580;
+  font-size: 10.5px;
+  letter-spacing: .3px;
   text-align: left;
+  text-transform: uppercase;
 }
 
 .ca-tabla tfoot .ca-col-hh {
-  background: #264f78;
+  background: #064f78;
   color: #fff;
 }
 
@@ -424,9 +550,15 @@
   font-size: 11.5px;
 }
 
-/* ===== CORE: un bloque por subproyecto ===== */
+/* ===== CORE: una tarjeta por subproyecto ===== */
 .ca.ca-embebido {
+  width: 100%;
   margin-bottom: 18px;
+  overflow: hidden;
+  border: 1px solid #e3e8ed;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(31, 45, 61, .06);
 }
 
 .ca-grupo {
@@ -434,36 +566,44 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 10px 24px;
-  margin-bottom: 8px;
-  padding: 9px 14px;
-  border: 1px solid #f3dc9a;
-  border-left: 4px solid #e8b53a;
-  border-radius: 8px;
-  background: #fff8e1;
+  padding: 10px 14px;
+  border-bottom: 1px solid #edf1f4;
+  background: #fff;
 }
 
 .ca-grupo-nombre {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
-.ca-grupo-nombre .fa {
-  color: #b07c0c;
+.ca-grupo-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #fff1e6;
+  color: #d9692a;
+  font-size: 14px;
 }
 
 .ca-grupo-kicker {
-  color: #8a6514;
-  font-size: 10.5px;
+  display: block;
+  color: #8f979f;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: .5px;
+  letter-spacing: .6px;
   text-transform: uppercase;
 }
 
 .ca-grupo-nombre strong {
+  display: block;
   color: #24404f;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 800;
   letter-spacing: .2px;
   text-transform: uppercase;
@@ -472,7 +612,7 @@
 .ca-grupo-resumen {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 16px;
+  gap: 4px 6px;
   margin: 0 0 0 auto;
 }
 
@@ -480,34 +620,78 @@
   display: flex;
   align-items: baseline;
   gap: 5px;
+  padding: 3px 10px;
+  border-radius: 14px;
+  background: #f4f6f8;
+}
+
+.ca-grupo-resumen div:nth-child(2) {
+  background: #eaf3fa;
 }
 
 .ca-grupo-resumen dt {
-  color: #8a6514;
-  font-size: 11px;
+  color: #6b7580;
+  font-size: 10.5px;
   font-weight: 600;
 }
 
 .ca-grupo-resumen dd {
   margin: 0;
   color: #24404f;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
+
+.ca-grupo-resumen div:nth-child(2) dd { color: #075f91; }
+
+.ca-embebido .ca-marco {
+  border: 0;
+  border-radius: 0;
+}
+
+.ca-embebido .ca-mensaje { padding: 24px 16px; }
+.ca-embebido .ca-error,
+.ca-embebido .ca-aviso { margin: 8px 14px; }
+
+/* aviso de días sin llenar: una línea discreta */
+.ca-pendientes {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  border: 1px solid #f5d0cd;
+  border-radius: 8px;
+  background: #fef7f6;
+  color: #8f3030;
+  font-size: 12px;
+}
+.ca-embebido .ca-pendientes {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #f7e0de;
+  border-radius: 0;
+}
+.ca-pendientes > .fa { color: #e2706b; font-size: 13px; }
+.ca-pendientes b { color: #b03a36; font-weight: 800; }
+.ca-pendientes-dias { color: #8f3030; font-weight: 700; }
+.ca-pendientes-nombres { color: #a87471; font-weight: 600; }
+.ca-pendientes small { margin-left: auto; color: #b9908d; font-size: 11px; }
 
 /* días que el trabajador ya tiene en otro subproyecto */
 .ca-tabla tbody tr td.ca-otro-sp,
 .ca-tabla tbody tr td.ca-otro-sp.ca-fin-semana,
 .ca-tabla tbody tr td.ca-otro-sp.ca-feriado {
-  background: #b9bfc6;
+  background: #e6e9ed;
   cursor: help;
 }
 
 .ca-tabla tbody tr td.ca-otro-lleno,
 .ca-tabla tbody tr td.ca-otro-lleno.ca-fin-semana,
 .ca-tabla tbody tr td.ca-otro-lleno.ca-feriado {
-  background: repeating-linear-gradient(135deg, #3d4247 0 5px, #4a5056 5px 10px);
+  background: repeating-linear-gradient(135deg, #cdd3d9 0 4px, #dde1e6 4px 8px);
 }
 
 .ca-tabla tbody td.ca-otro-sp input:disabled {
@@ -515,13 +699,24 @@
 }
 
 .ca-tabla tbody td.ca-otro-lleno input {
-  color: #fff;
+  color: #4a525a;
 }
 
-.ca-embebido .ca-marco {
-  border-color: #e3e6ea;
-}
 
 @media (max-width: 767px) {
   .ca-tabla .ca-fijo { position: static; }
+}
+
+/* bloqueado por registro diario (día futuro o falta completar uno anterior) */
+.ca-tabla tbody tr td.ca-bloqueado {
+  cursor: not-allowed;
+}
+.ca-tabla tbody tr td.ca-bloqueado:not(.ca-fin-semana):not(.ca-feriado):not(.ca-hoy) {
+  background: #fafbfc;
+}
+.ca-tabla tbody tr td.ca-bloqueado input:disabled {
+  cursor: not-allowed;
+}
+.ca-tabla tbody tr:hover td.ca-bloqueado:not(.ca-fin-semana):not(.ca-feriado) {
+  background: #f4f6f8;
 }

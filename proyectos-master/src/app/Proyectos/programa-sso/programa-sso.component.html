@@ -5,7 +5,7 @@
     <div class="psso-titulo">
       <span class="psso-icono"><i class="fa" [ngClass]="esAnual ? 'fa-bar-chart' : (esConsolidado ? 'fa-pie-chart' : 'fa-calendar-check-o')" aria-hidden="true"></i></span>
       <div>
-        <h5>{{ esAnual ? 'Cumplimiento de programas SSO-MA ' + anio : (esConsolidado ? 'Consolidado del mes · SSO y MA' : 'Programa de Actividades ' + (esMA ? 'MA' : 'SSO')) }}</h5>
+        <h5>{{ esAnual ? 'Cumplimiento de programas SSO-MA · ' + textoAnioAnual : (esConsolidado ? 'Consolidado del mes · SSO y MA' : 'Programa de Actividades ' + (esMA ? 'MA' : 'SSO')) }}</h5>
         <p class="psso-subproyecto" *ngIf="nombreSubProyecto">{{nombreSubProyecto}}</p>
         <p>Programación mensual y control de cumplimiento</p>
       </div>
@@ -30,8 +30,12 @@
     </div>
     <div class="psso-anio">
       <button type="button" class="psso-flecha" (click)="cambiarAnio(-1)" title="Año anterior"><i class="fa fa-chevron-left"></i></button>
-      <span>{{ anio }}</span>
+      <span [class.psso-anio-off]="esAnual && todosAnios">{{ anio }}</span>
       <button type="button" class="psso-flecha" (click)="cambiarAnio(1)" title="Año siguiente"><i class="fa fa-chevron-right"></i></button>
+      <button *ngIf="esAnual" type="button" class="psso-todos" [class.activo]="todosAnios" (click)="alternarTodosAnios()"
+              title="Ver todas las obras de todos los años">
+        <i class="fa fa-calendar" aria-hidden="true"></i> Todos
+      </button>
     </div>
   </header>
 
@@ -161,23 +165,33 @@
   <!-- ===================== Consolidado anual (todas las obras) ===================== -->
   <ng-container *ngIf="!cargando && esAnual && anual">
 
+    <!-- Indicadores -->
     <div class="pan-resumen">
       <div class="pan-kpi pan-kpi-sso">
-        <span><i class="fa fa-shield"></i> Promedio SSO {{ anio }}</span>
-        <strong [ngClass]="'txt-' + claseSemaforo(totalSSOAnual)">{{ totalSSOAnual === null ? '-' : (totalSSOAnual | number:'1.0-1') + '%' }}</strong>
-        <div class="psso-barra grande"><i [ngClass]="claseSemaforo(totalSSOAnual)" [style.width.%]="totalSSOAnual || 0"></i></div>
+        <span class="pan-kpi-tit"><i class="fa fa-shield" aria-hidden="true"></i> Promedio SSO {{ textoAnioAnual }}</span>
+        <strong>{{ totalSSOAnual === null ? '-' : (totalSSOAnual | number:'1.0-1') + '%' }}</strong>
+        <div class="pan-meta-barra" title="Meta 90%">
+          <i [style.width.%]="totalSSOAnual || 0"></i>
+          <em></em>
+        </div>
+        <small>Meta 90%</small>
       </div>
       <div class="pan-kpi pan-kpi-ma">
-        <span><i class="fa fa-leaf"></i> Promedio MA {{ anio }}</span>
-        <strong [ngClass]="'txt-' + claseSemaforo(totalMAAnual)">{{ totalMAAnual === null ? '-' : (totalMAAnual | number:'1.0-1') + '%' }}</strong>
-        <div class="psso-barra grande"><i [ngClass]="claseSemaforo(totalMAAnual)" [style.width.%]="totalMAAnual || 0"></i></div>
+        <span class="pan-kpi-tit"><i class="fa fa-leaf" aria-hidden="true"></i> Promedio MA {{ textoAnioAnual }}</span>
+        <strong>{{ totalMAAnual === null ? '-' : (totalMAAnual | number:'1.0-1') + '%' }}</strong>
+        <div class="pan-meta-barra" title="Meta 90%">
+          <i [style.width.%]="totalMAAnual || 0"></i>
+          <em></em>
+        </div>
+        <small>Meta 90%</small>
       </div>
       <div class="pan-kpi">
-        <span><i class="fa fa-building-o"></i> Obras con programa</span>
+        <span class="pan-kpi-tit"><i class="fa fa-building-o" aria-hidden="true"></i> Obras con programa</span>
         <strong>{{ anual.length }}</strong>
+        <small>{{ todosAnios ? 'filas obra · año' : 'en ' + anio }}</small>
       </div>
       <div class="pan-kpi" [class.pan-kpi-alerta]="pendientesAnual > 0">
-        <span><i class="fa fa-exclamation-circle"></i> Falta revisión</span>
+        <span class="pan-kpi-tit"><i class="fa fa-exclamation-circle" aria-hidden="true"></i> Falta revisión</span>
         <strong>{{ pendientesAnual }}</strong>
         <small>{{ pendientesAnual === 1 ? 'programa sin validar' : 'programas sin validar' }}</small>
       </div>
@@ -188,7 +202,7 @@
 
     <div class="psso-vacio" *ngIf="!anual.length">
       <i class="fa fa-bar-chart" aria-hidden="true"></i>
-      <strong>{{ errorAnual ? 'No se pudo cargar el consolidado' : 'No hay programas SSO ni MA en ' + anio }}</strong>
+      <strong>{{ errorAnual ? 'No se pudo cargar el consolidado' : 'No hay programas SSO ni MA en ' + textoAnioAnual }}</strong>
       <p *ngIf="errorAnual">Revisa la consola: puede faltar permiso para leer programaSSO / programaMA.</p>
     </div>
 
@@ -196,17 +210,24 @@
     <div class="pan-marco" *ngIf="anual.length">
       <div class="pan-scroll">
         <table class="pan-tabla">
+          <colgroup>
+            <col class="pan-c-num">
+            <col class="pan-c-obra">
+            <col *ngFor="let col of columnasAnual" class="pan-c-mes">
+            <col class="pan-c-total">
+            <col class="pan-c-total">
+          </colgroup>
           <thead>
             <tr>
               <th class="pan-num pan-fijo-1" rowspan="2">N°</th>
-              <th class="pan-obra pan-fijo-2" rowspan="2">Obras {{ anio }}</th>
+              <th class="pan-obra pan-fijo-2" rowspan="2">Obras {{ todosAnios ? '· año' : anio }}</th>
               <th *ngFor="let m of mesesCortos; let i = index" colspan="2" class="pan-mes" [class.pan-mes-actual]="esMesActual(i + 1)">{{ m }}</th>
-              <th colspan="2" class="pan-total-cab">Total</th>
+              <th colspan="2" class="pan-mes pan-total-cab">Total</th>
             </tr>
             <tr>
-              <th *ngFor="let col of columnasAnual" class="pan-sub" [class.pan-sub-ma]="col.tipo === 'MA'"
+              <th *ngFor="let col of columnasAnual" class="pan-sub" [ngClass]="col.tipo === 'MA' ? 'pan-sub-ma' : 'pan-sub-sso'"
                   [class.pan-mes-actual]="esMesActual(col.mes)">{{ col.tipo }}</th>
-              <th class="pan-sub pan-total-cab">SSO</th>
+              <th class="pan-sub pan-sub-sso pan-total-cab">SSO</th>
               <th class="pan-sub pan-sub-ma pan-total-cab">MA</th>
             </tr>
           </thead>
@@ -214,25 +235,34 @@
             <tr *ngFor="let f of anual; let n = index" [class.pan-fila-actual]="f.actual">
               <td class="pan-num pan-fijo-1">{{ n + 1 }}</td>
               <td class="pan-obra pan-fijo-2" [title]="f.nombre">
-                <span>{{ f.nombre }}</span>
+                <span><b class="pan-anio-chip" *ngIf="todosAnios">{{ f.anio }}</b>{{ f.nombre }}</span>
                 <em *ngIf="f.actual">este subproyecto</em>
               </td>
               <td *ngFor="let c of f.celdas" class="pan-celda" [class.pan-col-ma]="c.tipo === 'MA'"
+                  [class.pan-mes-actual]="esMesActualFila(f, c.mes)"
                   [class.pan-clic]="f.actual && c.existe" [title]="tituloCeldaAnual(f, c)" (click)="abrirDesdeAnual(f, c)">
                 <span class="pan-chip" [ngClass]="claseCeldaAnual(c)" *ngIf="c.existe">
-                  {{ c.pct === null ? 's/p' : c.pct + '%' }}
-                  <i *ngIf="c.pendiente" class="fa fa-exclamation-circle pan-pend" aria-hidden="true"></i>
+                  {{ c.pct === null ? 's/p' : (c.pct | number:'1.0-0') + '%' }}
+                  <i *ngIf="c.pendiente" class="pan-pend" aria-hidden="true"></i>
                 </span>
+                <span class="pan-guion" *ngIf="!c.existe">·</span>
               </td>
-              <td class="pan-total"><b [ngClass]="'txt-' + claseSemaforo(f.totalSSO)">{{ f.totalSSO === null ? '-' : (f.totalSSO | number:'1.0-1') + '%' }}</b></td>
-              <td class="pan-total pan-col-ma"><b [ngClass]="'txt-' + claseSemaforo(f.totalMA)">{{ f.totalMA === null ? '-' : (f.totalMA | number:'1.0-1') + '%' }}</b></td>
+              <td class="pan-total pan-total-sso">
+                <span class="pan-chip" [ngClass]="claseCeldaAnual({ tipo: 'SSO', existe: true, pct: f.totalSSO })" *ngIf="f.totalSSO !== null">{{ f.totalSSO | number:'1.0-1' }}%</span>
+                <span class="pan-guion" *ngIf="f.totalSSO === null">-</span>
+              </td>
+              <td class="pan-total pan-total-ma">
+                <span class="pan-chip" [ngClass]="claseCeldaAnual({ tipo: 'MA', existe: true, pct: f.totalMA })" *ngIf="f.totalMA !== null">{{ f.totalMA | number:'1.0-1' }}%</span>
+                <span class="pan-guion" *ngIf="f.totalMA === null">-</span>
+              </td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
               <td class="pan-fijo-1"></td>
               <td class="pan-obra pan-fijo-2">Total por mes</td>
-              <td *ngFor="let c of totalesMesAnual" class="pan-pie" [ngClass]="c.tipo === 'MA' ? 'pan-pie-ma' : 'pan-pie-sso'">
+              <td *ngFor="let c of totalesMesAnual" class="pan-pie" [ngClass]="c.tipo === 'MA' ? 'pan-pie-ma' : 'pan-pie-sso'"
+                  [class.pan-mes-actual]="esMesActual(c.mes)">
                 {{ c.pct === null ? '' : (c.pct | number:'1.0-0') + '%' }}
               </td>
               <td class="pan-pie pan-pie-sso pan-pie-total">{{ totalSSOAnual === null ? '-' : (totalSSOAnual | number:'1.0-1') + '%' }}</td>
@@ -241,16 +271,23 @@
           </tfoot>
         </table>
       </div>
+      <div class="pan-leyenda-tabla">
+        <span><i class="pan-chip pan-sso-n3"></i><i class="pan-chip pan-ma-n3"></i> 90% o más</span>
+        <span><i class="pan-chip pan-sso-n2"></i><i class="pan-chip pan-ma-n2"></i> 50% – 89%</span>
+        <span><i class="pan-chip pan-sso-n1"></i><i class="pan-chip pan-ma-n1"></i> Menos de 50%</span>
+        <span><i class="pan-chip pan-sin"></i> s/p = sin días programados</span>
+        <span><i class="pan-pend pan-pend-ley"></i> Programa sin validar</span>
+      </div>
     </div>
 
     <!-- Gráfico: promedio de todas las obras por mes -->
     <section class="pan-grafico" *ngIf="anual.length">
       <div class="pan-grafico-cab">
-        <h6>Cumplimiento SSO y MA {{ anio }}</h6>
+        <h6>Cumplimiento SSO y MA {{ todosAnios ? '· todos los años' : anio }} <small>promedio de las obras{{ todosAnios ? ' y años' : '' }}</small></h6>
         <div class="pan-leyenda">
           <span><i class="pan-ley-sso"></i> SSO</span>
           <span><i class="pan-ley-ma"></i> MA</span>
-          <span class="pan-ley-meta">— Meta 90%</span>
+          <span class="pan-ley-meta"><i></i> Meta 90%</span>
         </div>
       </div>
       <div class="pan-grafico-area">
@@ -259,15 +296,18 @@
         </div>
         <div class="pan-barras">
           <div class="pan-linea-meta" title="Meta 90%"></div>
-          <div class="pan-grupo" *ngFor="let m of mesesCortos; let i = index" [class.pan-mes-actual]="esMesActual(i + 1)">
+          <div class="pan-grupo" *ngFor="let m of mesesCortos; let i = index" [class.pan-mes-actual]="esMesActual(i + 1)"
+               [class.pan-grupo-vacio]="totalesMesAnual[i * 2].pct === null && totalesMesAnual[i * 2 + 1].pct === null">
             <div class="pan-par">
-              <div class="pan-barra pan-barra-sso" [style.height.%]="totalesMesAnual[i * 2].pct || 0"
-                   [title]="m + ' SSO: ' + (totalesMesAnual[i * 2].pct === null ? 'sin datos' : totalesMesAnual[i * 2].pct + '%')">
-                <b *ngIf="totalesMesAnual[i * 2].pct !== null">{{ totalesMesAnual[i * 2].pct | number:'1.0-0' }}</b>
+              <div class="pan-barra pan-barra-sso" *ngIf="totalesMesAnual[i * 2].pct !== null"
+                   [style.height.%]="totalesMesAnual[i * 2].pct"
+                   [title]="m + ' SSO: ' + totalesMesAnual[i * 2].pct + '%'">
+                <b>{{ totalesMesAnual[i * 2].pct | number:'1.0-0' }}%</b>
               </div>
-              <div class="pan-barra pan-barra-ma" [style.height.%]="totalesMesAnual[i * 2 + 1].pct || 0"
-                   [title]="m + ' MA: ' + (totalesMesAnual[i * 2 + 1].pct === null ? 'sin datos' : totalesMesAnual[i * 2 + 1].pct + '%')">
-                <b *ngIf="totalesMesAnual[i * 2 + 1].pct !== null">{{ totalesMesAnual[i * 2 + 1].pct | number:'1.0-0' }}</b>
+              <div class="pan-barra pan-barra-ma" *ngIf="totalesMesAnual[i * 2 + 1].pct !== null"
+                   [style.height.%]="totalesMesAnual[i * 2 + 1].pct"
+                   [title]="m + ' MA: ' + totalesMesAnual[i * 2 + 1].pct + '%'">
+                <b>{{ totalesMesAnual[i * 2 + 1].pct | number:'1.0-0' }}%</b>
               </div>
             </div>
             <span class="pan-grupo-mes">{{ m }}</span>
@@ -276,7 +316,7 @@
       </div>
       <p class="pan-nota">
         % de cada mes = realizadas ÷ programadas del programa (100% / 75% / 50% / 0%). Total de la obra = promedio de sus meses;
-        total por mes = promedio de las obras. <i class="fa fa-exclamation-circle pan-pend"></i> = programa sin validar.
+        total por mes = promedio de las obras.
         <ng-container *ngIf="!editable"> Ves solo tu subproyecto.</ng-container>
       </p>
     </section>

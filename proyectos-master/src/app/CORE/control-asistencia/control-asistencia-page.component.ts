@@ -331,6 +331,11 @@ export class ControlAsistenciaPageComponent implements OnInit {
     return Math.round(t * 100) / 100;
   }
 
+  /** Subproyectos con días hábiles pasados sin marcar. */
+  get subProyectosPendientes(): number {
+    return this.grupos.filter(g => { const r = this.resumenes[g.id]; return r && r.diasPendientes > 0; }).length;
+  }
+
   get totalTrabajadoresMes(): number {
     let t = 0;
     this.grupos.forEach(g => { const r = this.resumenes[g.id]; if (r) { t += Number(r.trabajadores) || 0; } });

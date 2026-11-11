@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { firestoreDB } from '../../firebase-init';
 import { TrabajadorCore, etiquetaTrabajador, buscarEnAgenda, limpiarRut, formatearRut, clavesTrabajador } from '../../CORE/trabajadores/trabajadores-core';
 
@@ -9,6 +9,9 @@ declare var Swal: any;
  * Firestore: un documento por mes en 'asistenciaHH' ({idSubProyecto}_{anio}_{mes}), con los
  * trabajadores en trabajadores.{id} y sus datos en dias.{dia}.{jornada|extra|capacitacion}.
  * Cada cambio guarda el día y actualiza 'estadisticasHH' en la misma operación.
+ *
+ * La capacitación ya no se registra aquí (sale del Programa SSO/MA → HH Capacitación).
+ * Los valores de "capacitacion" que quedaron guardados no se borran, pero ya no se muestran ni suman.
  */
 const COLECCION = 'asistenciaHH';
 const COLECCION_HH = 'estadisticasHH';
@@ -96,6 +99,18 @@ export function getFeriadosChile(anio: number): { [clave: string]: string } {
   return feriados;
 }
 
+const LETRAS_DIA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+interface DiaAsistencia {
+  numero: number;
+  letra: string;        // Lun, Mar...
+  fecha: string;
+  finDeSemana: boolean;
+  feriado: string;
+  hoy: boolean;
+  pendiente: boolean;   // día hábil pasado con algún trabajador sin marcar
+}
+
 export interface TrabajadorAsistencia {
   id: string;
   nombre: string;
@@ -156,8 +171,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
   ];
   readonly campos = [
     { campo: 'jornada', etiqueta: 'Día', titulo: 'Jornada' },
-    { campo: 'extra', etiqueta: 'H.E.', titulo: 'Horas extra' },
-    { campo: 'capacitacion', etiqueta: 'Cap.', titulo: 'Capacitación' }
+    { campo: 'extra', etiqueta: 'H.E.', titulo: 'Horas extra' }
   ];
   private readonly todosCamposTrabajador = [
     { campo: 'nombre', etiqueta: 'Nombre', clase: 'ca-fijo ca-col-nombre', ancho: 96 },
@@ -187,8 +201,19 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
 
   anio: number = new Date().getFullYear();
   mes: number = new Date().getMonth() + 1;
-  dias: { numero: number, fecha: string, finDeSemana: boolean, feriado: string }[] = [];
-  diasVisibles: { numero: number, fecha: string, finDeSemana: boolean, feriado: string }[] = [];
+  dias: DiaAsistencia[] = [];
+  diasVisibles: DiaAsistencia[] = [];
+
+  @ViewChild('marco') marco: ElementRef;
+
+  /** Días hábiles pasados sin marcar: pendientes[idFila][dia] = true. */
+  pendientes: { [idFila: string]: { [dia: number]: boolean } } = {};
+  /** Primer día pendiente de cada trabajador: no se puede llenar un día posterior hasta completarlo. */
+  private primerPendiente: { [idFila: string]: number } = {};
+  /** Último día que se puede llenar (hoy en el mes actual; 0 = mes futuro). */
+  private ultimoDiaEditable: number = 31;
+  /** Resumen del aviso: días pendientes y trabajadores que los tienen. */
+  avisoPendientes: { dias: number[]; nombres: string[]; otraQuincena: boolean } = null;
   quincena: number = 1;
   borrador: TrabajadorAsistencia = null;
   errorFila: string = '';
@@ -271,6 +296,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
         this.trabajadores = trabajadores;
         this.recalcular();
         this.cargando = false;
+        this.irAHoy();
         if (!trabajadores.length) {
           this.buscarMesAnterior(anio, mes, carga);
         }
@@ -319,17 +345,143 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
     const corto = this.meses[mes - 1].corto;
     const total = new Date(anio, mes, 0).getDate();
     const feriados = getFeriadosChile(anio);
-    const dias: { numero: number, fecha: string, finDeSemana: boolean, feriado: string }[] = [];
+    const hoy = new Date();
+    const esMesActual = anio === hoy.getFullYear() && mes === hoy.getMonth() + 1;
+    const dias: DiaAsistencia[] = [];
     for (let numero = 1; numero <= total; numero++) {
       const dia = new Date(anio, mes - 1, numero).getDay();
       dias.push({
         numero: numero,
+        letra: LETRAS_DIA[dia],
         fecha: numero + '-' + corto,
         finDeSemana: dia === 0 || dia === 6,
-        feriado: feriados[mes + '-' + numero] || ''
+        feriado: feriados[mes + '-' + numero] || '',
+        hoy: esMesActual && numero === hoy.getDate(),
+        pendiente: false
       });
     }
     this.dias = dias;
+  }
+
+  // ===================== Hoy y días pendientes =====================
+
+  /** Días hábiles ya pasados (sin contar hoy) del mes que se muestra. */
+  private diasHabilesPasados(): number[] {
+    const hoy = new Date();
+    const anio = Number(this.anio);
+    const mes = Number(this.mes);
+    const actual = hoy.getFullYear() * 12 + hoy.getMonth();
+    const mostrado = anio * 12 + (mes - 1);
+    if (mostrado > actual) { return []; }                       // mes futuro
+    const limite = mostrado === actual ? hoy.getDate() - 1 : this.dias.length;
+    return this.dias.filter(d => d.numero <= limite && !d.finDeSemana && !d.feriado).map(d => d.numero);
+  }
+
+  /**
+   * Un día queda pendiente para un trabajador si es hábil, ya pasó, no tiene jornada ni horas extra
+   * aquí y tampoco trabajó ese día en otro subproyecto.
+   */
+  private calcularPendientes() {
+    const hoy = new Date();
+    const actual = hoy.getFullYear() * 12 + hoy.getMonth();
+    const mostrado = Number(this.anio) * 12 + (Number(this.mes) - 1);
+    this.ultimoDiaEditable = mostrado > actual ? 0 : (mostrado === actual ? hoy.getDate() : this.dias.length);
+
+    const habiles = this.diasHabilesPasados();
+    const primero: { [idFila: string]: number } = {};
+    const pendientes: { [idFila: string]: { [dia: number]: boolean } } = {};
+    const diasConPendiente: { [dia: number]: boolean } = {};
+    const nombres: string[] = [];
+
+    this.trabajadores.forEach(t => {
+      const fila: { [dia: number]: boolean } = {};
+      let alguno = false;
+      habiles.forEach(dia => {
+        const delDia = t.dias[dia] || {};
+        const marcado = (Number(delDia.jornada) || 0) > 0 || (Number(delDia.extra) || 0) > 0 ||
+          delDia.jornada === 0;                                   // un 0 escrito = se revisó (no trabajó)
+        if (marcado || this.otroSp(t, dia)) { return; }
+        fila[dia] = true;
+        diasConPendiente[dia] = true;
+        if (!primero[t.id] || dia < primero[t.id]) { primero[t.id] = dia; }
+        alguno = true;
+      });
+      pendientes[t.id] = fila;
+      if (alguno) { nombres.push((t.nombre + ' ' + (t.apellido || '')).trim()); }
+    });
+
+    this.pendientes = pendientes;
+    this.primerPendiente = primero;
+    this.dias.forEach(d => d.pendiente = !!diasConPendiente[d.numero]);
+    const lista = Object.keys(diasConPendiente).map(Number).sort((a, b) => a - b);
+    const visibles = this.diasVisibles.map(d => d.numero);
+    this.avisoPendientes = lista.length ? {
+      dias: lista,
+      nombres: nombres,
+      otraQuincena: lista.some(d => visibles.indexOf(d) < 0)
+    } : null;
+  }
+
+  /**
+   * Registro diario: no se puede llenar un día futuro, ni un día posterior al primer día
+   * hábil que el trabajador tiene sin completar (se llena en orden, día a día).
+   */
+  bloqueadoSecuencia(trabajador: TrabajadorAsistencia, dia: number): boolean {
+    if (!trabajador || trabajador.nuevo) { return false; }
+    if (dia > this.ultimoDiaEditable) { return true; }
+    const primero = this.primerPendiente[trabajador.id];
+    return !!primero && dia > primero;
+  }
+
+  /** Texto de ayuda de la celda (otro subproyecto o por qué está bloqueada). */
+  tituloCelda(trabajador: TrabajadorAsistencia, dia: number): string {
+    if (trabajador.nuevo) { return null; }
+    const otro = this.otroSp(trabajador, dia);
+    if (otro) { return otro.texto; }
+    if (this.soloLectura) { return null; }
+    if (dia > this.ultimoDiaEditable) { return 'Todavía no llega este día'; }
+    const primero = this.primerPendiente[trabajador.id];
+    if (primero && dia > primero) {
+      return 'Primero completa el ' + primero + ' de ' + this.nombreMes.toLowerCase() + ' (1, 0,5 o 0 si no trabajó)';
+    }
+    return null;
+  }
+
+  esPendiente(trabajador: TrabajadorAsistencia, dia: number): boolean {
+    const fila = trabajador && this.pendientes[trabajador.id];
+    return !!fila && !!fila[dia];
+  }
+
+  /** "3, 4, 5 y 6 nov" (máximo 12 días; el resto se resume). */
+  get textoDiasPendientes(): string {
+    if (!this.avisoPendientes) { return ''; }
+    const dias = this.avisoPendientes.dias;
+    const corto = this.meses[Number(this.mes) - 1].corto;
+    const mostrados = dias.slice(0, 12).map(String);
+    let texto = mostrados.length > 1
+      ? mostrados.slice(0, -1).join(', ') + ' y ' + mostrados[mostrados.length - 1]
+      : mostrados[0];
+    if (dias.length > 12) { texto = mostrados.join(', ') + ' y ' + (dias.length - 12) + ' más'; }
+    return texto + ' ' + corto;
+  }
+
+  get textoNombresPendientes(): string {
+    if (!this.avisoPendientes) { return ''; }
+    const n = this.avisoPendientes.nombres;
+    return n.length > 4 ? n.slice(0, 4).join(', ') + ' y ' + (n.length - 4) + ' más' : n.join(', ');
+  }
+
+  /** Desplaza la tabla para que se vea el día de hoy. */
+  irAHoy() {
+    setTimeout(() => {
+      const marco = this.marco && this.marco.nativeElement;
+      if (!marco) { return; }
+      const th = marco.querySelector('th.ca-hoy');
+      if (!th) { return; }
+      const fijas = this.camposTrabajador.filter(c => c.clase.indexOf('ca-fijo') >= 0)
+        .reduce((suma, c) => suma + c.ancho, 28);
+      marco.scrollLeft = Math.max(0, th.offsetLeft - fijas - 2 * 72);
+    }, 0);
   }
 
   private recalcular() {
@@ -349,7 +501,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
           totalesDia[dia.numero][item.campo] += valor;
         });
       });
-      fila.hh = this.redondear(fila.jornada * HORAS_JORNADA + fila.extra + fila.capacitacion);
+      fila.hh = this.redondear(fila.jornada * HORAS_JORNADA + fila.extra);   // la capacitación ya no suma aquí
       totalesFila[trabajador.id] = fila;
 
       resumen.hh += fila.hh;
@@ -362,12 +514,14 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
     resumen.hh = this.redondear(resumen.hh);
     resumen.capacitacion = this.redondear(resumen.capacitacion);
     this.resumen = resumen;
+    if (this.embebido) { this.calcularOtros(); }
+    this.calcularPendientes();
     if (this.embebido) {
-      this.calcularOtros();
       const r = {
         idSubProyecto: this.idSubProyecto,
         resumen: resumen,
         trabajadores: this.trabajadores.length,
+        diasPendientes: this.avisoPendientes ? this.avisoPendientes.dias.length : 0,
         filas: this.trabajadores.map(t => ({
           idTrabajador: t.idTrabajador || '', rut: t.rut, nombre: t.nombre, apellido: t.apellido, dias: t.dias
         }))
@@ -453,6 +607,12 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
 
   guardarCelda(trabajador: TrabajadorAsistencia, dia: number, campo: string, input: any) {
     if (this.soloLectura) { return; }
+    if (this.bloqueadoSecuencia(trabajador, dia)) {
+      input.value = this.getTextoCelda(trabajador, dia, campo);
+      this.errorFila = this.tituloCelda(trabajador, dia) || 'Este día todavía no se puede llenar.';
+      return;
+    }
+    this.errorFila = '';
 
     const valor = this.leerValor(input.value, campo);
     if (valor === undefined) {
@@ -523,12 +683,14 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
   seleccionarQuincena(quincena: number) {
     this.quincena = quincena;
     this.diasVisibles = this.dias.filter(dia => quincena === 1 ? dia.numero <= 15 : dia.numero > 15);
+    if (this.trabajadores) { this.calcularPendientes(); }
+    this.irAHoy();
   }
 
   /** La tabla lleva su ancho exacto para que los estilos globales no aplasten las columnas. */
   get anchoTabla(): number {
     const trabajador = this.camposTrabajador.reduce((suma, item) => suma + item.ancho, 28);
-    return trabajador + (this.soloLectura ? 0 : 26) + this.diasVisibles.length * 108 + 192;
+    return trabajador + (this.soloLectura ? 0 : 26) + this.diasVisibles.length * 36 * this.campos.length + 148;
   }
 
   /** Lista más la fila vacía del final, donde se escribe un trabajador nuevo. */
@@ -684,6 +846,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
       });
     }
     this.otros = res;
+    if (this.trabajadores) { this.calcularPendientes(); }
   }
 
   /** Lo que ese trabajador tiene ese día en otro subproyecto (o null). */

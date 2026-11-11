@@ -260,10 +260,11 @@ function textoCumplimiento(c: number): string {
   if (c === 75) { return 'Parcial (75%)'; }
   if (c === 50) { return 'Parcial (50%)'; }
   if (c === 0) { return 'No hecho (0%)'; }
-  return '';
+  return 'Sin marcar';
 }
 
 function estiloCumplimiento(c: number): string {
+  if (c === null || c === undefined) { return 'centro'; }   // sin cumplimiento marcado
   if (c === 100) { return 'hecho'; }
   if (c === 75) { return 'parcial'; }
   if (c === 50) { return 'medio'; }
@@ -725,7 +726,7 @@ function descargarXlsx(bytes: Uint8Array, nombre: string) {
 // =====================================================================
 
 export interface DatosExcelAnual {
-  anio: number;
+  anio: any;            // 2026 | 'TODOS'
   meses: string[];      // ENE..DIC
   filas: any[];         // FilaAnual[]
   totalesMes: any[];    // 24 celdas

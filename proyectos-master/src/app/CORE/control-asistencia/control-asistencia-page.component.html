@@ -59,6 +59,10 @@
                     <div><dt>Subproyectos</dt><dd>{{grupos.length}}</dd></div>
                     <div><dt>Trabajadores</dt><dd>{{totalTrabajadoresMes}}</dd></div>
                     <div><dt>HH del mes</dt><dd>{{formatear(totalHH)}}</dd></div>
+                    <div class="core-total-pendiente" *ngIf="!soloLectura && subProyectosPendientes">
+                      <dt><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Con días sin llenar</dt>
+                      <dd>{{subProyectosPendientes}}</dd>
+                    </div>
                   </dl>
                 </div>
 
@@ -125,7 +129,8 @@
                 </ng-container>
 
                 <p class="core-nota">
-                  Día: 1 es jornada completa (8,5 h) y 0,5 media jornada. H.E. y Cap. van en horas. HH = días × 8,5 + horas extra + capacitación.
+                  Día: 1 es jornada completa (8,5 h), 0,5 media jornada y 0 si no trabajó. H.E. va en horas. HH = días × 8,5 + horas extra
+                  (la capacitación se registra en el Programa SSO/MA). En azul, hoy; con punto rojo, días hábiles pasados sin marcar.
                   Si un trabajador está en dos subproyectos, aparece en los dos: marca cada día en el subproyecto donde trabajó.
                   <span class="core-ley core-ley-claro"></span> ya tiene horas ese día en otro subproyecto ·
                   <span class="core-ley core-ley-oscuro"></span> jornada completa en otro subproyecto (bloqueado; pasa el mouse para ver dónde).

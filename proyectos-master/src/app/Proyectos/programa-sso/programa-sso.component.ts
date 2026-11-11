@@ -170,7 +170,7 @@ interface ResumenPrograma {
 
 /** Consolidado anual */
 interface CeldaAnual { mes: number; tipo: string; existe: boolean; pct: number; pendiente: boolean; }
-interface FilaAnual { id: string; nombre: string; actual: boolean; celdas: CeldaAnual[]; totalSSO: number; totalMA: number; }
+interface FilaAnual { id: string; anio: number; nombre: string; actual: boolean; celdas: CeldaAnual[]; totalSSO: number; totalMA: number; }
 
 /** Datos del popup de registro de un día. */
 interface ModalRegistro {
@@ -375,6 +375,11 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   cambiarAnio(delta: number) {
     this.flushGuardado();
+    if (this.todosAnios) {            // desde "Todos" las flechas vuelven a un año puntual
+      this.todosAnios = false;
+      this.cargarAnio();
+      return;
+    }
     this.anio += delta;
     this.cargarAnio();
   }
@@ -391,8 +396,15 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   }
 
   esMesActual(m: number): boolean {
+    if (this.esAnual && this.todosAnios) { return false; }
     const hoy = new Date();
     return this.anio === hoy.getFullYear() && m === hoy.getMonth() + 1;
+  }
+
+  /** Mes actual dentro de una fila del consolidado anual (en "Todos" solo las filas del año en curso). */
+  esMesActualFila(f: FilaAnual, m: number): boolean {
+    const hoy = new Date();
+    return f && f.anio === hoy.getFullYear() && m === hoy.getMonth() + 1;
   }
 
   cargarMes() {
@@ -462,6 +474,18 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   totalMAAnual: number = null;
   pendientesAnual = 0;
   errorAnual = false;
+  /** Consolidado anual: true = todas las obras de todos los años (una fila por obra y año). */
+  todosAnios = false;
+
+  /** Texto del período del consolidado anual: "2026" o "todos los años". */
+  get textoAnioAnual(): string {
+    return this.todosAnios ? 'todos los años' : String(this.anio);
+  }
+
+  alternarTodosAnios() {
+    this.todosAnios = !this.todosAnios;
+    if (this.esAnual) { this.cargarAnual(); }
+  }
   /** Columnas de la tabla anual: mes + tipo */
   readonly columnasAnual = (() => {
     const res: { mes: number; tipo: string }[] = [];
@@ -485,13 +509,14 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.anual = null;
 
     const soloEste = !this.editable;
+    const todos = this.todosAnios;
     const consulta = (col: string) => soloEste
       ? firestoreDB.collection(col).where('idSubProyecto', '==', String(this.idSubProyecto)).get()
-      : firestoreDB.collection(col).where('anio', '==', anio).get();
+      : (todos ? firestoreDB.collection(col).get() : firestoreDB.collection(col).where('anio', '==', anio).get());
 
     // nombres de las obras: del propio programa, o de las estadísticas de HH / MA del año
     const nombres: { [id: string]: string } = {};
-    const leerNombres = (col: string) => firestoreDB.collection(col).where('anio', '==', anio).get()
+    const leerNombres = (col: string) => (todos ? firestoreDB.collection(col).get() : firestoreDB.collection(col).where('anio', '==', anio).get())
       .then((snap: any) => snap.forEach((doc: any) => {
         const d = doc.data();
         if (d && d.idSubProyecto !== undefined && d.nombreSubProyecto) { nombres[String(d.idSubProyecto)] = d.nombreSubProyecto; }
@@ -506,10 +531,13 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
         const filas: { [id: string]: FilaAnual } = {};
         const procesar = (snap: any, tipo: string) => snap.forEach((doc: any) => {
           const p = doc.data();
-          if (!p || Number(p.anio) !== anio || !p.mes) { return; }
+          if (!p || !p.mes || !p.anio) { return; }
+          const anioP = Number(p.anio);
+          if (!todos && anioP !== anio) { return; }
           const id = String(p.idSubProyecto);
           if (p.nombreSubProyecto) { nombres[id] = p.nombreSubProyecto; }
-          const fila = filas[id] || (filas[id] = this.filaAnualVacia(id));
+          const clave = todos ? id + '_' + anioP : id;   // en "Todos": una fila por obra y año
+          const fila = filas[clave] || (filas[clave] = this.filaAnualVacia(id, anioP));
           const r = this.resumenDe(p, tipo);
           const celda = fila.celdas[(Number(p.mes) - 1) * 2 + (tipo === 'MA' ? 1 : 0)];
           celda.existe = true;
@@ -524,11 +552,11 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
         }
         const lista = Object.keys(filas).map(id => {
           const f = filas[id];
-          f.nombre = nombres[id] || ('Subproyecto ' + id);
+          f.nombre = nombres[f.id] || ('Subproyecto ' + f.id);
           f.totalSSO = this.promedio(f.celdas.filter(c => c.tipo === 'SSO').map(c => c.pct));
           f.totalMA = this.promedio(f.celdas.filter(c => c.tipo === 'MA').map(c => c.pct));
           return f;
-        }).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
+        }).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }) || (b.anio - a.anio));
 
         this.totalesMesAnual = this.columnasAnual.map((col, i) => ({
           mes: col.mes, tipo: col.tipo, existe: true, pendiente: false,
@@ -551,9 +579,10 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       });
   }
 
-  private filaAnualVacia(id: string): FilaAnual {
+  private filaAnualVacia(id: string, anio: number): FilaAnual {
     return {
       id: id,
+      anio: anio,
       nombre: '',
       actual: String(id) === String(this.idSubProyecto),
       celdas: this.columnasAnual.map(c => ({ mes: c.mes, tipo: c.tipo, existe: false, pct: null, pendiente: false })),
@@ -571,10 +600,12 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     return Math.round(s * 10 / v.length) / 10;
   }
 
-  claseCeldaAnual(c: CeldaAnual): string {
+  /** Color del chip: SSO azul / MA verde, más intenso mientras más alto el %. */
+  claseCeldaAnual(c: { tipo: string; existe: boolean; pct: number }): string {
     if (!c || !c.existe) { return 'pan-vacia'; }
-    if (c.pct === null) { return 'pan-sin'; }
-    return 'pan-' + this.claseSemaforo(c.pct);
+    if (c.pct === null || c.pct === undefined) { return 'pan-sin'; }
+    const nivel = c.pct >= 90 ? 'n3' : (c.pct >= 50 ? 'n2' : 'n1');
+    return 'pan-' + (c.tipo === 'MA' ? 'ma' : 'sso') + '-' + nivel;
   }
 
   tituloCeldaAnual(f: FilaAnual, c: CeldaAnual): string {
@@ -587,6 +618,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   /** Abre el programa SSO o MA de esa obra/mes (solo si es el subproyecto actual). */
   abrirDesdeAnual(f: FilaAnual, c: CeldaAnual) {
     if (!f.actual || !c.existe) { return; }
+    this.todosAnios = false;
+    this.anio = f.anio;
     this.mesSel = c.mes;
     this.seleccionarTipoPrograma(c.tipo);
   }
@@ -595,9 +628,9 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (!this.anual) { return; }
     try {
       exportarConsolidadoAnualExcel({
-        anio: this.anio,
+        anio: this.todosAnios ? 'TODOS' : this.anio,
         meses: this.mesesCortos,
-        filas: this.anual,
+        filas: this.todosAnios ? this.anual.map(f => Object.assign({}, f, { nombre: f.nombre + ' · ' + f.anio })) : this.anual,
         totalesMes: this.totalesMesAnual,
         totalSSO: this.totalSSOAnual,
         totalMA: this.totalMAAnual
