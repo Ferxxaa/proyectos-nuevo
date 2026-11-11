@@ -247,8 +247,6 @@
 }
 .projects-table thead th.c-centro { text-align: center; }
 .projects-table thead th + th { box-shadow: inset 1px 0 0 rgba(255, 255, 255, .12); }
-:host ::ng-deep .projects-table thead app-help,
-:host ::ng-deep .projects-table thead app-help * { color: #fff !important; }
 
 .projects-table tbody td {
   padding: 8px;
@@ -302,12 +300,12 @@
   background-position: center;
   background-repeat: no-repeat;
 }
-.gantt-selection-column input.gantt-control-disponible { width: 18px; height: 18px; border: 3px solid #e2c56c; border-radius: 3px; }
+.gantt-selection-column input.gantt-control-disponible { width: 24px; height: 24px; border: 3px solid #e2c56c; border-radius: 3px; }
 .gantt-selection-column input.gantt-control-disponible:checked {
   background-color: #fcdb79;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%235c4a20' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='m3 8 3.2 3.2L13 4.5'/%3E%3C/svg%3E");
 }
-.hallazgos-selection-column input.hallazgos-control-disponible { width: 18px; height: 18px; border: 3px solid #cc7006; border-radius: 3px; }
+.hallazgos-selection-column input.hallazgos-control-disponible { width: 24px; height: 24px; border: 3px solid #cc7006; border-radius: 3px; }
 .hallazgos-selection-column input.hallazgos-control-disponible:checked {
   background-color: #cc7006;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='m3 8 3.2 3.2L13 4.5'/%3E%3C/svg%3E");
@@ -434,3 +432,62 @@
 
 /* columnas angostas de selección */
 .projects-table thead th.c-sel-th { padding: 6px 2px; font-size: 9px; letter-spacing: .2px; }
+
+/* cuadritos de Avance y Hallazgo más grandes */
+.gantt-selection-column input,
+.hallazgos-selection-column input {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+/* ---------- reseña compacta de semáforos (sobre la tabla) ---------- */
+.mp-ley-mini {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin: 0 auto 0 18px;
+  padding: 5px 4px;
+  border: 1px solid #e3e8ed;
+  border-radius: 20px;
+  background: #f7f9fb;
+  color: #59636e;
+  font-size: 11px;
+  line-height: 1;
+}
+.mp-ley-grupo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  cursor: help;
+}
+.mp-ley-grupo + .mp-ley-grupo { border-left: 1px solid #dfe5eb; }
+.mp-ley-grupo b {
+  color: #075f91;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.mp-ley-grupo > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.mp-ley-mini .mp-semaforo,
+.mp-ley-mini i.mp-semaforo {
+  display: inline-block;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50%;
+}
+.mp-ley-mini .mp-ley-check {
+  display: inline-block;
+  width: 10px !important;
+  height: 10px !important;
+  border-width: 2px !important;
+  border-style: solid;
+  border-radius: 2px;
+}
+.mp-ley-info { margin-left: -4px; color: #9fb7c8; font-size: 11px; }
+
+@media (max-width: 1399px) {
+  .mp-ley-mini { order: 3; width: 100%; margin: 4px 0 0; justify-content: center; border-radius: 10px; }
+}

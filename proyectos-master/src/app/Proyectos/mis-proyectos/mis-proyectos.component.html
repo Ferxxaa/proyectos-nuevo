@@ -74,6 +74,27 @@
                 <span>{{MisProyectos.length === 1 ? 'sub-proyecto' : 'sub-proyectos'}}</span>
                 <span class="mp-cargando" *ngIf="LoadingTabla"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Actualizando...</span>
               </div>
+              <!-- Reseña compacta de los semáforos -->
+              <div class="mp-ley-mini">
+                <span class="mp-ley-grupo"
+                      title="Días de atraso = el mayor entre lo que se pasó del plazo (duración real − duración total) y el atraso del avance en días ((programado − real) × duración total ÷ 100). Sin duración total: verde si el real alcanza al programado, amarillo hasta 3 puntos abajo, rojo con más de 3.">
+                  <b>Semáforo</b>
+                  <span><i class="mp-semaforo sem-verde"></i> al día o ≤1 día</span>
+                  <span><i class="mp-semaforo sem-amarillo"></i> 2–11 días</span>
+                  <span><i class="mp-semaforo sem-rojo"></i> ≥12 días</span>
+                  <i class="fa fa-info-circle mp-ley-info" aria-hidden="true"></i>
+                </span>
+                <span class="mp-ley-grupo" title="Prioridad de la última bitácora del sub-proyecto">
+                  <b>Bitácora</b>
+                  <span><i class="mp-semaforo sem-verde"></i> baja</span>
+                  <span><i class="mp-semaforo sem-amarillo"></i> media</span>
+                  <span><i class="mp-semaforo sem-rojo"></i> alta</span>
+                </span>
+                <span class="mp-ley-grupo" title="Borde amarillo: tiene control de avance · Borde naranjo: tiene hallazgos">
+                  <span><i class="mp-ley-check mp-ley-avance"></i> con avance</span>
+                  <span><i class="mp-ley-check mp-ley-hallazgo"></i> con hallazgos</span>
+                </span>
+              </div>
               <div class="mp-acciones">
                 <button type="button" class="mp-btn mp-btn-avance" [disabled]="subProyectosSeleccionados.length === 0"
                         (click)="verCartasGantt()" title="Ver cartas Gantt de los sub-proyectos marcados en la columna Avance">
@@ -115,7 +136,7 @@
                     <th class="c-centro">Desviación</th>
                     <th>Avance programado</th>
                     <th>Avance real</th>
-                    <th class="c-centro"><app-help text='Semaforo Sub-Proyecto'></app-help></th>
+                    <th class="c-centro">Semáforo sub-proyecto</th>
                     <th>Etapa en proceso</th>
                     <th>Avance etapa</th>
                     <th class="c-centro" title="Prioridad de la última bitácora del sub-proyecto">Bitácora</th>
@@ -200,19 +221,6 @@
                   </tr>
                 </tbody>
               </table>
-            </div>
-
-            <!-- Leyenda -->
-            <div class="mp-leyenda">
-              <span><i class="mp-semaforo sem-verde"></i> Al día (hasta 1 día de atraso)</span>
-              <span><i class="mp-semaforo sem-amarillo"></i> 2 a 11 días de atraso</span>
-              <span><i class="mp-semaforo sem-rojo"></i> 12 días o más</span>
-              <span class="mp-ley-sep"></span>
-              <span><i class="mp-ley-check mp-ley-avance"></i> Tiene control de avance</span>
-              <span><i class="mp-ley-check mp-ley-hallazgo"></i> Tiene hallazgos</span>
-              <span class="mp-ley-sep"></span>
-              <span><i class="mp-ley-barra av-prog"></i> Programado</span>
-              <span><i class="mp-ley-barra av-real"></i> Real</span>
             </div>
 
           </div>
