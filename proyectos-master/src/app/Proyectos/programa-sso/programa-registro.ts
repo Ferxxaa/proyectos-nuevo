@@ -18,10 +18,20 @@ export interface AdjuntoRegistro {
 
 export interface RegistroDia {
   cumplimiento: number;   // 100 = realizado | 75 / 50 = parcial | 0 = no hecho
-  hhCapacitacion: number;      // HH capacitadas = específicas + operacionales (se calcula)
-  hhEspecificas: number;       // HH específicas (Mutual, OTEC, Mandante, Otros)
+
+  // ---- HH Capacitación (formato nuevo: todo en minutos) ----
+  categoriaHH?: string;        // 'OPERACIONAL' | 'ESPECIFICA' | '' (sin HH)
+  trabajadores?: number;       // participantes
+  duracionMin?: number;        // duración individual de la capacitación, en minutos
+  hhMinutos?: number;          // HH netas en minutos = trabajadores × duracionMin
+
+  // ---- Campos en horas decimales: se siguen escribiendo para compatibilidad
+  //      (Estadísticas HH y registros antiguos). La fuente de verdad es hhMinutos.
+  hhCapacitacion: number;      // HH capacitación = operacionales + específicas (horas)
+  hhEspecificas: number;       // HH específicas (horas)
   entidadEspecifica: string;   // MUTUAL | OTEC | MANDANTE | OTROS | ''
-  hhOperacional: number;       // HH operacionales
+  hhOperacional: number;       // HH operacionales (horas)
+
   consumo?: number;            // solo MA: consumo del día (agua / combustible / residuos)
   consumoCampo?: string;       // indicador de la tabla MA al que va (consumoAgua, ...)
   observacion: string;
@@ -34,16 +44,31 @@ export interface HHDia {
   hhCapacitacion: number;
   hhEspecificas: number;
   hhOperacional: number;
+  minCapacitacion: number;
+  minEspecificas: number;
+  minOperacional: number;
 }
 
 export interface ResumenHH {
+  // horas decimales (compatibilidad con Estadísticas HH)
   hhCapacitacion: number;
   hhEspecificas: number;
   hhOperacional: number;
   total: number;
+  // minutos (fuente de verdad)
+  minOperacional: number;
+  minEspecificas: number;
+  minTotal: number;
+  // participantes (suma de trabajadores de cada registro) y cantidad de registros
+  trabajadoresOperacional: number;
+  trabajadoresEspecificas: number;
+  registrosOperacional: number;
+  registrosEspecificas: number;
   porDia: { [dia: number]: HHDia };
-  /** HH específicas por entidad: { MUTUAL: 4, OTEC: 2, ... } */
+  /** HH específicas por entidad, en horas: { MUTUAL: 4, OTEC: 2, ... } */
   porEntidad: { [entidad: string]: number };
+  /** HH específicas por entidad, en minutos */
+  porEntidadMin: { [entidad: string]: number };
 }
 
 export const NIVELES_CUMPLIMIENTO = [
@@ -55,12 +80,28 @@ export const NIVELES_CUMPLIMIENTO = [
 
 export const VALORES_CUMPLIMIENTO = [100, 75, 50, 0];
 
-/** Campos de HH del registro (en este orden se muestran en el popup y en el Excel). */
-/** Campos que se escriben. HH capacitadas no se escribe: es la suma de estos dos. */
+/**
+ * Campos antiguos de HH (horas decimales). Se mantienen solo por compatibilidad;
+ * el popup ahora pide trabajadores + horas + minutos.
+ */
 export const CAMPOS_HH = [
   { k: 'hhEspecificas', t: 'HH específicas' },
   { k: 'hhOperacional', t: 'HH operacionales' }
 ];
+
+/** Categorías padre de HH Capacitación. */
+export const CATEGORIA_OPERACIONAL = 'OPERACIONAL';
+export const CATEGORIA_ESPECIFICA = 'ESPECIFICA';
+
+export const CATEGORIAS_HH = [
+  { v: CATEGORIA_OPERACIONAL, t: 'HH Operacionales', d: 'Cursos, talleres y capacitaciones de funciones y procedimientos operacionales' },
+  { v: CATEGORIA_ESPECIFICA, t: 'HH Específicas', d: 'Cursos y capacitaciones de carácter específico o especializado' }
+];
+
+export function textoCategoriaHH(v: string): string {
+  const c = CATEGORIAS_HH.filter(x => x.v === v)[0];
+  return c ? c.t : '';
+}
 
 /** Quién dictó la capacitación específica. */
 export const ENTIDADES_ESPECIFICAS = [
@@ -113,50 +154,168 @@ export function redondear(n: number): number {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
 
+// ===================== HH Capacitación: cálculo central (en minutos) =====================
+
+export const MAX_TRABAJADORES = 5000;
+export const MAX_HORAS_DURACION = 24;
+
+/** Categoría que define la sección de la actividad (null = la actividad no tiene categoría fija). */
+export function categoriaDeSeccion(seccion: string): string {
+  const s = claveTexto(seccion);
+  if (!s) { return null; }
+  if (s.indexOf('operacional') >= 0) { return CATEGORIA_OPERACIONAL; }
+  if (s.indexOf('especific') >= 0) { return CATEGORIA_ESPECIFICA; }
+  return null;
+}
+
+/** Categoría fija de una actividad según su sección (Capacitación Operacional / Capacitaciones Específicas). */
+export function categoriaFijaDe(a: ActividadPrograma): string {
+  return a ? categoriaDeSeccion((a as any).seccion) : null;
+}
+
+/** Entero >= 0 a partir de lo que se escribió en un input (vacío = 0). Lanza error si no es válido. */
+export function enteroNoNegativo(v: any, campo: string): number {
+  if (v === null || v === undefined || String(v).trim() === '') { return 0; }
+  const n = Number(String(v).trim().replace(',', '.'));
+  if (!isFinite(n)) { throw new Error(campo + ': ingresa un número.'); }
+  if (n < 0) { throw new Error(campo + ' no puede ser negativo.'); }
+  if (Math.floor(n) !== n) { throw new Error(campo + ' debe ser un número entero.'); }
+  return n;
+}
+
+export interface CalculoHH {
+  trabajadores: number;
+  duracionMin: number;   // duración individual
+  hhMinutos: number;     // trabajadores × duración
+}
+
+/**
+ * Valida y calcula las HH: trabajadores × (horas × 60 + minutos).
+ * Todo en minutos enteros, sin redondeos.
+ */
+export function calcularHH(trabajadores: any, horas: any, minutos: any): CalculoHH {
+  const t = enteroNoNegativo(trabajadores, 'Trabajadores');
+  const h = enteroNoNegativo(horas, 'Horas');
+  const m = enteroNoNegativo(minutos, 'Minutos');
+  if (m > 59) { throw new Error('Los minutos deben estar entre 0 y 59.'); }
+  if (t > MAX_TRABAJADORES) { throw new Error('La cantidad de trabajadores parece demasiado alta, revisa el valor.'); }
+  if (h > MAX_HORAS_DURACION) { throw new Error('La duración individual no puede superar ' + MAX_HORAS_DURACION + ' horas.'); }
+  const duracion = h * 60 + m;
+  return { trabajadores: t, duracionMin: duracion, hhMinutos: t * duracion };
+}
+
+/** Minutos → "7 h 30 min" / "45 min" / "3 h" / "0 min". */
+export function formatoHM(minutos: number): string {
+  const total = Math.max(0, Math.round(Number(minutos) || 0));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (!h) { return m + ' min'; }
+  const hs = String(h).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return m ? hs + ' h ' + m + ' min' : hs + ' h';
+}
+
+/** Minutos → horas decimales (solo para compatibilidad y para el Excel). */
+export function minutosAHoras(minutos: number): number {
+  return Math.round((Number(minutos) || 0) / 60 * 10000) / 10000;
+}
+
+export interface HHRegistro {
+  categoria: string;      // OPERACIONAL | ESPECIFICA | ''
+  trabajadores: number;   // 0 si es un registro antiguo
+  duracionMin: number;    // 0 si es un registro antiguo
+  minOperacional: number;
+  minEspecificas: number;
+  minTotal: number;
+  antiguo: boolean;       // registro guardado en horas decimales (sin trabajadores / duración)
+}
+
+/** Lee las HH de un registro (formato nuevo o antiguo) y las devuelve en minutos. */
+export function hhRegistroMin(r: RegistroDia): HHRegistro {
+  const res: HHRegistro = {
+    categoria: '', trabajadores: 0, duracionMin: 0,
+    minOperacional: 0, minEspecificas: 0, minTotal: 0, antiguo: false
+  };
+  if (!r) { return res; }
+  const x: any = r;
+  const nuevo = x.categoriaHH !== undefined && x.categoriaHH !== null;
+  if (nuevo) {
+    const cat = x.categoriaHH === CATEGORIA_OPERACIONAL || x.categoriaHH === CATEGORIA_ESPECIFICA ? x.categoriaHH : '';
+    if (!cat) { return res; }
+    const t = Math.max(0, Math.round(Number(x.trabajadores) || 0));
+    const d = Math.max(0, Math.round(Number(x.duracionMin) || 0));
+    const min = t && d ? t * d : Math.max(0, Math.round(Number(x.hhMinutos) || 0));
+    res.categoria = cat;
+    res.trabajadores = t;
+    res.duracionMin = d;
+    if (cat === CATEGORIA_OPERACIONAL) { res.minOperacional = min; } else { res.minEspecificas = min; }
+  } else {
+    // registro antiguo: horas decimales
+    res.antiguo = true;
+    res.minOperacional = Math.max(0, Math.round((Number(x.hhOperacional) || 0) * 60));
+    res.minEspecificas = Math.max(0, Math.round((Number(x.hhEspecificas) || 0) * 60));
+    if (res.minEspecificas && !res.minOperacional) { res.categoria = CATEGORIA_ESPECIFICA; }
+    else if (res.minOperacional && !res.minEspecificas) { res.categoria = CATEGORIA_OPERACIONAL; }
+  }
+  res.minTotal = res.minOperacional + res.minEspecificas;
+  return res;
+}
+
+/** HH del registro en horas decimales (compatibilidad). */
 export function hhDeRegistro(r: RegistroDia): number {
-  if (!r) { return 0; }
-  let t = 0;
-  CAMPOS_HH.forEach(c => { t += Number((r as any)[c.k]) || 0; });
-  return redondear(t);
+  return redondear(hhRegistroMin(r).minTotal / 60);
 }
 
 export function resumenHHVacio(): ResumenHH {
-  return { hhCapacitacion: 0, hhEspecificas: 0, hhOperacional: 0, total: 0, porDia: {}, porEntidad: {} };
+  return {
+    hhCapacitacion: 0, hhEspecificas: 0, hhOperacional: 0, total: 0,
+    minOperacional: 0, minEspecificas: 0, minTotal: 0,
+    trabajadoresOperacional: 0, trabajadoresEspecificas: 0,
+    registrosOperacional: 0, registrosEspecificas: 0,
+    porDia: {}, porEntidad: {}, porEntidadMin: {}
+  };
 }
 
 /** Suma las HH registradas en un programa (SSO o MA). Se puede acumular sobre otro resumen. */
 export function sumarHHPrograma(p: ProgramaMes, acumulado?: ResumenHH): ResumenHH {
   const r = acumulado || resumenHHVacio();
+  if (!r.porEntidadMin) { r.porEntidadMin = {}; }
   if (!p || !p.actividades) { return r; }
   p.actividades.forEach(a => {
     const regs = registrosDe(a);
     Object.keys(regs).forEach(k => {
       const reg = regs[k];
       if (!reg) { return; }
+      const hh = hhRegistroMin(reg);
+      if (!hh.minTotal) { return; }
       const dia = Number(k);
       if (!r.porDia[dia]) {
-        r.porDia[dia] = { hhCapacitacion: 0, hhEspecificas: 0, hhOperacional: 0 };
+        r.porDia[dia] = { hhCapacitacion: 0, hhEspecificas: 0, hhOperacional: 0, minCapacitacion: 0, minEspecificas: 0, minOperacional: 0 };
       }
-      const esp = Number(reg.hhEspecificas) || 0;
-      if (esp > 0) {
+      const pd = r.porDia[dia];
+      pd.minOperacional += hh.minOperacional;
+      pd.minEspecificas += hh.minEspecificas;
+      pd.minCapacitacion = pd.minOperacional + pd.minEspecificas;
+      pd.hhOperacional = redondear(pd.minOperacional / 60);
+      pd.hhEspecificas = redondear(pd.minEspecificas / 60);
+      pd.hhCapacitacion = redondear(pd.minCapacitacion / 60);
+
+      r.minOperacional += hh.minOperacional;
+      r.minEspecificas += hh.minEspecificas;
+      if (hh.minOperacional) { r.registrosOperacional++; r.trabajadoresOperacional += hh.trabajadores; }
+      if (hh.minEspecificas) {
+        r.registrosEspecificas++;
+        r.trabajadoresEspecificas += hh.trabajadores;
         const ent = reg.entidadEspecifica || 'OTROS';
-        r.porEntidad[ent] = redondear((r.porEntidad[ent] || 0) + esp);
+        r.porEntidadMin[ent] = (r.porEntidadMin[ent] || 0) + hh.minEspecificas;
+        r.porEntidad[ent] = redondear(r.porEntidadMin[ent] / 60);
       }
-      CAMPOS_HH.forEach(campo => {
-        const v = Number((reg as any)[campo.k]) || 0;
-        (r as any)[campo.k] += v;
-        (r.porDia[dia] as any)[campo.k] = redondear((r.porDia[dia] as any)[campo.k] + v);
-      });
-      r.porDia[dia].hhCapacitacion = redondear(r.porDia[dia].hhEspecificas + r.porDia[dia].hhOperacional);
     });
   });
-  let total = 0;
-  CAMPOS_HH.forEach(campo => {
-    (r as any)[campo.k] = redondear((r as any)[campo.k]);
-    total += (r as any)[campo.k];
-  });
-  r.total = redondear(total);
-  r.hhCapacitacion = r.total;   // HH capacitadas = específicas + operacionales
+  r.minTotal = r.minOperacional + r.minEspecificas;
+  r.hhOperacional = redondear(r.minOperacional / 60);
+  r.hhEspecificas = redondear(r.minEspecificas / 60);
+  r.total = redondear(r.minTotal / 60);
+  r.hhCapacitacion = r.total;   // HH Capacitación = operacionales + específicas
   return r;
 }
 

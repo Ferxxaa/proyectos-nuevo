@@ -2,8 +2,10 @@ import { Component, ElementRef, HostListener, Input, OnChanges, OnDestroy, Simpl
 import { ProgramaSsoService, ProgramaMes, ActividadPrograma } from './programa-sso.service';
 import { getFeriadosChile } from '../estadisticas-hh/control-asistencia.component';
 import {
-  AdjuntoRegistro, RegistroDia, NIVELES_CUMPLIMIENTO, VALORES_CUMPLIMIENTO, CAMPOS_HH, ENTIDADES_ESPECIFICAS, TAMANO_MAXIMO_ADJUNTO,
-  registrosDe, sumarHHPrograma, hhDeRegistro, redondear, subirAdjunto, borrarAdjunto
+  AdjuntoRegistro, RegistroDia, NIVELES_CUMPLIMIENTO, VALORES_CUMPLIMIENTO, ENTIDADES_ESPECIFICAS, TAMANO_MAXIMO_ADJUNTO,
+  registrosDe, sumarHHPrograma, redondear, subirAdjunto, borrarAdjunto,
+  CATEGORIAS_HH, CATEGORIA_ESPECIFICA, categoriaFijaDe, calcularHH, hhRegistroMin, formatoHM, minutosAHoras,
+  textoCategoriaHH, ResumenHH, resumenHHVacio, textoEntidad
 } from './programa-registro';
 import { exportarProgramaExcel, exportarConsolidadoAnualExcel } from './programa-excel';
 import { firestoreDB } from '../../firebase-init';
@@ -125,7 +127,7 @@ interface CeldaVista {
   x: boolean;     // realizado (cumplimiento > 0)
   cump: number;   // 100 | 75 | 50 | 0 | null (sin registro)
   adj: number;    // cantidad de adjuntos
-  hh: number;     // HH registradas ese día
+  hhMin: number;  // HH capacitación registradas ese día (minutos)
 }
 
 interface FilaVista {
@@ -162,9 +164,7 @@ interface ResumenPrograma {
   pct: number;             // null = sin días programados
   promedioItems: number;   // null = sin días programados
   grupos: ResumenGrupo[];
-  hhCapacitadas: number;
-  hhEspecificas: number;
-  hhOperacionales: number;
+  hh: ResumenHH;           // HH Capacitación del programa (minutos + horas)
   consumos: { etiqueta: string; unidad: string; valor: number }[];
 }
 
@@ -180,8 +180,14 @@ interface ModalRegistro {
   soloLectura: boolean;
   existente: boolean;
   cumplimiento: number;
-  hh: { [campo: string]: number };   // hhEspecificas, hhOperacional (capacitadas = la suma)
+  categoria: string;                 // OPERACIONAL | ESPECIFICA | '' (no aplica)
+  categoriaFija: boolean;            // true = la define la sección de la actividad
+  trabajadores: any;                 // inputs (se validan al guardar)
+  horas: any;
+  minutos: any;
   entidad: string;                   // entidad de las HH específicas
+  antiguo: { minOperacional: number; minEspecificas: number; minTotal: number }; // registro en horas decimales (o null)
+  descartarAntiguo: boolean;         // true = al guardar se borran las HH antiguas
   consumoDef: ConsumoMA;             // solo MA: consumo que se registra en esta actividad (o null)
   consumo: number;
   observacion: string;
@@ -207,7 +213,10 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   meses = MESES;
   nivelesCumplimiento = NIVELES_CUMPLIMIENTO;
-  camposHH = CAMPOS_HH;
+  categoriasHH = CATEGORIAS_HH;
+  formatoHM = formatoHM;
+  textoCategoriaHH = textoCategoriaHH;
+  textoEntidad = textoEntidad;
   entidadesEspecificas = ENTIDADES_ESPECIFICAS;
   frecuencias = [
     { v: 'DIARIA', t: 'Diaria' },
@@ -250,14 +259,12 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   pctTotal = 0;
   pctGlobal = 0;
 
-  // HH registradas en el mes (van a Estadísticas HH)
-  hhCapacitacion = 0;
-  hhEspecificas = 0;
-  hhOperacional = 0;
-  hhTotal = 0;
+  // HH Capacitación del mes (operacionales + específicas, en minutos). Van a Estadísticas HH.
+  hhMes: ResumenHH = resumenHHVacio();
 
   // Popup de registro
   modal: ModalRegistro = null;
+  private guardandoRegistro = false;     // evita registros duplicados por doble clic
   subiendo = 0;
   progresoSubida = 0;
   errorModal = '';
@@ -614,15 +621,15 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     const vacio: ResumenPrograma = {
       tipo: tipo, existe: false, estado: '', textoEstado: 'Sin programa', validadoPor: '',
       totalProg: 0, totalCtrl: 0, pct: null, promedioItems: null, grupos: [],
-      hhCapacitadas: 0, hhEspecificas: 0, hhOperacionales: 0, consumos: []
+      hh: resumenHHVacio(), consumos: []
     };
     if (!p) { return vacio; }
 
     const progAnt = this.programa;
     const diasAnt = this.dias;
     const gruposAnt = this.grupos;
-    const tot = [this.totalProg, this.totalCtrl, this.pctTotal, this.pctGlobal,
-      this.hhCapacitacion, this.hhEspecificas, this.hhOperacional, this.hhTotal];
+    const tot = [this.totalProg, this.totalCtrl, this.pctTotal, this.pctGlobal];
+    const hhAnt = this.hhMes;
     try {
       this.programa = this.normalizar(p);
       this.recalcular();
@@ -650,9 +657,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
             })
           };
         }),
-        hhCapacitadas: this.hhCapacitacion,
-        hhEspecificas: this.hhEspecificas,
-        hhOperacionales: this.hhOperacional,
+        hh: this.hhMes,
         consumos: []
       };
       // consumos de MA registrados en el mes
@@ -680,7 +685,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       this.dias = diasAnt;
       this.grupos = gruposAnt;
       this.totalProg = tot[0]; this.totalCtrl = tot[1]; this.pctTotal = tot[2]; this.pctGlobal = tot[3];
-      this.hhCapacitacion = tot[4]; this.hhEspecificas = tot[5]; this.hhOperacional = tot[6]; this.hhTotal = tot[7];
+      this.hhMes = hhAnt;
     }
   }
 
@@ -701,7 +706,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
         const r = regs[k];
         if (!r) { delete regs[k]; return; }
         r.adjuntos = r.adjuntos || [];
-        if (VALORES_CUMPLIMIENTO.indexOf(r.cumplimiento) < 0) { r.cumplimiento = 100; }
+        // null = cumplimiento quitado a mano (se respeta); undefined o valor raro = registro antiguo → 100%
+        if (r.cumplimiento !== null && VALORES_CUMPLIMIENTO.indexOf(r.cumplimiento) < 0) { r.cumplimiento = 100; }
       });
     });
     if (!p.grupos || !p.grupos.length) {
@@ -976,7 +982,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       this.dias = this.construirDias([]);
       this.grupos = [];
       this.totalProg = 0; this.totalCtrl = 0; this.pctTotal = 0; this.pctGlobal = 0;
-      this.hhCapacitacion = 0; this.hhEspecificas = 0; this.hhOperacional = 0; this.hhTotal = 0;
+      this.hhMes = resumenHHVacio();
       return;
     }
     this.dias = this.construirDias(this.programa.feriados,
@@ -1009,11 +1015,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.pctTotal = totalProg > 0 ? Math.round(totalCtrl * 100 / totalProg) : 0;
     this.pctGlobal = nGrupos > 0 ? Math.round(sumaGrupos / nGrupos) : 0;
 
-    const hh = sumarHHPrograma(this.programa);
-    this.hhCapacitacion = hh.hhCapacitacion;
-    this.hhEspecificas = hh.hhEspecificas;
-    this.hhOperacional = hh.hhOperacional;
-    this.hhTotal = hh.total;
+    this.hhMes = sumarHHPrograma(this.programa);
   }
 
   /** Agrupa las filas por sección en el orden en que aparecen; las sin sección van primero. */
@@ -1058,7 +1060,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       const reg = regs[String(d.dia)];
       let cump: number = null;
       if (marcada) {
-        if (reg) { cump = reg.cumplimiento; }
+        if (reg) { cump = VALORES_CUMPLIMIENTO.indexOf(reg.cumplimiento) >= 0 ? reg.cumplimiento : null; }
         else if (a.realizados.indexOf(d.dia) >= 0) { cump = 100; } // marcas antiguas sin registro
       }
       return {
@@ -1067,7 +1069,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
         x: cump !== null && cump > 0,
         cump: cump,
         adj: marcada && reg && reg.adjuntos ? reg.adjuntos.length : 0,
-        hh: marcada && reg ? hhDeRegistro(reg) : 0
+        hhMin: marcada && reg ? hhRegistroMin(reg).minTotal : 0
       };
     });
 
@@ -1125,7 +1127,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     else if (c.cump === 75) { t = 'Parcial (75%)'; }
     else if (c.cump === 50) { t = 'Parcial (50%)'; }
     else if (c.cump === 0) { t = 'No hecho (0%)'; }
-    if (c.hh) { t += ' · ' + c.hh + ' HH'; }
+    if (c.hhMin) { t += ' · ' + formatoHM(c.hhMin) + ' HH'; }
     if (c.adj) { t += ' · ' + c.adj + (c.adj === 1 ? ' adjunto' : ' adjuntos'); }
     if (this.enControl) { t += c.cump === null ? ' — clic para registrar' : ' — clic para ver o editar'; }
     else if (c.cump !== null && !this.enEdicion) { t += ' — clic para ver el detalle'; }
@@ -1349,8 +1351,14 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       soloLectura: !this.enControl,
       existente: !!reg || enRealizados,
       cumplimiento: reg ? reg.cumplimiento : 100,
-      hh: this.hhInicial(reg),
+      categoria: '',
+      categoriaFija: false,
+      trabajadores: null,
+      horas: null,
+      minutos: null,
       entidad: reg && reg.entidadEspecifica ? reg.entidadEspecifica : 'MUTUAL',
+      antiguo: null,
+      descartarAntiguo: false,
       observacion: reg ? (reg.observacion || '') : '',
       adjuntos: reg && reg.adjuntos ? reg.adjuntos.slice() : [],
       registradoPor: reg ? (reg.registradoPor || '') : '',
@@ -1358,30 +1366,68 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       consumoDef: this.esMA ? consumoMADe(a.nombre) : null,
       consumo: reg && reg.consumo !== null && reg.consumo !== undefined ? reg.consumo : null
     };
+    this.cargarHHModal(this.modal, reg);
     this.adjNuevos = [];
     this.adjQuitados = [];
     this.errorModal = '';
     this.progresoSubida = 0;
+    this.guardandoRegistro = false;
   }
 
-  private hhInicial(reg: RegistroDia): { [campo: string]: number } {
-    const res: { [campo: string]: number } = {};
-    CAMPOS_HH.forEach(c => {
-      const v = reg ? Number((reg as any)[c.k]) : 0;
-      res[c.k] = v ? v : null;
-    });
-    return res;
+  /** Llena la parte de HH del popup según la actividad y lo que ya estaba registrado. */
+  private cargarHHModal(m: ModalRegistro, reg: RegistroDia) {
+    const fija = categoriaFijaDe(m.act);
+    const hh = hhRegistroMin(reg);
+    m.categoriaFija = !!fija;
+    m.categoria = fija || hh.categoria || '';
+    if (reg && !hh.antiguo && hh.minTotal) {
+      m.trabajadores = hh.trabajadores || null;
+      m.horas = Math.floor(hh.duracionMin / 60) || null;
+      m.minutos = hh.duracionMin % 60 || null;
+    }
+    if (hh.antiguo && hh.minTotal) {
+      m.antiguo = { minOperacional: hh.minOperacional, minEspecificas: hh.minEspecificas, minTotal: hh.minTotal };
+    }
+  }
+
+  /** ¿Se ingresó algo en trabajadores / horas / minutos? */
+  private hayDatosHH(m: ModalRegistro): boolean {
+    return [m.trabajadores, m.horas, m.minutos].some(v => v !== null && v !== undefined && String(v).trim() !== '' && Number(v) !== 0);
+  }
+
+  /** Cálculo en vivo del popup (null = todavía no hay datos). */
+  get calculoModal(): { trabajadores: number; duracionMin: number; hhMinutos: number; error: string } {
+    const m = this.modal;
+    if (!m || !m.categoria) { return null; }
+    if (!this.hayDatosHH(m)) { return null; }
+    try {
+      const c = calcularHH(m.trabajadores, m.horas, m.minutos);
+      return { trabajadores: c.trabajadores, duracionMin: c.duracionMin, hhMinutos: c.hhMinutos, error: '' };
+    } catch (e) {
+      return { trabajadores: 0, duracionMin: 0, hhMinutos: 0, error: e.message };
+    }
+  }
+
+  /** Deja el día sin cumplimiento marcado (por si se marcó por error). */
+  quitarCumplimiento() {
+    if (!this.modal || this.modal.soloLectura) { return; }
+    this.modal.cumplimiento = null;
+    this.errorModal = '';
+  }
+
+  /** Registro antiguo (horas decimales): marcar para borrar sus HH al guardar, o deshacer. */
+  descartarHHAntiguas(v: boolean) {
+    if (this.modal && !this.modal.soloLectura && this.modal.antiguo) { this.modal.descartarAntiguo = v; }
+  }
+
+  elegirCategoria(v: string) {
+    if (this.modal && !this.modal.soloLectura && !this.modal.categoriaFija) { this.modal.categoria = v; }
   }
 
   elegirCumplimiento(v: number) {
-    if (this.modal && !this.modal.soloLectura) { this.modal.cumplimiento = v; }
-  }
-
-  get totalHHModal(): number {
-    if (!this.modal) { return 0; }
-    let t = 0;
-    CAMPOS_HH.forEach(c => { t += Number(this.modal.hh[c.k]) || 0; });
-    return redondear(t);
+    if (!this.modal || this.modal.soloLectura) { return; }
+    // clic sobre el que ya está marcado = se quita el cumplimiento (por si se marcó por error)
+    this.modal.cumplimiento = this.modal.cumplimiento === v ? null : v;
   }
 
   clickFondoModal(evento: MouseEvent) {
@@ -1402,23 +1448,29 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.errorModal = '';
   }
 
-  private valorHH(v: any, campo: string): number {
-    if (v === null || v === undefined || v === '') { return 0; }
-    const n = Number(String(v).replace(',', '.'));
-    if (!isFinite(n) || n < 0) { throw new Error('Las ' + campo + ' deben ser un número mayor o igual a 0.'); }
-    if (n > 10000) { throw new Error('Las ' + campo + ' parecen demasiadas, revisa el valor.'); }
-    return redondear(n);
-  }
-
   guardarRegistro() {
     const m = this.modal;
     if (!m || m.soloLectura || !this.enControl) { return; }
     if (this.subiendo) { this.errorModal = 'Espera a que terminen de subir los archivos.'; return; }
+    if (this.guardandoRegistro) { return; }   // evita doble envío
 
-    const hh: { [campo: string]: number } = {};
+    const cumplimiento = VALORES_CUMPLIMIENTO.indexOf(m.cumplimiento) >= 0 ? m.cumplimiento : null;   // null = sin marcar
+    let calc = { trabajadores: 0, duracionMin: 0, hhMinutos: 0 };
+    let categoria = '';
+    let mantenerAntiguo = false;
     let consumo: number = null;
     try {
-      CAMPOS_HH.forEach(c => { hh[c.k] = this.valorHH(m.hh[c.k], c.t); });
+      if (m.categoria && this.hayDatosHH(m)) {
+        calc = calcularHH(m.trabajadores, m.horas, m.minutos);
+        if (calc.trabajadores < 1) { throw new Error('No se puede registrar una capacitación sin participantes: ingresa la cantidad de trabajadores.'); }
+        if (calc.duracionMin < 1) { throw new Error('Ingresa la duración individual de la capacitación (horas y/o minutos).'); }
+        if (cumplimiento === null) { throw new Error('Marca el cumplimiento para registrar HH (o deja las HH en blanco).'); }
+        if (cumplimiento === 0) { throw new Error('La actividad quedó como "No hecho (0%)": deja las HH en blanco o cambia el cumplimiento.'); }
+        categoria = m.categoria;
+      } else if (m.antiguo && !m.descartarAntiguo) {
+        // registro antiguo sin desglose: se conserva tal cual (no se borra información)
+        mantenerAntiguo = true;
+      }
       if (m.consumoDef && m.consumo !== null && m.consumo !== undefined && String(m.consumo) !== '') {
         consumo = Number(String(m.consumo).replace(',', '.'));
         if (!isFinite(consumo) || consumo < 0) { throw new Error('El consumo debe ser un número mayor o igual a 0.'); }
@@ -1429,24 +1481,50 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    const reg: RegistroDia = {
-      cumplimiento: VALORES_CUMPLIMIENTO.indexOf(m.cumplimiento) >= 0 ? m.cumplimiento : 100,
-      hhCapacitacion: redondear((hh['hhEspecificas'] || 0) + (hh['hhOperacional'] || 0)),
-      hhEspecificas: hh['hhEspecificas'],
-      entidadEspecifica: hh['hhEspecificas'] > 0 ? (m.entidad || 'OTROS') : '',
-      hhOperacional: hh['hhOperacional'],
+    const anterior: any = registrosDe(m.act)[String(m.dia)] || {};
+    const minOp = categoria && categoria !== CATEGORIA_ESPECIFICA ? calc.hhMinutos : 0;
+    const minEsp = categoria === CATEGORIA_ESPECIFICA ? calc.hhMinutos : 0;
+    const reg: RegistroDia = mantenerAntiguo ? {
+      cumplimiento: cumplimiento,
+      hhCapacitacion: Number(anterior.hhCapacitacion) || 0,
+      hhEspecificas: Number(anterior.hhEspecificas) || 0,
+      entidadEspecifica: Number(anterior.hhEspecificas) > 0 ? (m.entidad || anterior.entidadEspecifica || 'OTROS') : '',
+      hhOperacional: Number(anterior.hhOperacional) || 0,
       consumo: consumo,
       consumoCampo: m.consumoDef ? m.consumoDef.campo : '',
       observacion: (m.observacion || '').trim(),
-      adjuntos: m.adjuntos.map(x => ({
-        nombre: x.nombre || '', url: x.url || '', path: x.path || '', tipo: x.tipo || '', tamano: x.tamano || 0
-      })),
+      adjuntos: this.adjuntosParaGuardar(m),
+      registradoPor: this.nombreUsuario || '',
+      fechaRegistro: new Date().toISOString()
+    } : {
+      cumplimiento: cumplimiento,
+      categoriaHH: categoria,
+      trabajadores: categoria ? calc.trabajadores : 0,
+      duracionMin: categoria ? calc.duracionMin : 0,
+      hhMinutos: categoria ? calc.hhMinutos : 0,
+      // horas decimales para compatibilidad (la fuente de verdad son los minutos)
+      hhCapacitacion: minutosAHoras(minOp + minEsp),
+      hhEspecificas: minutosAHoras(minEsp),
+      entidadEspecifica: minEsp > 0 ? (m.entidad || 'OTROS') : '',
+      hhOperacional: minutosAHoras(minOp),
+      consumo: consumo,
+      consumoCampo: m.consumoDef ? m.consumoDef.campo : '',
+      observacion: (m.observacion || '').trim(),
+      adjuntos: this.adjuntosParaGuardar(m),
       registradoPor: this.nombreUsuario || '',
       fechaRegistro: new Date().toISOString()
     };
+    this.guardandoRegistro = true;
 
     const a = m.act;
-    registrosDe(a)[String(m.dia)] = reg;
+    // Sin cumplimiento y sin nada más (HH, observación, adjuntos, consumo): el día vuelve a quedar sin registro
+    const sinDatos = cumplimiento === null && !categoria && !mantenerAntiguo && !reg.observacion &&
+      !reg.adjuntos.length && (consumo === null || consumo === undefined);
+    if (sinDatos) {
+      delete registrosDe(a)[String(m.dia)];
+    } else {
+      registrosDe(a)[String(m.dia)] = reg;
+    }
     // "realizados" queda solo con lo hecho (100%, 75% o 50%); el 0% queda registrado pero no cuenta como hecho
     if (reg.cumplimiento > 0) {
       if (a.realizados.indexOf(m.dia) < 0) { a.realizados.push(m.dia); a.realizados.sort((x, y) => x - y); }
@@ -1458,8 +1536,16 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.adjNuevos = [];
     this.adjQuitados = [];
     this.modal = null;
-    this.guardarInmediato('Registro guardado');
+    this.guardandoRegistro = false;
+    this.recalcular();   // acumulados al día
+    this.guardarInmediato(sinDatos ? 'Cumplimiento quitado' : 'Registro guardado');
     if (m.consumoDef) { this.sincronizarConsumoMA(m.consumoDef.campo); }
+  }
+
+  private adjuntosParaGuardar(m: ModalRegistro): AdjuntoRegistro[] {
+    return m.adjuntos.map(x => ({
+      nombre: x.nombre || '', url: x.url || '', path: x.path || '', tipo: x.tipo || '', tamano: x.tamano || 0
+    }));
   }
 
   quitarRegistro() {
@@ -1480,6 +1566,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.adjNuevos = [];
     this.adjQuitados = [];
     this.modal = null;
+    this.recalcular();   // acumulados al día
     this.guardarInmediato('Registro eliminado');
     if (m.consumoDef) { this.sincronizarConsumoMA(m.consumoDef.campo); }
   }

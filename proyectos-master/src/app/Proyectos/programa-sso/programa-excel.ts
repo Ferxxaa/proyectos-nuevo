@@ -1,5 +1,8 @@
 import { ProgramaMes } from './programa-sso.service';
-import { registrosDe, RegistroDia, hhDeRegistro, redondear, CAMPOS_HH, textoEntidad, CONSUMOS_MA } from './programa-registro';
+import {
+  registrosDe, RegistroDia, redondear, textoEntidad, CONSUMOS_MA,
+  hhRegistroMin, formatoHM, minutosAHoras, textoCategoriaHH
+} from './programa-registro';
 
 /**
  * Exporta el programa del mes a Excel (.xlsx real) con colores, sin librerías externas.
@@ -400,28 +403,30 @@ function registrosOrdenados(p: ProgramaMes): FilaRegistro[] {
 }
 
 function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
-  const anchos = [26, 44, 11, 17];
-  CAMPOS_HH.forEach(() => anchos.push(13));
-  anchos.push(14, 10, 26, 40, 18, 36);
+  // Ítem, Actividad, Fecha, Cumplimiento, Categoría HH, Trabajadores, Duración individual, Total minutos,
+  // HH netas, HH (decimal), Entidad, Consumo, Observación, Registrado por, Adjuntos
+  const anchos = [26, 44, 11, 17, 17, 12, 15, 12, 15, 11, 14, 14, 40, 18, 36];
   const nc = anchos.length;
   const h = new Hoja('Registro HH', anchos, { filas: 4, cols: 0 });
 
   let f = h.fila(24);
-  h.set(f, 1, 'REGISTRO DE HH Y CUMPLIMIENTO · ' + d.tipo + ' · ' + d.mesNombre + ' ' + d.anio, 'titulo', { merge: nc - 1 });
+  h.set(f, 1, 'REGISTRO DE HH CAPACITACIÓN Y CUMPLIMIENTO · ' + d.tipo + ' · ' + d.mesNombre + ' ' + d.anio, 'titulo', { merge: nc - 1 });
   f = h.fila(); h.set(f, 1, 'Subproyecto: ' + (d.subproyecto || '—'), 'metaB', { merge: nc - 1 });
   h.fila();
 
-  const titulos = ['Ítem', 'Actividad', 'Fecha', 'Cumplimiento'];
-  CAMPOS_HH.forEach(c => titulos.push(c.t));
-  titulos.push('Entidad (específicas)', 'HH capacitadas', 'Consumo (MA)', 'Observación', 'Registrado por', 'Adjuntos');
+  const titulos = ['Ítem', 'Actividad', 'Fecha', 'Cumplimiento', 'Categoría HH', 'Trabajadores', 'Duración individual',
+    'Total minutos', 'HH netas', 'HH (decimal)', 'Entidad (específicas)', 'Consumo (MA)', 'Observación', 'Registrado por', 'Adjuntos'];
   f = h.fila(30);
   titulos.forEach((t, i) => h.set(f, i + 1, t, 'head'));
 
-  const totales: { [k: string]: number } = {};
-  CAMPOS_HH.forEach(c => totales[c.k] = 0);
+  let minOp = 0;
+  let minEsp = 0;
 
   lista.forEach(x => {
     const r: any = x.reg;
+    const hh = hhRegistroMin(r);
+    minOp += hh.minOperacional;
+    minEsp += hh.minEspecificas;
     const adj = r.adjuntos || [];
     f = h.fila();
     let col = 1;
@@ -429,13 +434,18 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
     h.set(f, col++, x.actividad, 'textoWrap');
     h.set(f, col++, pad(x.dia) + '/' + pad(d.mes) + '/' + d.anio, 'centro');
     h.set(f, col++, textoCumplimiento(r.cumplimiento), estiloCumplimiento(r.cumplimiento));
-    CAMPOS_HH.forEach(c => {
-      const v = Number(r[c.k]) || 0;
-      totales[c.k] += v;
-      h.set(f, col++, v, 'centro');
-    });
-    h.set(f, col++, Number(r.hhEspecificas) > 0 ? textoEntidad(r.entidadEspecifica) : '', 'centro');
-    h.set(f, col++, hhDeRegistro(r), 'centro');
+    if (hh.minTotal) {
+      const cat = hh.categoria ? textoCategoriaHH(hh.categoria) : 'Operacionales + Específicas';
+      h.set(f, col++, cat + (hh.antiguo ? ' (registro anterior)' : ''), 'centro');
+      h.set(f, col++, hh.antiguo ? '' : hh.trabajadores, 'centro');
+      h.set(f, col++, hh.antiguo ? '' : formatoHM(hh.duracionMin), 'centro');
+      h.set(f, col++, hh.minTotal, 'centro');
+      h.set(f, col++, formatoHM(hh.minTotal), 'centro');
+      h.set(f, col++, redondear(minutosAHoras(hh.minTotal)), 'centro');
+    } else {
+      for (let i = 0; i < 6; i++) { h.set(f, col++, '', 'centro'); }
+    }
+    h.set(f, col++, hh.minEspecificas > 0 ? textoEntidad(r.entidadEspecifica) : '', 'centro');
     h.set(f, col++, textoConsumo(r), 'centro');
     h.set(f, col++, r.observacion || '', 'textoWrap');
     h.set(f, col++, r.registradoPor || '', 'centro');
@@ -451,17 +461,26 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
     h.set(f, 1, 'Todavía no hay días registrados este mes.', 'meta', { merge: nc - 1 });
   }
 
+  // Resumen HH Capacitación (todo se suma en minutos)
+  const minTotal = minOp + minEsp;
+  h.fila();
   f = h.fila(20);
-  h.set(f, 1, 'TOTAL', 'total', { merge: 3 });
-  let col = 5;
-  let suma = 0;
-  CAMPOS_HH.forEach(c => {
-    suma += totales[c.k];
-    h.set(f, col++, redondear(totales[c.k]), 'totalNum');
+  h.set(f, 1, 'HH CAPACITACIÓN', 'total', { merge: 6 });
+  h.set(f, 8, 'Total minutos', 'head');
+  h.set(f, 9, 'HH netas', 'head');
+  h.set(f, 10, 'HH (decimal)', 'head');
+  const filasResumen: [string, number, string, string, string][] = [
+    ['HH Operacionales', minOp, 'act', 'centro', 'centro'],
+    ['HH Específicas', minEsp, 'act', 'centro', 'centro'],
+    ['Total HH Capacitación', minTotal, 'total', 'totalNum', 'totalNum']
+  ];
+  filasResumen.forEach(x => {
+    f = h.fila(18);
+    h.set(f, 1, x[0], x[2], { merge: 6 });
+    h.set(f, 8, x[1], x[3]);
+    h.set(f, 9, formatoHM(x[1]), x[4]);
+    h.set(f, 10, redondear(minutosAHoras(x[1])), x[4]);
   });
-  h.set(f, col++, '', 'total');   // Entidad
-  h.set(f, col++, redondear(suma), 'totalNum');
-  h.set(f, col, '', 'total', { merge: 3 });
   return h;
 }
 

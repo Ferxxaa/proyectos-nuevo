@@ -134,10 +134,20 @@
 
         <!-- HH y consumos del programa -->
         <div class="pcon-extras" *ngIf="r.existe">
-          <div class="pcon-extra">
-            <span>HH capacitadas</span>
-            <strong>{{ r.hhCapacitadas | number:'1.0-2' }}</strong>
-            <small>Específicas {{ r.hhEspecificas | number:'1.0-2' }} · Operacionales {{ r.hhOperacionales | number:'1.0-2' }}</small>
+          <div class="pcon-extra hhc-mini hhc-OPERACIONAL">
+            <span>HH Operacionales</span>
+            <strong>{{ formatoHM(r.hh.minOperacional) }}</strong>
+            <small>{{ r.hh.minOperacional | number:'1.0-0' }} min</small>
+          </div>
+          <div class="pcon-extra hhc-mini hhc-ESPECIFICA">
+            <span>HH Específicas</span>
+            <strong>{{ formatoHM(r.hh.minEspecificas) }}</strong>
+            <small>{{ r.hh.minEspecificas | number:'1.0-0' }} min</small>
+          </div>
+          <div class="pcon-extra hhc-mini hhc-total-mini">
+            <span>Total HH Capacitación</span>
+            <strong>{{ formatoHM(r.hh.minTotal) }}</strong>
+            <small>{{ r.hh.minTotal | number:'1.0-0' }} min</small>
           </div>
           <div class="pcon-extra pcon-consumo" *ngFor="let c of r.consumos">
             <span>{{ c.etiqueta }}</span>
@@ -367,11 +377,6 @@
         <span>Promedio por ítem</span>
         <strong [ngClass]="'txt-' + claseSemaforo(totalProg ? pctGlobal : null)">{{ totalProg ? pctGlobal + '%' : '-' }}</strong>
       </div>
-      <div class="psso-kpi psso-kpi-hh" title="Estas horas se suman en Estadísticas HH">
-        <span>HH capacitadas</span>
-        <strong>{{ hhCapacitacion | number:'1.0-2' }}</strong>
-        <small>Específicas {{ hhEspecificas | number:'1.0-2' }} · Operacionales {{ hhOperacional | number:'1.0-2' }}</small>
-      </div>
     </div>
 
     <!-- Grilla -->
@@ -543,7 +548,13 @@
 
         <!-- Cumplimiento -->
         <div class="psso-campo">
-          <span class="psso-campo-titulo">Cumplimiento</span>
+          <span class="psso-campo-titulo">
+            Cumplimiento
+            <button *ngIf="!modal.soloLectura && modal.cumplimiento !== null" type="button" class="psso-link psso-quitar-cump"
+                    (click)="quitarCumplimiento(); $event.stopPropagation()" title="Quitar el cumplimiento marcado">
+              <i class="fa fa-eraser" aria-hidden="true"></i> Quitar cumplimiento
+            </button>
+          </span>
           <div class="psso-niveles" role="radiogroup" aria-label="Cumplimiento">
             <button *ngFor="let n of nivelesCumplimiento" type="button" role="radio"
                     class="psso-nivel" [ngClass]="'nivel-' + n.v"
@@ -555,37 +566,114 @@
               <span>{{ n.t }}</span>
             </button>
           </div>
+          <p class="psso-sin-cump" *ngIf="modal.cumplimiento === null">
+            <i class="fa fa-info-circle" aria-hidden="true"></i>
+            Sin cumplimiento marcado.<ng-container *ngIf="!modal.soloLectura"> Al guardar, el día queda como programado (no cuenta como realizado).</ng-container>
+          </p>
         </div>
 
-        <!-- HH -->
+        <!-- HH Capacitación -->
         <div class="psso-campo">
           <span class="psso-campo-titulo">
-            Horas hombre
+            HH Capacitación
             <small><i class="fa fa-bar-chart" aria-hidden="true"></i> se suman a Estadísticas HH</small>
           </span>
-          <div class="psso-hh">
-            <ng-container *ngFor="let campo of camposHH">
+
+          <!-- Categoría padre -->
+          <div class="hhc-categoria" *ngIf="modal.categoriaFija">
+            <span class="hhc-chip" [ngClass]="'hhc-' + modal.categoria">
+              <i class="fa" [ngClass]="modal.categoria === 'ESPECIFICA' ? 'fa-graduation-cap' : 'fa-cogs'" aria-hidden="true"></i>
+              {{ textoCategoriaHH(modal.categoria) }}
+            </span>
+            <small>Según la sección de la actividad</small>
+          </div>
+          <div class="hhc-opciones" role="radiogroup" aria-label="Categoría de HH" *ngIf="!modal.categoriaFija">
+            <button *ngFor="let c of categoriasHH" type="button" role="radio"
+                    class="hhc-opcion" [ngClass]="'hhc-' + c.v" [class.activo]="modal.categoria === c.v"
+                    [attr.aria-checked]="modal.categoria === c.v" [title]="c.d"
+                    [disabled]="modal.soloLectura && modal.categoria !== c.v"
+                    (click)="elegirCategoria(c.v)">
+              <i class="fa" [ngClass]="c.v === 'ESPECIFICA' ? 'fa-graduation-cap' : 'fa-cogs'" aria-hidden="true"></i> {{ c.t }}
+            </button>
+            <button type="button" role="radio" class="hhc-opcion hhc-ninguna" [class.activo]="!modal.categoria"
+                    [attr.aria-checked]="!modal.categoria" [disabled]="modal.soloLectura && !!modal.categoria"
+                    (click)="elegirCategoria('')">
+              No aplica
+            </button>
+          </div>
+
+          <!-- Registro antiguo (en horas decimales, sin trabajadores ni duración) -->
+          <div class="hhc-antiguo" *ngIf="modal.antiguo" [class.descartado]="modal.descartarAntiguo">
+            <i class="fa fa-history" aria-hidden="true"></i>
+            <div>
+              <b>Registro anterior: {{ formatoHM(modal.antiguo.minTotal) }}</b>
+              <small *ngIf="modal.antiguo.minOperacional && modal.antiguo.minEspecificas">
+                (Operacionales {{ formatoHM(modal.antiguo.minOperacional) }} · Específicas {{ formatoHM(modal.antiguo.minEspecificas) }})
+              </small>
+              <small *ngIf="!modal.descartarAntiguo && !modal.soloLectura">Se guardó sin trabajadores ni duración. Ingresa los datos para reemplazarlo, o bórralo.</small>
+              <small *ngIf="modal.descartarAntiguo">Estas HH se borran al guardar.</small>
+            </div>
+            <ng-container *ngIf="!modal.soloLectura">
+              <button *ngIf="!modal.descartarAntiguo" type="button" class="psso-link hhc-antiguo-btn" (click)="descartarHHAntiguas(true)">Borrar HH</button>
+              <button *ngIf="modal.descartarAntiguo" type="button" class="psso-link hhc-antiguo-btn" (click)="descartarHHAntiguas(false)">Deshacer</button>
+            </ng-container>
+          </div>
+
+          <ng-container *ngIf="modal.categoria">
+            <div class="hhc-campos">
               <label class="psso-hh-campo">
-                <span>{{ campo.t }}</span>
-                <input type="number" min="0" step="0.5" placeholder="0" [name]="campo.k"
-                       [(ngModel)]="modal.hh[campo.k]" [disabled]="modal.soloLectura">
+                <span>Trabajadores</span>
+                <input type="number" min="1" step="1" placeholder="0" name="hhTrabajadores"
+                       [(ngModel)]="modal.trabajadores" [disabled]="modal.soloLectura">
               </label>
-              <!-- entidad de las HH específicas -->
-              <label class="psso-hh-campo" *ngIf="campo.k === 'hhEspecificas'">
-                <span>Entidad (específicas)</span>
+              <label class="psso-hh-campo">
+                <span>Horas <em>(por persona)</em></span>
+                <input type="number" min="0" max="24" step="1" placeholder="0" name="hhHoras"
+                       [(ngModel)]="modal.horas" [disabled]="modal.soloLectura">
+              </label>
+              <label class="psso-hh-campo">
+                <span>Minutos <em>(0–59)</em></span>
+                <input type="number" min="0" max="59" step="1" placeholder="0" name="hhMinutos"
+                       [(ngModel)]="modal.minutos" [disabled]="modal.soloLectura">
+              </label>
+              <label class="psso-hh-campo" *ngIf="modal.categoria === 'ESPECIFICA'">
+                <span>Entidad</span>
                 <select name="entidadEspecifica" class="psso-hh-select"
                         [(ngModel)]="modal.entidad" [disabled]="modal.soloLectura">
                   <option *ngFor="let e of entidadesEspecificas" [value]="e.v">{{ e.t }}</option>
                 </select>
               </label>
-            </ng-container>
-            <div class="psso-hh-total" title="HH específicas + HH operacionales">
-              <span>HH capacitadas</span>
-              <strong>{{ totalHHModal | number:'1.0-2' }}</strong>
             </div>
-          </div>
-        </div>
 
+            <!-- Resultado -->
+            <div class="hhc-resultado" [ngClass]="'hhc-' + modal.categoria" *ngIf="calculoModal && !calculoModal.error">
+              <div class="hhc-res-dato">
+                <span>Trabajadores</span>
+                <b>{{ calculoModal.trabajadores }}</b>
+              </div>
+              <i class="fa fa-times hhc-op" aria-hidden="true"></i>
+              <div class="hhc-res-dato">
+                <span>Duración individual</span>
+                <b>{{ formatoHM(calculoModal.duracionMin) }}</b>
+              </div>
+              <i class="hhc-op hhc-igual" aria-hidden="true">=</i>
+              <div class="hhc-res-dato">
+                <span>Total minutos</span>
+                <b>{{ calculoModal.hhMinutos | number:'1.0-0' }} min</b>
+              </div>
+              <div class="hhc-res-total">
+                <span>HH netas</span>
+                <strong>{{ formatoHM(calculoModal.hhMinutos) }}</strong>
+              </div>
+            </div>
+            <div class="hhc-aviso" *ngIf="calculoModal && calculoModal.error">
+              <i class="fa fa-exclamation-circle" aria-hidden="true"></i> {{ calculoModal.error }}
+            </div>
+            <p class="hhc-ayuda" *ngIf="!calculoModal && !modal.soloLectura">
+              HH netas = trabajadores × duración individual. Ej: 5 trabajadores × 1 h 30 min = 7 h 30 min.
+            </p>
+          </ng-container>
+        </div>
         <!-- Consumo de Medio Ambiente (solo Programa MA: agua, combustible, residuos) -->
         <div class="psso-campo psso-consumo" *ngIf="modal.consumoDef">
           <span class="psso-campo-titulo">
