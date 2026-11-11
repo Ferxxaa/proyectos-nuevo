@@ -2,71 +2,101 @@
 
 <div class="content-wrap">
   <main id="content" role="main" class="content">
-    <section class="widget">
-      <header class="cartas-gantt-cabecera">
-        <div>
-          <span class="cartas-gantt-kicker">CONTROL DE AVANCE PROYECTOS</span>
-          <h2><strong>Cartas Gantt seleccionadas</strong></h2>
+    <section class="widget cg-pagina">
+
+      <!-- Encabezado -->
+      <div class="cg-cabecera">
+        <div class="cg-titulo">
+          <span class="cg-icono"><i class="fa fa-bar-chart" aria-hidden="true"></i></span>
+          <div>
+            <span class="cg-kicker">Control de avance proyectos</span>
+            <h2>Cartas Gantt seleccionadas</h2>
+            <p>Control de avance de los sub-proyectos seleccionados en Mis Proyectos</p>
+          </div>
         </div>
-        <a class="btn btn-volver-cartas" [routerLink]="['/Proyectos-MisProyectos']">
-          <i class="fa fa-arrow-left"></i>
-          <span>Volver</span>
+        <a class="cg-btn-volver" [routerLink]="['/Proyectos-MisProyectos']">
+          <i class="fa fa-arrow-left" aria-hidden="true"></i> Volver a Mis Proyectos
         </a>
-      </header>
-      <div class="widget-body">
-        <div class="loader" *ngIf="cargando">
-          <span class="spinner"><i class="fa fa-spinner fa-spin"></i></span>
+      </div>
+
+      <div class="cg-cuerpo">
+
+        <div class="cg-cargando" *ngIf="cargando">
+          <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando cartas Gantt...
         </div>
 
-        <div class="alert alert-info" *ngIf="!cargando && cartasGantt.length === 0">
-          Selecciona uno o más sub-proyectos desde Mis Proyectos para ver sus cartas Gantt.
-        </div>
+        <ng-container *ngIf="!cargando">
 
-        <div class="grupos-cartas-gantt" *ngIf="!cargando && cartasGantt.length">
-          <section class="grupo-cartas-gantt" *ngFor="let grupo of gruposCartasGantt">
-            <button type="button" class="grupo-cartas-titulo" (click)="alternarGrupo(grupo)"
-              [attr.aria-expanded]="grupo.expandido">
-              <span class="grupo-cartas-nombre">
-                <i class="fa" [class.fa-chevron-down]="grupo.expandido" [class.fa-chevron-right]="!grupo.expandido"></i>
-                <strong>{{ grupo.nombreProyecto }}</strong>
-                <small>Proyecto {{ grupo.idProyecto }}</small>
-              </span>
-              <span class="grupo-cartas-contador">{{ grupo.cartas.length }} subproyecto{{ grupo.cartas.length === 1 ? '' : 's' }}</span>
-            </button>
-            <div class="cartas-gantt-lista" *ngIf="grupo.expandido">
-              <div class="carta-gantt-contenido" *ngFor="let carta of grupo.cartas">
-                <button type="button" class="carta-gantt-titulo" (click)="alternarCarta(carta)"
-                  [class.carta-gantt-titulo-abierto]="carta.expandida"
-                  [attr.aria-expanded]="carta.expandida"
-                  [attr.aria-label]="(carta.expandida ? 'Ocultar' : 'Ver') + ' control de avance de ' + carta.subProyecto.nombreSubProyecto">
-                  <span class="carta-gantt-nombre">
-                    <i class="fa" [class.fa-chevron-down]="carta.expandida" [class.fa-chevron-right]="!carta.expandida"></i>
-                    <span class="carta-gantt-etiqueta">CONTROL DE AVANCE</span>
-                    <strong>{{ carta.subProyecto.nombreSubProyecto }}</strong>
-                  </span>
-                  <span class="carta-gantt-accion">
-                    <i class="fa" [class.fa-eye-slash]="carta.expandida" [class.fa-eye]="!carta.expandida"></i>
-                    {{ carta.expandida ? 'Ocultar control' : 'Ver control' }}
-                  </span>
-                </button>
-                <app-control-avance
-                  *ngIf="carta.expandida"
-                  [idProyecto]="carta.subProyecto.idProyecto"
-                  [idSubProyecto]="carta.subProyecto.idSubProyecto"
-                  [nombreProyecto]="carta.subProyecto.nombreSubProyecto"
-                  [nombreMandante]="grupo.nombreMandante"
-                  [detalleSeguimiento]="carta.detalleSeguimiento"
-                  [soloLectura]="false"
-                  [ocultarTitulo]="true"
-                  [ocultarFiltros]="true"
-                  [ocultarExportacion]="false"
-                  [vistaInicial]="'gantt'"
-                  class="cartas-gantt-compacto">
-                </app-control-avance>
-              </div>
+          <div class="cg-vacio" *ngIf="cartasGantt.length === 0">
+            <i class="fa fa-bar-chart" aria-hidden="true"></i>
+            <strong>No hay sub-proyectos seleccionados</strong>
+            <p>Márcalos en la columna "Avance" de Mis Proyectos para ver sus cartas Gantt.</p>
+            <a class="cg-btn" [routerLink]="['/Proyectos-MisProyectos']"><i class="fa fa-arrow-left" aria-hidden="true"></i> Ir a Mis Proyectos</a>
+          </div>
+
+          <!-- Resumen -->
+          <div class="cg-barra" *ngIf="cartasGantt.length">
+            <div class="cg-resumen">
+              <div><strong>{{gruposCartasGantt.length}}</strong> <span>{{gruposCartasGantt.length === 1 ? 'proyecto' : 'proyectos'}}</span></div>
+              <div><strong>{{cartasGantt.length}}</strong> <span>{{cartasGantt.length === 1 ? 'sub-proyecto' : 'sub-proyectos'}}</span></div>
             </div>
-          </section>
-        </div>
+          </div>
+
+          <!-- Un grupo por proyecto -->
+          <div class="cg-grupos" *ngIf="cartasGantt.length">
+            <section class="cg-grupo" *ngFor="let grupo of gruposCartasGantt">
+              <button type="button" class="cg-grupo-cab" (click)="alternarGrupo(grupo)" [attr.aria-expanded]="grupo.expandido">
+                <span class="cg-grupo-nombre">
+                  <i class="fa cg-chevron" [ngClass]="grupo.expandido ? 'fa-chevron-down' : 'fa-chevron-right'" aria-hidden="true"></i>
+                  <span class="cg-grupo-icono"><i class="fa fa-folder-o" aria-hidden="true"></i></span>
+                  <span>
+                    <small>Proyecto {{grupo.idProyecto}}<ng-container *ngIf="grupo.nombreMandante"> · {{grupo.nombreMandante}}</ng-container></small>
+                    <strong>{{grupo.nombreProyecto}}</strong>
+                  </span>
+                </span>
+                <span class="cg-chip">
+                  {{grupo.cartas.length}} {{grupo.cartas.length === 1 ? 'sub-proyecto' : 'sub-proyectos'}}
+                </span>
+              </button>
+
+              <div class="cg-lista" *ngIf="grupo.expandido">
+                <div class="cg-item" *ngFor="let carta of grupo.cartas" [class.abierto]="carta.expandida">
+                  <button type="button" class="cg-item-cab" (click)="alternarCarta(carta)"
+                          [attr.aria-expanded]="carta.expandida"
+                          [attr.aria-label]="(carta.expandida ? 'Ocultar' : 'Ver') + ' control de avance de ' + carta.subProyecto.nombreSubProyecto">
+                    <span class="cg-item-nombre">
+                      <span class="cg-item-icono"><i class="fa fa-tasks" aria-hidden="true"></i></span>
+                      <span>
+                        <small>Control de avance</small>
+                        <strong>{{carta.subProyecto.nombreSubProyecto}}</strong>
+                      </span>
+                    </span>
+                    <span class="cg-item-accion">
+                      <i class="fa" [ngClass]="carta.expandida ? 'fa-eye-slash' : 'fa-eye'" aria-hidden="true"></i>
+                      {{carta.expandida ? 'Ocultar control' : 'Ver control'}}
+                    </span>
+                  </button>
+
+                  <div class="cg-item-cuerpo" *ngIf="carta.expandida">
+                    <app-control-avance
+                      [idProyecto]="carta.subProyecto.idProyecto"
+                      [idSubProyecto]="carta.subProyecto.idSubProyecto"
+                      [nombreProyecto]="carta.subProyecto.nombreSubProyecto"
+                      [nombreMandante]="grupo.nombreMandante"
+                      [detalleSeguimiento]="carta.detalleSeguimiento"
+                      [soloLectura]="false"
+                      [ocultarTitulo]="true"
+                      [ocultarFiltros]="true"
+                      [ocultarExportacion]="false"
+                      [vistaInicial]="'gantt'"
+                      class="cartas-gantt-compacto">
+                    </app-control-avance>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </ng-container>
       </div>
     </section>
   </main>
