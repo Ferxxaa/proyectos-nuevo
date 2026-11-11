@@ -2,187 +2,221 @@
 
 <div class="content-wrap">
   <main id="content" role="main" class="content">
-    <div>
-      <div class="row">
-        <div class="col-lg-12">
-          <section class="widget">
-            <header style="background-color: #555555">
-              <h2 style="color: white;">
-                <strong>Mis Proyectos</strong>
-              </h2>
-            </header>
+    <div class="row">
+      <div class="col-lg-12">
+        <section class="widget mp-pagina">
 
-
-            <div class="widget-body">
-              <!-- Botones de creación -->
-              <div class="actions-buttons-bar">
-                <button class="btn btn-success btn-create" (click)="crearProyectoMatriz()" title="Crear nuevo Proyecto Matriz">
-                  <i class="fa fa-plus"></i> Crear Matriz
-                </button>
-                <button class="btn btn-primary btn-create" (click)="crearProyecto()" title="Crear nuevo Proyecto">
-                  <i class="fa fa-plus"></i> Crear Proyecto
-                </button>
-                <button class="btn btn-info btn-create" (click)="crearSubProyecto()" title="Crear nuevo Sub-Proyecto">
-                  <i class="fa fa-plus"></i> Crear Sub-Proyecto
-                </button>
-                <button class="btn btn-warning btn-create" type="button"
-                  [disabled]="subProyectosSeleccionados.length === 0"
-                  (click)="verCartasGantt()"
-                  title="Ver cartas Gantt de los proyectos seleccionados">
-                  <i class="fa fa-bar-chart"></i> Ver Control de avances
-                  <span class="badge-selection" *ngIf="subProyectosSeleccionados.length > 0">{{subProyectosSeleccionados.length}}</span>
-                </button>
-                <button class="btn btn-create btn-hallazgos" type="button"
-                  (click)="verControlHallazgos()"
-                  title="Ver los controles de hallazgos seleccionados">
-                  <i class="fa fa-exclamation-circle"></i> Ver Control de hallazgos
-                  <span class="badge-selection" *ngIf="subProyectosHallazgosSeleccionados.length > 0">{{subProyectosHallazgosSeleccionados.length}}</span>
-                </button>
+          <!-- Encabezado -->
+          <div class="mp-cabecera">
+            <div class="mp-titulo">
+              <span class="mp-icono"><i class="fa fa-folder-open" aria-hidden="true"></i></span>
+              <div>
+                <span class="mp-kicker">Proyectos</span>
+                <h2>Mis Proyectos</h2>
+                <p>Seguimiento de sub-proyectos, avance y semáforo</p>
               </div>
-
-              <!-- Estadísticas y filtros -->
-              <fieldset class="filters-fieldset">
-                <legend class="filters-legend">Filtros</legend>
-                
-                <!-- Información de proyectos mostrados y acción de limpiar -->
-                <div class="row info-row align-items-center">
-                  <div class="col-md-6">
-                    <strong class="total-projects">Total de proyectos mostrados: {{MisProyectos.length}}</strong>
-                  </div>
-                  <div class="col-md-6 text-right">
-                    <button class="btn btn-secondary btn-sm" (click)="limpiarFiltros()" title="Limpiar todos los filtros">
-                      <i class="fa fa-times"></i> Limpiar Filtros
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Row de filtros -->
-                <div class="row filters-row">
-                  <div class="col-md-3">
-                    <label for="searchInput" class="form-control-label filter-label">Buscar:</label>
-                    <input type="text" 
-                      id="searchInput"
-                      class="form-control filter-search" 
-                      [(ngModel)]="searchText" 
-                      (keyup)="applyFilters()"
-                      placeholder="Nombre proyecto, sub-proyecto...">
-                  </div>
-
-                  <div class="col-md-3">
-                    <label for="drdProyectoMatriz" class="form-control-label filter-label">Proyecto Matriz:</label>
-                    <select id="drdProyectoMatriz" class="dropdown-toggle select2-chosen-2 form-control filter-select" [(ngModel)]="drdProyectoMatriz"
-                      name="drdProyectoMatriz" (change)="applyFilters()">
-                      <option value=0 selected>--- Todos ---</option>
-                      <option *ngFor="let ProyectoMatriz of ProyectosMatriz" value={{ProyectoMatriz.idProyectoMatriz}}>{{ProyectoMatriz.nombreProyectoMatriz}}</option>
-                    </select>
-                  </div>
-
-                  <div class="col-md-3">
-                    <label for="drdProyecto" class="form-control-label filter-label">Proyecto:</label>
-                    <select id="drdProyecto" class="dropdown-toggle select2-chosen-2 form-control filter-select" [(ngModel)]="drdProyecto"
-                      (change)="applyFilters()" name="drdProyecto">
-                      <option value=0 selected>--- Todos ---</option>
-                      <option *ngFor="let Proyecto of Proyectos" value={{Proyecto.idProyecto}}>{{Proyecto.nombreProyecto}}</option>
-                    </select>
-                  </div>
-
-                  <div class="col-md-3">
-                    <label for="drdEstado" class="form-control-label filter-label">Estado:</label>
-                    <select id="drdEstado" class="dropdown-toggle select2-chosen-2 form-control filter-select" [(ngModel)]="drdEstado"
-                      (change)="applyFilters()" name="drdEstado">
-                      <option value=0 selected>--- Todos ---</option>
-                      <option *ngFor="let Estado of Estados" value={{Estado.idEstadoProyecto}}>{{Estado.nombreEstadoProyecto}}</option>
-                    </select>
-                  </div>
-                </div>
-
-              </fieldset>
-
-              <!-- Tabla de Proyectos -->
-              <div class="table-container">
-                <table class="projects-table table">
-                  <thead>
-                    <tr>
-                      <td class="gantt-selection-column">Avance</td>
-                      <td class="hallazgos-selection-column">Hallazgo</td>
-                      <td>Proyecto Matriz</td>
-                      <td>Proyecto</td>
-                      <td>Sub-proyecto</td>
-                      <td>Responsable</td>
-                      <td>Inicio Sub-Proyecto</td>
-                      <td>Termino Sub-Proyecto</td>
-                      <td>Superficie</td>
-                      <td>Tipo de Intervención</td>
-                      <td>Desviación</td>
-                      <td>Avance Programado</td>
-                      <td>Avance Real </td>
-                      <td>
-                        <app-help text='Semaforo Sub-Proyecto'></app-help>
-                      </td>
-                      <td>Etapa en proceso</td>
-                      <td>Avance Real Etapa</td>
-                      <td>Ultima Bitacora Sub-Proyecto</td>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let MiProyecto of MisProyectos | sortMisProyectos; let i = index"
-                        (click)="Detalle(MiProyecto)"
-                        class="proyecto-row">
-                        <td class="gantt-selection-column"
-                          [class.gantt-control-disponible-cell]="tieneControlAvance(MiProyecto.idSubProyecto)">
-                        <input type="checkbox"
-                          [checked]="estaSeleccionadoParaGantt(MiProyecto.idSubProyecto)"
-                          [class.gantt-control-disponible]="tieneControlAvance(MiProyecto.idSubProyecto)"
-                          (click)="cambiarSeleccionGantt(MiProyecto, $event)"
-                          [attr.aria-label]="'Seleccionar ' + MiProyecto.nombreSubProyecto + ' para Carta Gantt'">
-                      </td>
-                      <td class="hallazgos-selection-column"
-                          [class.hallazgos-control-disponible-cell]="tieneControlHallazgos(MiProyecto.idSubProyecto)">
-                        <input type="checkbox"
-                          [checked]="estaSeleccionadoParaHallazgos(MiProyecto.idSubProyecto)"
-                          [class.hallazgos-control-disponible]="tieneControlHallazgos(MiProyecto.idSubProyecto)"
-                          (click)="cambiarSeleccionHallazgos(MiProyecto, $event)"
-                          [attr.aria-label]="'Seleccionar ' + MiProyecto.nombreSubProyecto + ' para Control de hallazgos'">
-                      </td>
-                      <td>{{MiProyecto.nombreProyectoMatriz}}</td>
-                      <td>{{MiProyecto.nombreProyecto}}</td>
-                      <td>{{MiProyecto.nombreSubProyecto}}</td>
-                      <td>{{MiProyecto.Responsable}}</td>
-                      <td>{{MiProyecto.fechaInicio | date:'dd/MM/yyyy'}}</td>
-                      <td>{{MiProyecto.FechaTermino| date:'dd/MM/yyyy'}}</td>
-                      <td>{{MiProyecto.superficie}}</td>
-                      <td>{{MiProyecto.nombreTipoIntervencion}}</td>
-                      <td>
-                        <ng-container *ngIf="MiProyecto.Desviacion !== null && MiProyecto.Desviacion !== undefined">
-                          <mat-icon *ngIf="MiProyecto.Desviacion < 100" class="text-success">arrow_upward</mat-icon>
-                          <mat-icon *ngIf="MiProyecto.Desviacion >= 100" class="text-danger">arrow_downward</mat-icon>
-                          {{100 - MiProyecto.Desviacion | number:'1.0-2'}}%
-                        </ng-container>
-                      </td>
-                      <td class="align-center">{{MiProyecto.AvanceProgramado | number:'1.0-2'}}%</td>
-                      <td class="align-center">{{MiProyecto.AvanceReal | number:'1.0-2'}}%</td>
-                      <td class="align-center">
-                        <i class="fa fa-circle icono icono-bitacora"
-                          *ngIf="MiProyecto.Semaforo"
-                          [class.text-danger]="MiProyecto.Semaforo === 'rojo'"
-                          [class.text-warning]="MiProyecto.Semaforo === 'amarillo'"
-                          [class.text-success]="MiProyecto.Semaforo === 'verde'"></i>
-                      </td>
-                      <td>{{getEtapaActual(MiProyecto.EtapaActual)}}</td>
-                      <td class="align-center">{{MiProyecto.AvanceRealEtapa ? MiProyecto.AvanceRealEtapa : 0}}%</td>
-                      <td class="align-center">
-                        <i class="fa fa-circle icono icono-bitacora text-danger" *ngIf="MiProyecto.UltBitacora == 'Alta'"></i>
-                        <i class="fa fa-circle icono icono-bitacora text-warning" *ngIf="MiProyecto.UltBitacora == 'Media'"></i>
-                        <i class="fa fa-circle icono icono-bitacora text-success" *ngIf="MiProyecto.UltBitacora == 'Baja'"></i>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
             </div>
-          </section>
-        </div>
+            <div class="mp-crear">
+              <button type="button" class="mp-btn-crear" (click)="crearProyectoMatriz()" title="Crear nuevo Proyecto Matriz">
+                <i class="fa fa-plus" aria-hidden="true"></i> Matriz
+              </button>
+              <button type="button" class="mp-btn-crear" (click)="crearProyecto()" title="Crear nuevo Proyecto">
+                <i class="fa fa-plus" aria-hidden="true"></i> Proyecto
+              </button>
+              <button type="button" class="mp-btn-crear" (click)="crearSubProyecto()" title="Crear nuevo Sub-Proyecto">
+                <i class="fa fa-plus" aria-hidden="true"></i> Sub-Proyecto
+              </button>
+            </div>
+          </div>
+
+          <div class="mp-cuerpo">
+
+            <!-- Filtros -->
+            <div class="mp-filtros">
+              <div class="mp-campo mp-campo-buscar">
+                <label for="searchInput">Buscar</label>
+                <div class="mp-buscador">
+                  <i class="fa fa-search" aria-hidden="true"></i>
+                  <input type="text" id="searchInput" [(ngModel)]="searchText" (keyup)="applyFilters()"
+                         placeholder="Matriz, proyecto, sub-proyecto o responsable">
+                </div>
+              </div>
+              <div class="mp-campo">
+                <label for="drdProyectoMatriz">Proyecto Matriz</label>
+                <select id="drdProyectoMatriz" [(ngModel)]="drdProyectoMatriz" name="drdProyectoMatriz" (change)="applyFilters()">
+                  <option value=0 selected>Todos</option>
+                  <option *ngFor="let ProyectoMatriz of ProyectosMatriz" value={{ProyectoMatriz.idProyectoMatriz}}>{{ProyectoMatriz.nombreProyectoMatriz}}</option>
+                </select>
+              </div>
+              <div class="mp-campo">
+                <label for="drdProyecto">Proyecto</label>
+                <select id="drdProyecto" [(ngModel)]="drdProyecto" (change)="applyFilters()" name="drdProyecto">
+                  <option value=0 selected>Todos</option>
+                  <option *ngFor="let Proyecto of Proyectos" value={{Proyecto.idProyecto}}>{{Proyecto.nombreProyecto}}</option>
+                </select>
+              </div>
+              <div class="mp-campo">
+                <label for="drdEstado">Estado</label>
+                <select id="drdEstado" [(ngModel)]="drdEstado" (change)="applyFilters()" name="drdEstado">
+                  <option value=0 selected>Todos</option>
+                  <option *ngFor="let Estado of Estados" value={{Estado.idEstadoProyecto}}>{{Estado.nombreEstadoProyecto}}</option>
+                </select>
+              </div>
+              <button type="button" class="mp-btn-limpiar" (click)="limpiarFiltros()" title="Limpiar todos los filtros">
+                <i class="fa fa-eraser" aria-hidden="true"></i> Limpiar
+              </button>
+            </div>
+
+            <!-- Barra de la tabla: total y acciones sobre los seleccionados -->
+            <div class="mp-barra">
+              <div class="mp-total">
+                <strong>{{MisProyectos.length}}</strong>
+                <span>{{MisProyectos.length === 1 ? 'sub-proyecto' : 'sub-proyectos'}}</span>
+                <span class="mp-cargando" *ngIf="LoadingTabla"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Actualizando...</span>
+              </div>
+              <div class="mp-acciones">
+                <button type="button" class="mp-btn mp-btn-avance" [disabled]="subProyectosSeleccionados.length === 0"
+                        (click)="verCartasGantt()" title="Ver cartas Gantt de los sub-proyectos marcados en la columna Avance">
+                  <i class="fa fa-bar-chart" aria-hidden="true"></i> Control de avances
+                  <span class="mp-contador" *ngIf="subProyectosSeleccionados.length > 0">{{subProyectosSeleccionados.length}}</span>
+                </button>
+                <button type="button" class="mp-btn mp-btn-hallazgos" (click)="verControlHallazgos()"
+                        title="Ver el control de hallazgos de los sub-proyectos marcados en la columna Hallazgo">
+                  <i class="fa fa-exclamation-circle" aria-hidden="true"></i> Control de hallazgos
+                  <span class="mp-contador" *ngIf="subProyectosHallazgosSeleccionados.length > 0">{{subProyectosHallazgosSeleccionados.length}}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tabla -->
+            <div class="mp-marco" [class.mp-marco-cargando]="LoadingTabla">
+              <div class="mp-progreso" *ngIf="LoadingTabla"><i></i></div>
+              <table class="projects-table">
+                <colgroup>
+                  <col class="c-sel"><col class="c-sel">
+                  <col class="c-matriz"><col class="c-proyecto"><col class="c-sub"><col class="c-resp">
+                  <col class="c-fecha"><col class="c-fecha">
+                  <col class="c-sup"><col class="c-tipo">
+                  <col class="c-desv"><col class="c-avance"><col class="c-avance">
+                  <col class="c-semaforo"><col class="c-etapa"><col class="c-avance-etapa"><col class="c-bitacora">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th class="c-centro c-sel-th" title="Marca para ver su Control de avance">Avance</th>
+                    <th class="c-centro c-sel-th" title="Marca para ver su Control de hallazgos">Hallazgo</th>
+                    <th>Proyecto matriz</th>
+                    <th>Proyecto</th>
+                    <th>Sub-proyecto</th>
+                    <th>Responsable</th>
+                    <th class="c-centro">Inicio</th>
+                    <th class="c-centro">Término</th>
+                    <th class="c-centro">Superficie</th>
+                    <th>Tipo de intervención</th>
+                    <th class="c-centro">Desviación</th>
+                    <th>Avance programado</th>
+                    <th>Avance real</th>
+                    <th class="c-centro"><app-help text='Semaforo Sub-Proyecto'></app-help></th>
+                    <th>Etapa en proceso</th>
+                    <th>Avance etapa</th>
+                    <th class="c-centro" title="Prioridad de la última bitácora del sub-proyecto">Bitácora</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let MiProyecto of MisProyectos | sortMisProyectos; let i = index"
+                      (click)="Detalle(MiProyecto)" class="proyecto-row"
+                      [title]="'Abrir ' + MiProyecto.nombreSubProyecto">
+                    <td class="c-centro gantt-selection-column" (click)="$event.stopPropagation()">
+                      <input type="checkbox"
+                        [checked]="estaSeleccionadoParaGantt(MiProyecto.idSubProyecto)"
+                        [class.gantt-control-disponible]="tieneControlAvance(MiProyecto.idSubProyecto)"
+                        [title]="tieneControlAvance(MiProyecto.idSubProyecto) ? 'Tiene control de avance' : 'Sin control de avance creado'"
+                        (click)="cambiarSeleccionGantt(MiProyecto, $event)"
+                        [attr.aria-label]="'Seleccionar ' + MiProyecto.nombreSubProyecto + ' para Carta Gantt'">
+                    </td>
+                    <td class="c-centro hallazgos-selection-column" (click)="$event.stopPropagation()">
+                      <input type="checkbox"
+                        [checked]="estaSeleccionadoParaHallazgos(MiProyecto.idSubProyecto)"
+                        [class.hallazgos-control-disponible]="tieneControlHallazgos(MiProyecto.idSubProyecto)"
+                        [title]="tieneControlHallazgos(MiProyecto.idSubProyecto) ? 'Tiene hallazgos registrados' : 'Sin hallazgos'"
+                        (click)="cambiarSeleccionHallazgos(MiProyecto, $event)"
+                        [attr.aria-label]="'Seleccionar ' + MiProyecto.nombreSubProyecto + ' para Control de hallazgos'">
+                    </td>
+                    <td class="c-tenue">{{MiProyecto.nombreProyectoMatriz}}</td>
+                    <td>{{MiProyecto.nombreProyecto}}</td>
+                    <td class="c-sub-nombre">{{MiProyecto.nombreSubProyecto}}</td>
+                    <td>{{MiProyecto.Responsable}}</td>
+                    <td class="c-centro c-num">{{MiProyecto.fechaInicio | date:'dd/MM/yyyy'}}</td>
+                    <td class="c-centro c-num">{{MiProyecto.FechaTermino | date:'dd/MM/yyyy'}}</td>
+                    <td class="c-centro c-num">{{MiProyecto.superficie}}</td>
+                    <td class="c-tenue">{{MiProyecto.nombreTipoIntervencion}}</td>
+                    <td class="c-centro">
+                      <span class="mp-desv" *ngIf="MiProyecto.Desviacion !== null && MiProyecto.Desviacion !== undefined"
+                            [class.mp-desv-ok]="MiProyecto.Desviacion < 100" [class.mp-desv-mal]="MiProyecto.Desviacion >= 100">
+                        <i class="fa" [ngClass]="MiProyecto.Desviacion < 100 ? 'fa-arrow-up' : 'fa-arrow-down'" aria-hidden="true"></i>
+                        {{100 - MiProyecto.Desviacion | number:'1.0-1'}}%
+                      </span>
+                      <span class="c-guion" *ngIf="MiProyecto.Desviacion === null || MiProyecto.Desviacion === undefined">—</span>
+                    </td>
+                    <td>
+                      <div class="mp-avance">
+                        <span>{{MiProyecto.AvanceProgramado | number:'1.0-1'}}%</span>
+                        <div class="mp-barra-av"><i class="av-prog" [style.width.%]="MiProyecto.AvanceProgramado || 0"></i></div>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="mp-avance">
+                        <span class="av-real-txt">{{MiProyecto.AvanceReal | number:'1.0-1'}}%</span>
+                        <div class="mp-barra-av"><i class="av-real" [style.width.%]="MiProyecto.AvanceReal || 0"></i></div>
+                      </div>
+                    </td>
+                    <td class="c-centro">
+                      <span class="mp-sem" *ngIf="MiProyecto.Semaforo" [title]="textoSemaforo(MiProyecto)">
+                        <i class="mp-semaforo" [ngClass]="'sem-' + MiProyecto.Semaforo"></i>
+                      </span>
+                    </td>
+                    <td class="c-etapa-txt" [title]="getEtapaActual(MiProyecto.EtapaActual) || ''">{{getEtapaActual(MiProyecto.EtapaActual)}}</td>
+                    <td>
+                      <div class="mp-avance">
+                        <span>{{(MiProyecto.AvanceRealEtapa ? MiProyecto.AvanceRealEtapa : 0) | number:'1.0-1'}}%</span>
+                        <div class="mp-barra-av"><i class="av-etapa" [style.width.%]="MiProyecto.AvanceRealEtapa || 0"></i></div>
+                      </div>
+                    </td>
+                    <td class="c-centro">
+                      <span class="mp-prioridad" *ngIf="MiProyecto.UltBitacora"
+                            [class.pri-alta]="MiProyecto.UltBitacora == 'Alta'"
+                            [class.pri-media]="MiProyecto.UltBitacora == 'Media'"
+                            [class.pri-baja]="MiProyecto.UltBitacora == 'Baja'"
+                            [title]="'Última bitácora: prioridad ' + MiProyecto.UltBitacora"><i></i></span>
+                    </td>
+                  </tr>
+                  <tr *ngIf="!LoadingTabla && !MisProyectos.length" class="mp-vacio-fila">
+                    <td colspan="17">
+                      <div class="mp-vacio">
+                        <i class="fa fa-folder-o" aria-hidden="true"></i>
+                        <strong>No hay sub-proyectos con estos filtros</strong>
+                        <button type="button" class="mp-btn" (click)="limpiarFiltros()">Limpiar filtros</button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Leyenda -->
+            <div class="mp-leyenda">
+              <span><i class="mp-semaforo sem-verde"></i> Al día (hasta 1 día de atraso)</span>
+              <span><i class="mp-semaforo sem-amarillo"></i> 2 a 11 días de atraso</span>
+              <span><i class="mp-semaforo sem-rojo"></i> 12 días o más</span>
+              <span class="mp-ley-sep"></span>
+              <span><i class="mp-ley-check mp-ley-avance"></i> Tiene control de avance</span>
+              <span><i class="mp-ley-check mp-ley-hallazgo"></i> Tiene hallazgos</span>
+              <span class="mp-ley-sep"></span>
+              <span><i class="mp-ley-barra av-prog"></i> Programado</span>
+              <span><i class="mp-ley-barra av-real"></i> Real</span>
+            </div>
+
+          </div>
+        </section>
       </div>
     </div>
   </main>
