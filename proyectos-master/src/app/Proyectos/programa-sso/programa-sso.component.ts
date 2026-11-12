@@ -5,7 +5,7 @@ import {
   AdjuntoRegistro, RegistroDia, NIVELES_CUMPLIMIENTO, VALORES_CUMPLIMIENTO, ENTIDADES_ESPECIFICAS, TAMANO_MAXIMO_ADJUNTO,
   registrosDe, sumarHHPrograma, redondear, subirAdjunto, borrarAdjunto,
   CATEGORIAS_HH, CATEGORIA_ESPECIFICA, categoriaFijaDe, hhRegistroMin, formatoHM, minutosAHoras,
-  minutosCapacitacion, trabajadoresDelDia, horasPromedioDia,
+  minutosCapacitacion, trabajadoresDelDia, horasPromedioDia, hhTrabajadoresDe,
   textoCategoriaHH, ResumenHH, resumenHHVacio, textoEntidad
 } from './programa-registro';
 import { exportarProgramaExcel, exportarConsolidadoAnualExcel } from './programa-excel';
@@ -183,8 +183,8 @@ interface ModalRegistro {
   cumplimiento: number;
   categoria: string;                 // OPERACIONAL | ESPECIFICA | '' (no aplica)
   categoriaFija: boolean;            // true = la define la sección de la actividad
-  trabajadoresDia: any;              // HH Trabajadores (solo se guarda, para comparar con asistencia)
-  horasDia: any;                     // horas promedio trabajadas ese día (8, 9, 10...)
+  trabajadoresDia: any;              // HH Trabajadores del PROYECTO ese día (solo se guarda, para comparar con asistencia)
+  horasDia: any;                     // horas promedio trabajadas ese día en el proyecto (8, 9, 10...)
   minutosCap: any;                   // HH Capacitación: solo los minutos de la capacitación
   entidad: string;                   // entidad de las HH específicas
   antiguo: { minOperacional: number; minEspecificas: number; minTotal: number }; // registro en horas decimales (o null)
@@ -258,6 +258,9 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   totalProg = 0;
   totalCtrl = 0;
   pctTotal = 0;
+  /** Avance programado: % de lo programado del mes que ya debería estar hecho a hoy. */
+  progHastaHoy = 0;
+  pctProgramado = 0;
   pctGlobal = 0;
 
   // HH Capacitación del mes (operacionales + específicas, en minutos). Van a Estadísticas HH.
@@ -1016,6 +1019,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       this.dias = this.construirDias([]);
       this.grupos = [];
       this.totalProg = 0; this.totalCtrl = 0; this.pctTotal = 0; this.pctGlobal = 0;
+      this.progHastaHoy = 0; this.pctProgramado = 0;
       this.hhMes = resumenHHVacio();
       return;
     }
@@ -1048,6 +1052,20 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.totalCtrl = redondear(totalCtrl);
     this.pctTotal = totalProg > 0 ? Math.round(totalCtrl * 100 / totalProg) : 0;
     this.pctGlobal = nGrupos > 0 ? Math.round(sumaGrupos / nGrupos) : 0;
+
+    // Avance programado: programaciones con fecha <= hoy sobre el total del mes
+    const anioP = Number(this.programa.anio) || this.anio;
+    const mesP = Number(this.programa.mes) || this.mesSel;
+    const ahora = new Date();
+    const claveP = anioP * 12 + mesP;
+    const claveHoy = ahora.getFullYear() * 12 + ahora.getMonth() + 1;
+    const limite = claveP < claveHoy ? 31 : claveP > claveHoy ? 0 : ahora.getDate();
+    let hastaHoy = 0;
+    this.programa.actividades.forEach(a => {
+      (a.programados || []).forEach(d => { if (Number(d) <= limite) { hastaHoy++; } });
+    });
+    this.progHastaHoy = hastaHoy;
+    this.pctProgramado = totalProg > 0 ? Math.round(hastaHoy * 100 / totalProg) : 0;
 
     this.hhMes = sumarHHPrograma(this.programa);
   }
@@ -1418,8 +1436,10 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       // solo los minutos de la capacitación (en registros anteriores: su duración individual)
       m.minutosCap = hh.duracionMin || hh.minTotal || null;
     }
-    m.trabajadoresDia = hh.trabajadoresDia || null;
-    m.horasDia = hh.horasDia || null;
+    // HH Trabajadores: son del proyecto en ese día (las mismas para todas las actividades)
+    const ht = hhTrabajadoresDe(this.programa, m.dia);
+    m.trabajadoresDia = ht.trabajadores || null;
+    m.horasDia = ht.horas || null;
     if (hh.antiguo && hh.minTotal) {
       m.antiguo = { minOperacional: hh.minOperacional, minEspecificas: hh.minEspecificas, minTotal: hh.minTotal };
     }
@@ -1529,8 +1549,6 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       hhEspecificas: Number(anterior.hhEspecificas) || 0,
       entidadEspecifica: Number(anterior.hhEspecificas) > 0 ? (m.entidad || anterior.entidadEspecifica || 'OTROS') : '',
       hhOperacional: Number(anterior.hhOperacional) || 0,
-      trabajadoresDia: trabDia,
-      horasDia: horasDia,
       consumo: consumo,
       consumoCampo: m.consumoDef ? m.consumoDef.campo : '',
       observacion: (m.observacion || '').trim(),
@@ -1548,8 +1566,6 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       hhEspecificas: minutosAHoras(minEsp),
       entidadEspecifica: minEsp > 0 ? (m.entidad || 'OTROS') : '',
       hhOperacional: minutosAHoras(minOp),
-      trabajadoresDia: trabDia,
-      horasDia: horasDia,
       consumo: consumo,
       consumoCampo: m.consumoDef ? m.consumoDef.campo : '',
       observacion: (m.observacion || '').trim(),
@@ -1560,8 +1576,9 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.guardandoRegistro = true;
 
     const a = m.act;
+    this.guardarHHTrabajadores(m.dia, trabDia, horasDia);
     // Sin cumplimiento y sin nada más (HH, observación, adjuntos, consumo): el día vuelve a quedar sin registro
-    const sinDatos = cumplimiento === null && !categoria && !mantenerAntiguo && !reg.observacion && !trabDia && !horasDia &&
+    const sinDatos = cumplimiento === null && !categoria && !mantenerAntiguo && !reg.observacion &&
       !reg.adjuntos.length && (consumo === null || consumo === undefined);
     if (sinDatos) {
       delete registrosDe(a)[String(m.dia)];
@@ -1583,6 +1600,31 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.recalcular();   // acumulados al día
     this.guardarInmediato(sinDatos ? 'Cumplimiento quitado' : bajadoA75 ? 'Guardado en 75%: el 100% requiere evidencia adjunta' : 'Registro guardado');
     if (m.consumoDef) { this.sincronizarConsumoMA(m.consumoDef.campo); }
+  }
+
+  /** HH Trabajadores del proyecto en el día (una sola vez por día, para todas las actividades). */
+  private guardarHHTrabajadores(dia: number, trabajadores: number, horas: number) {
+    const p: any = this.programa;
+    if (!p) { return; }
+    const mapa = p.hhTrabajadores || (p.hhTrabajadores = {});
+    if (trabajadores || horas) {
+      mapa[String(dia)] = {
+        trabajadores: trabajadores || 0,
+        horas: horas || 0,
+        por: this.nombreUsuario || '',
+        fecha: new Date().toISOString()
+      };
+    } else {
+      delete mapa[String(dia)];
+    }
+    // limpia la versión anterior (guardada en cada registro) para que no quede duplicada
+    (p.actividades || []).forEach((act: ActividadPrograma) => {
+      const r: any = registrosDe(act)[String(dia)];
+      if (r && (r.trabajadoresDia !== undefined || r.horasDia !== undefined)) {
+        delete r.trabajadoresDia;
+        delete r.horasDia;
+      }
+    });
   }
 
   private adjuntosParaGuardar(m: ModalRegistro): AdjuntoRegistro[] {

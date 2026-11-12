@@ -1884,3 +1884,19 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
   font-size: 11.5px;
 }
 .psso-evidencia .fa { margin-right: 4px; }
+.hht-ayuda { margin: -2px 0 8px; color: #8f979f; font-size: 11px; }
+.hht-ayuda .fa { margin-right: 3px; color: #f58941; }
+
+/* KPI: avance programado vs avance real */
+.psso-kpi-doble { flex-direction: column; align-items: stretch !important; justify-content: center; gap: 6px !important; padding-top: 7px; padding-bottom: 7px; }
+.psso-av-fila { display: flex; align-items: center; gap: 12px; }
+.psso-av-dato { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex: 0 0 170px; }
+.psso-av-dato span { color: #6b7580; font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.psso-av-dato strong { font-size: 16px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.txt-av-prog { color: #e07020 !important; }
+.txt-av-real { color: #075f91 !important; }
+.psso-av-barra { flex: 1 1 auto; height: 8px; overflow: hidden; border-radius: 8px; background: #eaf0f5; box-shadow: inset 0 1px 1px rgba(20, 34, 45, .06); }
+.psso-av-barra i { display: block; height: 100%; max-width: 100%; border-radius: 8px; transition: width .4s ease; }
+.psso-av-barra .av-prog { background: linear-gradient(90deg, #fbc49a 0%, #f58941 100%); }
+.psso-av-barra .av-real { background: linear-gradient(90deg, #4fa3d6 0%, #075f91 100%); }
+.psso-av-fila small { flex: 0 0 auto; min-width: 58px; color: #8f979f; font-size: 11px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }

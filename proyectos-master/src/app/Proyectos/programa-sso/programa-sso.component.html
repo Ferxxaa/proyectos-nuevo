@@ -406,12 +406,27 @@
         <span>Realizadas</span>
         <strong>{{ totalCtrl | number:'1.0-2' }}</strong>
       </div>
-      <div class="psso-kpi psso-kpi-avance">
-        <div>
-          <span>Cumplimiento del mes</span>
-          <strong [ngClass]="'txt-' + claseSemaforo(totalProg ? pctTotal : null)">{{ totalProg ? pctTotal + '%' : '-' }}</strong>
+      <div class="psso-kpi psso-kpi-avance psso-kpi-doble">
+        <div class="psso-av-fila">
+          <div class="psso-av-dato">
+            <span>Avance programado</span>
+            <strong class="txt-av-prog">{{ totalProg ? pctProgramado + '%' : '-' }}</strong>
+          </div>
+          <div class="psso-av-barra" [title]="progHastaHoy + ' de ' + totalProg + ' programadas a la fecha'">
+            <i class="av-prog" [style.width.%]="pctProgramado"></i>
+          </div>
+          <small>{{ progHastaHoy }} / {{ totalProg }}</small>
         </div>
-        <div class="psso-barra grande"><i [ngClass]="claseSemaforo(totalProg ? pctTotal : null)" [style.width.%]="pctTotal"></i></div>
+        <div class="psso-av-fila">
+          <div class="psso-av-dato">
+            <span>Avance real</span>
+            <strong class="txt-av-real">{{ totalProg ? pctTotal + '%' : '-' }}</strong>
+          </div>
+          <div class="psso-av-barra" [title]="(totalCtrl | number:'1.0-2') + ' de ' + totalProg + ' realizadas'">
+            <i class="av-real" [style.width.%]="pctTotal"></i>
+          </div>
+          <small>{{ totalCtrl | number:'1.0-2' }} / {{ totalProg }}</small>
+        </div>
       </div>
       <div class="psso-kpi">
         <span>Promedio por ítem</span>
@@ -619,9 +634,10 @@
         <!-- HH Trabajadores (solo se guarda, para comparar con el Control de Asistencia) -->
         <div class="psso-campo">
           <span class="psso-campo-titulo">
-            HH Trabajadores
+            HH Trabajadores del proyecto
             <small class="hht-nota"><i class="fa fa-floppy-o" aria-hidden="true"></i> solo se guarda, para comparar con la asistencia</small>
           </span>
+          <p class="hht-ayuda"><i class="fa fa-building-o" aria-hidden="true"></i> Es del proyecto completo ese día: vale para todas las actividades del {{ modal.fechaTexto }}.</p>
           <div class="hhc-campos hht-campos">
             <label class="psso-hh-campo">
               <span>N° de trabajadores</span>
