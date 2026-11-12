@@ -43,16 +43,16 @@
               </div>
               <div class="mp-campo">
                 <label for="drdProyectoMatriz">Proyecto Matriz</label>
-                <select id="drdProyectoMatriz" [(ngModel)]="drdProyectoMatriz" name="drdProyectoMatriz" (change)="applyFilters()">
+                <select id="drdProyectoMatriz" [(ngModel)]="drdProyectoMatriz" name="drdProyectoMatriz" (change)="cambiarMatriz()">
                   <option value=0 selected>Todos</option>
-                  <option *ngFor="let ProyectoMatriz of ProyectosMatriz" value={{ProyectoMatriz.idProyectoMatriz}}>{{ProyectoMatriz.nombreProyectoMatriz}}</option>
+                  <option *ngFor="let m of opcionesMatriz" [value]="m.valor">{{m.nombre}}</option>
                 </select>
               </div>
               <div class="mp-campo">
                 <label for="drdProyecto">Proyecto</label>
                 <select id="drdProyecto" [(ngModel)]="drdProyecto" (change)="applyFilters()" name="drdProyecto">
                   <option value=0 selected>Todos</option>
-                  <option *ngFor="let Proyecto of Proyectos" value={{Proyecto.idProyecto}}>{{Proyecto.nombreProyecto}}</option>
+                  <option *ngFor="let p of opcionesProyecto" [value]="p.id">{{p.nombre}}</option>
                 </select>
               </div>
               <div class="mp-campo">

@@ -61,6 +61,9 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
 
   //Select
   ProyectosMatriz: Array<any>;
+  /** Opciones de los filtros: salen de los sub-proyectos que ve el usuario (sirve para cualquier perfil). */
+  opcionesMatriz: Array<{ valor: string; nombre: string }> = [];
+  opcionesProyecto: Array<{ id: string; nombre: string; matriz: string }> = [];
   Proyectos: Array<any>;
   Estados: Array<any>;
 
@@ -392,19 +395,74 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Arma las opciones de Proyecto Matriz y Proyecto con lo que el usuario realmente ve en la tabla
+   * (más lo que traigan los servicios de subgerente / director). Así un coordinador también tiene filtros.
+   */
+  private armarOpcionesFiltro() {
+    // solo sub-proyectos activos (no finalizados/cerrados) y de matrices visibles
+    const base = (this.MisProyectosOriginal || []).filter(el => this.esActivo(el) && !this.esMatrizOculta(el));
+    const clave = (t: any) => String(t || '').trim().toUpperCase();
+
+    const matrices: { [k: string]: string } = {};
+    base.forEach(el => { if (clave(el.nombreProyectoMatriz)) { matrices[clave(el.nombreProyectoMatriz)] = String(el.nombreProyectoMatriz).trim(); } });
+    this.opcionesMatriz = Object.keys(matrices)
+      .map(k => ({ valor: k, nombre: matrices[k] }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+
+    const proyectos: { [id: string]: { id: string; nombre: string; matriz: string } } = {};
+    base.forEach(el => {
+      if (el.idProyecto === undefined || el.idProyecto === null) { return; }
+      const id = String(el.idProyecto);
+      if (!proyectos[id]) { proyectos[id] = { id: id, nombre: String(el.nombreProyecto || ('Proyecto ' + id)).trim(), matriz: clave(el.nombreProyectoMatriz) }; }
+    });
+    const matrizSel = this.matrizSeleccionada();
+    this.opcionesProyecto = Object.keys(proyectos).map(k => proyectos[k])
+      .filter(p => !matrizSel || p.matriz === matrizSel)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  }
+
+  /** Activo = sin estado o con estado distinto de finalizado/cerrado. */
+  private esActivo(el: any): boolean {
+    const estado = (el && el.nombreEstadoProyecto || '').toLowerCase().trim();
+    return !estado || ['finalizado', 'finalizada', 'cerrado', 'cerrada'].indexOf(estado) < 0;
+  }
+
+  /** Matrices de prueba que no se muestran. */
+  private esMatrizOculta(el: any): boolean {
+    const nombre = (el && el.nombreProyectoMatriz || '').toLowerCase().trim();
+    return ['matriz trazas', 'proyecto matriz 2', 'prueba proyecto matriz', 'prueba cliente'].indexOf(nombre) >= 0;
+  }
+
+  /** Matriz elegida (clave en mayúsculas) o '' si es "Todos". */
+  private matrizSeleccionada(): string {
+    const v = this.drdProyectoMatriz;
+    if (v === null || v === undefined || v === 0 || String(v) === '0' || String(v) === '') { return ''; }
+    // compatibilidad: si viene un id numérico de matriz, se traduce a su nombre
+    const pm = (this.ProyectosMatriz || []).find(x => String(x.idProyectoMatriz) === String(v));
+    return String(pm ? pm.nombreProyectoMatriz : v).trim().toUpperCase();
+  }
+
+  /** Al cambiar la matriz, si el proyecto elegido no es de esa matriz se vuelve a "Todos". */
+  cambiarMatriz() {
+    this.armarOpcionesFiltro();
+    if (Number(this.drdProyecto) > 0 && !this.opcionesProyecto.some(p => p.id === String(this.drdProyecto))) {
+      this.drdProyecto = 0;
+    }
+    this.applyFilters();
+  }
+
   applyFilters() {
+    this.armarOpcionesFiltro();
     const base = [...(this.MisProyectosOriginal || [])];
     let lista = base;
 
     const estadoSel   = Number(this.drdEstado);
-    const matrizSel   = Number(this.drdProyectoMatriz);
+    const matrizSel   = this.matrizSeleccionada();
     const proyectoSel = Number(this.drdProyecto);
 
-    if (matrizSel > 0) {
-      const pm = this.ProyectosMatriz.find(x => x.idProyectoMatriz == matrizSel);
-      if (pm && pm.nombreProyectoMatriz) {
-        lista = lista.filter(el => el.nombreProyectoMatriz == pm.nombreProyectoMatriz);
-      }
+    if (matrizSel) {
+      lista = lista.filter(el => String(el.nombreProyectoMatriz || '').trim().toUpperCase() === matrizSel);
     }
 
     if (proyectoSel > 0) {
@@ -425,7 +483,7 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
       });
     }
 
-    if (estadoSel === 0 && matrizSel === 0 && proyectoSel === 0 && (!this.searchText || this.searchText.trim().length === 0)) {
+    if (estadoSel === 0 && !matrizSel && proyectoSel === 0 && (!this.searchText || this.searchText.trim().length === 0)) {
       lista = base.filter(el => {
         const estado = (el.nombreEstadoProyecto || '').toLowerCase().trim();
         if (!estado) return true;
