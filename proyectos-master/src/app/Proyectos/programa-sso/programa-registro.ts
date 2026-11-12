@@ -21,9 +21,13 @@ export interface RegistroDia {
 
   // ---- HH Capacitación (formato nuevo: todo en minutos) ----
   categoriaHH?: string;        // 'OPERACIONAL' | 'ESPECIFICA' | '' (sin HH)
-  trabajadores?: number;       // participantes
-  duracionMin?: number;        // duración individual de la capacitación, en minutos
-  hhMinutos?: number;          // HH netas en minutos = trabajadores × duracionMin
+  trabajadores?: number;       // (registros anteriores) participantes de la capacitación; los nuevos guardan 0
+  duracionMin?: number;        // minutos de la capacitación
+  hhMinutos?: number;          // minutos de capacitación que se suman (nuevos: = duracionMin)
+
+  // ---- HH Trabajadores (solo se guarda, para comparar después con Control de Asistencia) ----
+  trabajadoresDia?: number;    // cantidad de trabajadores del día
+  horasDia?: number;           // horas promedio trabajadas ese día (8, 9, 10...)
 
   // ---- Campos en horas decimales: se siguen escribiendo para compatibilidad
   //      (Estadísticas HH y registros antiguos). La fuente de verdad es hhMinutos.
@@ -227,16 +231,21 @@ export interface HHRegistro {
   minEspecificas: number;
   minTotal: number;
   antiguo: boolean;       // registro guardado en horas decimales (sin trabajadores / duración)
+  trabajadoresDia: number; // HH Trabajadores: cantidad (0 = no se ingresó)
+  horasDia: number;        // HH Trabajadores: horas promedio del día (0 = no se ingresó)
 }
 
 /** Lee las HH de un registro (formato nuevo o antiguo) y las devuelve en minutos. */
 export function hhRegistroMin(r: RegistroDia): HHRegistro {
   const res: HHRegistro = {
     categoria: '', trabajadores: 0, duracionMin: 0,
-    minOperacional: 0, minEspecificas: 0, minTotal: 0, antiguo: false
+    minOperacional: 0, minEspecificas: 0, minTotal: 0, antiguo: false,
+    trabajadoresDia: 0, horasDia: 0
   };
   if (!r) { return res; }
   const x: any = r;
+  res.trabajadoresDia = Math.max(0, Math.round(Number(x.trabajadoresDia) || 0));
+  res.horasDia = Math.max(0, Number(x.horasDia) || 0);
   const nuevo = x.categoriaHH !== undefined && x.categoriaHH !== null;
   if (nuevo) {
     const cat = x.categoriaHH === CATEGORIA_OPERACIONAL || x.categoriaHH === CATEGORIA_ESPECIFICA ? x.categoriaHH : '';
@@ -245,8 +254,9 @@ export function hhRegistroMin(r: RegistroDia): HHRegistro {
     const d = Math.max(0, Math.round(Number(x.duracionMin) || 0));
     const min = t && d ? t * d : Math.max(0, Math.round(Number(x.hhMinutos) || 0));
     res.categoria = cat;
-    res.trabajadores = t;
+    res.trabajadores = t || res.trabajadoresDia;
     res.duracionMin = d;
+    if (!res.trabajadoresDia && t) { res.trabajadoresDia = t; }   // registros anteriores: los participantes sirven de referencia
     if (cat === CATEGORIA_OPERACIONAL) { res.minOperacional = min; } else { res.minEspecificas = min; }
   } else {
     // registro antiguo: horas decimales
@@ -377,4 +387,31 @@ export function borrarAdjunto(adj: AdjuntoRegistro): Promise<any> {
   return (firebase as any).storage().ref(adj.path).delete().catch((err: any) => {
     console.warn('No se pudo borrar el adjunto ' + adj.path, err);
   });
+}
+
+// ===================== HH Trabajadores / minutos de capacitación =====================
+
+export const MAX_MINUTOS_CAPACITACION = 1440;
+
+/** Minutos de la capacitación (entero de 0 a 1440). */
+export function minutosCapacitacion(v: any): number {
+  const n = enteroNoNegativo(v, 'Minutos de capacitación');
+  if (n > MAX_MINUTOS_CAPACITACION) { throw new Error('Los minutos de capacitación no pueden superar ' + MAX_MINUTOS_CAPACITACION + ' (24 h).'); }
+  return n;
+}
+
+/** HH Trabajadores: cantidad de trabajadores del día (entero). */
+export function trabajadoresDelDia(v: any): number {
+  const n = enteroNoNegativo(v, 'Trabajadores');
+  if (n > MAX_TRABAJADORES) { throw new Error('La cantidad de trabajadores parece demasiado alta, revisa el valor.'); }
+  return n;
+}
+
+/** HH Trabajadores: horas promedio del día (0 a 24, acepta decimales: 8,5). */
+export function horasPromedioDia(v: any): number {
+  if (v === null || v === undefined || String(v).trim() === '') { return 0; }
+  const n = Number(String(v).trim().replace(',', '.'));
+  if (!isFinite(n)) { throw new Error('Horas promedio: ingresa un número.'); }
+  if (n < 0 || n > 24) { throw new Error('Las horas promedio del día deben estar entre 0 y 24.'); }
+  return Math.round(n * 100) / 100;
 }

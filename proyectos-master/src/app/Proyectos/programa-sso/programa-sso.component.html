@@ -606,13 +606,37 @@
               <span>{{ n.t }}</span>
             </button>
           </div>
+          <p class="psso-evidencia" *ngIf="modal.cumplimiento === 100 && !tieneEvidencia && !modal.soloLectura">
+            <i class="fa fa-paperclip" aria-hidden="true"></i>
+            El 100% exige evidencia: adjunta un respaldo abajo o se guardará automáticamente en <b>75%</b>.
+          </p>
           <p class="psso-sin-cump" *ngIf="modal.cumplimiento === null">
             <i class="fa fa-info-circle" aria-hidden="true"></i>
             Sin cumplimiento marcado.<ng-container *ngIf="!modal.soloLectura"> Al guardar, el día queda como programado (no cuenta como realizado).</ng-container>
           </p>
         </div>
 
-        <!-- HH Capacitación -->
+        <!-- HH Trabajadores (solo se guarda, para comparar con el Control de Asistencia) -->
+        <div class="psso-campo">
+          <span class="psso-campo-titulo">
+            HH Trabajadores
+            <small class="hht-nota"><i class="fa fa-floppy-o" aria-hidden="true"></i> solo se guarda, para comparar con la asistencia</small>
+          </span>
+          <div class="hhc-campos hht-campos">
+            <label class="psso-hh-campo">
+              <span>N° de trabajadores</span>
+              <input type="number" min="0" step="1" placeholder="0" name="hhTrabajadoresDia"
+                     [(ngModel)]="modal.trabajadoresDia" [disabled]="modal.soloLectura">
+            </label>
+            <label class="psso-hh-campo">
+              <span>Horas promedio del día <em>(8, 9, 10...)</em></span>
+              <input type="number" min="0" max="24" step="0.5" placeholder="0" name="hhHorasDia"
+                     [(ngModel)]="modal.horasDia" [disabled]="modal.soloLectura">
+            </label>
+          </div>
+        </div>
+
+        <!-- HH Capacitación: solo los minutos de la capacitación -->
         <div class="psso-campo">
           <span class="psso-campo-titulo">
             HH Capacitación
@@ -650,7 +674,7 @@
               <small *ngIf="modal.antiguo.minOperacional && modal.antiguo.minEspecificas">
                 (Operacionales {{ formatoHM(modal.antiguo.minOperacional) }} · Específicas {{ formatoHM(modal.antiguo.minEspecificas) }})
               </small>
-              <small *ngIf="!modal.descartarAntiguo && !modal.soloLectura">Se guardó sin trabajadores ni duración. Ingresa los datos para reemplazarlo, o bórralo.</small>
+              <small *ngIf="!modal.descartarAntiguo && !modal.soloLectura">Se guardó en horas. Ingresa los minutos para reemplazarlo, o bórralo.</small>
               <small *ngIf="modal.descartarAntiguo">Estas HH se borran al guardar.</small>
             </div>
             <ng-container *ngIf="!modal.soloLectura">
@@ -660,21 +684,11 @@
           </div>
 
           <ng-container *ngIf="modal.categoria">
-            <div class="hhc-campos">
+            <div class="hhc-campos hht-campos">
               <label class="psso-hh-campo">
-                <span>Trabajadores</span>
-                <input type="number" min="1" step="1" placeholder="0" name="hhTrabajadores"
-                       [(ngModel)]="modal.trabajadores" [disabled]="modal.soloLectura">
-              </label>
-              <label class="psso-hh-campo">
-                <span>Horas <em>(por persona)</em></span>
-                <input type="number" min="0" max="24" step="1" placeholder="0" name="hhHoras"
-                       [(ngModel)]="modal.horas" [disabled]="modal.soloLectura">
-              </label>
-              <label class="psso-hh-campo">
-                <span>Minutos <em>(0–59)</em></span>
-                <input type="number" min="0" max="59" step="1" placeholder="0" name="hhMinutos"
-                       [(ngModel)]="modal.minutos" [disabled]="modal.soloLectura">
+                <span>Minutos de la capacitación</span>
+                <input type="number" min="0" max="1440" step="1" placeholder="0" name="hhMinutosCap"
+                       [(ngModel)]="modal.minutosCap" [disabled]="modal.soloLectura">
               </label>
               <label class="psso-hh-campo" *ngIf="modal.categoria === 'ESPECIFICA'">
                 <span>Entidad</span>
@@ -684,34 +698,6 @@
                 </select>
               </label>
             </div>
-
-            <!-- Resultado -->
-            <div class="hhc-resultado" [ngClass]="'hhc-' + modal.categoria" *ngIf="calculoModal && !calculoModal.error">
-              <div class="hhc-res-dato">
-                <span>Trabajadores</span>
-                <b>{{ calculoModal.trabajadores }}</b>
-              </div>
-              <i class="fa fa-times hhc-op" aria-hidden="true"></i>
-              <div class="hhc-res-dato">
-                <span>Duración individual</span>
-                <b>{{ formatoHM(calculoModal.duracionMin) }}</b>
-              </div>
-              <i class="hhc-op hhc-igual" aria-hidden="true">=</i>
-              <div class="hhc-res-dato">
-                <span>Total minutos</span>
-                <b>{{ calculoModal.hhMinutos | number:'1.0-0' }} min</b>
-              </div>
-              <div class="hhc-res-total">
-                <span>HH netas</span>
-                <strong>{{ formatoHM(calculoModal.hhMinutos) }}</strong>
-              </div>
-            </div>
-            <div class="hhc-aviso" *ngIf="calculoModal && calculoModal.error">
-              <i class="fa fa-exclamation-circle" aria-hidden="true"></i> {{ calculoModal.error }}
-            </div>
-            <p class="hhc-ayuda" *ngIf="!calculoModal && !modal.soloLectura">
-              HH netas = trabajadores × duración individual. Ej: 5 trabajadores × 1 h 30 min = 7 h 30 min.
-            </p>
           </ng-container>
         </div>
         <!-- Consumo de Medio Ambiente (solo Programa MA: agua, combustible, residuos) -->

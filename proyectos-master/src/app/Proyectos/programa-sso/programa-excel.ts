@@ -404,8 +404,8 @@ function registrosOrdenados(p: ProgramaMes): FilaRegistro[] {
 }
 
 function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
-  // Ítem, Actividad, Fecha, Cumplimiento, Categoría HH, Trabajadores, Duración individual, Total minutos,
-  // HH netas, HH (decimal), Entidad, Consumo, Observación, Registrado por, Adjuntos
+  // Ítem, Actividad, Fecha, Cumplimiento, Categoría HH, Trabajadores (día), Horas promedio día, Minutos capacitación,
+  // Capacitación h:min, Capacitación h decimal, Entidad, Consumo, Observación, Registrado por, Adjuntos
   const anchos = [26, 44, 11, 17, 17, 12, 15, 12, 15, 11, 14, 14, 40, 18, 36];
   const nc = anchos.length;
   const h = new Hoja('Registro HH', anchos, { filas: 4, cols: 0 });
@@ -415,8 +415,8 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
   f = h.fila(); h.set(f, 1, 'Subproyecto: ' + (d.subproyecto || '—'), 'metaB', { merge: nc - 1 });
   h.fila();
 
-  const titulos = ['Ítem', 'Actividad', 'Fecha', 'Cumplimiento', 'Categoría HH', 'Trabajadores', 'Duración individual',
-    'Total minutos', 'HH netas', 'HH (decimal)', 'Entidad (específicas)', 'Consumo (MA)', 'Observación', 'Registrado por', 'Adjuntos'];
+  const titulos = ['Ítem', 'Actividad', 'Fecha', 'Cumplimiento', 'Categoría HH', 'Trabajadores (día)', 'Horas promedio día',
+    'Minutos capacitación', 'Capacitación (h:min)', 'Capacitación (h decimal)', 'Entidad (específicas)', 'Consumo (MA)', 'Observación', 'Registrado por', 'Adjuntos'];
   f = h.fila(30);
   titulos.forEach((t, i) => h.set(f, i + 1, t, 'head'));
 
@@ -435,16 +435,16 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
     h.set(f, col++, x.actividad, 'textoWrap');
     h.set(f, col++, pad(x.dia) + '/' + pad(d.mes) + '/' + d.anio, 'centro');
     h.set(f, col++, textoCumplimiento(r.cumplimiento), estiloCumplimiento(r.cumplimiento));
+    const cat = hh.categoria ? textoCategoriaHH(hh.categoria) : 'Operacionales + Específicas';
+    h.set(f, col++, hh.minTotal ? cat + (hh.antiguo ? ' (registro anterior)' : '') : '', 'centro');
+    h.set(f, col++, hh.trabajadoresDia || '', 'centro');
+    h.set(f, col++, hh.horasDia || '', 'centro');
     if (hh.minTotal) {
-      const cat = hh.categoria ? textoCategoriaHH(hh.categoria) : 'Operacionales + Específicas';
-      h.set(f, col++, cat + (hh.antiguo ? ' (registro anterior)' : ''), 'centro');
-      h.set(f, col++, hh.antiguo ? '' : hh.trabajadores, 'centro');
-      h.set(f, col++, hh.antiguo ? '' : formatoHM(hh.duracionMin), 'centro');
       h.set(f, col++, hh.minTotal, 'centro');
       h.set(f, col++, formatoHM(hh.minTotal), 'centro');
       h.set(f, col++, redondear(minutosAHoras(hh.minTotal)), 'centro');
     } else {
-      for (let i = 0; i < 6; i++) { h.set(f, col++, '', 'centro'); }
+      for (let i = 0; i < 3; i++) { h.set(f, col++, '', 'centro'); }
     }
     h.set(f, col++, hh.minEspecificas > 0 ? textoEntidad(r.entidadEspecifica) : '', 'centro');
     h.set(f, col++, textoConsumo(r), 'centro');

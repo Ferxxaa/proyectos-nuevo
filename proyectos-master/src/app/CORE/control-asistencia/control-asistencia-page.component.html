@@ -181,13 +181,92 @@
                 <!-- ---------- MENSUAL ---------- -->
                 <ng-container *ngIf="!cargandoConsolidado && !errorConsolidado && vistaConsolidado === 'mensual'">
                   <div class="cons-kpis">
-                    <div class="cons-kpi"><span>Personas</span><strong>{{consTotMes.personas}}</strong></div>
-                    <div class="cons-kpi"><span>Subproyectos</span><strong>{{consTotMes.sps}}</strong></div>
-                    <div class="cons-kpi"><span>Días trabajados</span><strong>{{formatear(consTotMes.dias)}}</strong></div>
-                    <div class="cons-kpi"><span>Horas extra</span><strong>{{formatear(consTotMes.extra)}}</strong></div>
-                    <div class="cons-kpi cons-kpi-hh"><span>HH trabajadas · {{meses[consMes - 1]}}</span><strong>{{formatear(consTotMes.hh)}}</strong></div>
-                    <div class="cons-kpi" [class.cons-kpi-alerta]="consTotMes.faltas"><span>Ausencias</span><strong>{{consTotMes.aus}}</strong>
-                      <small *ngIf="consTotMes.faltas">{{consTotMes.faltas}} injustificada{{consTotMes.faltas === 1 ? '' : 's'}}</small></div>
+                    <div class="cons-kpi cons-kpi-hh">
+                      <span class="cons-kpi-ico"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
+                      <div><span>HH trabajadas · {{meses[consMes - 1]}}</span><strong>{{formatear(consTotMes.hh)}}</strong>
+                        <small class="cons-kpi-sub">{{consTotMes.personas ? formatear(consTotMes.hh / consTotMes.personas) : 0}} HH por persona</small></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-azul">
+                      <span class="cons-kpi-ico"><i class="fa fa-users" aria-hidden="true"></i></span>
+                      <div><span>Personas</span><strong>{{consTotMes.personas}}</strong></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-naranjo">
+                      <span class="cons-kpi-ico"><i class="fa fa-map-marker" aria-hidden="true"></i></span>
+                      <div><span>Subproyectos</span><strong>{{consTotMes.sps}}</strong></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-verde">
+                      <span class="cons-kpi-ico"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
+                      <div><span>Días trabajados</span><strong>{{formatear(consTotMes.dias)}}</strong></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-morado">
+                      <span class="cons-kpi-ico"><i class="fa fa-bolt" aria-hidden="true"></i></span>
+                      <div><span>Horas extra</span><strong>{{formatear(consTotMes.extra)}}</strong></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-rojo" [class.cons-kpi-alerta]="consTotMes.faltas">
+                      <span class="cons-kpi-ico"><i class="fa fa-user-times" aria-hidden="true"></i></span>
+                      <div><span>Ausencias</span><strong>{{consTotMes.aus}}</strong>
+                        <small class="cons-kpi-sub" *ngIf="consTotMes.faltas">{{consTotMes.faltas}} injustificada{{consTotMes.faltas === 1 ? '' : 's'}}</small>
+                        <small class="cons-kpi-sub" *ngIf="!consTotMes.faltas">sin faltas injustificadas</small></div>
+                    </div>
+                  </div>
+
+                  <div class="cons-graficos" *ngIf="consMensual.length">
+                    <section class="cons-graf cons-graf-ancho">
+                      <h6><i class="fa fa-bar-chart" aria-hidden="true"></i> HH por subproyecto <small>{{meses[consMes - 1]}} {{consAnio}}</small></h6>
+                      <div class="cons-mix">
+                        <div class="cons-mix-barra">
+                          <div class="cons-mix-j" [style.width.%]="consMixMes.pctJornada" [title]="'Jornada: ' + formatear(consMixMes.jornada) + ' HH'"></div>
+                          <div class="cons-mix-e" [style.width.%]="consMixMes.pctExtra" [title]="'Horas extra: ' + formatear(consMixMes.extra) + ' HH'"></div>
+                        </div>
+                        <div class="cons-mix-ley">
+                          <span><i class="cons-mix-j"></i> Jornada <b>{{formatear(consMixMes.jornada)}}</b> ({{consMixMes.pctJornada}}%)</span>
+                          <span><i class="cons-mix-e"></i> Horas extra <b>{{formatear(consMixMes.extra)}}</b> ({{consMixMes.pctExtra}}%)</span>
+                        </div>
+                      </div>
+                      <div class="cons-hbarras" *ngIf="consGrafSpMes.length">
+                        <div class="cons-hbarra" *ngFor="let b of consGrafSpMes">
+                          <div class="cons-hbarra-cab">
+                            <span class="cons-hbarra-nombre" [title]="b.nombre"><i [style.background]="b.color"></i>{{b.nombre}}</span>
+                            <span class="cons-hbarra-valor"><b>{{formatear(b.valor)}}</b> HH<small *ngIf="b.sub"> · {{b.sub}}</small></span>
+                          </div>
+                          <div class="cons-hbarra-pista"><div class="cons-hbarra-fill" [style.width.%]="b.pct" [style.background]="b.color"></div></div>
+                        </div>
+                      </div>
+                      <div class="cons-graf-vacio" *ngIf="!consGrafSpMes.length">Sin datos</div>
+                    </section>
+                    <section class="cons-graf">
+                      <h6><i class="fa fa-trophy" aria-hidden="true"></i> Más HH del mes</h6>
+                      <div class="cons-hbarras" *ngIf="consTopMes.length">
+                        <div class="cons-hbarra" *ngFor="let b of consTopMes">
+                          <div class="cons-hbarra-cab">
+                            <span class="cons-hbarra-nombre" [title]="b.nombre"><i [style.background]="b.color"></i>{{b.nombre}}</span>
+                            <span class="cons-hbarra-valor"><b>{{formatear(b.valor)}}</b> HH<small *ngIf="b.sub"> · {{b.sub}}</small></span>
+                          </div>
+                          <div class="cons-hbarra-pista"><div class="cons-hbarra-fill" [style.width.%]="b.pct" [style.background]="b.color"></div></div>
+                        </div>
+                      </div>
+                      <div class="cons-graf-vacio" *ngIf="!consTopMes.length">Sin datos</div>
+                    </section>
+                    <section class="cons-graf">
+                      <h6><i class="fa fa-pie-chart" aria-hidden="true"></i> Ausencias por motivo</h6>
+                      <div class="cons-dona-caja" *ngIf="consDonaMes.length">
+                        <div class="cons-dona-svg"><svg viewBox="0 0 42 42" width="120" height="120" class="cons-dona" aria-hidden="true">
+                          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#eef1f4" stroke-width="6"></circle>
+                          <circle *ngFor="let d of consDonaMes" cx="21" cy="21" r="15.915" fill="none" stroke-width="6"
+                                  [attr.stroke]="d.color" [attr.stroke-dasharray]="d.dash" [attr.stroke-dashoffset]="d.offset"></circle>
+                          <text x="21" y="21" class="cons-dona-num">{{consAusMesTotal}}</text>
+                          <text x="21" y="26.5" class="cons-dona-txt">ausencias</text>
+                        </svg></div>
+                        <ul class="cons-dona-ley">
+                          <li *ngFor="let d of consDonaMes">
+                            <i [style.background]="d.color"></i>
+                            <span class="cons-dona-nombre">{{d.t}}</span>
+                            <b>{{d.n}}</b><small>{{d.pct}}%</small>
+                          </li>
+                        </ul>
+                      </div>
+                      <div class="cons-graf-vacio" *ngIf="!consDonaMes.length"><i class="fa fa-smile-o" aria-hidden="true"></i> Sin ausencias registradas</div>
+                    </section>
                   </div>
 
                   <div class="core-vacio" *ngIf="!consMensual.length">
@@ -225,7 +304,12 @@
                               </td>
                               <td>{{formatear(f.dias)}}</td>
                               <td>{{formatear(f.extra)}}</td>
-                              <td class="cons-col-hh">{{formatear(f.hh)}}</td>
+                              <td class="cons-col-hh">
+                                <div class="cons-celda-barra">
+                                  <span>{{formatear(f.hh)}}</span>
+                                  <i><b [style.width.%]="anchoBarraMes(f.hh)"></b></i>
+                                </div>
+                              </td>
                               <td>
                                 <span class="cons-aus" *ngFor="let m of motivosAusencia" [hidden]="!f.aus[m.v]" [ngClass]="'ca-aus-' + m.v" [title]="m.t">{{m.letra}} {{f.aus[m.v]}}</span>
                                 <span class="cons-guion" *ngIf="!f.ausTotal">—</span>
@@ -263,10 +347,95 @@
                 <!-- ---------- ANUAL ---------- -->
                 <ng-container *ngIf="!cargandoConsolidado && !errorConsolidado && vistaConsolidado === 'anual'">
                   <div class="cons-kpis">
-                    <div class="cons-kpi"><span>Personas en el año</span><strong>{{consTotAnio.personas}}</strong></div>
-                    <div class="cons-kpi"><span>Subproyectos</span><strong>{{consTotAnio.sps}}</strong></div>
-                    <div class="cons-kpi"><span>Días trabajados</span><strong>{{formatear(consTotAnio.dias)}}</strong></div>
-                    <div class="cons-kpi cons-kpi-hh"><span>HH trabajadas {{consAnio}}</span><strong>{{formatear(consTotAnio.hh)}}</strong></div>
+                    <div class="cons-kpi cons-kpi-hh">
+                      <span class="cons-kpi-ico"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
+                      <div><span>HH trabajadas {{consAnio}}</span><strong>{{formatear(consTotAnio.hh)}}</strong>
+                        <small class="cons-kpi-sub">{{formatear(consResAnio.promedio)}} HH promedio por mes</small></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-azul">
+                      <span class="cons-kpi-ico"><i class="fa fa-users" aria-hidden="true"></i></span>
+                      <div><span>Personas en el año</span><strong>{{consTotAnio.personas}}</strong></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-naranjo">
+                      <span class="cons-kpi-ico"><i class="fa fa-map-marker" aria-hidden="true"></i></span>
+                      <div><span>Subproyectos</span><strong>{{consTotAnio.sps}}</strong></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-verde">
+                      <span class="cons-kpi-ico"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
+                      <div><span>Días trabajados</span><strong>{{formatear(consTotAnio.dias)}}</strong>
+                        <small class="cons-kpi-sub">{{consResAnio.mesesConDatos}} mes{{consResAnio.mesesConDatos === 1 ? '' : 'es'}} con registros</small></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-morado">
+                      <span class="cons-kpi-ico"><i class="fa fa-star" aria-hidden="true"></i></span>
+                      <div><span>Mes con más HH</span><strong>{{consResAnio.mejorHH ? consResAnio.mejorMes : '—'}}</strong>
+                        <small class="cons-kpi-sub" *ngIf="consResAnio.mejorHH">{{formatear(consResAnio.mejorHH)}} HH</small></div>
+                    </div>
+                    <div class="cons-kpi cons-kpi-rojo">
+                      <span class="cons-kpi-ico"><i class="fa fa-user-times" aria-hidden="true"></i></span>
+                      <div><span>Ausencias del año</span><strong>{{consAusAnioTotal}}</strong>
+                        <small class="cons-kpi-sub">{{formatear(consResAnio.extra)}} horas extra</small></div>
+                    </div>
+                  </div>
+
+                  <div class="cons-graficos" *ngIf="consAnual.length">
+                    <section class="cons-graf cons-graf-completo">
+                      <h6><i class="fa fa-line-chart" aria-hidden="true"></i> HH por mes · {{consAnio}} <small>clic en una barra para ver el mes</small></h6>
+                      <div class="cons-columnas">
+                        <button type="button" class="cons-col" *ngFor="let b of consBarrasMes; let i = index"
+                                [class.cons-col-actual]="b.actual" [class.cons-col-vacia]="!b.valor"
+                                (click)="verMesConsolidado(i + 1)" [title]="meses[i] + ': ' + formatear(b.valor) + ' HH'">
+                          <span class="cons-col-valor">{{b.valor ? formatear(b.valor) : ''}}</span>
+                          <span class="cons-col-pista"><span class="cons-col-fill" [style.height.%]="b.pct"></span></span>
+                          <span class="cons-col-mes">{{b.nombre}}</span>
+                        </button>
+                      </div>
+                    </section>
+                    <section class="cons-graf cons-graf-ancho">
+                      <h6><i class="fa fa-bar-chart" aria-hidden="true"></i> HH por subproyecto <small>% del total del año</small></h6>
+                      <div class="cons-hbarras" *ngIf="consGrafSpAnio.length">
+                        <div class="cons-hbarra" *ngFor="let b of consGrafSpAnio">
+                          <div class="cons-hbarra-cab">
+                            <span class="cons-hbarra-nombre" [title]="b.nombre"><i [style.background]="b.color"></i>{{b.nombre}}</span>
+                            <span class="cons-hbarra-valor"><b>{{formatear(b.valor)}}</b> HH<small *ngIf="b.sub"> · {{b.sub}}</small></span>
+                          </div>
+                          <div class="cons-hbarra-pista"><div class="cons-hbarra-fill" [style.width.%]="b.pct" [style.background]="b.color"></div></div>
+                        </div>
+                      </div>
+                      <div class="cons-graf-vacio" *ngIf="!consGrafSpAnio.length">Sin datos</div>
+                    </section>
+                    <section class="cons-graf">
+                      <h6><i class="fa fa-trophy" aria-hidden="true"></i> Más HH del año</h6>
+                      <div class="cons-hbarras" *ngIf="consTopAnio.length">
+                        <div class="cons-hbarra" *ngFor="let b of consTopAnio">
+                          <div class="cons-hbarra-cab">
+                            <span class="cons-hbarra-nombre" [title]="b.nombre"><i [style.background]="b.color"></i>{{b.nombre}}</span>
+                            <span class="cons-hbarra-valor"><b>{{formatear(b.valor)}}</b> HH<small *ngIf="b.sub"> · {{b.sub}}</small></span>
+                          </div>
+                          <div class="cons-hbarra-pista"><div class="cons-hbarra-fill" [style.width.%]="b.pct" [style.background]="b.color"></div></div>
+                        </div>
+                      </div>
+                      <div class="cons-graf-vacio" *ngIf="!consTopAnio.length">Sin datos</div>
+                    </section>
+                    <section class="cons-graf">
+                      <h6><i class="fa fa-pie-chart" aria-hidden="true"></i> Ausencias por motivo</h6>
+                      <div class="cons-dona-caja" *ngIf="consDonaAnio.length">
+                        <div class="cons-dona-svg"><svg viewBox="0 0 42 42" width="120" height="120" class="cons-dona" aria-hidden="true">
+                          <circle cx="21" cy="21" r="15.915" fill="none" stroke="#eef1f4" stroke-width="6"></circle>
+                          <circle *ngFor="let d of consDonaAnio" cx="21" cy="21" r="15.915" fill="none" stroke-width="6"
+                                  [attr.stroke]="d.color" [attr.stroke-dasharray]="d.dash" [attr.stroke-dashoffset]="d.offset"></circle>
+                          <text x="21" y="21" class="cons-dona-num">{{consAusAnioTotal}}</text>
+                          <text x="21" y="26.5" class="cons-dona-txt">ausencias</text>
+                        </svg></div>
+                        <ul class="cons-dona-ley">
+                          <li *ngFor="let d of consDonaAnio">
+                            <i [style.background]="d.color"></i>
+                            <span class="cons-dona-nombre">{{d.t}}</span>
+                            <b>{{d.n}}</b><small>{{d.pct}}%</small>
+                          </li>
+                        </ul>
+                      </div>
+                      <div class="cons-graf-vacio" *ngIf="!consDonaAnio.length"><i class="fa fa-smile-o" aria-hidden="true"></i> Sin ausencias registradas</div>
+                    </section>
                   </div>
 
                   <div class="core-vacio" *ngIf="!consAnual.length">
@@ -296,7 +465,8 @@
                               <small>{{f.sps.length}} subproyecto{{f.sps.length === 1 ? '' : 's'}}<ng-container *ngIf="f.ausTotal"> · {{f.ausTotal}} ausencia{{f.ausTotal === 1 ? '' : 's'}}</ng-container></small>
                             </td>
                             <td *ngFor="let m of f.meses; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)"
-                                [class.cons-con-dato]="m.hh" [title]="m.texto">{{m.hh ? formatear(m.hh) : ''}}</td>
+                                [class.cons-con-dato]="m.hh" [title]="m.texto"
+                                [style.background-color]="fondoCalor(m.hh)" [style.color]="textoCalor(m.hh)">{{m.hh ? formatear(m.hh) : ''}}</td>
                             <td>{{formatear(f.dias)}}</td>
                             <td class="cons-col-hh">{{formatear(f.hh)}}</td>
                           </tr>

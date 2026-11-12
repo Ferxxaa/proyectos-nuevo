@@ -4,7 +4,8 @@ import { getFeriadosChile } from '../estadisticas-hh/control-asistencia.componen
 import {
   AdjuntoRegistro, RegistroDia, NIVELES_CUMPLIMIENTO, VALORES_CUMPLIMIENTO, ENTIDADES_ESPECIFICAS, TAMANO_MAXIMO_ADJUNTO,
   registrosDe, sumarHHPrograma, redondear, subirAdjunto, borrarAdjunto,
-  CATEGORIAS_HH, CATEGORIA_ESPECIFICA, categoriaFijaDe, calcularHH, hhRegistroMin, formatoHM, minutosAHoras,
+  CATEGORIAS_HH, CATEGORIA_ESPECIFICA, categoriaFijaDe, hhRegistroMin, formatoHM, minutosAHoras,
+  minutosCapacitacion, trabajadoresDelDia, horasPromedioDia,
   textoCategoriaHH, ResumenHH, resumenHHVacio, textoEntidad
 } from './programa-registro';
 import { exportarProgramaExcel, exportarConsolidadoAnualExcel } from './programa-excel';
@@ -182,9 +183,9 @@ interface ModalRegistro {
   cumplimiento: number;
   categoria: string;                 // OPERACIONAL | ESPECIFICA | '' (no aplica)
   categoriaFija: boolean;            // true = la define la sección de la actividad
-  trabajadores: any;                 // inputs (se validan al guardar)
-  horas: any;
-  minutos: any;
+  trabajadoresDia: any;              // HH Trabajadores (solo se guarda, para comparar con asistencia)
+  horasDia: any;                     // horas promedio trabajadas ese día (8, 9, 10...)
+  minutosCap: any;                   // HH Capacitación: solo los minutos de la capacitación
   entidad: string;                   // entidad de las HH específicas
   antiguo: { minOperacional: number; minEspecificas: number; minTotal: number }; // registro en horas decimales (o null)
   descartarAntiguo: boolean;         // true = al guardar se borran las HH antiguas
@@ -1386,9 +1387,9 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       cumplimiento: reg ? reg.cumplimiento : 100,
       categoria: '',
       categoriaFija: false,
-      trabajadores: null,
-      horas: null,
-      minutos: null,
+      trabajadoresDia: null,
+      horasDia: null,
+      minutosCap: null,
       entidad: reg && reg.entidadEspecifica ? reg.entidadEspecifica : 'MUTUAL',
       antiguo: null,
       descartarAntiguo: false,
@@ -1414,31 +1415,25 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     m.categoriaFija = !!fija;
     m.categoria = fija || hh.categoria || '';
     if (reg && !hh.antiguo && hh.minTotal) {
-      m.trabajadores = hh.trabajadores || null;
-      m.horas = Math.floor(hh.duracionMin / 60) || null;
-      m.minutos = hh.duracionMin % 60 || null;
+      // solo los minutos de la capacitación (en registros anteriores: su duración individual)
+      m.minutosCap = hh.duracionMin || hh.minTotal || null;
     }
+    m.trabajadoresDia = hh.trabajadoresDia || null;
+    m.horasDia = hh.horasDia || null;
     if (hh.antiguo && hh.minTotal) {
       m.antiguo = { minOperacional: hh.minOperacional, minEspecificas: hh.minEspecificas, minTotal: hh.minTotal };
     }
   }
 
-  /** ¿Se ingresó algo en trabajadores / horas / minutos? */
+  /** ¿Se ingresaron minutos de capacitación? */
   private hayDatosHH(m: ModalRegistro): boolean {
-    return [m.trabajadores, m.horas, m.minutos].some(v => v !== null && v !== undefined && String(v).trim() !== '' && Number(v) !== 0);
+    const v = m.minutosCap;
+    return v !== null && v !== undefined && String(v).trim() !== '' && Number(v) !== 0;
   }
 
-  /** Cálculo en vivo del popup (null = todavía no hay datos). */
-  get calculoModal(): { trabajadores: number; duracionMin: number; hhMinutos: number; error: string } {
-    const m = this.modal;
-    if (!m || !m.categoria) { return null; }
-    if (!this.hayDatosHH(m)) { return null; }
-    try {
-      const c = calcularHH(m.trabajadores, m.horas, m.minutos);
-      return { trabajadores: c.trabajadores, duracionMin: c.duracionMin, hhMinutos: c.hhMinutos, error: '' };
-    } catch (e) {
-      return { trabajadores: 0, duracionMin: 0, hhMinutos: 0, error: e.message };
-    }
+  /** ¿El registro tiene evidencia adjunta? (para el 100%) */
+  get tieneEvidencia(): boolean {
+    return !!(this.modal && this.modal.adjuntos && this.modal.adjuntos.length);
   }
 
   /** Deja el día sin cumplimiento marcado (por si se marcó por error). */
@@ -1487,16 +1482,20 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (this.subiendo) { this.errorModal = 'Espera a que terminen de subir los archivos.'; return; }
     if (this.guardandoRegistro) { return; }   // evita doble envío
 
-    const cumplimiento = VALORES_CUMPLIMIENTO.indexOf(m.cumplimiento) >= 0 ? m.cumplimiento : null;   // null = sin marcar
+    let cumplimiento = VALORES_CUMPLIMIENTO.indexOf(m.cumplimiento) >= 0 ? m.cumplimiento : null;   // null = sin marcar
     let calc = { trabajadores: 0, duracionMin: 0, hhMinutos: 0 };
     let categoria = '';
     let mantenerAntiguo = false;
     let consumo: number = null;
+    let trabDia = 0;
+    let horasDia = 0;
     try {
+      // HH Trabajadores: solo se guardan (para comparar con el Control de Asistencia)
+      trabDia = trabajadoresDelDia(m.trabajadoresDia);
+      horasDia = horasPromedioDia(m.horasDia);
       if (m.categoria && this.hayDatosHH(m)) {
-        calc = calcularHH(m.trabajadores, m.horas, m.minutos);
-        if (calc.trabajadores < 1) { throw new Error('No se puede registrar una capacitación sin participantes: ingresa la cantidad de trabajadores.'); }
-        if (calc.duracionMin < 1) { throw new Error('Ingresa la duración individual de la capacitación (horas y/o minutos).'); }
+        const min = minutosCapacitacion(m.minutosCap);
+        calc = { trabajadores: 0, duracionMin: min, hhMinutos: min };
         if (cumplimiento === null) { throw new Error('Marca el cumplimiento para registrar HH (o deja las HH en blanco).'); }
         if (cumplimiento === 0) { throw new Error('La actividad quedó como "No hecho (0%)": deja las HH en blanco o cambia el cumplimiento.'); }
         categoria = m.categoria;
@@ -1514,6 +1513,13 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    // 100% exige evidencia: sin adjuntos queda automáticamente en 75%
+    let bajadoA75 = false;
+    if (cumplimiento === 100 && !m.adjuntos.length) {
+      cumplimiento = 75;
+      bajadoA75 = true;
+    }
+
     const anterior: any = registrosDe(m.act)[String(m.dia)] || {};
     const minOp = categoria && categoria !== CATEGORIA_ESPECIFICA ? calc.hhMinutos : 0;
     const minEsp = categoria === CATEGORIA_ESPECIFICA ? calc.hhMinutos : 0;
@@ -1523,6 +1529,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       hhEspecificas: Number(anterior.hhEspecificas) || 0,
       entidadEspecifica: Number(anterior.hhEspecificas) > 0 ? (m.entidad || anterior.entidadEspecifica || 'OTROS') : '',
       hhOperacional: Number(anterior.hhOperacional) || 0,
+      trabajadoresDia: trabDia,
+      horasDia: horasDia,
       consumo: consumo,
       consumoCampo: m.consumoDef ? m.consumoDef.campo : '',
       observacion: (m.observacion || '').trim(),
@@ -1540,6 +1548,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       hhEspecificas: minutosAHoras(minEsp),
       entidadEspecifica: minEsp > 0 ? (m.entidad || 'OTROS') : '',
       hhOperacional: minutosAHoras(minOp),
+      trabajadoresDia: trabDia,
+      horasDia: horasDia,
       consumo: consumo,
       consumoCampo: m.consumoDef ? m.consumoDef.campo : '',
       observacion: (m.observacion || '').trim(),
@@ -1551,7 +1561,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
     const a = m.act;
     // Sin cumplimiento y sin nada más (HH, observación, adjuntos, consumo): el día vuelve a quedar sin registro
-    const sinDatos = cumplimiento === null && !categoria && !mantenerAntiguo && !reg.observacion &&
+    const sinDatos = cumplimiento === null && !categoria && !mantenerAntiguo && !reg.observacion && !trabDia && !horasDia &&
       !reg.adjuntos.length && (consumo === null || consumo === undefined);
     if (sinDatos) {
       delete registrosDe(a)[String(m.dia)];
@@ -1571,7 +1581,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.modal = null;
     this.guardandoRegistro = false;
     this.recalcular();   // acumulados al día
-    this.guardarInmediato(sinDatos ? 'Cumplimiento quitado' : 'Registro guardado');
+    this.guardarInmediato(sinDatos ? 'Cumplimiento quitado' : bajadoA75 ? 'Guardado en 75%: el 100% requiere evidencia adjunta' : 'Registro guardado');
     if (m.consumoDef) { this.sincronizarConsumoMA(m.consumoDef.campo); }
   }
 

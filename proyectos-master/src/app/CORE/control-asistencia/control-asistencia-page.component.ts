@@ -40,6 +40,20 @@ interface ConsFilaAnio {
 
 interface ConsFilaSp { id: string; nombre: string; meses: number[]; total: number; personas: number; }
 
+/** Barra de un gráfico (horizontal o de columnas). */
+interface ConsBarra { id: string; nombre: string; valor: number; pct: number; color: string; sub?: string; actual?: boolean; }
+
+/** Segmento del gráfico de dona de ausencias. */
+interface ConsDonaSeg { v: string; t: string; letra: string; n: number; pct: number; color: string; dash: string; offset: number; }
+
+/** Colores de los gráficos (subproyectos / trabajadores). */
+const PALETA_CONS = ['#075f91', '#f58941', '#2bb3a3', '#8e6bd1', '#e2615b', '#4caf7a', '#e0a43a', '#5b8def', '#d16ba5', '#6b7580'];
+
+/** Color de cada motivo de ausencia en los gráficos (mismo tono que sus chips). */
+const COLOR_MOTIVO: { [v: string]: string } = {
+  LM: '#5b8def', VAC: '#4caf7a', PCG: '#2bb3a3', PSG: '#e0a43a', OTR: '#8f9aa5', FI: '#e2615b'
+};
+
 interface GrupoSubProyecto {
   id: string;              // idSubProyecto como texto (para comparar)
   idSubProyecto: any;      // valor original (el mismo que usan los documentos de asistencia)
@@ -87,6 +101,21 @@ export class ControlAsistenciaPageComponent implements OnInit {
   consPorSp: ConsFilaSp[] = [];
   consTotMes = { personas: 0, sps: 0, dias: 0, extra: 0, hh: 0, aus: 0, faltas: 0 };
   consTotAnio = { personas: 0, sps: 0, hh: 0, dias: 0, meses: [] as number[] };
+  // gráficos del mes
+  consGrafSpMes: ConsBarra[] = [];
+  consTopMes: ConsBarra[] = [];
+  consDonaMes: ConsDonaSeg[] = [];
+  consAusMesTotal: number = 0;
+  consMixMes = { jornada: 0, extra: 0, pctJornada: 0, pctExtra: 0 };
+  consMaxFilaMes: number = 0;
+  // gráficos del año
+  consBarrasMes: ConsBarra[] = [];
+  consGrafSpAnio: ConsBarra[] = [];
+  consTopAnio: ConsBarra[] = [];
+  consDonaAnio: ConsDonaSeg[] = [];
+  consAusAnioTotal: number = 0;
+  consMaxCelda: number = 0;
+  consResAnio = { mejorMes: '', mejorHH: 0, promedio: 0, mesesConDatos: 0, extra: 0 };
 
   // Permisos y subproyectos que puede ver el usuario
   soloLectura: boolean = true;
@@ -391,6 +420,81 @@ export class ControlAsistenciaPageComponent implements OnInit {
     tot.dias = this.redondear(tot.dias); tot.extra = this.redondear(tot.extra); tot.hh = this.redondear(tot.hh);
     this.consMensual = filas;
     this.consTotMes = tot;
+
+    // ---- gráficos del mes ----
+    const porSp: { [id: string]: { nombre: string; hh: number; personas: number } } = {};
+    const ausMes: { [m: string]: number } = {};
+    filas.forEach(f => {
+      f.sps.forEach(sp => {
+        const x = porSp[sp.id] || (porSp[sp.id] = { nombre: sp.nombre, hh: 0, personas: 0 });
+        x.hh = this.redondear(x.hh + sp.hh);
+        x.personas++;
+      });
+      Object.keys(f.aus || {}).forEach(m => ausMes[m] = (ausMes[m] || 0) + f.aus[m]);
+    });
+    const listaSp = Object.keys(porSp).map(id => ({ id: id, nombre: porSp[id].nombre, valor: porSp[id].hh,
+      sub: porSp[id].personas + (porSp[id].personas === 1 ? ' persona' : ' personas') }));
+    this.consGrafSpMes = this.armarBarras(listaSp, tot.hh, 8);
+    this.consTopMes = this.armarBarras(filas.map((f, i) => ({ id: String(i), nombre: f.persona.nombre, valor: f.hh,
+      sub: this.formatear(f.dias) + ' días' })), 0, 6);
+    this.consMaxFilaMes = filas.reduce((m, f) => Math.max(m, f.hh), 0);
+    this.consDonaMes = this.armarDona(ausMes);
+    this.consAusMesTotal = tot.aus;
+    const hhJornada = this.redondear(tot.dias * HORAS_JORNADA);
+    const totMix = hhJornada + tot.extra;
+    this.consMixMes = {
+      jornada: hhJornada, extra: tot.extra,
+      pctJornada: totMix ? Math.round(hhJornada / totMix * 100) : 0,
+      pctExtra: totMix ? 100 - Math.round(hhJornada / totMix * 100) : 0
+    };
+  }
+
+  /** Barras ordenadas de mayor a menor; el % es contra el total (si se da) o contra el mayor. */
+  private armarBarras(items: { id: string; nombre: string; valor: number; sub?: string }[], total: number, max: number): ConsBarra[] {
+    const lista = items.filter(x => x.valor > 0).sort((a, b) => b.valor - a.valor);
+    const mayor = lista.length ? lista[0].valor : 0;
+    return lista.slice(0, max).map((x, i) => ({
+      id: x.id,
+      nombre: x.nombre,
+      valor: x.valor,
+      sub: x.sub,
+      color: PALETA_CONS[i % PALETA_CONS.length],
+      pct: total ? Math.round(x.valor / total * 1000) / 10 : (mayor ? Math.round(x.valor / mayor * 100) : 0)
+    }));
+  }
+
+  /** Dona de ausencias por motivo (SVG con circunferencia 100). */
+  private armarDona(aus: { [m: string]: number }): ConsDonaSeg[] {
+    const total = Object.keys(aus).reduce((s, k) => s + (aus[k] || 0), 0);
+    if (!total) { return []; }
+    let acumulado = 0;
+    return MOTIVOS_AUSENCIA.filter(m => aus[m.v]).map(m => {
+      const pct = aus[m.v] / total * 100;
+      const seg: ConsDonaSeg = {
+        v: m.v, t: m.t, letra: m.letra, n: aus[m.v], pct: Math.round(pct),
+        color: COLOR_MOTIVO[m.v] || '#8f9aa5',
+        dash: pct.toFixed(2) + ' ' + (100 - pct).toFixed(2),
+        offset: 25 - acumulado
+      };
+      acumulado += pct;
+      return seg;
+    });
+  }
+
+  /** Ancho de la barrita de HH en la tabla del mes. */
+  anchoBarraMes(hh: number): number {
+    return this.consMaxFilaMes ? Math.max(4, Math.round(hh / this.consMaxFilaMes * 100)) : 0;
+  }
+
+  /** Mapa de calor de la tabla anual. */
+  fondoCalor(hh: number): string {
+    if (!hh || !this.consMaxCelda) { return null; }
+    const r = hh / this.consMaxCelda;
+    return 'rgba(7, 95, 145, ' + (0.08 + r * 0.72).toFixed(2) + ')';
+  }
+
+  textoCalor(hh: number): string {
+    return hh && this.consMaxCelda && hh / this.consMaxCelda > 0.55 ? '#fff' : null;
   }
 
   armarAnual() {
@@ -425,6 +529,41 @@ export class ControlAsistenciaPageComponent implements OnInit {
     this.consAnual = filas;
     this.consPorSp = Object.keys(this.consSpsAnio).map(k => this.consSpsAnio[k]).sort((a, b) => b.total - a.total);
     this.consTotAnio = { personas: filas.length, sps: this.consPorSp.length, hh: this.redondear(hhTot), dias: this.redondear(diasTot), meses: totMeses };
+
+    // ---- gráficos del año ----
+    const mayorMes = Math.max.apply(null, totMeses.concat([0]));
+    this.consBarrasMes = totMeses.map((v, i) => ({
+      id: String(i + 1), nombre: this.mesesCortos[i], valor: v,
+      pct: mayorMes && v ? Math.max(3, Math.round(v / mayorMes * 100)) : 0,
+      color: '#075f91', actual: this.esMesActualCons(i + 1)
+    }));
+    const conDatos = totMeses.filter(v => v > 0);
+    const iMejor = mayorMes ? totMeses.indexOf(mayorMes) : -1;
+    let extraAnio = 0;
+    const ausAnio: { [m: string]: number } = {};
+    let maxCelda = 0;
+    filas.forEach(f => {
+      extraAnio += f.extra;
+      f.meses.forEach(m => { if (m.hh > maxCelda) { maxCelda = m.hh; } });
+      Object.keys(f.persona.porMes).forEach(k => {
+        const a = f.persona.porMes[Number(k)].aus || {};
+        Object.keys(a).forEach(m => ausAnio[m] = (ausAnio[m] || 0) + a[m]);
+      });
+    });
+    this.consMaxCelda = maxCelda;
+    this.consResAnio = {
+      mejorMes: iMejor >= 0 ? this.meses[iMejor] : '—',
+      mejorHH: mayorMes,
+      promedio: conDatos.length ? this.redondear(conDatos.reduce((a, b) => a + b, 0) / conDatos.length) : 0,
+      mesesConDatos: conDatos.length,
+      extra: this.redondear(extraAnio)
+    };
+    this.consGrafSpAnio = this.armarBarras(this.consPorSp.map(sp => ({ id: sp.id, nombre: sp.nombre, valor: sp.total,
+      sub: sp.personas + (sp.personas === 1 ? ' persona' : ' personas') })), this.consTotAnio.hh, 8);
+    this.consTopAnio = this.armarBarras(filas.map((f, i) => ({ id: String(i), nombre: f.persona.nombre, valor: f.hh,
+      sub: this.formatear(f.dias) + ' días' })), 0, 6);
+    this.consDonaAnio = this.armarDona(ausAnio);
+    this.consAusAnioTotal = Object.keys(ausAnio).reduce((s, k) => s + ausAnio[k], 0);
   }
 
   textoAusenciasCons(aus: { [m: string]: number }): string {
