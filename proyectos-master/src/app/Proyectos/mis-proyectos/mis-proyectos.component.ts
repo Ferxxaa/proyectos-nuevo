@@ -616,10 +616,10 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Semáforo por diferencia en puntos porcentuales entre avance programado y real:
-   *  verde    = hasta 5 puntos porcentuales bajo lo programado
-   *  amarillo = más de 5 y menos de 10 puntos porcentuales bajo lo programado
-   *  rojo     = 10 puntos porcentuales o más bajo lo programado
+   * Semáforo por diferencia porcentual entre avance programado y real:
+   *  verde    = hasta 5% bajo lo programado
+   *  amarillo = más de 5% y menos de 10% bajo lo programado
+   *  rojo     = 10% o más bajo lo programado
    */
   private calcularSemaforo(proyecto: any): string {
     const difAvance = (Number(proyecto.AvanceProgramado) || 0) - (Number(proyecto.AvanceReal) || 0);
@@ -637,7 +637,7 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     const base = proyecto.Semaforo === 'rojo' ? 'Atrasado' : (proyecto.Semaforo === 'amarillo' ? 'En riesgo' : 'Al día');
     const diferencia = (Number(proyecto.AvanceProgramado) || 0) - (Number(proyecto.AvanceReal) || 0);
     if (diferencia <= 0) { return base + ' · avance real igual o superior al programado'; }
-    return base + ' · ' + diferencia.toFixed(1) + ' puntos porcentuales bajo lo programado';
+    return base + ' · ' + diferencia.toFixed(1) + '% bajo lo programado';
   }
 
   private normalizarIndicadoresProyecto(proyecto: any) {
