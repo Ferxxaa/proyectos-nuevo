@@ -13,6 +13,12 @@
       <div><dt>HH</dt><dd>{{formatear(resumen.hh)}}</dd></div>
       <div><dt>Días</dt><dd>{{formatear(resumen.jornadas)}}</dd></div>
       <div><dt>H.E.</dt><dd>{{formatear(resumen.extra)}}</dd></div>
+      <div class="ca-chip-aus" *ngIf="resumen.ausencias" [title]="textoAusencias">
+        <dt>Ausencias</dt><dd>{{resumen.ausencias}}</dd>
+      </div>
+      <div class="ca-chip-falta" *ngIf="resumen.injustificadas" title="Faltas injustificadas">
+        <dt>Faltas</dt><dd>{{resumen.injustificadas}}</dd>
+      </div>
     </dl>
     <span class="ca-estado" [ngClass]="estadoGuardado" *ngIf="estadoGuardado" role="status">
       <ng-container *ngIf="estadoGuardado === 'guardando'"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Guardando...</ng-container>
@@ -81,7 +87,10 @@
       <b>{{avisoPendientes.dias.length}} {{avisoPendientes.dias.length === 1 ? 'día' : 'días'}} sin llenar</b>
       <span class="ca-pendientes-dias">{{textoDiasPendientes}}</span>
       <span class="ca-pendientes-nombres">· {{textoNombresPendientes}}<ng-container *ngIf="avisoPendientes.otraQuincena"> · incluye la {{quincena === 1 ? '2°' : '1°'}} quincena</ng-container></span>
-      <small>Se llena día a día: completa el primero pendiente para seguir · 0 si no trabajó</small>
+      <button type="button" class="ca-btn-justificar" (click)="justificarPrimerPendiente()">
+        <i class="fa fa-calendar-times-o" aria-hidden="true"></i> Justificar
+      </button>
+      <small>Se llena día a día · clic en el día para marcar a todos · doble clic en "Día" para justificar</small>
     </div>
 
     <div class="ca-error" *ngIf="errorFila" role="alert">{{errorFila}}</div>
@@ -103,6 +112,7 @@
             <th *ngFor="let item of camposTrabajador" [ngClass]="item.clase" class="ca-izquierda" rowspan="2">{{item.etiqueta}}</th>
             <th rowspan="2" *ngIf="!soloLectura"></th>
             <th *ngFor="let dia of diasVisibles; trackBy: trackDia" [attr.colspan]="campos.length" class="ca-inicio-dia ca-dia-cab"
+                [class.ca-dia-abrible]="diaAbrible(dia.numero)" (click)="diaAbrible(dia.numero) && abrirDia(dia.numero)"
                 [class.ca-fin-semana]="dia.finDeSemana" [class.ca-feriado]="dia.feriado" [class.ca-hoy]="dia.hoy" [class.ca-dia-pendiente]="dia.pendiente && !soloLectura"
                 [attr.title]="dia.fecha + (dia.feriado ? ' · ' + dia.feriado : '') + (dia.hoy ? ' · hoy' : '') + (dia.pendiente && !soloLectura ? ' · hay trabajadores sin marcar' : '')">
               <span class="ca-dia-letra">{{dia.hoy ? 'Hoy' : dia.letra}}</span>
@@ -139,6 +149,8 @@
                   [class.ca-otro-sp]="!trabajador.nuevo && otroSp(trabajador, dia.numero)"
                   [class.ca-otro-lleno]="!trabajador.nuevo && otroSp(trabajador, dia.numero)?.lleno"
                   [class.ca-bloqueado]="!soloLectura && bloqueadoSecuencia(trabajador, dia.numero)"
+                  [ngClass]="i === 0 && !trabajador.nuevo && ausenciaDe(trabajador, dia.numero) ? 'ca-aus ca-aus-' + ausenciaDe(trabajador, dia.numero).v : ''"
+                  (dblclick)="!trabajador.nuevo && (i === 0 ? abrirAusencia(trabajador, dia.numero) : abrirDia(dia.numero, trabajador))"
                   [attr.title]="tituloCelda(trabajador, dia.numero)">
                 <input type="text" inputmode="decimal" autocomplete="off"
                        [value]="getTextoCelda(trabajador, dia.numero, item.campo)" [disabled]="soloLectura || trabajador.nuevo || bloqueadoPorOtro(trabajador, dia.numero, item.campo) || bloqueadoSecuencia(trabajador, dia.numero)"
@@ -168,6 +180,13 @@
         </tfoot>
       </table>
     </div>
+    <!-- Leyenda de ausencias -->
+    <div class="ca-ley-aus" *ngIf="!soloLectura || resumen.ausencias">
+      <b>Justificar día:</b>
+      <span *ngFor="let m of motivosAusencia" [title]="m.d"><i class="ca-aus-chip" [ngClass]="'ca-aus-' + m.v">{{m.letra}}</i> {{m.t}}</span>
+      <small *ngIf="!soloLectura">Clic en el día para llenarlo completo · doble clic en "Día" o la letra para justificar.</small>
+    </div>
+
     <!-- autocompletar desde la agenda de CORE -->
     <datalist [id]="idListaAgenda" *ngIf="agenda?.length && !soloLectura">
       <option *ngFor="let t of agenda" [value]="etiquetaAgenda(t)">{{t.cargo}}</option>
@@ -180,4 +199,137 @@
       Para agregar un trabajador, escríbelo en la última fila. En rojo, los feriados; en azul, hoy; con punto rojo, los días hábiles pasados sin marcar.
     </p>
   </ng-container>
+
+  <!-- ===================== Popup del día ===================== -->
+  <div class="ca-modal-fondo" *ngIf="modalDia" (mousedown)="$event.target === $event.currentTarget && cerrarDia()">
+    <div class="ca-modal ca-modal-dia" role="dialog" aria-modal="true" aria-labelledby="ca-modal-titulo">
+      <header class="ca-modal-cab">
+        <div>
+          <span class="ca-modal-kicker">Asistencia del día<ng-container *ngIf="embebido"> · {{nombreSubProyecto}}</ng-container></span>
+          <h6 id="ca-modal-titulo"><i class="fa fa-calendar" aria-hidden="true"></i> {{modalDia.fecha}}</h6>
+          <p>
+            <span class="ca-modal-tag ca-tag-rojo" *ngIf="modalDia.feriado">{{modalDia.feriado}}</span>
+            <span class="ca-modal-tag ca-tag-rojo" *ngIf="!modalDia.feriado && modalDia.finDeSemana">Fin de semana</span>
+            Marca a cada trabajador: presente, media jornada, no trabajó o el motivo de su ausencia.
+          </p>
+        </div>
+        <button type="button" class="ca-modal-cerrar" (click)="cerrarDia()" aria-label="Cerrar"><i class="fa fa-times"></i></button>
+      </header>
+
+      <div class="ca-modal-barra">
+        <span><b>{{resumenModalDia.marcados}}</b> de {{resumenModalDia.total}} marcados</span>
+        <button type="button" class="ca-modal-btn ca-modal-btn-chico" (click)="todosPresentes()">
+          <i class="fa fa-check-square-o" aria-hidden="true"></i> Marcar presentes a los que faltan
+        </button>
+      </div>
+
+      <div class="ca-modal-cuerpo ca-dia-lista">
+        <div class="ca-dia-fila" *ngFor="let f of modalDia.filas"
+             [class.enfocada]="f.trabajador.id === modalDia.enfocado" [class.bloqueada]="!!f.bloqueo" [class.marcada]="!!f.estado">
+          <div class="ca-dia-persona">
+            <strong>{{f.trabajador.nombre}} {{f.trabajador.apellido}}</strong>
+            <small>{{f.trabajador.cargo || f.trabajador.rut || '—'}}</small>
+            <small class="ca-dia-aviso" *ngIf="f.bloqueo"><i class="fa fa-lock" aria-hidden="true"></i> {{f.bloqueo}}</small>
+            <small class="ca-dia-otro" *ngIf="!f.bloqueo && f.otro" [title]="f.otro"><i class="fa fa-info-circle" aria-hidden="true"></i> {{f.otro}}</small>
+          </div>
+
+          <div class="ca-dia-controles">
+            <div class="ca-dia-estados" role="radiogroup" [attr.aria-label]="'Asistencia de ' + f.trabajador.nombre">
+              <button type="button" class="ca-est ca-est-1" [class.activo]="f.estado === '1'" [disabled]="!!f.bloqueo" (click)="elegirEstado(f, '1')" title="Jornada completa (8,5 h)">Presente</button>
+              <button type="button" class="ca-est ca-est-m" [class.activo]="f.estado === '0.5'" [disabled]="!!f.bloqueo" (click)="elegirEstado(f, '0.5')" title="Media jornada">½ día</button>
+              <button type="button" class="ca-est ca-est-0" [class.activo]="f.estado === '0'" [disabled]="!!f.bloqueo" (click)="elegirEstado(f, '0')" title="No trabajó (sin motivo)">No trabajó</button>
+              <button type="button" class="ca-est ca-est-aus" [class.activo]="f.estado === 'AUS'" [disabled]="!!f.bloqueo" (click)="elegirEstado(f, 'AUS')" title="Ausencia con motivo">Ausente…</button>
+            </div>
+            <label class="ca-dia-he" [class.deshabilitado]="!!f.bloqueo">
+              <span>H.E.</span>
+              <input type="text" inputmode="decimal" placeholder="0" [(ngModel)]="f.extra" [disabled]="!!f.bloqueo" [name]="'he-' + f.trabajador.id">
+            </label>
+          </div>
+
+          <div class="ca-dia-justif" *ngIf="f.estado === 'AUS' && f.motivo">
+            <i class="ca-aus-chip" [ngClass]="'ca-aus-' + f.motivo">{{motivoTexto(f.motivo).letra}}</i>
+            <b>{{motivoTexto(f.motivo).t}}</b>
+            <span *ngIf="f.obs">· {{f.obs}}</span>
+            <button type="button" class="ca-dia-cambiar" (click)="abrirAusenciaDesdeDia(f)">Cambiar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ca-modal-error ca-modal-error-pie" *ngIf="errorModalDia" role="alert"><i class="fa fa-exclamation-triangle"></i> {{errorModalDia}}</div>
+
+      <footer class="ca-modal-pie">
+        <small class="ca-modal-nota">Las ausencias quedan con jornada 0 (no suman HH) y el día deja de estar pendiente.</small>
+        <span class="ca-modal-espacio"></span>
+        <button type="button" class="ca-modal-btn" (click)="cerrarDia()">Cancelar</button>
+        <button type="button" class="ca-modal-btn ca-modal-btn-principal" (click)="guardarModalDia()">
+          <i class="fa fa-check"></i> Guardar día
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===================== Popup: justificar día (un trabajador) ===================== -->
+  <div class="ca-modal-fondo ca-modal-encima" *ngIf="modalAusencia" (mousedown)="$event.target === $event.currentTarget && cerrarAusencia()">
+    <div class="ca-modal" role="dialog" aria-modal="true" aria-labelledby="ca-modal-aus-titulo"
+         (keydown)="$event.stopPropagation()" (keypress)="$event.stopPropagation()" (keyup)="$event.stopPropagation()">
+      <header class="ca-modal-cab">
+        <div>
+          <span class="ca-modal-kicker">Justificar día</span>
+          <h6 id="ca-modal-aus-titulo">{{modalAusencia.trabajador.nombre}} {{modalAusencia.trabajador.apellido}}</h6>
+          <p><i class="fa fa-calendar" aria-hidden="true"></i> {{modalAusencia.fecha}}<ng-container *ngIf="embebido"> · {{nombreSubProyecto}}</ng-container></p>
+        </div>
+        <button type="button" class="ca-modal-cerrar" (click)="cerrarAusencia()" aria-label="Cerrar"><i class="fa fa-times"></i></button>
+      </header>
+
+      <div class="ca-modal-cuerpo">
+        <ng-container *ngIf="modalAusencia.elegir">
+          <span class="ca-modal-titulo">Trabajador</span>
+          <div class="ca-aus-personas" role="radiogroup" aria-label="Trabajador">
+            <button *ngFor="let t of trabajadoresJustificables" type="button" role="radio"
+                    class="ca-aus-persona" [class.activo]="modalAusencia.trabajador === t"
+                    [disabled]="!cantidadPendientes(t)" [attr.aria-checked]="modalAusencia.trabajador === t"
+                    [title]="cantidadPendientes(t) ? 'Primer día pendiente: ' + primerPendienteDe(t) : 'Al día'"
+                    (click)="elegirTrabajadorAus(t)">
+              <span class="ca-aus-persona-nombre">{{t.nombre}} {{t.apellido}}</span>
+              <small *ngIf="cantidadPendientes(t)">{{cantidadPendientes(t)}} {{cantidadPendientes(t) === 1 ? 'día' : 'días'}}</small>
+              <small *ngIf="!cantidadPendientes(t)" class="ca-aus-persona-ok"><i class="fa fa-check"></i> al día</small>
+            </button>
+          </div>
+        </ng-container>
+
+        <span class="ca-modal-titulo">Motivo</span>
+        <div class="ca-motivos" role="radiogroup" aria-label="Motivo">
+          <button *ngFor="let m of motivosAusencia" type="button" role="radio"
+                  class="ca-motivo" [ngClass]="'ca-aus-borde-' + m.v" [class.activo]="modalAusencia.motivo === m.v"
+                  [attr.aria-checked]="modalAusencia.motivo === m.v" (click)="modalAusencia.motivo = m.v; errorAusencia = ''">
+            <i class="ca-aus-chip" [ngClass]="'ca-aus-' + m.v">{{m.letra}}</i>
+            <span><b>{{m.t}}</b><small>{{m.d}}</small></span>
+          </button>
+        </div>
+
+        <div class="ca-modal-campo">
+          <span class="ca-modal-titulo">Observación <small>{{modalAusencia.motivo === 'OTR' ? '(obligatoria)' : '(opcional)'}}</small></span>
+          <textarea #obsAus rows="2" maxlength="300" autocomplete="off" [value]="modalAusencia.obs || ''"
+                    (input)="escribirObs(obsAus.value)" (keydown)="teclaObs($event, obsAus)"
+                    (mousedown)="$event.stopPropagation()" (click)="obsAus.focus()"
+                    (keypress)="$event.stopPropagation()" (keyup)="$event.stopPropagation()"
+                    placeholder="Ej: N° de licencia, días de vacaciones aprobados, motivo del permiso..."></textarea>
+        </div>
+
+        <div class="ca-modal-error" *ngIf="errorAusencia" role="alert"><i class="fa fa-exclamation-triangle"></i> {{errorAusencia}}</div>
+        <p class="ca-modal-nota">El día queda con jornada 0 (no suma HH) y deja de aparecer como pendiente.</p>
+      </div>
+
+      <footer class="ca-modal-pie">
+        <button *ngIf="modalAusencia.existente" type="button" class="ca-modal-btn ca-modal-btn-peligro" (click)="quitarModalAusencia()">
+          <i class="fa fa-eraser"></i> Quitar justificación
+        </button>
+        <span class="ca-modal-espacio"></span>
+        <button type="button" class="ca-modal-btn" (click)="cerrarAusencia()">Cancelar</button>
+        <button type="button" class="ca-modal-btn ca-modal-btn-principal" (click)="guardarModalAusencia()">
+          <i class="fa fa-check"></i> {{modalAusencia.fila ? 'Aplicar' : 'Guardar'}}
+        </button>
+      </footer>
+    </div>
+  </div>
 </section>

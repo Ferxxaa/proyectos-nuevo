@@ -35,6 +35,9 @@
                   <i class="fa fa-address-book-o" aria-hidden="true"></i> Trabajadores
                   <span class="core-contador">{{agenda.length}}</span>
                 </button>
+                <button type="button" role="tab" [class.activa]="vista === 'consolidado'" [attr.aria-selected]="vista === 'consolidado'" (click)="abrirConsolidado()">
+                  <i class="fa fa-bar-chart" aria-hidden="true"></i> Consolidado
+                </button>
               </div>
 
               <!-- ===================== CONTROL DE ASISTENCIA ===================== -->
@@ -135,6 +138,221 @@
                   <span class="core-ley core-ley-claro"></span> ya tiene horas ese día en otro subproyecto ·
                   <span class="core-ley core-ley-oscuro"></span> jornada completa en otro subproyecto (bloqueado; pasa el mouse para ver dónde).
                   Las horas de cada subproyecto pasan a sus Estadísticas HH (Tablero de Control › Estadísticas SSO/MA/INCS › Seguridad).
+                </p>
+              </div>
+
+              <!-- ===================== CONSOLIDADO (mensual / anual) ===================== -->
+              <div *ngIf="vista === 'consolidado'" class="cons">
+
+                <div class="core-barra">
+                  <div class="core-periodo">
+                    <div class="core-quincenas cons-vistas">
+                      <button type="button" [class.activa]="vistaConsolidado === 'mensual'" (click)="vistaConsolidado = 'mensual'">
+                        <i class="fa fa-calendar" aria-hidden="true"></i> Mensual
+                      </button>
+                      <button type="button" [class.activa]="vistaConsolidado === 'anual'" (click)="vistaConsolidado = 'anual'">
+                        <i class="fa fa-calendar-o" aria-hidden="true"></i> Anual
+                      </button>
+                    </div>
+                    <ng-container *ngIf="vistaConsolidado === 'mensual'">
+                      <label for="cons-mes">Mes</label>
+                      <select id="cons-mes" [(ngModel)]="consMes" (ngModelChange)="cambiarMesConsolidado()">
+                        <option *ngFor="let m of meses; let i = index" [ngValue]="i + 1">{{m}}</option>
+                      </select>
+                    </ng-container>
+                    <label for="cons-anio">Año</label>
+                    <select id="cons-anio" [(ngModel)]="consAnio" (ngModelChange)="cambiarAnioConsolidado()">
+                      <option *ngFor="let a of anios" [ngValue]="a">{{a}}</option>
+                    </select>
+                  </div>
+                  <div class="cons-buscador">
+                    <i class="fa fa-search" aria-hidden="true"></i>
+                    <input type="text" placeholder="Buscar trabajador, RUT, cargo o subproyecto"
+                           [(ngModel)]="busquedaConsolidado" (ngModelChange)="filtrarConsolidado()">
+                  </div>
+                </div>
+
+                <div class="ehh-mensaje" *ngIf="cargandoConsolidado"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Armando consolidado {{consAnio}}...</div>
+                <div class="ehh-mensaje" *ngIf="!cargandoConsolidado && errorConsolidado" role="alert">
+                  No se pudo cargar el consolidado.
+                  <button type="button" (click)="cargarConsolidado()">Reintentar</button>
+                </div>
+
+                <!-- ---------- MENSUAL ---------- -->
+                <ng-container *ngIf="!cargandoConsolidado && !errorConsolidado && vistaConsolidado === 'mensual'">
+                  <div class="cons-kpis">
+                    <div class="cons-kpi"><span>Personas</span><strong>{{consTotMes.personas}}</strong></div>
+                    <div class="cons-kpi"><span>Subproyectos</span><strong>{{consTotMes.sps}}</strong></div>
+                    <div class="cons-kpi"><span>Días trabajados</span><strong>{{formatear(consTotMes.dias)}}</strong></div>
+                    <div class="cons-kpi"><span>Horas extra</span><strong>{{formatear(consTotMes.extra)}}</strong></div>
+                    <div class="cons-kpi cons-kpi-hh"><span>HH trabajadas · {{meses[consMes - 1]}}</span><strong>{{formatear(consTotMes.hh)}}</strong></div>
+                    <div class="cons-kpi" [class.cons-kpi-alerta]="consTotMes.faltas"><span>Ausencias</span><strong>{{consTotMes.aus}}</strong>
+                      <small *ngIf="consTotMes.faltas">{{consTotMes.faltas}} injustificada{{consTotMes.faltas === 1 ? '' : 's'}}</small></div>
+                  </div>
+
+                  <div class="core-vacio" *ngIf="!consMensual.length">
+                    <i class="fa fa-users" aria-hidden="true"></i>
+                    <strong>Sin asistencia en {{meses[consMes - 1]}} {{consAnio}}</strong>
+                    <p *ngIf="busquedaConsolidado">Nadie coincide con "{{busquedaConsolidado}}".</p>
+                  </div>
+
+                  <section class="core-panel" *ngIf="consMensual.length">
+                    <h6><i class="fa fa-calendar" aria-hidden="true"></i> Dónde estuvo el personal · {{meses[consMes - 1]}} {{consAnio}}</h6>
+                    <div class="core-tabla-scroll">
+                      <table class="cons-tabla">
+                        <thead>
+                          <tr>
+                            <th class="cons-col-num">N°</th>
+                            <th class="cons-izq">Trabajador</th>
+                            <th class="cons-izq">Subproyecto(s)</th>
+                            <th>Días</th>
+                            <th>H.E.</th>
+                            <th class="cons-col-hh">HH</th>
+                            <th>Ausencias</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <ng-container *ngFor="let f of consMensual; let n = index">
+                            <tr class="cons-fila-persona" [class.con-detalle]="f.sps.length > 1" (click)="f.sps.length > 1 && (f.abierta = !f.abierta)">
+                              <td class="cons-col-num">{{n + 1}}</td>
+                              <td class="cons-izq">
+                                <strong>{{f.persona.nombre}}</strong>
+                                <small>{{f.persona.rut || '—'}}<ng-container *ngIf="f.persona.cargo"> · {{f.persona.cargo}}</ng-container></small>
+                              </td>
+                              <td class="cons-izq">
+                                <span class="cons-sp" *ngFor="let sp of f.sps" [title]="sp.nombre + ': ' + formatear(sp.hh) + ' HH'">{{sp.nombre}}</span>
+                                <i class="fa cons-flecha" *ngIf="f.sps.length > 1" [ngClass]="f.abierta ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+                              </td>
+                              <td>{{formatear(f.dias)}}</td>
+                              <td>{{formatear(f.extra)}}</td>
+                              <td class="cons-col-hh">{{formatear(f.hh)}}</td>
+                              <td>
+                                <span class="cons-aus" *ngFor="let m of motivosAusencia" [hidden]="!f.aus[m.v]" [ngClass]="'ca-aus-' + m.v" [title]="m.t">{{m.letra}} {{f.aus[m.v]}}</span>
+                                <span class="cons-guion" *ngIf="!f.ausTotal">—</span>
+                              </td>
+                            </tr>
+                            <ng-container *ngIf="f.abierta && f.sps.length > 1">
+                              <tr class="cons-fila-sp" *ngFor="let sp of f.sps">
+                                <td></td>
+                                <td class="cons-izq"></td>
+                                <td class="cons-izq"><i class="fa fa-map-marker" aria-hidden="true"></i> {{sp.nombre}}</td>
+                                <td>{{formatear(sp.dias)}}</td>
+                                <td>{{formatear(sp.extra)}}</td>
+                                <td class="cons-col-hh">{{formatear(sp.hh)}}</td>
+                                <td></td>
+                              </tr>
+                            </ng-container>
+                          </ng-container>
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td></td>
+                            <td class="cons-izq">Total {{meses[consMes - 1]}}</td>
+                            <td class="cons-izq">{{consTotMes.sps}} subproyecto{{consTotMes.sps === 1 ? '' : 's'}}</td>
+                            <td>{{formatear(consTotMes.dias)}}</td>
+                            <td>{{formatear(consTotMes.extra)}}</td>
+                            <td class="cons-col-hh">{{formatear(consTotMes.hh)}}</td>
+                            <td>{{consTotMes.aus || '—'}}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </section>
+                </ng-container>
+
+                <!-- ---------- ANUAL ---------- -->
+                <ng-container *ngIf="!cargandoConsolidado && !errorConsolidado && vistaConsolidado === 'anual'">
+                  <div class="cons-kpis">
+                    <div class="cons-kpi"><span>Personas en el año</span><strong>{{consTotAnio.personas}}</strong></div>
+                    <div class="cons-kpi"><span>Subproyectos</span><strong>{{consTotAnio.sps}}</strong></div>
+                    <div class="cons-kpi"><span>Días trabajados</span><strong>{{formatear(consTotAnio.dias)}}</strong></div>
+                    <div class="cons-kpi cons-kpi-hh"><span>HH trabajadas {{consAnio}}</span><strong>{{formatear(consTotAnio.hh)}}</strong></div>
+                  </div>
+
+                  <div class="core-vacio" *ngIf="!consAnual.length">
+                    <i class="fa fa-users" aria-hidden="true"></i>
+                    <strong>Sin asistencia en {{consAnio}}</strong>
+                  </div>
+
+                  <section class="core-panel" *ngIf="consAnual.length">
+                    <h6><i class="fa fa-user" aria-hidden="true"></i> HH por trabajador · {{consAnio}} <small>clic en un mes para ver su detalle · pasa el mouse para ver dónde estuvo</small></h6>
+                    <div class="core-tabla-scroll">
+                      <table class="cons-tabla cons-tabla-anual">
+                        <thead>
+                          <tr>
+                            <th class="cons-col-num">N°</th>
+                            <th class="cons-izq cons-col-nombre">Trabajador</th>
+                            <th *ngFor="let m of mesesCortos; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)"
+                                (click)="verMesConsolidado(i + 1)" [title]="'Ver ' + meses[i]">{{m}}</th>
+                            <th>Días</th>
+                            <th class="cons-col-hh">Total HH</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let f of consAnual; let n = index">
+                            <td class="cons-col-num">{{n + 1}}</td>
+                            <td class="cons-izq cons-col-nombre" [title]="f.sps.join(', ')">
+                              <strong>{{f.persona.nombre}}</strong>
+                              <small>{{f.sps.length}} subproyecto{{f.sps.length === 1 ? '' : 's'}}<ng-container *ngIf="f.ausTotal"> · {{f.ausTotal}} ausencia{{f.ausTotal === 1 ? '' : 's'}}</ng-container></small>
+                            </td>
+                            <td *ngFor="let m of f.meses; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)"
+                                [class.cons-con-dato]="m.hh" [title]="m.texto">{{m.hh ? formatear(m.hh) : ''}}</td>
+                            <td>{{formatear(f.dias)}}</td>
+                            <td class="cons-col-hh">{{formatear(f.hh)}}</td>
+                          </tr>
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td></td>
+                            <td class="cons-izq">Total por mes</td>
+                            <td *ngFor="let t of consTotAnio.meses; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)">{{t ? formatear(t) : ''}}</td>
+                            <td>{{formatear(consTotAnio.dias)}}</td>
+                            <td class="cons-col-hh">{{formatear(consTotAnio.hh)}}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </section>
+
+                  <section class="core-panel" *ngIf="consPorSp.length">
+                    <h6><i class="fa fa-map-marker" aria-hidden="true"></i> HH por subproyecto · {{consAnio}}</h6>
+                    <div class="core-tabla-scroll">
+                      <table class="cons-tabla cons-tabla-anual">
+                        <thead>
+                          <tr>
+                            <th class="cons-col-num">N°</th>
+                            <th class="cons-izq cons-col-nombre">Subproyecto</th>
+                            <th *ngFor="let m of mesesCortos; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)">{{m}}</th>
+                            <th>Personas</th>
+                            <th class="cons-col-hh">Total HH</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let sp of consPorSp; let n = index">
+                            <td class="cons-col-num">{{n + 1}}</td>
+                            <td class="cons-izq cons-col-nombre"><strong>{{sp.nombre}}</strong></td>
+                            <td *ngFor="let v of sp.meses; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)" [class.cons-con-dato]="v">{{v ? formatear(v) : ''}}</td>
+                            <td>{{sp.personas}}</td>
+                            <td class="cons-col-hh">{{formatear(sp.total)}}</td>
+                          </tr>
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td></td>
+                            <td class="cons-izq">Total</td>
+                            <td *ngFor="let t of consTotAnio.meses; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)">{{t ? formatear(t) : ''}}</td>
+                            <td>{{consTotAnio.personas}}</td>
+                            <td class="cons-col-hh">{{formatear(consTotAnio.hh)}}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </section>
+                </ng-container>
+
+                <p class="core-nota">
+                  HH = días × 8,5 + horas extra (la capacitación va en el Programa SSO/MA). Una persona se junta por su ficha de la agenda, su RUT o su nombre,
+                  aunque haya trabajado en varios subproyectos. Las ausencias son los días justificados con motivo (L, V, P, S, O) y las faltas injustificadas (F).
                 </p>
               </div>
 

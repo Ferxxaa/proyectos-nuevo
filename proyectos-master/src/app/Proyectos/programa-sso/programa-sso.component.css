@@ -28,7 +28,7 @@
 .psso-titulo {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 .psso-icono {
@@ -36,13 +36,13 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #064f78 0%, #075f91 55%, #1089bd 100%);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #075f91;
   color: #fff;
-  font-size: 21px;
-  box-shadow: 0 4px 10px rgba(7, 95, 145, .25);
+  font-size: 18px;
+  box-shadow: none;
 }
 .psso-icono.icono-ma {
   background: linear-gradient(135deg, #2d7a3e 0%, #3f9a52 55%, #5cb874 100%);
@@ -67,9 +67,10 @@
   gap: 8px;
   margin: 0;
   color: #24404f;
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.2;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.1;
 }
 .psso-tipo-chip {
   padding: 2px 9px;
@@ -82,23 +83,23 @@
 }
 .psso-tipo-chip.chip-ma { background: #e1f1da; color: #2d7a3e; }
 
-/* subproyecto: etiqueta naranja suave */
+/* subproyecto: texto naranjo simple bajo el título (igual que Seguimiento de seguridad) */
 .psso-titulo .psso-subproyecto {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-start;
+  display: block;
   max-width: 100%;
-  margin-top: 3px;
-  padding: 3px 10px;
+  margin: 1px 0 0;
+  padding: 0;
   overflow: hidden;
-  border-radius: 14px;
-  background: #fff1e6;
-  color: #d9692a;
-  font-size: 12px;
+  border-radius: 0;
+  background: none;
+  color: #f58941;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: .3px;
+  letter-spacing: 0;
+  line-height: 1.4;
   text-overflow: ellipsis;
+  text-transform: none;
   white-space: nowrap;
 }
 
@@ -1862,3 +1863,7 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
   font-weight: 800;
   vertical-align: 1px;
 }
+
+/* encabezado igual a "Seguimiento de seguridad": sin la línea de descripción */
+.psso-titulo p:not(.psso-subproyecto) { display: none; }
+.psso-icono.icono-ma { background: #3f9a52; box-shadow: none; }

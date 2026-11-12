@@ -717,3 +717,140 @@
   .core-form-campos { grid-template-columns: 1fr 1fr; }
   .core-form-acciones { grid-column: 1 / -1; justify-content: flex-end; }
 }
+
+/* ===================== Consolidado mensual / anual ===================== */
+.cons-vistas button { display: inline-flex; align-items: center; gap: 6px; }
+.cons-vistas { margin: 0 8px 0 0; }
+
+.cons-buscador { position: relative; flex: 0 1 340px; }
+.cons-buscador .fa { position: absolute; top: 10px; left: 11px; color: #7a838c; }
+.cons-buscador input {
+  width: 100%;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px 0 32px;
+  border: 1px solid #b9c3cb;
+  border-radius: 6px;
+  color: #24404f;
+  font-size: 13px;
+}
+.cons-buscador input:focus { border-color: #075f91; outline: 0; box-shadow: 0 0 0 3px rgba(7, 95, 145, .16); }
+
+.cons-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.cons-kpi {
+  padding: 10px 14px;
+  border: 1px solid #e3e8ed;
+  border-radius: 10px;
+  background: #fff;
+}
+.cons-kpi span { display: block; color: #6b7580; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.cons-kpi strong { display: block; color: #24404f; font-size: 22px; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.cons-kpi small { color: #b03a36; font-size: 11px; font-weight: 600; }
+.cons-kpi-hh { border-color: #cfe0f5; background: #f5f9fd; box-shadow: inset 4px 0 0 #075f91; }
+.cons-kpi-hh strong { color: #075f91; }
+.cons-kpi-alerta { border-color: #f5c2bf; background: #fef7f6; }
+
+.core-panel h6 small { margin-left: 8px; color: #8f979f; font-size: 11px; font-weight: 600; }
+
+.cons-tabla {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+}
+.cons-tabla-anual { min-width: 1180px; }
+.cons-tabla th {
+  height: 34px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #064f78;
+  background: #075f91;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cons-tabla th + th { box-shadow: inset 1px 0 0 rgba(255, 255, 255, .12); }
+.cons-tabla td {
+  padding: 7px 8px;
+  border-right: 1px solid #edf1f4;
+  border-bottom: 1px solid #edf1f4;
+  color: #2f363d;
+  text-align: center;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.cons-tabla td:last-child { border-right: 0; }
+.cons-tabla .cons-izq { text-align: left; }
+.cons-tabla td.cons-izq strong { display: block; color: #24404f; font-weight: 700; }
+.cons-tabla td.cons-izq small { display: block; color: #8f979f; font-size: 11px; }
+.cons-col-num { width: 40px; color: #a3abb3; font-weight: 700; }
+.cons-col-nombre { min-width: 200px; }
+.cons-tabla td.cons-col-hh { background: #f2f8fd; color: #075f91; font-weight: 800; }
+.cons-tabla th.cons-col-hh { background: #064f78; }
+
+.cons-tabla tbody tr:nth-child(even) td { background-color: #fafbfc; }
+.cons-tabla tbody tr:nth-child(even) td.cons-col-hh { background: #eef5fb; }
+.cons-tabla tbody tr:hover td { background: #fff9c4; }
+
+.cons-fila-persona.con-detalle { cursor: pointer; }
+.cons-flecha { margin-left: 4px; color: #8f979f; font-size: 10px; }
+.cons-fila-sp td { background: #fbfdff !important; color: #59636e; font-size: 12px; }
+.cons-fila-sp td.cons-izq .fa { margin-right: 4px; color: #d9692a; }
+
+.cons-sp {
+  display: inline-block;
+  max-width: 220px;
+  margin: 1px 4px 1px 0;
+  padding: 2px 8px;
+  overflow: hidden;
+  border: 1px solid #f3dc9a;
+  border-radius: 10px;
+  background: #fff8e1;
+  color: #8a6514;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.cons-aus {
+  display: inline-block;
+  margin: 1px 2px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: help;
+}
+.ca-aus-LM  { background: #e3edfb; color: #2d5d8f; }
+.ca-aus-VAC { background: #e1f4e6; color: #2d7a3e; }
+.ca-aus-PCG { background: #dff3f1; color: #0b7469; }
+.ca-aus-PSG { background: #fdf0d5; color: #8a6514; }
+.ca-aus-OTR { background: #eceff2; color: #4a525a; }
+.ca-aus-FI  { background: #fbe1e0; color: #b03a36; }
+.cons-guion { color: #c3cad1; }
+
+/* anual */
+.cons-tabla th.cons-col-mes { width: 66px; cursor: pointer; }
+.cons-tabla th.cons-col-mes:hover { background: #0a6ea6; }
+.cons-tabla th.cons-mes-actual { box-shadow: inset 0 -3px 0 #f2c94c; }
+.cons-tabla td.cons-mes-actual { background-color: #fffcf0; }
+.cons-tabla td.cons-con-dato { color: #24404f; font-weight: 700; cursor: help; }
+
+.cons-tabla tfoot td {
+  border-top: 2px solid #dfe5eb;
+  background: #f7f9fb;
+  color: #24404f;
+  font-weight: 800;
+}
+.cons-tabla tfoot td.cons-col-hh { background: #064f78; color: #fff; }

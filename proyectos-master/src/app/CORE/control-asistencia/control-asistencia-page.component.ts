@@ -3,13 +3,42 @@ import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
 import { sMis_Proyectos } from '../../services/sMis_Proyectos.service';
 import { sUsuarioClienteProyecto } from '../../services/sUsuarioClienteProyecto.service';
 import { firestoreDB } from '../../firebase-init';
-import { ControlAsistenciaComponent } from '../../Proyectos/estadisticas-hh/control-asistencia.component';
+import { ControlAsistenciaComponent, HORAS_JORNADA, MOTIVOS_AUSENCIA, motivoAusencia } from '../../Proyectos/estadisticas-hh/control-asistencia.component';
 import {
   TrabajadorCore, listarTrabajadores, guardarTrabajador, eliminarTrabajador, buscarEnAgenda,
   etiquetaTrabajador, formatearRut, rutValido, limpiarRut, normalizarTexto, ordenarTrabajadores, clavesTrabajador
 } from '../trabajadores/trabajadores-core';
 
 const COLECCION_ASISTENCIA = 'asistenciaHH';
+
+/** Lo que hizo una persona en un subproyecto (en un mes o en el año). */
+interface ConsSp { id: string; nombre: string; dias: number; extra: number; hh: number; }
+
+/** Una persona en el consolidado (se junta por agenda, RUT o nombre aunque esté en varios subproyectos). */
+interface ConsPersona {
+  nombre: string;
+  rut: string;
+  cargo: string;
+  porMes: { [mes: number]: { dias: number; extra: number; hh: number; aus: { [motivo: string]: number }; sps: { [id: string]: ConsSp } } };
+}
+
+interface ConsFilaMes {
+  persona: ConsPersona;
+  dias: number; extra: number; hh: number;
+  aus: { [motivo: string]: number };
+  ausTotal: number;
+  sps: ConsSp[];
+  abierta: boolean;
+}
+
+interface ConsFilaAnio {
+  persona: ConsPersona;
+  meses: { hh: number; dias: number; texto: string }[];   // 12
+  dias: number; extra: number; hh: number; ausTotal: number;
+  sps: string[];
+}
+
+interface ConsFilaSp { id: string; nombre: string; meses: number[]; total: number; personas: number; }
 
 interface GrupoSubProyecto {
   id: string;              // idSubProyecto como texto (para comparar)
@@ -39,7 +68,25 @@ export class ControlAsistenciaPageComponent implements OnInit {
   readonly meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto',
     'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-  vista: string = 'asistencia';   // 'asistencia' | 'trabajadores'
+  vista: string = 'asistencia';   // 'asistencia' | 'trabajadores' | 'consolidado'
+
+  // ===== Consolidado (mensual / anual) =====
+  readonly mesesCortos = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+  readonly motivosAusencia = MOTIVOS_AUSENCIA;
+  vistaConsolidado: string = 'mensual';     // 'mensual' | 'anual'
+  consAnio: number = new Date().getFullYear();
+  consMes: number = new Date().getMonth() + 1;
+  cargandoConsolidado: boolean = false;
+  errorConsolidado: boolean = false;
+  busquedaConsolidado: string = '';
+  private consPersonas: ConsPersona[] = [];
+  private consSpsAnio: { [id: string]: ConsFilaSp } = {};
+  private cargaConsolidado: number = 0;
+  consMensual: ConsFilaMes[] = [];
+  consAnual: ConsFilaAnio[] = [];
+  consPorSp: ConsFilaSp[] = [];
+  consTotMes = { personas: 0, sps: 0, dias: 0, extra: 0, hh: 0, aus: 0, faltas: 0 };
+  consTotAnio = { personas: 0, sps: 0, hh: 0, dias: 0, meses: [] as number[] };
 
   // Permisos y subproyectos que puede ver el usuario
   soloLectura: boolean = true;
@@ -197,6 +244,200 @@ export class ControlAsistenciaPageComponent implements OnInit {
     this.mes = Number(this.mes);
     this.anio = Number(this.anio);
     this.cargarGrupos();
+  }
+
+  // ===================== Consolidado mensual / anual =====================
+
+  abrirConsolidado() {
+    this.vista = 'consolidado';
+    this.consAnio = Number(this.anio);
+    this.consMes = Number(this.mes);
+    this.cargarConsolidado();
+  }
+
+  cambiarAnioConsolidado() {
+    this.consAnio = Number(this.consAnio);
+    this.cargarConsolidado();
+  }
+
+  cambiarMesConsolidado() {
+    this.consMes = Number(this.consMes);
+    this.armarMensual();
+  }
+
+  /** Desde el anual: clic en un mes abre el consolidado de ese mes. */
+  verMesConsolidado(mes: number) {
+    this.consMes = mes;
+    this.vistaConsolidado = 'mensual';
+    this.armarMensual();
+  }
+
+  /** Lee todos los meses del año (una consulta) y arma las tres vistas. */
+  cargarConsolidado() {
+    const carga = ++this.cargaConsolidado;
+    const anio = Number(this.consAnio);
+    this.cargandoConsolidado = true;
+    this.errorConsolidado = false;
+    firestoreDB.collection(COLECCION_ASISTENCIA).where('anio', '==', anio).get()
+      .then((snap: any) => {
+        if (carga !== this.cargaConsolidado) { return; }
+        const docs: any[] = [];
+        snap.forEach((doc: any) => docs.push(doc.data() || {}));
+        this.procesarConsolidado(docs);
+        this.cargandoConsolidado = false;
+      })
+      .catch((error: any) => {
+        if (carga !== this.cargaConsolidado) { return; }
+        console.error('Error al cargar el consolidado de asistencia:', error);
+        this.errorConsolidado = true;
+        this.cargandoConsolidado = false;
+      });
+  }
+
+  private procesarConsolidado(docs: any[]) {
+    const porClave: { [clave: string]: ConsPersona } = {};
+    const personas: ConsPersona[] = [];
+    const sps: { [id: string]: ConsFilaSp } = {};
+    const personasSp: { [id: string]: { [p: number]: boolean } } = {};
+
+    docs.forEach(d => {
+      const id = String(d.idSubProyecto);
+      const sp = this.permitidos[id];
+      if (!sp) { return; }
+      const mes = Number(d.mes);
+      if (!mes || mes < 1 || mes > 12) { return; }
+      const nombreSp = sp.nombreSubProyecto || d.nombreSubProyecto || ('Subproyecto ' + id);
+      const filaSp = sps[id] || (sps[id] = { id: id, nombre: nombreSp, meses: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], total: 0, personas: 0 });
+      const mapa = d.trabajadores || {};
+
+      Object.keys(mapa).forEach(k => {
+        const t = mapa[k];
+        if (!t || t.eliminado) { return; }
+        // suma del mes de esta persona en este subproyecto
+        let dias = 0, extra = 0;
+        const aus: { [m: string]: number } = {};
+        const diasMapa = t.dias || {};
+        Object.keys(diasMapa).forEach(dia => {
+          const v = diasMapa[dia] || {};
+          dias += Number(v.jornada) || 0;
+          extra += Number(v.extra) || 0;
+          const m = v.ausencia && motivoAusencia(v.ausencia.motivo);
+          if (m) { aus[m.v] = (aus[m.v] || 0) + 1; }
+        });
+        const hh = this.redondear(dias * HORAS_JORNADA + extra);
+        if (!hh && !Object.keys(aus).length) { return; }   // inscrito pero sin nada marcado
+
+        // misma persona aunque esté en varios subproyectos
+        const claves = clavesTrabajador(t);
+        let persona: ConsPersona = null;
+        claves.forEach(c => { if (!persona && porClave[c]) { persona = porClave[c]; } });
+        if (!persona) {
+          persona = { nombre: ((t.nombre || '') + ' ' + (t.apellido || '')).trim() || 'Sin nombre', rut: t.rut || '', cargo: t.cargo || '', porMes: {} };
+          personas.push(persona);
+        }
+        if (!persona.rut && t.rut) { persona.rut = t.rut; }
+        if (!persona.cargo && t.cargo) { persona.cargo = t.cargo; }
+        claves.forEach(c => porClave[c] = persona);
+
+        const pm = persona.porMes[mes] || (persona.porMes[mes] = { dias: 0, extra: 0, hh: 0, aus: {}, sps: {} });
+        pm.dias += dias; pm.extra += extra; pm.hh = this.redondear(pm.hh + hh);
+        Object.keys(aus).forEach(m => pm.aus[m] = (pm.aus[m] || 0) + aus[m]);
+        const s = pm.sps[id] || (pm.sps[id] = { id: id, nombre: nombreSp, dias: 0, extra: 0, hh: 0 });
+        s.dias += dias; s.extra += extra; s.hh = this.redondear(s.hh + hh);
+
+        filaSp.meses[mes - 1] = this.redondear(filaSp.meses[mes - 1] + hh);
+        filaSp.total = this.redondear(filaSp.total + hh);
+        const ip = personas.indexOf(persona);
+        (personasSp[id] || (personasSp[id] = {}))[ip] = true;
+      });
+    });
+
+    Object.keys(sps).forEach(id => sps[id].personas = Object.keys(personasSp[id] || {}).length);
+    this.consPersonas = personas.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+    this.consSpsAnio = sps;
+    this.armarMensual();
+    this.armarAnual();
+  }
+
+  private coincideBusqueda(p: ConsPersona, sps: string[]): boolean {
+    const terminos = normalizarTexto(this.busquedaConsolidado).split(/\s+/).filter(x => !!x);
+    if (!terminos.length) { return true; }
+    const texto = normalizarTexto([p.nombre, p.rut, p.cargo].concat(sps).join(' '));
+    return terminos.every(x => texto.indexOf(x) >= 0);
+  }
+
+  filtrarConsolidado() {
+    this.armarMensual();
+    this.armarAnual();
+  }
+
+  armarMensual() {
+    const mes = Number(this.consMes);
+    const filas: ConsFilaMes[] = [];
+    const tot = { personas: 0, sps: 0, dias: 0, extra: 0, hh: 0, aus: 0, faltas: 0 };
+    const spsMes: { [id: string]: boolean } = {};
+    this.consPersonas.forEach(p => {
+      const pm = p.porMes[mes];
+      if (!pm) { return; }
+      const lista = Object.keys(pm.sps).map(k => pm.sps[k]).sort((a, b) => b.hh - a.hh);
+      if (!this.coincideBusqueda(p, lista.map(x => x.nombre))) { return; }
+      const ausTotal = Object.keys(pm.aus).reduce((s, k) => s + pm.aus[k], 0);
+      filas.push({ persona: p, dias: this.redondear(pm.dias), extra: this.redondear(pm.extra), hh: pm.hh, aus: pm.aus, ausTotal: ausTotal, sps: lista, abierta: lista.length > 1 });
+      tot.personas++; tot.dias += pm.dias; tot.extra += pm.extra; tot.hh += pm.hh; tot.aus += ausTotal;
+      tot.faltas += pm.aus['FI'] || 0;
+      lista.forEach(x => spsMes[x.id] = true);
+    });
+    tot.sps = Object.keys(spsMes).length;
+    tot.dias = this.redondear(tot.dias); tot.extra = this.redondear(tot.extra); tot.hh = this.redondear(tot.hh);
+    this.consMensual = filas;
+    this.consTotMes = tot;
+  }
+
+  armarAnual() {
+    const filas: ConsFilaAnio[] = [];
+    const totMeses = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let hhTot = 0, diasTot = 0;
+    this.consPersonas.forEach(p => {
+      const spsNombres: { [n: string]: boolean } = {};
+      const meses = this.mesesCortos.map((x, i) => {
+        const pm = p.porMes[i + 1];
+        if (!pm) { return { hh: 0, dias: 0, texto: '' }; }
+        const lista = Object.keys(pm.sps).map(k => pm.sps[k]);
+        lista.forEach(s => spsNombres[s.nombre] = true);
+        return {
+          hh: pm.hh,
+          dias: this.redondear(pm.dias),
+          texto: lista.map(s => s.nombre + ': ' + this.formatear(s.hh) + ' HH (' + this.formatear(s.dias) + ' días)').join('\n')
+        };
+      });
+      const sps = Object.keys(spsNombres).sort();
+      if (!this.coincideBusqueda(p, sps)) { return; }
+      let hh = 0, dias = 0, extra = 0, ausTotal = 0;
+      Object.keys(p.porMes).forEach(m => {
+        const pm = p.porMes[Number(m)];
+        hh += pm.hh; dias += pm.dias; extra += pm.extra;
+        ausTotal += Object.keys(pm.aus).reduce((s, k) => s + pm.aus[k], 0);
+      });
+      meses.forEach((m, i) => totMeses[i] = this.redondear(totMeses[i] + m.hh));
+      hhTot += hh; diasTot += dias;
+      filas.push({ persona: p, meses: meses, dias: this.redondear(dias), extra: this.redondear(extra), hh: this.redondear(hh), ausTotal: ausTotal, sps: sps });
+    });
+    this.consAnual = filas;
+    this.consPorSp = Object.keys(this.consSpsAnio).map(k => this.consSpsAnio[k]).sort((a, b) => b.total - a.total);
+    this.consTotAnio = { personas: filas.length, sps: this.consPorSp.length, hh: this.redondear(hhTot), dias: this.redondear(diasTot), meses: totMeses };
+  }
+
+  textoAusenciasCons(aus: { [m: string]: number }): string {
+    return MOTIVOS_AUSENCIA.filter(m => aus && aus[m.v]).map(m => m.t + ': ' + aus[m.v]).join(' · ');
+  }
+
+  esMesActualCons(mes: number): boolean {
+    const hoy = new Date();
+    return Number(this.consAnio) === hoy.getFullYear() && mes === hoy.getMonth() + 1;
+  }
+
+  private redondear(v: number): number {
+    return Math.round((Number(v) || 0) * 100) / 100;
   }
 
   seleccionarQuincena(q: number) {

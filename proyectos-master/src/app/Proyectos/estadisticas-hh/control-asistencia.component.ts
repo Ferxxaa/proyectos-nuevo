@@ -101,6 +101,56 @@ export function getFeriadosChile(anio: number): { [clave: string]: string } {
 
 const LETRAS_DIA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
+/**
+ * Motivos para justificar un día no trabajado. Se guardan en dias.{dia}.ausencia = { motivo, obs, por, fecha }.
+ * La letra se puede escribir directo en la celda "Día" (L, V, P, S, F, O).
+ */
+export interface MotivoAusencia { v: string; letra: string; t: string; d: string; justificada: boolean; }
+export const MOTIVOS_AUSENCIA: MotivoAusencia[] = [
+  { v: 'LM',  letra: 'L', t: 'Licencia médica',     d: 'Con licencia médica',                 justificada: true },
+  { v: 'VAC', letra: 'V', t: 'Vacaciones',          d: 'Feriado legal / vacaciones',          justificada: true },
+  { v: 'PCG', letra: 'P', t: 'Permiso con goce',    d: 'Permiso con goce de sueldo',          justificada: true },
+  { v: 'PSG', letra: 'S', t: 'Permiso sin goce',    d: 'Permiso sin goce de sueldo',          justificada: true },
+  { v: 'OTR', letra: 'O', t: 'Otro justificado',    d: 'Otro motivo justificado (detállalo)', justificada: true },
+  { v: 'FI',  letra: 'F', t: 'Falta injustificada', d: 'No se presentó sin justificación',    justificada: false }
+];
+
+export function motivoAusencia(v: string): MotivoAusencia {
+  return MOTIVOS_AUSENCIA.filter(m => m.v === v)[0] || null;
+}
+
+/** Popup para justificar a UN trabajador en un día (desde la celda, el aviso o el popup del día). */
+interface ModalAusencia {
+  trabajador: TrabajadorAsistencia;
+  dia: number;
+  fecha: string;
+  motivo: string;
+  obs: string;
+  existente: boolean;
+  fila?: FilaDia;          // si se abrió desde el popup del día, la elección vuelve a esa fila (no se guarda directo)
+  elegir?: boolean;        // abierto desde "Justificar": muestra el selector de trabajador
+}
+
+/** Una fila del popup del día: lo que se marca para cada trabajador. */
+interface FilaDia {
+  trabajador: TrabajadorAsistencia;
+  estado: string;          // '1' | '0.5' | '0' | 'AUS' | '' (sin marcar)
+  extra: any;              // horas extra (texto del input)
+  motivo: string;          // motivo de ausencia si estado = 'AUS'
+  obs: string;
+  bloqueo: string;         // texto si no se puede llenar (falta un día anterior / jornada completa en otro subproyecto)
+  otro: string;            // texto si trabajó en otro subproyecto ese día
+}
+
+interface ModalDia {
+  dia: number;
+  fecha: string;
+  feriado: string;
+  finDeSemana: boolean;
+  filas: FilaDia[];
+  enfocado: string;        // id del trabajador desde donde se abrió (se resalta)
+}
+
 interface DiaAsistencia {
   numero: number;
   letra: string;        // Lun, Mar...
@@ -169,6 +219,14 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
     { numero: 7, nombre: 'Julio', corto: 'jul' }, { numero: 8, nombre: 'Agosto', corto: 'ago' }, { numero: 9, nombre: 'Septiembre', corto: 'sep' },
     { numero: 10, nombre: 'Octubre', corto: 'oct' }, { numero: 11, nombre: 'Noviembre', corto: 'nov' }, { numero: 12, nombre: 'Diciembre', corto: 'dic' }
   ];
+  readonly motivosAusencia = MOTIVOS_AUSENCIA;
+  /** Popup del día: asistencia y justificaciones de todos los trabajadores en ese día. */
+  modalDia: ModalDia = null;
+  errorModalDia: string = '';
+  /** Popup para justificar a un trabajador. */
+  modalAusencia: ModalAusencia = null;
+  errorAusencia: string = '';
+
   readonly campos = [
     { campo: 'jornada', etiqueta: 'Día', titulo: 'Jornada' },
     { campo: 'extra', etiqueta: 'H.E.', titulo: 'Horas extra' }
@@ -399,7 +457,8 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
       habiles.forEach(dia => {
         const delDia = t.dias[dia] || {};
         const marcado = (Number(delDia.jornada) || 0) > 0 || (Number(delDia.extra) || 0) > 0 ||
-          delDia.jornada === 0;                                   // un 0 escrito = se revisó (no trabajó)
+          delDia.jornada === 0 ||                                 // un 0 escrito = se revisó (no trabajó)
+          !!(delDia.ausencia && delDia.ausencia.motivo);          // día justificado (licencia, vacaciones...)
         if (marcado || this.otroSp(t, dia)) { return; }
         fila[dia] = true;
         diasConPendiente[dia] = true;
@@ -436,6 +495,9 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
   /** Texto de ayuda de la celda (otro subproyecto o por qué está bloqueada). */
   tituloCelda(trabajador: TrabajadorAsistencia, dia: number): string {
     if (trabajador.nuevo) { return null; }
+    const aus = trabajador.dias[dia] && trabajador.dias[dia].ausencia;
+    const m = aus ? motivoAusencia(aus.motivo) : null;
+    if (m) { return m.t + (aus.obs ? ': ' + aus.obs : '') + (this.soloLectura ? '' : ' · doble clic para editar'); }
     const otro = this.otroSp(trabajador, dia);
     if (otro) { return otro.texto; }
     if (this.soloLectura) { return null; }
@@ -485,7 +547,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
   }
 
   private recalcular() {
-    const resumen = { hh: 0, trabajadores: 0, jornadas: 0, extra: 0, capacitacion: 0 };
+    const resumen: any = { hh: 0, trabajadores: 0, jornadas: 0, extra: 0, capacitacion: 0, ausencias: 0, injustificadas: 0, porMotivo: {} };
     const totalesFila: { [id: string]: any } = {};
     const totalesDia: { [dia: number]: any } = {};
 
@@ -495,6 +557,12 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
       const fila: any = { jornada: 0, extra: 0, capacitacion: 0, hh: 0 };
       this.dias.forEach(dia => {
         const delDia = trabajador.dias[dia.numero] || {};
+        const aus = delDia.ausencia && motivoAusencia(delDia.ausencia.motivo);
+        if (aus) {
+          resumen.ausencias++;
+          if (!aus.justificada) { resumen.injustificadas++; }
+          resumen.porMotivo[aus.v] = (resumen.porMotivo[aus.v] || 0) + 1;
+        }
         this.campos.forEach(item => {
           const valor = Number(delDia[item.campo]) || 0;
           fila[item.campo] += valor;
@@ -614,6 +682,18 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
     }
     this.errorFila = '';
 
+    // Letra de motivo en la celda "Día" (L, V, P, S, F, O): justifica el día sin abrir el popup
+    if (campo === 'jornada') {
+      const letra = (input.value || '').trim().toUpperCase();
+      const porLetra = MOTIVOS_AUSENCIA.filter(m => m.letra === letra || m.v === letra)[0];
+      if (porLetra) {
+        input.value = '';
+        this.guardarAusencia(trabajador, dia, porLetra.v, '');
+        input.value = this.getTextoCelda(trabajador, dia, campo);
+        return;
+      }
+    }
+
     const valor = this.leerValor(input.value, campo);
     if (valor === undefined) {
       input.value = this.getTextoCelda(trabajador, dia, campo);
@@ -622,17 +702,333 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
 
     const delDia = trabajador.dias[dia] || (trabajador.dias[dia] = {});
     const anterior = delDia[campo] === undefined ? null : delDia[campo];
+    const ausenciaAnterior = delDia.ausencia || null;
+    // si escribe una jornada mayor a 0, el día deja de estar justificado como ausencia
+    const quitaAusencia = campo === 'jornada' && valor !== null && valor > 0 && !!ausenciaAnterior;
     delDia[campo] = valor;
+    if (quitaAusencia) { delDia.ausencia = null; }
     input.value = this.getTextoCelda(trabajador, dia, campo);
-    if (valor === anterior) { return; }
+    if (valor === anterior && !quitaAusencia) { return; }
 
+    const cambio: any = { [campo]: valor };
+    if (quitaAusencia) { cambio.ausencia = null; }
     this.persistir(
-      { trabajadores: { [trabajador.id]: { dias: { [dia]: { [campo]: valor } } } } },
+      { trabajadores: { [trabajador.id]: { dias: { [dia]: cambio } } } },
       () => {
         delDia[campo] = anterior;
+        if (quitaAusencia) { delDia.ausencia = ausenciaAnterior; }
         input.value = this.getTextoCelda(trabajador, dia, campo);
       }
     );
+  }
+
+  // ===================== Justificar faltas =====================
+
+  /** Datos del motivo (para mostrarlo en el popup del día). */
+  motivoTexto(v: string): MotivoAusencia {
+    return motivoAusencia(v) || { v: v, letra: '?', t: v, d: '', justificada: true };
+  }
+
+  /** Motivo del día (o null). */
+  ausenciaDe(trabajador: TrabajadorAsistencia, dia: number): MotivoAusencia {
+    const delDia = trabajador && trabajador.dias ? trabajador.dias[dia] : null;
+    return delDia && delDia.ausencia ? motivoAusencia(delDia.ausencia.motivo) : null;
+  }
+
+  /** ¿Se puede abrir el popup de ese día? (no días futuros) */
+  diaAbrible(dia: number): boolean {
+    return !this.soloLectura && dia <= this.ultimoDiaEditable && this.trabajadores.length > 0;
+  }
+
+  /** Abre el popup del día con todos los trabajadores (clic en el encabezado del día o doble clic en una celda). */
+  abrirDia(dia: number, desde?: TrabajadorAsistencia) {
+    if (this.soloLectura) { return; }
+    if (dia > this.ultimoDiaEditable) { this.errorFila = 'Todavía no llega el ' + dia + '.'; return; }
+    const info = this.dias.filter(d => d.numero === dia)[0];
+    const filas: FilaDia[] = this.trabajadores.map(t => {
+      const delDia = t.dias[dia] || {};
+      const aus = delDia.ausencia || null;
+      const otro = this.otroSp(t, dia);
+      const primero = this.primerPendiente[t.id];
+      let bloqueo = '';
+      if (primero && dia > primero) { bloqueo = 'Falta completar el ' + primero; }
+      else if (otro && otro.lleno && !delDia.jornada && !aus) { bloqueo = 'Jornada completa en otro subproyecto'; }
+      let estado = '';
+      if (aus && aus.motivo) { estado = 'AUS'; }
+      else if (delDia.jornada === 1) { estado = '1'; }
+      else if (delDia.jornada === 0.5) { estado = '0.5'; }
+      else if (delDia.jornada === 0) { estado = '0'; }
+      else if (delDia.jornada) { estado = String(delDia.jornada); }
+      return {
+        trabajador: t,
+        estado: estado,
+        extra: delDia.extra === null || delDia.extra === undefined ? '' : this.formatear(delDia.extra),
+        motivo: aus ? aus.motivo : '',
+        obs: aus ? (aus.obs || '') : '',
+        bloqueo: bloqueo,
+        otro: otro ? otro.texto : ''
+      };
+    });
+    this.errorModalDia = '';
+    this.errorFila = '';
+    this.modalDia = {
+      dia: dia,
+      fecha: this.textoFecha(dia),
+      feriado: info ? info.feriado : '',
+      finDeSemana: info ? info.finDeSemana : false,
+      filas: filas,
+      enfocado: desde ? desde.id : ''
+    };
+  }
+
+  /** Abre la justificación en el primer día pendiente del primer trabajador atrasado. */
+  justificarPrimerPendiente() {
+    const t = this.trabajadores.filter(x => this.primerPendiente[x.id])[0];
+    if (t) { this.abrirAusencia(t, this.primerPendiente[t.id], true); }
+  }
+
+  /** Trabajadores para el selector del popup de justificación. */
+  get trabajadoresJustificables(): TrabajadorAsistencia[] {
+    return this.trabajadores.filter(t => !t.nuevo);
+  }
+
+  /** Cantidad de días pendientes de un trabajador. */
+  cantidadPendientes(t: TrabajadorAsistencia): number {
+    const fila = t && this.pendientes[t.id];
+    return fila ? Object.keys(fila).filter(k => fila[k]).length : 0;
+  }
+
+  primerPendienteDe(t: TrabajadorAsistencia): number {
+    return this.primerPendiente[t.id] || null;
+  }
+
+  /** Cambia el trabajador a justificar (va a su primer día pendiente). */
+  elegirTrabajadorAus(t: TrabajadorAsistencia) {
+    const dia = this.primerPendiente[t.id];
+    if (!dia || !this.modalAusencia || this.modalAusencia.trabajador === t) { return; }
+    this.abrirAusencia(t, dia, true);
+  }
+
+  // ----- Popup de justificación (un trabajador) -----
+
+  /** Doble clic en la celda "Día" o botón Justificar: justifica y guarda directo. */
+  abrirAusencia(trabajador: TrabajadorAsistencia, dia: number, elegir: boolean = false) {
+    if (this.soloLectura || !trabajador || trabajador.nuevo) { return; }
+    if (this.bloqueadoSecuencia(trabajador, dia)) {
+      this.errorFila = this.tituloCelda(trabajador, dia) || 'Este día todavía no se puede justificar.';
+      return;
+    }
+    const delDia = trabajador.dias[dia] || {};
+    const aus = delDia.ausencia || null;
+    this.errorAusencia = '';
+    this.modalAusencia = {
+      trabajador: trabajador,
+      dia: dia,
+      fecha: this.textoFecha(dia),
+      motivo: aus ? aus.motivo : '',
+      obs: aus ? (aus.obs || '') : '',
+      existente: !!aus,
+      elegir: elegir
+    };
+  }
+
+  /** Desde el popup del día ("Ausente…"): elige motivo y vuelve a la fila del día. */
+  abrirAusenciaDesdeDia(f: FilaDia) {
+    if (!this.modalDia || f.bloqueo) { return; }
+    this.errorAusencia = '';
+    this.modalAusencia = {
+      trabajador: f.trabajador,
+      dia: this.modalDia.dia,
+      fecha: this.modalDia.fecha,
+      motivo: f.estado === 'AUS' ? f.motivo : '',
+      obs: f.estado === 'AUS' ? (f.obs || '') : '',
+      existente: f.estado === 'AUS' && !!f.motivo,
+      fila: f
+    };
+  }
+
+  /** Observación del popup de justificación (sin ngModel, para que nada externo bloquee la escritura). */
+  escribirObs(valor: string) {
+    if (!this.modalAusencia) { return; }
+    this.modalAusencia.obs = valor || '';
+    if (this.errorAusencia && this.modalAusencia.obs.trim()) { this.errorAusencia = ''; }
+  }
+
+  /**
+   * Si algún listener global de la app cancela la tecla (preventDefault), el textarea no escribe.
+   * En ese caso insertamos el carácter a mano para que la observación siempre se pueda escribir.
+   */
+  teclaObs(e: KeyboardEvent, el: HTMLTextAreaElement) {
+    e.stopPropagation();
+    if (!e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || !el) { return; }
+    const v = el.value || '';
+    let ini = el.selectionStart, fin = el.selectionEnd;
+    let texto: string = null;
+    if (e.key && e.key.length === 1) { texto = e.key; }
+    else if (e.key === 'Enter') { texto = '\n'; }
+    else if (e.key === 'Backspace') { if (ini === fin && ini > 0) { ini--; } texto = ''; }
+    else if (e.key === 'Delete') { if (ini === fin && fin < v.length) { fin++; } texto = ''; }
+    if (texto === null) { return; }
+    if (v.length - (fin - ini) + texto.length > 300) { return; }
+    el.value = v.slice(0, ini) + texto + v.slice(fin);
+    el.selectionStart = el.selectionEnd = ini + texto.length;
+    this.escribirObs(el.value);
+  }
+
+  cerrarAusencia() {
+    this.modalAusencia = null;
+    this.errorAusencia = '';
+  }
+
+  guardarModalAusencia() {
+    const m = this.modalAusencia;
+    if (!m) { return; }
+    if (!m.motivo) { this.errorAusencia = 'Elige el motivo.'; return; }
+    if (m.motivo === 'OTR' && !(m.obs || '').trim()) { this.errorAusencia = 'Para "Otro justificado" escribe el detalle.'; return; }
+    if (m.fila) {
+      m.fila.estado = 'AUS';
+      m.fila.motivo = m.motivo;
+      m.fila.obs = (m.obs || '').trim();
+      this.errorModalDia = '';
+      this.cerrarAusencia();
+      return;
+    }
+    this.guardarAusencia(m.trabajador, m.dia, m.motivo, (m.obs || '').trim());
+    // pasa al siguiente día pendiente del mismo trabajador, si hay
+    const siguiente = this.primerPendiente[m.trabajador.id];
+    const otro = m.elegir ? this.trabajadores.filter(x => x !== m.trabajador && this.primerPendiente[x.id])[0] : null;
+    if (siguiente && siguiente !== m.dia) {
+      this.abrirAusencia(m.trabajador, siguiente, m.elegir);
+    } else if (otro) {
+      this.abrirAusencia(otro, this.primerPendiente[otro.id], true);
+    } else {
+      this.cerrarAusencia();
+    }
+  }
+
+  quitarModalAusencia() {
+    const m = this.modalAusencia;
+    if (!m) { return; }
+    if (m.fila) {
+      m.fila.estado = '';
+      m.fila.motivo = '';
+      m.fila.obs = '';
+    } else {
+      this.guardarAusencia(m.trabajador, m.dia, null, '');
+    }
+    this.cerrarAusencia();
+  }
+
+  cerrarDia() {
+    this.modalDia = null;
+    this.errorModalDia = '';
+  }
+
+  elegirEstado(f: FilaDia, estado: string) {
+    if (f.bloqueo) { return; }
+    if (estado === 'AUS') { this.abrirAusenciaDesdeDia(f); return; }
+    f.estado = f.estado === estado ? '' : estado;
+    if (f.estado !== 'AUS') { f.motivo = ''; f.obs = ''; }
+    this.errorModalDia = '';
+  }
+
+  elegirMotivo(f: FilaDia, motivo: string) {
+    if (f.bloqueo) { return; }
+    f.estado = 'AUS';
+    f.motivo = motivo;
+    this.errorModalDia = '';
+  }
+
+  /** Marca a todos los que están sin marcar como presentes (1). */
+  todosPresentes() {
+    if (!this.modalDia) { return; }
+    this.modalDia.filas.forEach(f => { if (!f.bloqueo && !f.estado) { f.estado = '1'; } });
+  }
+
+  get resumenModalDia(): { marcados: number; total: number } {
+    const filas = this.modalDia ? this.modalDia.filas.filter(f => !f.bloqueo) : [];
+    return { marcados: filas.filter(f => !!f.estado).length, total: filas.length };
+  }
+
+  /** Guarda todo el día en una sola operación. */
+  guardarModalDia() {
+    const m = this.modalDia;
+    if (!m) { return; }
+    const dia = m.dia;
+    const cambios: any = {};
+    const respaldos: { t: TrabajadorAsistencia; antes: any }[] = [];
+
+    for (const f of m.filas) {
+      if (f.bloqueo) { continue; }
+      const nombre = f.trabajador.nombre + ' ' + (f.trabajador.apellido || '');
+      if (f.estado === 'AUS' && !f.motivo) { this.errorModalDia = 'Elige el motivo de ausencia de ' + nombre + '.'; return; }
+      if (f.estado === 'AUS' && f.motivo === 'OTR' && !(f.obs || '').trim()) {
+        this.errorModalDia = 'Escribe el detalle del motivo "Otro" de ' + nombre + '.'; return;
+      }
+      const extra = this.leerValor(String(f.extra === null || f.extra === undefined ? '' : f.extra), 'extra');
+      if (extra === undefined) { this.errorModalDia = 'Las horas extra de ' + nombre + ' no son válidas (0 a 24).'; return; }
+
+      let jornada: number = null;
+      let ausencia: any = null;
+      if (f.estado === 'AUS') {
+        jornada = 0;
+        ausencia = { motivo: f.motivo, obs: (f.obs || '').trim(), por: this.idUsuario || null, fecha: new Date().toISOString() };
+      } else if (f.estado) {
+        jornada = Number(f.estado);
+      }
+
+      const delDia = f.trabajador.dias[dia] || {};
+      const antesAus = delDia.ausencia || null;
+      const igual = (delDia.jornada === undefined ? null : delDia.jornada) === jornada &&
+        (delDia.extra === undefined ? null : delDia.extra) === extra &&
+        ((!antesAus && !ausencia) || (antesAus && ausencia && antesAus.motivo === ausencia.motivo && (antesAus.obs || '') === ausencia.obs));
+      if (igual) { continue; }
+
+      respaldos.push({ t: f.trabajador, antes: JSON.parse(JSON.stringify(delDia)) });
+      const nuevo = f.trabajador.dias[dia] || (f.trabajador.dias[dia] = {});
+      nuevo.jornada = jornada;
+      nuevo.extra = extra;
+      nuevo.ausencia = ausencia;
+      cambios[f.trabajador.id] = { dias: { [dia]: { jornada: jornada, extra: extra, ausencia: ausencia } } };
+    }
+
+    this.cerrarDia();
+    if (!Object.keys(cambios).length) { return; }
+    this.persistir({ trabajadores: cambios }, () => {
+      respaldos.forEach(r => { r.t.dias[dia] = r.antes; });
+    });
+  }
+
+  /** Guarda (o quita, con motivo null) la justificación del día. La jornada queda en 0. */
+  private guardarAusencia(trabajador: TrabajadorAsistencia, dia: number, motivo: string, obs: string) {
+    const delDia = trabajador.dias[dia] || (trabajador.dias[dia] = {});
+    const antes = { jornada: delDia.jornada === undefined ? null : delDia.jornada, ausencia: delDia.ausencia || null };
+    const ausencia = motivo ? {
+      motivo: motivo,
+      obs: obs || '',
+      por: this.idUsuario || null,
+      fecha: new Date().toISOString()
+    } : null;
+    delDia.ausencia = ausencia;
+    delDia.jornada = motivo ? 0 : (antes.ausencia ? null : delDia.jornada);
+    this.persistir(
+      { trabajadores: { [trabajador.id]: { dias: { [dia]: { jornada: delDia.jornada, ausencia: ausencia } } } } },
+      () => {
+        delDia.jornada = antes.jornada;
+        delDia.ausencia = antes.ausencia;
+      }
+    );
+  }
+
+  private textoFecha(dia: number): string {
+    const d = this.dias.filter(x => x.numero === dia)[0];
+    return (d ? d.letra + ' ' : '') + dia + ' de ' + this.nombreMes.toLowerCase() + ' ' + this.anio;
+  }
+
+  /** Texto del resumen de ausencias para el tooltip del chip. */
+  get textoAusencias(): string {
+    const pm = this.resumen && this.resumen.porMotivo ? this.resumen.porMotivo : {};
+    return MOTIVOS_AUSENCIA.filter(m => pm[m.v]).map(m => m.t + ': ' + pm[m.v]).join(' · ');
   }
 
   /** Jornada: de 0 a 1 (1 es día completo). Horas extra y capacitación: horas del día. */
@@ -656,6 +1052,10 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
 
   getTextoCelda(trabajador: TrabajadorAsistencia, dia: number, campo: string): string {
     const delDia = trabajador.dias[dia] || {};
+    if (campo === 'jornada' && delDia.ausencia) {
+      const m = motivoAusencia(delDia.ausencia.motivo);
+      if (m) { return m.letra; }
+    }
     const valor = delDia[campo];
     return valor === null || valor === undefined ? '' : this.formatear(valor);
   }
