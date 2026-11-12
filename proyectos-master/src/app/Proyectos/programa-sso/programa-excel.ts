@@ -1,7 +1,7 @@
 import { ProgramaMes } from './programa-sso.service';
 import {
   registrosDe, RegistroDia, redondear, textoEntidad, CONSUMOS_MA,
-  hhRegistroMin, formatoHM, minutosAHoras, textoCategoriaHH
+  hhRegistroMin, formatoHM, minutosAHoras, textoCategoriaHH, hhTrabajadoresDe
 } from './programa-registro';
 
 /**
@@ -437,8 +437,9 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
     h.set(f, col++, textoCumplimiento(r.cumplimiento), estiloCumplimiento(r.cumplimiento));
     const cat = hh.categoria ? textoCategoriaHH(hh.categoria) : 'Operacionales + Específicas';
     h.set(f, col++, hh.minTotal ? cat + (hh.antiguo ? ' (registro anterior)' : '') : '', 'centro');
-    h.set(f, col++, hh.trabajadoresDia || '', 'centro');
-    h.set(f, col++, hh.horasDia || '', 'centro');
+    const ht = hhTrabajadoresDe(d.programa, x.dia);   // por proyecto (mismo valor para todas las actividades del día)
+    h.set(f, col++, ht.trabajadores || '', 'centro');
+    h.set(f, col++, ht.horas || '', 'centro');
     if (hh.minTotal) {
       h.set(f, col++, hh.minTotal, 'centro');
       h.set(f, col++, formatoHM(hh.minTotal), 'centro');
@@ -482,6 +483,42 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
     h.set(f, 9, formatoHM(x[1]), x[4]);
     h.set(f, 10, redondear(minutosAHoras(x[1])), x[4]);
   });
+  return h;
+}
+
+/** HH Trabajadores del proyecto, un renglón por día (solo los días con datos). */
+function hojaHHTrabajadores(d: DatosExcelPrograma): Hoja {
+  const h = new Hoja('HH Trabajadores', [14, 16, 18, 18, 24]);
+  let f = h.fila(24);
+  h.set(f, 1, 'HH TRABAJADORES DEL PROYECTO · ' + d.tipo + ' · ' + d.mesNombre + ' ' + d.anio, 'titulo', { merge: 4 });
+  f = h.fila(); h.set(f, 1, 'Subproyecto: ' + (d.subproyecto || '—'), 'metaB', { merge: 4 });
+  h.fila();
+  f = h.fila(20);
+  ['Fecha', 'Trabajadores', 'Horas promedio día', 'HH del día', 'Registrado por'].forEach((t, i) => h.set(f, i + 1, t, 'head'));
+  let totTrab = 0, totHH = 0, dias = 0;
+  for (let dia = 1; dia <= 31; dia++) {
+    const ht = hhTrabajadoresDe(d.programa, dia);
+    if (!ht.trabajadores && !ht.horas) { continue; }
+    const hhDia = redondear(ht.trabajadores * ht.horas);
+    dias++; totTrab += ht.trabajadores; totHH += hhDia;
+    f = h.fila();
+    h.set(f, 1, pad(dia) + '/' + pad(d.mes) + '/' + d.anio, 'centro');
+    h.set(f, 2, ht.trabajadores || '', 'centro');
+    h.set(f, 3, ht.horas || '', 'centro');
+    h.set(f, 4, hhDia || '', 'centro');
+    h.set(f, 5, ht.por || '', 'centro');
+  }
+  if (!dias) {
+    f = h.fila();
+    h.set(f, 1, 'No hay HH Trabajadores registradas este mes.', 'meta', { merge: 4 });
+  } else {
+    f = h.fila(18);
+    h.set(f, 1, 'Promedio / Total', 'total');
+    h.set(f, 2, redondear(totTrab / dias), 'totalNum');
+    h.set(f, 3, '', 'totalNum');
+    h.set(f, 4, redondear(totHH), 'totalNum');
+    h.set(f, 5, dias + (dias === 1 ? ' día' : ' días'), 'totalNum');
+  }
   return h;
 }
 
@@ -689,7 +726,7 @@ function armarXlsx(hojas: Hoja[]): Uint8Array {
 /** Arma el libro (sin descargar). Útil para probar. */
 export function generarProgramaXlsx(d: DatosExcelPrograma): Uint8Array {
   const lista = registrosOrdenados(d.programa);
-  const hojas = [hojaPrograma(d), hojaRegistro(d, lista)];
+  const hojas = [hojaPrograma(d), hojaRegistro(d, lista), hojaHHTrabajadores(d)];
   if (lista.some(x => x.reg.adjuntos && x.reg.adjuntos.length > 0)) { hojas.push(hojaAdjuntos(d, lista)); }
   return armarXlsx(hojas);
 }

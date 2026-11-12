@@ -25,9 +25,9 @@ export interface RegistroDia {
   duracionMin?: number;        // minutos de la capacitación
   hhMinutos?: number;          // minutos de capacitación que se suman (nuevos: = duracionMin)
 
-  // ---- HH Trabajadores (solo se guarda, para comparar después con Control de Asistencia) ----
-  trabajadoresDia?: number;    // cantidad de trabajadores del día
-  horasDia?: number;           // horas promedio trabajadas ese día (8, 9, 10...)
+  // (versión anterior: HH Trabajadores por registro; ahora van por proyecto en programa.hhTrabajadores)
+  trabajadoresDia?: number;
+  horasDia?: number;
 
   // ---- Campos en horas decimales: se siguen escribiendo para compatibilidad
   //      (Estadísticas HH y registros antiguos). La fuente de verdad es hhMinutos.
@@ -414,4 +414,41 @@ export function horasPromedioDia(v: any): number {
   if (!isFinite(n)) { throw new Error('Horas promedio: ingresa un número.'); }
   if (n < 0 || n > 24) { throw new Error('Las horas promedio del día deben estar entre 0 y 24.'); }
   return Math.round(n * 100) / 100;
+}
+
+// ===================== HH Trabajadores por proyecto (por día) =====================
+
+/** Lo que se guarda en programa.hhTrabajadores[dia]: es del proyecto, no de cada actividad. */
+export interface HHTrabajadoresDia {
+  trabajadores: number;
+  horas: number;
+  por?: string;
+  fecha?: string;
+}
+
+/**
+ * HH Trabajadores del proyecto en un día. Si todavía no está a nivel proyecto,
+ * toma lo que se haya guardado en algún registro de ese día (versión anterior).
+ */
+export function hhTrabajadoresDe(p: any, dia: number): HHTrabajadoresDia {
+  const vacio: HHTrabajadoresDia = { trabajadores: 0, horas: 0 };
+  if (!p) { return vacio; }
+  const mapa = p.hhTrabajadores || {};
+  const x = mapa[String(dia)];
+  if (x) {
+    return {
+      trabajadores: Math.max(0, Math.round(Number(x.trabajadores) || 0)),
+      horas: Math.max(0, Number(x.horas) || 0),
+      por: x.por || '',
+      fecha: x.fecha || ''
+    };
+  }
+  const acts = p.actividades || [];
+  for (let i = 0; i < acts.length; i++) {
+    const r: any = registrosDe(acts[i])[String(dia)];
+    if (r && (Number(r.trabajadoresDia) > 0 || Number(r.horasDia) > 0)) {
+      return { trabajadores: Math.max(0, Math.round(Number(r.trabajadoresDia) || 0)), horas: Math.max(0, Number(r.horasDia) || 0) };
+    }
+  }
+  return vacio;
 }
