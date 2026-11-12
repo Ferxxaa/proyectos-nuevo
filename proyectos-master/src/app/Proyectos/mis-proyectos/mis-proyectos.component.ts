@@ -588,7 +588,6 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
         copy.Desviacion = copy.DuracionTotal > 0 && copy.duracionReal > 0
           ? copy.duracionReal * 100 / copy.DuracionTotal
           : null;
-        copy.DiasAtraso = this.calcularDiasAtraso(copy);
         copy.Semaforo = this.calcularSemaforo(copy);
 
         return copy;
@@ -617,57 +616,28 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Días de atraso del sub-proyecto (negativo o 0 = al día / adelantado). Es el mayor entre:
-   *  - lo que se pasó del plazo: duración real − duración total, y
-   *  - el atraso del avance: (avance programado − avance real) % de la duración total, en días.
-   * null si no hay duración total para calcularlo.
-   */
-  calcularDiasAtraso(proyecto: any): number {
-    const total = Number(proyecto && proyecto.DuracionTotal) || 0;
-    if (total <= 0) { return null; }
-    const sobrePlazo = (Number(proyecto.duracionReal) || 0) - total;
-    const difAvance = (Number(proyecto.AvanceProgramado) || 0) - (Number(proyecto.AvanceReal) || 0);
-    const porAvance = difAvance * total / 100;
-    return Math.round(Math.max(sobrePlazo, porAvance));
-  }
-
-  /**
-   * Semáforo del sub-proyecto por días de atraso:
-   *  verde    = al día, adelantado o hasta 1 día de atraso
-   *  amarillo = de 2 a 11 días de atraso
-   *  rojo     = 12 días de atraso o más
-   * Sin duración total se usa la diferencia de avance (%), como antes.
+   * Semáforo por diferencia en puntos porcentuales entre avance programado y real:
+   *  verde    = hasta 5 puntos porcentuales bajo lo programado
+   *  amarillo = más de 5 y menos de 10 puntos porcentuales bajo lo programado
+   *  rojo     = 10 puntos porcentuales o más bajo lo programado
    */
   private calcularSemaforo(proyecto: any): string {
-    const dias = this.calcularDiasAtraso(proyecto);
-
-    if (dias !== null) {
-      if (dias >= 12) {
-        return 'rojo';
-      }
-      if (dias <= 1) {
-        return 'verde';
-      }
-      return 'amarillo';
-    }
-
     const difAvance = (Number(proyecto.AvanceProgramado) || 0) - (Number(proyecto.AvanceReal) || 0);
-    if (difAvance > 3) {
+    if (difAvance >= 10) {
       return 'rojo';
     }
-    if (difAvance <= 0) {
-      return 'verde';
+    if (difAvance > 5) {
+      return 'amarillo';
     }
-    return 'amarillo';
+    return 'verde';
   }
 
   /** Texto del semáforo para el tooltip. */
   textoSemaforo(proyecto: any): string {
     const base = proyecto.Semaforo === 'rojo' ? 'Atrasado' : (proyecto.Semaforo === 'amarillo' ? 'En riesgo' : 'Al día');
-    const dias = proyecto.DiasAtraso;
-    if (dias === null || dias === undefined) { return base; }
-    if (dias <= 0) { return base + (dias < 0 ? ' · ' + (-dias) + (dias === -1 ? ' día adelantado' : ' días adelantado') : ' · sin atraso'); }
-    return base + ' · ' + dias + (dias === 1 ? ' día de atraso' : ' días de atraso');
+    const diferencia = (Number(proyecto.AvanceProgramado) || 0) - (Number(proyecto.AvanceReal) || 0);
+    if (diferencia <= 0) { return base + ' · avance real igual o superior al programado'; }
+    return base + ' · ' + diferencia.toFixed(1) + ' puntos porcentuales bajo lo programado';
   }
 
   private normalizarIndicadoresProyecto(proyecto: any) {

@@ -23,28 +23,14 @@ describe('MisProyectosComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('sets the sub-project traffic light by delay days', () => {
+  it('sets the sub-project traffic light by percentage-point difference, regardless of duration', () => {
     const calcularSemaforo = component['calcularSemaforo'].bind(component);
-    const proyecto = { DuracionTotal: 100, AvanceProgramado: 50, AvanceReal: 50 };
+    const proyecto = { AvanceProgramado: 50, AvanceReal: 50 };
 
-    expect(calcularSemaforo(Object.assign({}, proyecto, { duracionReal: 101 }))).toBe('verde');
-    expect(calcularSemaforo(Object.assign({}, proyecto, { duracionReal: 102 }))).toBe('amarillo');
-    expect(calcularSemaforo(Object.assign({}, proyecto, { duracionReal: 111 }))).toBe('amarillo');
-    expect(calcularSemaforo(Object.assign({}, proyecto, { duracionReal: 112 }))).toBe('rojo');
-  });
-
-  it('counts progress delay as days within the planned duration', () => {
-    const calcularSemaforo = component['calcularSemaforo'].bind(component);
-    const base = { DuracionTotal: 100, duracionReal: 50 };
-
-    // adelantado o al día
-    expect(calcularSemaforo(Object.assign({}, base, { AvanceProgramado: 50, AvanceReal: 60 }))).toBe('verde');
-    // 1 día de atraso
-    expect(calcularSemaforo(Object.assign({}, base, { AvanceProgramado: 50, AvanceReal: 49 }))).toBe('verde');
-    // 2 y 11 días de atraso
-    expect(calcularSemaforo(Object.assign({}, base, { AvanceProgramado: 50, AvanceReal: 48 }))).toBe('amarillo');
-    expect(calcularSemaforo(Object.assign({}, base, { AvanceProgramado: 50, AvanceReal: 39 }))).toBe('amarillo');
-    // 12 días de atraso
-    expect(calcularSemaforo(Object.assign({}, base, { AvanceProgramado: 50, AvanceReal: 38 }))).toBe('rojo');
+    expect(calcularSemaforo(Object.assign({}, proyecto, { AvanceReal: 51, DuracionTotal: 100 }))).toBe('verde');
+    expect(calcularSemaforo(Object.assign({}, proyecto, { AvanceReal: 45, DuracionTotal: 1 }))).toBe('verde');
+    expect(calcularSemaforo(Object.assign({}, proyecto, { AvanceReal: 44.9 }))).toBe('amarillo');
+    expect(calcularSemaforo(Object.assign({}, proyecto, { AvanceReal: 40.1 }))).toBe('amarillo');
+    expect(calcularSemaforo(Object.assign({}, proyecto, { AvanceReal: 40 }))).toBe('rojo');
   });
 });
