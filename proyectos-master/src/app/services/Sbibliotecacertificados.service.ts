@@ -311,11 +311,16 @@ export class sBibliotecaCertificados {
     if (typeof valor.toDate === 'function') { return valor.toDate(); }
     if (valor instanceof Date) { return valor; }
     if (typeof valor === 'object' && typeof valor.seconds === 'number') { return new Date(valor.seconds * 1000); }
-    if (typeof valor === 'string' || typeof valor === 'number') {
+    if (typeof valor === 'number') {
+      const fn: Date = new Date(Number(valor));
+      return isNaN(fn.getTime()) ? null : fn;
+    }
+    if (typeof valor === 'string') {
+      const texto: string = String(valor);
       // dd/MM/yyyy o dd-MM-yyyy
-      const m = typeof valor === 'string' ? /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/.exec(valor) : null;
-      const f = m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : new Date(valor);
-      return isNaN(f.getTime()) ? null : f;
+      const m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/.exec(texto);
+      const fs: Date = m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : new Date(texto);
+      return isNaN(fs.getTime()) ? null : fs;
     }
     return null;
   }
