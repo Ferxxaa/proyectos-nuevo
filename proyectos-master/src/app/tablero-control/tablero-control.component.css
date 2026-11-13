@@ -787,3 +787,113 @@ h2{
     margin: 0;
   }
 }
+/* *********************************** OPERACIONAL *********************************** */
+
+/* Ritmo / desplegable: ocultos pero vivos (siguen emitiendo la etapa a Seguimiento) */
+.oculto-operacional {
+  display: none !important;
+}
+
+/* Portada con foto de Trazas (src/assets/Images/trazas-operacional.jpg).
+   La foto va completa a todo el ancho y el texto encima, sobre un degradado azul a la izquierda. */
+.operacional-portada {
+  position: relative;
+  margin: 0 0 22px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #075f91;
+  box-shadow: 0 3px 14px rgba(36, 64, 79, .15);
+}
+
+.operacional-portada-foto {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 150px;
+  object-fit: cover;
+}
+
+.operacional-portada::after {
+  position: absolute;
+  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: linear-gradient(90deg, rgba(6, 79, 120, .9) 0%, rgba(7, 95, 145, .62) 30%, rgba(7, 95, 145, .45) 60%, rgba(16, 137, 189, .4) 100%);
+  content: '';
+  pointer-events: none;
+}
+
+.operacional-portada-contenido {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 1;
+  max-width: 45%;
+  padding: 0 28px;
+  color: #fff;
+  transform: translateY(-50%);
+}
+
+.operacional-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, .35);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.operacional-portada h3 {
+  margin: 10px 0 4px;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+}
+
+.operacional-portada p {
+  margin: 0;
+  color: rgba(255, 255, 255, .88);
+  font-size: 14px;
+}
+
+@media (max-width: 991px) {
+  .operacional-portada-contenido { max-width: 70%; padding: 0 18px; }
+  .operacional-portada h3 { font-size: 20px; }
+  .operacional-portada p { display: none; }
+  .operacional-portada::after {
+    background: linear-gradient(90deg, rgba(6, 79, 120, .9) 0%, rgba(7, 95, 145, .6) 45%, rgba(16, 137, 189, .4) 100%);
+  }
+}
+
+/* OPERACIONAL: sin tarjeta de Etapa (ritmo/fechas), la bitácora ocupa todo el ancho */
+.seguimiento-layout.seguimiento-operacional {
+  display: block !important;
+  grid-template-columns: none !important;
+}
+
+.seguimiento-layout.seguimiento-operacional > .bitacora-column {
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+}
+
+.seguimiento-operacional .bitacora-selector {
+  width: 100% !important;
+}
+
+.seguimiento-operacional .bitacora-selector .widget-body {
+  min-height: 460px;
+  max-height: none;
+  padding: 16px 18px;
+}
+
+.seguimiento-operacional .bitacora-tabs {
+  max-width: 720px;
+}

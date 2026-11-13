@@ -46,6 +46,10 @@ declare var $: any;
 })
 export class TableroControlComponent implements OnInit {
 
+  /** Proyecto OPERACIONAL (matriz 31 / proyecto 70): sin Ritmo arriba, sin Carta Gantt ni Control de Avance */
+  static readonly ID_PROYECTO_OPERACIONAL: number = 70;
+  esOperacional: boolean = false;
+
   //Pestañas
   rowSeguimiento: boolean;
   rowTareas: boolean;
@@ -103,6 +107,8 @@ export class TableroControlComponent implements OnInit {
   ) {
     this.usuario = JSON.parse(localStorage.usuario);
     this.SubProyecto = JSON.parse(localStorage.SubProyecto);
+    this.esOperacional = !!this.SubProyecto &&
+      Number(this.SubProyecto.idProyecto) === TableroControlComponent.ID_PROYECTO_OPERACIONAL;
 
     this.cargaDesplegable = true;
 
@@ -265,6 +271,7 @@ export class TableroControlComponent implements OnInit {
   }
 
   PestGantt() {
+    if (this.esOperacional) { this.PestSeguimiento(); return; }
     this.rowSeguimiento = false;
     this.rowTareas = false;
     this.rowGantt = true;
@@ -282,6 +289,7 @@ export class TableroControlComponent implements OnInit {
   }
 
   PestControlAvance() {
+    if (this.esOperacional) { this.PestSeguimiento(); return; }
     this.rowSeguimiento = false;
     this.rowTareas = false;
     this.rowGantt = false;

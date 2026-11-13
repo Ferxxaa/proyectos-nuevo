@@ -13,14 +13,27 @@
     </div>
     <br>
 
-    <!-- ****************************************** Tabla configuracion de fecha ******************************************-->
-    <app-tabla-header *ngIf="detalleSeguimiento && SubProyecto && usuario" [usuario]="usuario"
-      [result]="detalleSeguimiento" [SubProyecto]="SubProyecto" [soloLectura]="esCliente"
-      (emitEtapa)="loadEtapa($event)" (firstEtapa)="setInicioReal($event)"
-      (etapaCambiada)="ActualizaEtapaVigente()"></app-tabla-header>
+    <!-- ****************************************** Portada OPERACIONAL ******************************************-->
+    <section class="operacional-portada" *ngIf="esOperacional">
+      <img class="operacional-portada-foto" src="assets/Images/trazas-operacional.jpg" alt="Equipo Trazas">
+      <div class="operacional-portada-contenido">
+        <span class="operacional-kicker"><i class="fa fa-building-o" aria-hidden="true"></i> Operacional</span>
+        <h3>{{SubProyecto?.nombreSubProyecto}}</h3>
+        <p>Control operacional de oficina · Trazas</p>
+      </div>
+    </section>
 
-    <app-desplegable-tablero-control [Seguimiento]="SubProyecto"
-      *ngIf="cargaDesplegable"></app-desplegable-tablero-control>
+    <!-- ****************************************** Tabla configuracion de fecha ******************************************-->
+    <!-- En OPERACIONAL se oculta (no se quita) para que siga emitiendo la etapa a Seguimiento -->
+    <div [class.oculto-operacional]="esOperacional">
+      <app-tabla-header *ngIf="detalleSeguimiento && SubProyecto && usuario" [usuario]="usuario"
+        [result]="detalleSeguimiento" [SubProyecto]="SubProyecto" [soloLectura]="esCliente"
+        (emitEtapa)="loadEtapa($event)" (firstEtapa)="setInicioReal($event)"
+        (etapaCambiada)="ActualizaEtapaVigente()"></app-tabla-header>
+
+      <app-desplegable-tablero-control [Seguimiento]="SubProyecto"
+        *ngIf="cargaDesplegable"></app-desplegable-tablero-control>
+    </div>
 
     <!-- ****************************************** Pestañas ******************************************-->
     <div class="row cuerpo" id="bgRow">
@@ -30,7 +43,7 @@
             <a class="nav-link active" id="TabSeguimiento" data-toggle="tab" role="tab" style="cursor: pointer;"
               (click)="PestSeguimiento()"><b>Seguimiento Proyecto</b></a>
           </li>
-          <li class="nav-item">
+          <li class="nav-item" *ngIf="!esOperacional">
             <a class="nav-link" id="TabGantt" data-toggle="tab" role="tab" style="cursor: pointer;"
               (click)="PestGantt()"><b>Carta Gantt</b></a>
           </li>
@@ -42,7 +55,7 @@
             <a class="nav-link" id="TabTareas" data-toggle="tab" role="tab" style="cursor: pointer;"
               (click)="PestTareas()"><b>Tareas</b></a>
           </li>
-          <li class="nav-item">
+          <li class="nav-item" *ngIf="!esOperacional">
             <a class="nav-link" id="TabControlAvance" data-toggle="tab" role="tab" style="cursor: pointer;"
               (click)="PestControlAvance()"><b>Control Avance<br>de Proyecto</b></a>
           </li>
@@ -63,8 +76,8 @@
 
         <!-- SEGUIMIENTO -->
         <div class="seguimiento-row" *ngIf="rowSeguimiento">
-          <div class="seguimiento-layout">
-            <div class="seguimiento-etapas">
+          <div class="seguimiento-layout" [class.seguimiento-operacional]="esOperacional">
+            <div class="seguimiento-etapas" *ngIf="!esOperacional">
               <app-seguimiento (ActualizarSubProy)="ActualizaSP()" [idEtapa]="idEtapa" [soloLectura]="esCliente"></app-seguimiento>
             </div>
 
@@ -265,7 +278,7 @@
         </div>              <!-- ✅ cierra row rowTareas -->
 
         <!-- GANTT -->
-        <div class="row" *ngIf="rowGantt">
+        <div class="row" *ngIf="rowGantt && !esOperacional">
           <div class="col-lg-12">
             <app-carta-gantt [detalleSeguimiento]="detalleSeguimiento"
               [nombreProyecto]="SubProyecto?.nombreSubProyecto"></app-carta-gantt>
@@ -273,7 +286,7 @@
         </div>
 
         <!-- CONTROL AVANCE -->
-        <div class="row" *ngIf="rowControlAvance">
+        <div class="row" *ngIf="rowControlAvance && !esOperacional">
           <div class="col-lg-12">
             <app-control-avance [idProyecto]="SubProyecto?.idProyecto" [detalleSeguimiento]="detalleSeguimiento"
               [nombreProyecto]="SubProyecto?.nombreSubProyecto" [soloLectura]="esCliente"></app-control-avance>
