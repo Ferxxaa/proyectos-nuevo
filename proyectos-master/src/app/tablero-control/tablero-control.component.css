@@ -787,7 +787,7 @@ h2{
     margin: 0;
   }
 }
-/* *********************************** OPERACIONAL *********************************** */
+/* *********************************** TABLERO DE CONTROL NO APLICA *********************************** */
 
 /* Ritmo / desplegable: ocultos pero vivos (siguen emitiendo la etapa a Seguimiento) */
 .oculto-operacional {
@@ -817,7 +817,7 @@ h2{
   position: absolute;
   inset: 0;
   top: 0; right: 0; bottom: 0; left: 0;
-  background: linear-gradient(90deg, rgba(6, 79, 120, .9) 0%, rgba(7, 95, 145, .62) 30%, rgba(7, 95, 145, .45) 60%, rgba(16, 137, 189, .4) 100%);
+  background: linear-gradient(90deg, rgba(6, 79, 120, .92) 0%, rgba(7, 95, 145, .65) 28%, rgba(7, 95, 145, 0) 55%);
   content: '';
   pointer-events: none;
 }
@@ -868,7 +868,7 @@ h2{
   .operacional-portada h3 { font-size: 20px; }
   .operacional-portada p { display: none; }
   .operacional-portada::after {
-    background: linear-gradient(90deg, rgba(6, 79, 120, .9) 0%, rgba(7, 95, 145, .6) 45%, rgba(16, 137, 189, .4) 100%);
+    background: linear-gradient(90deg, rgba(6, 79, 120, .92) 0%, rgba(7, 95, 145, .6) 40%, rgba(7, 95, 145, 0) 70%);
   }
 }
 
@@ -896,4 +896,22 @@ h2{
 
 .seguimiento-operacional .bitacora-tabs {
   max-width: 720px;
+}
+
+/* Tablero no aplica + sin imagen: solo el título */
+.operacional-titulo {
+  margin: 0 0 18px;
+  padding: 14px 20px;
+  border-left: 5px solid #075f91;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(31, 45, 61, .08);
+}
+
+.operacional-titulo h3 {
+  margin: 0;
+  color: #24404f;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
 }
