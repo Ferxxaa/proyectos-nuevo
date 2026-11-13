@@ -234,7 +234,12 @@
 }
 .hs-chip-azul { background: #e3eefa; color: #075f91; }
 
-.hs-grupo-cuerpo { padding: 12px 14px; }
+/*
+ * Mismo desplazamiento horizontal que el control de un sub-proyecto:
+ * hs-lista (14) + borde hs-item (1) + hs-item-cuerpo (14) = 29px
+ * → la tabla de oficina queda exactamente alineada con las de los sub-proyectos.
+ */
+.hs-grupo-cuerpo { padding: 12px 29px 14px; }
 
 /* ---------- sub-proyectos ---------- */
 .hs-lista { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; }
@@ -308,6 +313,41 @@
 .hs-item.abierto .hs-item-accion { border-color: #d98a3d; background: #d98a3d; color: #fff; }
 
 .hs-item-cuerpo { padding: 12px 14px 14px; }
+
+/* ---------- columnas alineadas entre todas las tablas ---------- */
+/* Ancho fijo por columna: así todas las tablas (oficina + sub-proyectos) quedan iguales,
+   sin importar el largo del contenido de cada una. */
+.hs-pagina ::ng-deep app-control-hallazgos table {
+  width: 100% !important;
+  min-width: 1150px;
+  table-layout: fixed;
+}
+.hs-pagina ::ng-deep app-control-hallazgos table th,
+.hs-pagina ::ng-deep app-control-hallazgos table td {
+  overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.hs-pagina ::ng-deep app-control-hallazgos table select,
+.hs-pagina ::ng-deep app-control-hallazgos table input {
+  width: 100% !important;
+  max-width: 100%;
+  min-width: 0 !important;
+}
+
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(1)  { width: 3%; }   /* N° */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(2)  { width: 6.5%; } /* Fecha */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(3)  { width: 9%; }   /* Tipo de acción */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(4)  { width: 5%; }   /* Prioridad */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(5)  { width: 8%; }   /* Estado */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(6)  { width: 9%; }   /* Área responsable */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(7)  { width: 9%; }   /* Obra */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(8)  { width: 7%; }   /* Quién detecta */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(9)  { width: 8.5%; } /* Origen */
+/* 10 = Descripción → toma el espacio que sobra */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(11) { width: 5%; }   /* Bitácora */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(12) { width: 8.5%; } /* Adjuntos */
+.hs-pagina ::ng-deep app-control-hallazgos table th:nth-child(13) { width: 8%; }   /* Acciones */
 
 /* foco accesible */
 .hs-grupo-cab:focus,

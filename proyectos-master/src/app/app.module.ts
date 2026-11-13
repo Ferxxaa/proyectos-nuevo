@@ -86,6 +86,7 @@ import { HallazgoOperacionalComponent } from './Proyectos/hallazgo-operacional/h
 import { GraficoEstructuralComponent } from './nav/estructura-matrices/grafico-estructural.component';
 import { ReportesHallazgosComponent } from './Proyectos/reportes-hallazgos/reportes-hallazgos.component';
 import { ConsolidadoHallazgosComponent } from './Proyectos/consolidado-hallazgos/consolidado-hallazgos.component';
+import { BibliotecaCertificadosComponent } from './Proyectos/biblioteca-certificados/biblioteca-certificados.component';
 import { sVis_ProyectoMatriz } from './services/sVis_ProyectoMatriz.service';
 import { sVis_Proyectos } from './services/sVis_Proyectos.service';
 import { sVis_SubProyecto } from './services/sVis_SubProyecto.service';
@@ -154,6 +155,10 @@ const route = [
     path: 'Proyectos-ConsolidadoSSO',
     component: EstadisticasSsoComponent,
     data: { consolidadoSSO: true }
+  },
+  {
+    path: 'Proyectos-BibliotecaCertificados',
+    component: BibliotecaCertificadosComponent
   },
   {
     path: 'Proyectos-ConsolidadoHH',
@@ -297,6 +302,7 @@ const route = [
     GraficoEstructuralComponent,
     ReportesHallazgosComponent,
     ConsolidadoHallazgosComponent,
+    BibliotecaCertificadosComponent,
     EstadisticasHhComponent,
     ControlAsistenciaPageComponent,
     ConsolidadoHhComponent,

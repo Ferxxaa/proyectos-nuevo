@@ -1,0 +1,159 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <section class="widget bc-pagina">
+
+      <!-- Encabezado -->
+      <div class="bc-cabecera">
+        <div class="bc-titulo">
+          <span class="bc-icono"><i class="fa fa-certificate" aria-hidden="true"></i></span>
+          <div>
+            <span class="bc-kicker">Documentación</span>
+            <h2>Biblioteca de certificados</h2>
+            <p>Adjuntos de Hallazgos, Control de Avance, Programas SSO / MA e Incidentes, por sub-proyecto</p>
+          </div>
+        </div>
+        <a class="bc-btn-volver" [routerLink]="['/Proyectos-MisProyectos']">
+          <i class="fa fa-arrow-left" aria-hidden="true"></i> Volver a Mis Proyectos
+        </a>
+      </div>
+
+      <div class="bc-cuerpo">
+
+        <div class="bc-cargando" *ngIf="cargando">
+          <i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando certificados...
+        </div>
+
+        <div class="bc-error" *ngIf="!cargando && error">
+          <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{error}}
+        </div>
+
+        <ng-container *ngIf="!cargando && !error">
+
+          <!-- Pestañas / resumen -->
+          <div class="bc-resumen">
+            <button type="button" class="bc-tab" *ngFor="let p of pestanas"
+                    [ngClass]="'bc-tab-' + p.clave"
+                    [class.activa]="pestana === p.clave"
+                    (click)="cambiarPestana(p.clave)">
+              <span class="bc-tab-icono"><i class="fa" [ngClass]="p.icono" aria-hidden="true"></i></span>
+              <span class="bc-tab-info">
+                <small>{{p.titulo}}</small>
+                <strong>{{contarArchivos(p.clave)}}</strong>
+                <span>{{contarArchivos(p.clave) === 1 ? 'archivo' : 'archivos'}} · {{contarSubProyectos(p.clave)}} {{contarSubProyectos(p.clave) === 1 ? 'sub-proyecto' : 'sub-proyectos'}}</span>
+              </span>
+            </button>
+          </div>
+
+          <!-- Filtros -->
+          <div class="bc-filtros">
+            <div class="bc-buscar">
+              <i class="fa fa-search" aria-hidden="true"></i>
+              <input type="text" placeholder="Buscar sub-proyecto, proyecto o archivo..."
+                     [(ngModel)]="texto" (ngModelChange)="aplicarFiltros()">
+            </div>
+
+            <label class="bc-campo">
+              <span>Año</span>
+              <select [(ngModel)]="anio" (ngModelChange)="aplicarFiltros()">
+                <option value="todos">Todos</option>
+                <option *ngFor="let a of aniosDisponibles" [value]="a">{{a}}</option>
+              </select>
+            </label>
+
+            <label class="bc-campo">
+              <span>Ordenar</span>
+              <select [(ngModel)]="orden" (ngModelChange)="aplicarFiltros()">
+                <option value="nombre">Nombre (A-Z)</option>
+                <option value="recientes">Más recientes</option>
+                <option value="antiguos">Más antiguos</option>
+              </select>
+            </label>
+
+            <div class="bc-filtros-acciones">
+              <button type="button" class="bc-btn" (click)="expandirTodo(true)" title="Expandir todo">
+                <i class="fa fa-plus-square-o" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="bc-btn" (click)="expandirTodo(false)" title="Contraer todo">
+                <i class="fa fa-minus-square-o" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="bc-btn" *ngIf="hayFiltros" (click)="limpiarFiltros()">
+                <i class="fa fa-times" aria-hidden="true"></i> Limpiar
+              </button>
+            </div>
+          </div>
+
+          <!-- Origen -->
+          <div class="bc-origenes">
+            <button type="button" class="bc-origen" [class.activo]="origen === 'todos'" (click)="cambiarOrigen('todos')">Todos</button>
+            <button type="button" class="bc-origen" *ngFor="let o of origenes"
+                    [ngClass]="claseOrigen(o)" [class.activo]="origen === o" (click)="cambiarOrigen(o)">{{o}}</button>
+            <span class="bc-total">{{totalVisibles}} {{totalVisibles === 1 ? 'archivo' : 'archivos'}}</span>
+          </div>
+
+          <!-- Vacío -->
+          <div class="bc-vacio" *ngIf="!gruposVisibles.length">
+            <i class="fa fa-folder-open-o" aria-hidden="true"></i>
+            <strong>No hay certificados para mostrar</strong>
+            <p *ngIf="hayFiltros">Prueba cambiando los filtros.</p>
+            <p *ngIf="!hayFiltros">Aún no se han subido adjuntos en esta pestaña.</p>
+          </div>
+
+          <!-- Grupos por sub-proyecto -->
+          <div class="bc-grupos">
+            <section class="bc-grupo" *ngFor="let g of gruposVisibles; trackBy: trackGrupo"
+                     [class.bc-grupo-oficina]="g.esOficina">
+              <button type="button" class="bc-grupo-cab" (click)="alternarGrupo(g)" [attr.aria-expanded]="estaExpandido(g)">
+                <span class="bc-grupo-nombre">
+                  <i class="fa bc-chevron" [ngClass]="estaExpandido(g) ? 'fa-chevron-down' : 'fa-chevron-right'" aria-hidden="true"></i>
+                  <span class="bc-grupo-icono">
+                    <i class="fa" [ngClass]="g.esOficina ? 'fa-building-o' : 'fa-map-marker'" aria-hidden="true"></i>
+                  </span>
+                  <span class="bc-grupo-textos">
+                    <small>
+                      <ng-container *ngIf="!g.esOficina">Proyecto {{g.idProyecto}}<ng-container *ngIf="g.nombreProyecto"> · {{g.nombreProyecto}}</ng-container></ng-container>
+                      <ng-container *ngIf="g.esOficina">Oficina</ng-container>
+                    </small>
+                    <strong>{{g.nombreSubProyecto}}</strong>
+                  </span>
+                </span>
+                <span class="bc-grupo-chips">
+                  <span class="bc-chip bc-chip-gris" *ngIf="g.finalizado">Finalizado</span>
+                  <span class="bc-chip">{{g.total}} {{g.total === 1 ? 'archivo' : 'archivos'}}</span>
+                </span>
+              </button>
+
+              <div class="bc-grupo-cuerpo" *ngIf="estaExpandido(g)">
+                <div class="bc-anio" *ngFor="let a of g.anios">
+                  <div class="bc-anio-titulo">
+                    <span>{{a.anio}}</span>
+                    <small>{{a.archivos.length}} {{a.archivos.length === 1 ? 'archivo' : 'archivos'}}</small>
+                  </div>
+
+                  <div class="bc-archivo" *ngFor="let c of a.archivos; trackBy: trackArchivo">
+                    <span class="bc-archivo-icono"><i class="fa" [ngClass]="iconoArchivo(c.nombreArchivo)" aria-hidden="true"></i></span>
+                    <span class="bc-archivo-info">
+                      <strong [title]="c.nombreArchivo">{{c.nombreArchivo}}</strong>
+                      <span class="bc-archivo-meta">
+                        <span class="bc-origen-chip" [ngClass]="claseOrigen(c.origen)">{{c.origen}}</span>
+                        <span *ngIf="c.referencia">{{c.referencia}}</span>
+                        <span><i class="fa fa-calendar-o" aria-hidden="true"></i> {{c.fecha | date:'dd/MM/yyyy'}}</span>
+                        <span *ngIf="c.usuario"><i class="fa fa-user-o" aria-hidden="true"></i> {{c.usuario}}</span>
+                      </span>
+                    </span>
+                    <a class="bc-btn-ver" [href]="c.url" target="_blank" rel="noopener">
+                      <i class="fa fa-external-link" aria-hidden="true"></i> Ver
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+        </ng-container>
+      </div>
+
+    </section>
+  </main>
+</div>
