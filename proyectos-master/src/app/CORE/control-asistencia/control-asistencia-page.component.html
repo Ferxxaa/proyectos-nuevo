@@ -33,7 +33,7 @@
                 </button>
                 <button type="button" role="tab" *ngIf="!soloLectura" [class.activa]="vista === 'trabajadores'" [attr.aria-selected]="vista === 'trabajadores'" (click)="vista = 'trabajadores'">
                   <i class="fa fa-address-book-o" aria-hidden="true"></i> Trabajadores
-                  <span class="core-contador">{{agenda.length}}</span>
+                  <span class="core-contador" title="Trabajadores activos">{{totalActivos}}</span>
                 </button>
                 <button type="button" role="tab" [class.activa]="vista === 'consolidado'" [attr.aria-selected]="vista === 'consolidado'" (click)="abrirConsolidado()">
                   <i class="fa fa-bar-chart" aria-hidden="true"></i> Consolidado
@@ -89,7 +89,7 @@
                   <span class="core-error" *ngIf="errorAgregar">{{errorAgregar}}</span>
 
                   <datalist id="core-lista-agenda">
-                    <option *ngFor="let t of agenda" [value]="etiquetaAgenda(t)">{{t.cargo}}</option>
+                    <option *ngFor="let t of agendaActiva" [value]="etiquetaAgenda(t)">{{t.cargo}}</option>
                   </datalist>
                   <datalist id="core-lista-subproyectos">
                     <option *ngFor="let sp of subProyectos" [value]="etiquetaSubProyecto(sp)"></option>
@@ -124,7 +124,7 @@
                       [idSubProyecto]="g.idSubProyecto" [idProyecto]="g.idProyecto" [nombreSubProyecto]="g.nombre"
                       [soloLectura]="soloLectura" [anios]="anios"
                       [mesExterno]="mes" [anioExterno]="anio" [quincenaExterna]="quincena"
-                      [agenda]="agenda" [ocupacion]="ocupacion"
+                      [agenda]="agendaActiva" [ocupacion]="ocupacion"
                       (trabajadorNuevo)="agregarAAgendaDesdeAsistencia($event)"
                       (resumenCambio)="actualizarResumen($event)">
                     </app-control-asistencia>
@@ -526,51 +526,248 @@
                 </p>
               </div>
 
-              <!-- ===================== TRABAJADORES (agenda) ===================== -->
+              <!-- ===================== TRABAJADORES (agenda + ficha) ===================== -->
               <div *ngIf="vista === 'trabajadores' && !soloLectura">
 
-                <form class="core-panel core-form" (ngSubmit)="guardarFormulario()">
-                  <h6>
-                    <i class="fa" [ngClass]="formulario.id ? 'fa-pencil' : 'fa-user-plus'" aria-hidden="true"></i>
-                    {{formulario.id ? 'Editar trabajador' : 'Nuevo trabajador'}}
-                  </h6>
-                  <div class="core-form-campos">
-                    <div class="core-campo">
-                      <label for="core-form-nombre">Nombre *</label>
-                      <input id="core-form-nombre" name="nombre" type="text" autocomplete="off" [(ngModel)]="formulario.nombre">
+                <!-- Ficha del trabajador -->
+                <form id="core-ficha" class="core-panel fic" *ngIf="fichaAbierta" (ngSubmit)="guardarFormulario()">
+                  <div class="fic-cab">
+                    <h6>
+                      <i class="fa" [ngClass]="formulario.id ? 'fa-pencil' : 'fa-user-plus'" aria-hidden="true"></i>
+                      {{formulario.id ? 'Ficha de ' + formulario.nombre + ' ' + formulario.apellido : 'Nuevo trabajador'}}
+                    </h6>
+                    <div class="fic-estado" role="radiogroup" aria-label="Estado del trabajador">
+                      <button type="button" role="radio" [class.activa]="fichaForm.estado !== 'finiquitado'" [attr.aria-checked]="fichaForm.estado !== 'finiquitado'"
+                              (click)="marcarActivo()">
+                        <i class="fa fa-check-circle" aria-hidden="true"></i> Activo
+                      </button>
+                      <button type="button" role="radio" class="fic-estado-fin" [class.activa]="fichaForm.estado === 'finiquitado'" [attr.aria-checked]="fichaForm.estado === 'finiquitado'"
+                              (click)="marcarFiniquitado()">
+                        <i class="fa fa-ban" aria-hidden="true"></i> Finiquitado
+                      </button>
                     </div>
-                    <div class="core-campo">
-                      <label for="core-form-apellido">Apellido *</label>
-                      <input id="core-form-apellido" name="apellido" type="text" autocomplete="off" [(ngModel)]="formulario.apellido">
-                    </div>
+                  </div>
+
+                  <!-- Datos personales -->
+                  <div class="fic-seccion"><i class="fa fa-id-card-o" aria-hidden="true"></i> Datos personales <small>(*) obligatorios</small></div>
+                  <div class="fic-grid">
                     <div class="core-campo">
                       <label for="core-form-rut">RUT</label>
                       <input id="core-form-rut" name="rut" type="text" autocomplete="off" placeholder="12.345.678-9"
                              [(ngModel)]="formulario.rut" (blur)="formatearRutFormulario()">
                     </div>
                     <div class="core-campo">
-                      <label for="core-form-cargo">Cargo</label>
-                      <input id="core-form-cargo" name="cargo" type="text" autocomplete="off" placeholder="Ej: Maestro eléctrico" [(ngModel)]="formulario.cargo">
+                      <label for="core-form-nombre">Nombres *</label>
+                      <input id="core-form-nombre" name="nombre" type="text" autocomplete="off" [(ngModel)]="formulario.nombre">
                     </div>
-                    <div class="core-form-acciones">
-                      <button type="button" class="core-boton" *ngIf="formulario.id" (click)="cancelarFormulario()">Cancelar</button>
-                      <button type="submit" class="core-boton-principal" [disabled]="guardandoFormulario">
-                        <i class="fa" [ngClass]="guardandoFormulario ? 'fa-spinner fa-spin' : 'fa-check'" aria-hidden="true"></i>
-                        {{formulario.id ? 'Guardar cambios' : 'Agregar a la agenda'}}
-                      </button>
+                    <div class="core-campo">
+                      <label for="fic-paterno">Apellido paterno *</label>
+                      <input id="fic-paterno" name="paterno" type="text" autocomplete="off" [(ngModel)]="fichaForm.paterno">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-materno">Apellido materno</label>
+                      <input id="fic-materno" name="materno" type="text" autocomplete="off" [(ngModel)]="fichaForm.materno">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-nacimiento">Fecha de nacimiento <em *ngIf="edad(fichaForm.fechaNacimiento) !== null">({{edad(fichaForm.fechaNacimiento)}} años)</em></label>
+                      <input id="fic-nacimiento" name="fechaNacimiento" type="date" [(ngModel)]="fichaForm.fechaNacimiento">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-genero">Género</label>
+                      <select id="fic-genero" name="genero" [(ngModel)]="fichaForm.genero">
+                        <option value="">Seleccionar</option>
+                        <option *ngFor="let o of opcionesGenero" [value]="o">{{o}}</option>
+                      </select>
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-nacionalidad">Nacionalidad</label>
+                      <input id="fic-nacionalidad" name="nacionalidad" type="text" autocomplete="off" [(ngModel)]="fichaForm.nacionalidad">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-civil">Estado civil</label>
+                      <select id="fic-civil" name="estadoCivil" [(ngModel)]="fichaForm.estadoCivil">
+                        <option value="">Seleccionar</option>
+                        <option *ngFor="let o of opcionesEstadoCivil" [value]="o">{{o}}</option>
+                      </select>
+                    </div>
+                    <div class="core-campo fic-doble">
+                      <label for="fic-direccion">Dirección</label>
+                      <input id="fic-direccion" name="direccion" type="text" autocomplete="off" [(ngModel)]="fichaForm.direccion">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-comuna">Comuna</label>
+                      <input id="fic-comuna" name="comuna" type="text" autocomplete="off" [(ngModel)]="fichaForm.comuna">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-telefono">Teléfono</label>
+                      <input id="fic-telefono" name="telefono" type="tel" autocomplete="off" [(ngModel)]="fichaForm.telefono">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-celular">Celular</label>
+                      <input id="fic-celular" name="celular" type="tel" autocomplete="off" placeholder="+56 9 ..." [(ngModel)]="fichaForm.celular">
+                    </div>
+                    <div class="core-campo fic-doble">
+                      <label for="fic-email">E-mail <em>(personal, no corporativo)</em></label>
+                      <input id="fic-email" name="email" type="email" autocomplete="off" [(ngModel)]="fichaForm.email">
                     </div>
                   </div>
-                  <div class="core-error core-form-error" *ngIf="errorFormulario">{{errorFormulario}}</div>
+
+                  <!-- Previsión -->
+                  <div class="fic-seccion fic-seccion-prev"><i class="fa fa-heartbeat" aria-hidden="true"></i> Información previsional</div>
+                  <div class="fic-grid">
+                    <div class="core-campo">
+                      <label for="fic-afp">AFP</label>
+                      <select id="fic-afp" name="afp" [(ngModel)]="fichaForm.afp">
+                        <option value="">Seleccionar</option>
+                        <option *ngFor="let o of opcionesAfp" [value]="o">{{o}}</option>
+                      </select>
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-salud">Salud (Fonasa / Isapre)</label>
+                      <select id="fic-salud" name="salud" [(ngModel)]="fichaForm.salud">
+                        <option value="">Seleccionar</option>
+                        <option *ngFor="let o of opcionesSalud" [value]="o">{{o}}</option>
+                      </select>
+                    </div>
+                    <div class="core-campo fic-check">
+                      <label class="fic-check-label">
+                        <input type="checkbox" name="jubilado" [(ngModel)]="fichaForm.jubilado"> Jubilado(a)
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Contrato -->
+                  <div class="fic-seccion fic-seccion-contrato"><i class="fa fa-file-text-o" aria-hidden="true"></i> Información contractual</div>
+                  <div class="fic-grid">
+                    <div class="core-campo">
+                      <label for="fic-contrato">Tipo de contrato *</label>
+                      <select id="fic-contrato" name="tipoContrato" [(ngModel)]="fichaForm.tipoContrato">
+                        <option value="">Seleccionar</option>
+                        <option *ngFor="let o of opcionesContrato" [value]="o">{{o}}</option>
+                      </select>
+                    </div>
+                    <div class="core-campo">
+                      <label for="core-form-cargo">Cargo</label>
+                      <input id="core-form-cargo" name="cargo" type="text" autocomplete="off" placeholder="Ej: Experto en Prevención de Riesgos" [(ngModel)]="formulario.cargo">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-inicio">Fecha de inicio *</label>
+                      <input id="fic-inicio" name="fechaInicio" type="date" [(ngModel)]="fichaForm.fechaInicio">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-termino">Fecha de término {{terminoOpcional(fichaForm.tipoContrato) ? '' : '*'}} <em *ngIf="terminoOpcional(fichaForm.tipoContrato)">(opcional)</em></label>
+                      <input id="fic-termino" name="fechaTermino" type="date" [min]="fichaForm.fechaInicio" [(ngModel)]="fichaForm.fechaTermino">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-renta">Renta ($)</label>
+                      <input id="fic-renta" name="renta" type="number" min="0" step="1" placeholder="0" [(ngModel)]="fichaForm.renta">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-colacion">Colación ($)</label>
+                      <input id="fic-colacion" name="colacion" type="number" min="0" step="1" placeholder="0" [(ngModel)]="fichaForm.colacion">
+                    </div>
+                    <div class="core-campo">
+                      <label for="fic-movilizacion">Movilización ($)</label>
+                      <input id="fic-movilizacion" name="movilizacion" type="number" min="0" step="1" placeholder="0" [(ngModel)]="fichaForm.movilizacion">
+                    </div>
+                  </div>
+                  <div class="fic-vencido" *ngIf="fichaVencida" role="alert">
+                    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                    <span>El contrato terminó el <b>{{fechaCorta(fichaForm.fechaTermino)}}</b>. Sube el finiquito con su causal, o extiende la fecha de término si se renovó.</span>
+                    <button type="button" (click)="marcarFiniquitado()">Finiquitar</button>
+                  </div>
+                  <p class="fic-ayuda" *ngIf="fichaForm.estado !== 'finiquitado' && !fichaVencida">
+                    <i class="fa fa-info-circle" aria-hidden="true"></i>
+                    Cuando pase la fecha de término se va a avisar que el contrato venció, para subir el finiquito y su causal.
+                  </p>
+
+                  <!-- Finiquito -->
+                  <ng-container *ngIf="fichaForm.estado === 'finiquitado'">
+                    <div class="fic-seccion fic-seccion-fin"><i class="fa fa-ban" aria-hidden="true"></i> Finiquito</div>
+                    <div class="fic-grid">
+                      <div class="core-campo">
+                        <label for="fic-finiquito">Fecha de finiquito *</label>
+                        <input id="fic-finiquito" name="fechaFiniquito" type="date" [min]="fichaForm.fechaInicio" [(ngModel)]="fichaForm.fechaFiniquito">
+                      </div>
+                      <div class="core-campo fic-triple">
+                        <label for="fic-motivo">Causal *</label>
+                        <select id="fic-motivo" name="motivoFiniquito" [(ngModel)]="fichaForm.motivoFiniquito">
+                          <option value="">Seleccionar</option>
+                          <option *ngFor="let c of causalesFiniquito" [value]="c">{{c}}</option>
+                        </select>
+                      </div>
+                      <div class="core-campo fic-completo">
+                        <label for="fic-detalle">Razón del finiquito *</label>
+                        <textarea id="fic-detalle" name="detalleFiniquito" rows="2" placeholder="Ej: Terminó su contrato a plazo fijo en la obra y no se renovó."
+                                  [(ngModel)]="fichaForm.detalleFiniquito"></textarea>
+                      </div>
+                      <div class="core-campo fic-completo">
+                        <label>Documento del finiquito *</label>
+                        <div class="fic-adjunto">
+                          <a *ngIf="fichaForm.adjuntoFiniquito?.url && !archivoFiniquito" class="fic-archivo" [href]="fichaForm.adjuntoFiniquito.url" target="_blank" rel="noopener"
+                             [title]="fichaForm.adjuntoFiniquito.nombre">
+                            <i class="fa fa-file-pdf-o" aria-hidden="true"></i> {{fichaForm.adjuntoFiniquito.nombre}}
+                          </a>
+                          <span *ngIf="archivoFiniquito" class="fic-archivo fic-archivo-nuevo" [title]="archivoFiniquito.name">
+                            <i class="fa fa-paperclip" aria-hidden="true"></i> {{archivoFiniquito.name}} <small>(se sube al guardar)</small>
+                          </span>
+                          <button type="button" class="core-icono core-icono-peligro" *ngIf="archivoFiniquito || fichaForm.adjuntoFiniquito?.url"
+                                  title="Quitar documento" (click)="quitarArchivoFiniquito()"><i class="fa fa-times" aria-hidden="true"></i></button>
+                          <label class="core-boton fic-subir">
+                            <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+                            {{archivoFiniquito || fichaForm.adjuntoFiniquito?.url ? 'Cambiar documento' : 'Adjuntar finiquito'}}
+                            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" (change)="seleccionarArchivoFiniquito($event.target)">
+                          </label>
+                          <small class="fic-ayuda-inline">PDF, imagen o Word · máx. 20 MB</small>
+                        </div>
+                      </div>
+                    </div>
+                  </ng-container>
+
+                  <div class="fic-pie">
+                    <span class="core-error" *ngIf="errorFormulario">{{errorFormulario}}</span>
+                    <button type="button" class="core-boton" (click)="cancelarFormulario()">Cancelar</button>
+                    <button type="submit" class="core-boton-principal" [disabled]="guardandoFormulario">
+                      <i class="fa" [ngClass]="guardandoFormulario ? 'fa-spinner fa-spin' : 'fa-check'" aria-hidden="true"></i>
+                      {{formulario.id ? 'Guardar cambios' : 'Agregar a la agenda'}}
+                    </button>
+                  </div>
                 </form>
+
+                <div class="fic-aviso" *ngIf="!cargandoAgenda && totalPendientes" role="alert">
+                  <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                  <span>
+                    <b>{{totalPendientes}}</b> {{totalPendientes === 1 ? 'trabajador tiene' : 'trabajadores tienen'}} el contrato vencido:
+                    hay que subir el finiquito y poner la causal (o extender la fecha de término si se renovó).
+                  </span>
+                  <button type="button" (click)="cambiarFiltroAgenda('pendientes')">Ver vencidos</button>
+                </div>
 
                 <section class="core-panel">
                   <div class="core-agenda-barra">
+                    <div class="fic-filtro" role="tablist" aria-label="Estado">
+                      <button type="button" [class.activa]="filtroEstadoAgenda === 'activos'" (click)="cambiarFiltroAgenda('activos')">
+                        Activos <b>{{totalActivos}}</b>
+                      </button>
+                      <button type="button" [class.activa]="filtroEstadoAgenda === 'finiquitados'" (click)="cambiarFiltroAgenda('finiquitados')">
+                        Finiquitados <b>{{totalFiniquitados}}</b>
+                      </button>
+                      <button type="button" class="fic-filtro-pend" *ngIf="totalPendientes" [class.activa]="filtroEstadoAgenda === 'pendientes'" (click)="cambiarFiltroAgenda('pendientes')">
+                        <i class="fa fa-exclamation-circle" aria-hidden="true"></i> Contrato vencido <b>{{totalPendientes}}</b>
+                      </button>
+                      <button type="button" [class.activa]="filtroEstadoAgenda === 'todos'" (click)="cambiarFiltroAgenda('todos')">
+                        Todos <b>{{agenda.length}}</b>
+                      </button>
+                    </div>
                     <div class="core-buscador">
                       <i class="fa fa-search" aria-hidden="true"></i>
-                      <input type="text" placeholder="Buscar por nombre, RUT o cargo" [(ngModel)]="busquedaAgenda" name="busquedaAgenda">
+                      <input type="text" placeholder="Buscar por nombre, RUT, cargo o contrato" [(ngModel)]="busquedaAgenda" (ngModelChange)="recalcularAgenda()" name="busquedaAgenda">
                     </div>
                     <span class="core-ok" *ngIf="mensajeAgenda"><i class="fa fa-check" aria-hidden="true"></i> {{mensajeAgenda}}</span>
-                    <span class="core-agenda-cuenta">{{agendaFiltrada.length}} de {{agenda.length}} trabajadores</span>
+                    <span class="core-agenda-cuenta">{{filasAgenda.length}} trabajador{{filasAgenda.length === 1 ? '' : 'es'}}</span>
+                    <button type="button" class="core-boton-principal" *ngIf="!fichaAbierta" (click)="nuevoTrabajador()">
+                      <i class="fa fa-user-plus" aria-hidden="true"></i> Nuevo trabajador
+                    </button>
                   </div>
 
                   <div class="ehh-mensaje" *ngIf="cargandoAgenda"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando agenda...</div>
@@ -581,45 +778,255 @@
                   <div class="core-vacio" *ngIf="!cargandoAgenda && !errorAgenda && !agenda.length">
                     <i class="fa fa-address-book-o" aria-hidden="true"></i>
                     <strong>La agenda está vacía</strong>
-                    <p>Agrega trabajadores arriba. También se agregan solos cuando escribes uno nuevo en el control de asistencia.</p>
+                    <p>Agrega trabajadores con "Nuevo trabajador". También se agregan solos cuando escribes uno nuevo en el control de asistencia.</p>
                   </div>
 
                   <div class="core-tabla-scroll" *ngIf="!cargandoAgenda && !errorAgenda && agenda.length">
-                    <table class="core-tabla">
+                    <table class="core-tabla fic-tabla">
                       <thead>
                         <tr>
                           <th class="core-col-num">N°</th>
                           <th>Nombre</th>
-                          <th>Apellido</th>
                           <th>RUT</th>
                           <th>Cargo</th>
+                          <th>Contrato</th>
+                          <th>Inicio</th>
+                          <th>Término</th>
+                          <th>Previsión</th>
+                          <th>Estado</th>
                           <th>Subproyectos · {{nombreMes}}</th>
                           <th class="core-col-acciones"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr *ngFor="let t of agendaFiltrada; let n = index; trackBy: trackTrabajador" [class.core-editando]="formulario.id === t.id">
+                        <tr *ngFor="let r of filasAgenda; let n = index; trackBy: trackFila" class="fic-fila"
+                            [class.core-editando]="formulario.id === r.t.id" [class.fic-fila-fin]="r.finiquitado"
+                            (click)="abrirDetalle(r.t)" title="Ver ficha y documentos">
                           <td class="core-col-num">{{n + 1}}</td>
-                          <td class="core-negrita">{{t.nombre}}</td>
-                          <td class="core-negrita">{{t.apellido}}</td>
-                          <td class="core-rut">{{t.rut || '—'}}</td>
-                          <td>{{t.cargo || '—'}}</td>
                           <td>
-                            <span class="core-chip" *ngFor="let s of subProyectosDe(t)">{{s}}</span>
-                            <span class="core-sin" *ngIf="!subProyectosDe(t).length">Sin asignar</span>
+                            <div class="fic-persona">
+                              <span class="fic-avatar">
+                                <img *ngIf="r.foto" [src]="r.foto" alt="">
+                                <ng-container *ngIf="!r.foto">{{r.iniciales}}</ng-container>
+                              </span>
+                              <div>
+                                <span class="core-negrita">{{r.t.nombre}} {{r.t.apellido}}</span>
+                                <small class="fic-sub" *ngIf="r.f.celular || r.f.email">{{r.f.celular}}{{r.f.celular && r.f.email ? ' · ' : ''}}{{r.f.email}}</small>
+                              </div>
+                            </div>
                           </td>
-                          <td class="core-col-acciones">
-                            <button type="button" class="core-icono" title="Editar" (click)="editarTrabajador(t)"><i class="fa fa-pencil" aria-hidden="true"></i></button>
-                            <button type="button" class="core-icono core-icono-peligro" title="Eliminar de la agenda" (click)="borrarTrabajador(t)"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+                          <td class="core-rut">{{r.t.rut || '—'}}</td>
+                          <td>{{r.t.cargo || '—'}}</td>
+                          <td>{{r.f.tipoContrato || '—'}}</td>
+                          <td class="fic-nowrap">{{r.inicio || '—'}}</td>
+                          <td class="fic-nowrap">
+                            {{r.termino || (terminoOpcional(r.f.tipoContrato) ? 'Sin término' : '—')}}
+                            <small class="fic-vence fic-vencido-txt" *ngIf="r.vencido">
+                              venció hace {{0 - r.diasVence}} {{r.diasVence === -1 ? 'día' : 'días'}}
+                            </small>
+                            <small class="fic-vence" *ngIf="r.diasVence !== null && r.diasVence >= 0 && r.diasVence <= 30">
+                              {{r.diasVence === 0 ? 'vence hoy' : 'vence en ' + r.diasVence + (r.diasVence === 1 ? ' día' : ' días')}}
+                            </small>
+                          </td>
+                          <td>
+                            {{r.f.afp || '—'}}<ng-container *ngIf="r.f.salud"> · {{r.f.salud}}</ng-container>
+                            <span class="fic-jub" *ngIf="r.f.jubilado">Jubilado</span>
+                          </td>
+                          <td class="fic-nowrap">
+                            <span class="fic-chip" [class.fic-chip-fin]="r.finiquitado" [class.fic-chip-vencido]="r.vencido">
+                              {{r.finiquitado ? 'Finiquitado' : (r.vencido ? 'Contrato vencido' : 'Activo')}}
+                            </span>
+                            <small class="fic-sub" *ngIf="r.finiquitado && r.finiquito">{{r.finiquito}}</small>
+                            <button type="button" class="fic-pendiente" *ngIf="r.pendiente" (click)="$event.stopPropagation(); finiquitar(r.t)"
+                                    [title]="r.vencido ? 'Subir finiquito y causal' : 'Falta el documento o la razón del finiquito'">
+                              <i class="fa fa-upload" aria-hidden="true"></i> {{r.vencido ? 'Subir finiquito' : 'Completar finiquito'}}
+                            </button>
+                            <a class="fic-doc" *ngIf="r.finiquitado && r.f.adjuntoFiniquito?.url" (click)="$event.stopPropagation()" [href]="r.f.adjuntoFiniquito.url"
+                               target="_blank" rel="noopener" [title]="(r.f.motivoFiniquito || '') + (r.f.detalleFiniquito ? ' · ' + r.f.detalleFiniquito : '')">
+                              <i class="fa fa-paperclip" aria-hidden="true"></i> Finiquito
+                            </a>
+                          </td>
+                          <td>
+                            <span class="core-chip" *ngFor="let s of r.sps">{{s}}</span>
+                            <span class="core-sin" *ngIf="!r.sps.length">Sin asignar</span>
+                          </td>
+                          <td class="core-col-acciones fic-nowrap" (click)="$event.stopPropagation()">
+                            <button type="button" class="core-icono" title="Editar ficha" (click)="editarTrabajador(r.t)"><i class="fa fa-pencil" aria-hidden="true"></i></button>
+                            <button type="button" class="core-icono fic-icono-fin" *ngIf="!r.finiquitado" title="Finiquitar" (click)="finiquitar(r.t)"><i class="fa fa-user-times" aria-hidden="true"></i></button>
+                            <button type="button" class="core-icono fic-icono-act" *ngIf="r.finiquitado" title="Volver a activo" (click)="reactivar(r.t)"><i class="fa fa-undo" aria-hidden="true"></i></button>
+                            <button type="button" class="core-icono core-icono-peligro" title="Eliminar de la agenda" (click)="borrarTrabajador(r.t)"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
                           </td>
                         </tr>
-                        <tr *ngIf="!agendaFiltrada.length">
-                          <td colspan="7" class="core-sin-resultados">Nadie coincide con "{{busquedaAgenda}}".</td>
+                        <tr *ngIf="!filasAgenda.length">
+                          <td colspan="11" class="core-sin-resultados">
+                            {{busquedaAgenda ? 'Nadie coincide con "' + busquedaAgenda + '".' : (filtroEstadoAgenda === 'finiquitados' ? 'No hay trabajadores finiquitados.' : (filtroEstadoAgenda === 'pendientes' ? 'No hay contratos vencidos.' : 'No hay trabajadores activos.'))}}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                 </section>
+
+                <!-- ===================== Popup del trabajador ===================== -->
+                <div class="tp-fondo" *ngIf="detalleT" (mousedown)="clickFondoDetalle($event)">
+                  <div class="tp-modal" role="dialog" aria-modal="true" aria-labelledby="tp-titulo">
+
+                    <header class="tp-cab" [class.tp-cab-fin]="detalleF?.estado === 'finiquitado'">
+                      <div class="tp-foto">
+                        <img *ngIf="fotoDe(detalleT)" [src]="fotoDe(detalleT)" alt="Foto de {{detalleT.nombre}}">
+                        <span *ngIf="!fotoDe(detalleT)">{{inicialesDe(detalleT)}}</span>
+                        <label class="tp-foto-btn" *ngIf="!soloLectura" [class.ocupado]="subiendoDetalle === 'foto'"
+                               [title]="fotoDe(detalleT) ? 'Cambiar foto' : 'Subir foto'">
+                          <i class="fa" [ngClass]="subiendoDetalle === 'foto' ? 'fa-spinner fa-spin' : 'fa-camera'" aria-hidden="true"></i>
+                          <input type="file" accept="image/*" (change)="subirFoto($event.target)" [disabled]="!!subiendoDetalle">
+                        </label>
+                      </div>
+                      <div class="tp-cab-texto">
+                        <span class="tp-kicker">Ficha del trabajador</span>
+                        <h5 id="tp-titulo">{{detalleT.nombre}} {{detalleT.apellido}}</h5>
+                        <p>
+                          <span>{{detalleT.rut || 'Sin RUT'}}</span>
+                          <span *ngIf="detalleT.cargo">{{detalleT.cargo}}</span>
+                          <span class="tp-estado" [class.tp-estado-fin]="detalleF?.estado === 'finiquitado'">
+                            {{detalleF?.estado === 'finiquitado' ? 'Finiquitado' : 'Activo'}}
+                          </span>
+                        </p>
+                      </div>
+                      <button type="button" class="tp-cerrar" (click)="cerrarDetalle()" [disabled]="!!subiendoDetalle" aria-label="Cerrar">
+                        <i class="fa fa-times" aria-hidden="true"></i>
+                      </button>
+                    </header>
+
+                    <div class="tp-tabs" role="tablist">
+                      <button type="button" role="tab" [class.activa]="detalleTab === 'datos'" (click)="detalleTab = 'datos'">
+                        <i class="fa fa-id-card-o" aria-hidden="true"></i> Información
+                      </button>
+                      <button type="button" role="tab" [class.activa]="detalleTab === 'carpetas'" (click)="detalleTab = 'carpetas'">
+                        <i class="fa fa-folder-open-o" aria-hidden="true"></i> Carpetas y documentos
+                      </button>
+                    </div>
+
+                    <div class="tp-cuerpo">
+                      <div class="tp-error" *ngIf="errorDetalle" role="alert"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{errorDetalle}}</div>
+                      <div class="tp-subiendo" *ngIf="subiendoDetalle === 'foto'">Subiendo foto... {{progresoDetalle}}%</div>
+
+                      <!-- ===== Información ===== -->
+                      <ng-container *ngIf="detalleTab === 'datos' && detalleF">
+                        <h6 class="tp-sec">Datos personales</h6>
+                        <dl class="tp-datos">
+                          <div><dt>Nombres</dt><dd>{{detalleT.nombre || '—'}}</dd></div>
+                          <div><dt>Apellido paterno</dt><dd>{{detalleF.paterno || '—'}}</dd></div>
+                          <div><dt>Apellido materno</dt><dd>{{detalleF.materno || '—'}}</dd></div>
+                          <div><dt>RUT</dt><dd>{{detalleT.rut || '—'}}</dd></div>
+                          <div><dt>Fecha de nacimiento</dt><dd>{{fechaCorta(detalleF.fechaNacimiento) || '—'}}<ng-container *ngIf="edad(detalleF.fechaNacimiento) !== null"> ({{edad(detalleF.fechaNacimiento)}} años)</ng-container></dd></div>
+                          <div><dt>Género</dt><dd>{{detalleF.genero || '—'}}</dd></div>
+                          <div><dt>Nacionalidad</dt><dd>{{detalleF.nacionalidad || '—'}}</dd></div>
+                          <div><dt>Estado civil</dt><dd>{{detalleF.estadoCivil || '—'}}</dd></div>
+                          <div class="tp-ancho"><dt>Dirección</dt><dd>{{detalleF.direccion || '—'}}<ng-container *ngIf="detalleF.comuna">, {{detalleF.comuna}}</ng-container></dd></div>
+                          <div><dt>Teléfono</dt><dd>{{detalleF.telefono || '—'}}</dd></div>
+                          <div><dt>Celular</dt><dd>{{detalleF.celular || '—'}}</dd></div>
+                          <div class="tp-ancho"><dt>E-mail</dt><dd>{{detalleF.email || '—'}}</dd></div>
+                        </dl>
+
+                        <h6 class="tp-sec tp-sec-prev">Previsión</h6>
+                        <dl class="tp-datos">
+                          <div><dt>AFP</dt><dd>{{detalleF.afp || '—'}}</dd></div>
+                          <div><dt>Salud</dt><dd>{{detalleF.salud || '—'}}</dd></div>
+                          <div><dt>Jubilado(a)</dt><dd>{{detalleF.jubilado ? 'Sí' : 'No'}}</dd></div>
+                        </dl>
+
+                        <h6 class="tp-sec tp-sec-contrato">Contrato</h6>
+                        <dl class="tp-datos">
+                          <div><dt>Tipo de contrato</dt><dd>{{detalleF.tipoContrato || '—'}}</dd></div>
+                          <div><dt>Cargo</dt><dd>{{detalleT.cargo || '—'}}</dd></div>
+                          <div><dt>Fecha de inicio</dt><dd>{{fechaCorta(detalleF.fechaInicio) || '—'}}</dd></div>
+                          <div><dt>Fecha de término</dt><dd>{{fechaCorta(detalleF.fechaTermino) || (terminoOpcional(detalleF.tipoContrato) ? 'Sin término' : '—')}}</dd></div>
+                          <div><dt>Renta</dt><dd>{{formatearPesos(detalleF.renta)}}</dd></div>
+                          <div><dt>Colación</dt><dd>{{formatearPesos(detalleF.colacion)}}</dd></div>
+                          <div><dt>Movilización</dt><dd>{{formatearPesos(detalleF.movilizacion)}}</dd></div>
+                          <div><dt>Subproyectos · {{nombreMes}}</dt><dd>{{subProyectosDe(detalleT).join(', ') || 'Sin asignar'}}</dd></div>
+                        </dl>
+
+                        <ng-container *ngIf="detalleF.estado === 'finiquitado'">
+                          <h6 class="tp-sec tp-sec-fin">Finiquito</h6>
+                          <dl class="tp-datos">
+                            <div><dt>Fecha de finiquito</dt><dd>{{fechaCorta(detalleF.fechaFiniquito) || '—'}}</dd></div>
+                            <div class="tp-ancho"><dt>Causal</dt><dd>{{detalleF.motivoFiniquito || '—'}}</dd></div>
+                            <div class="tp-completo"><dt>Razón</dt><dd>{{detalleF.detalleFiniquito || '—'}}</dd></div>
+                          </dl>
+                        </ng-container>
+                      </ng-container>
+
+                      <!-- ===== Carpetas ===== -->
+                      <div class="tp-carpetas" *ngIf="detalleTab === 'carpetas'">
+                        <ul class="tp-lista-carpetas">
+                          <li *ngFor="let c of carpetasTrabajador">
+                            <button type="button" [class.activa]="carpetaSel === c.id" (click)="carpetaSel = c.id; errorDetalle = ''">
+                              <i class="fa" [ngClass]="carpetaSel === c.id ? 'fa-folder-open' : 'fa-folder'" aria-hidden="true"></i>
+                              <span>{{c.t}}</span>
+                              <b *ngIf="cantidadDocs(c.id)">{{cantidadDocs(c.id)}}</b>
+                            </button>
+                          </li>
+                        </ul>
+
+                        <div class="tp-archivos">
+                          <div class="tp-archivos-cab">
+                            <strong><i class="fa fa-folder-open" aria-hidden="true"></i> {{nombreCarpetaSel}}</strong>
+                            <span>{{cantidadDocs(carpetaSel)}} archivo{{cantidadDocs(carpetaSel) === 1 ? '' : 's'}}</span>
+                          </div>
+
+                          <ul class="tp-docs" *ngIf="cantidadDocs(carpetaSel)">
+                            <!-- el finiquito subido en la ficha aparece en 9.- Finiquitos -->
+                            <li *ngIf="carpetaSel === 'finiquitos' && detalleF?.adjuntoFiniquito?.url" class="tp-doc-fin">
+                              <i class="fa" [ngClass]="iconoArchivo(detalleF.adjuntoFiniquito.nombre)" aria-hidden="true"></i>
+                              <div>
+                                <a [href]="detalleF.adjuntoFiniquito.url" target="_blank" rel="noopener">{{detalleF.adjuntoFiniquito.nombre}}</a>
+                                <small>Finiquito de la ficha · {{fechaHoraTexto(detalleF.adjuntoFiniquito.fechaSubida)}} · {{tamanoTexto(detalleF.adjuntoFiniquito.tamano)}}</small>
+                              </div>
+                            </li>
+                            <li *ngFor="let d of docsDe(carpetaSel); trackBy: trackDoc">
+                              <i class="fa" [ngClass]="iconoArchivo(d.nombre)" aria-hidden="true"></i>
+                              <div>
+                                <a [href]="d.url" target="_blank" rel="noopener" [title]="d.nombre">{{d.nombre}}</a>
+                                <small>{{fechaHoraTexto(d.fechaSubida)}}<ng-container *ngIf="d.subidoPor"> · {{d.subidoPor}}</ng-container> · {{tamanoTexto(d.tamano)}}</small>
+                              </div>
+                              <button type="button" class="core-icono core-icono-peligro" *ngIf="!soloLectura" title="Eliminar" (click)="eliminarDocumento(d)">
+                                <i class="fa fa-trash-o" aria-hidden="true"></i>
+                              </button>
+                            </li>
+                          </ul>
+                          <div class="tp-vacio" *ngIf="!cantidadDocs(carpetaSel) && subiendoDetalle !== carpetaSel">
+                            <i class="fa fa-folder-o" aria-hidden="true"></i> Esta carpeta está vacía.
+                          </div>
+
+                          <div class="tp-progreso" *ngIf="subiendoDetalle === carpetaSel">
+                            <span>Subiendo... {{progresoDetalle}}%</span>
+                            <div><i [style.width.%]="progresoDetalle"></i></div>
+                          </div>
+
+                          <label class="tp-subir" *ngIf="!soloLectura" [class.ocupado]="!!subiendoDetalle">
+                            <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+                            <span>Subir archivos a {{nombreCarpetaSel}}</span>
+                            <small>Cualquier tipo · hasta 50 MB cada uno</small>
+                            <input type="file" multiple (change)="subirDocumentos($event.target)" [disabled]="!!subiendoDetalle">
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <footer class="tp-pie" *ngIf="!soloLectura">
+                      <button type="button" class="core-boton fic-icono-fin" *ngIf="detalleF?.estado !== 'finiquitado'" (click)="finiquitarDesdeDetalle()">
+                        <i class="fa fa-user-times" aria-hidden="true"></i> Finiquitar
+                      </button>
+                      <span class="tp-espacio"></span>
+                      <button type="button" class="core-boton" (click)="cerrarDetalle()" [disabled]="!!subiendoDetalle">Cerrar</button>
+                      <button type="button" class="core-boton-principal" (click)="editarDesdeDetalle()" [disabled]="!!subiendoDetalle">
+                        <i class="fa fa-pencil" aria-hidden="true"></i> Editar ficha
+                      </button>
+                    </footer>
+                  </div>
+                </div>
+
               </div>
 
             </ng-container>

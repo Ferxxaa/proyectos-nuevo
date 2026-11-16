@@ -1521,12 +1521,15 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 .psso-tipos button .fa { margin-right: 3px; }
 .badge-sin { background: #eef1f4; color: #8f979f; }
 
+/* Tarjetas y paneles usan la misma grilla de 4 columnas para que los bordes queden alineados:
+   global = 2 columnas (sobre el panel SSO), SSO y MA = 1 columna c/u (sobre el panel MA) */
 .pcon-tarjetas {
   display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
+.pcon-tarjetas > .pcon-global { grid-column: span 2; }
 .pcon-tarjeta {
   display: flex;
   flex-direction: column;
@@ -1578,11 +1581,15 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 
 .pcon-columnas {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  align-items: start;
+  align-items: stretch;      /* los dos paneles con la misma altura */
 }
+.pcon-columnas > .pcon-panel { grid-column: span 2; }
 .pcon-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid #e3e8ed;
   border-radius: 12px;
@@ -1603,8 +1610,14 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 .pcon-tabla {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;       /* mismas columnas en SSO y MA */
   font-size: 12px;
 }
+.pcon-tabla col.pcon-c-num { width: 64px; }
+.pcon-tabla col.pcon-col-pct { width: 42%; }
+/* filas de ítem y sección con la misma altura en SSO y MA */
+.pcon-tabla tbody tr { height: 30px; }
+.pcon-tabla td:first-child { word-wrap: break-word; }
 .pcon-tabla th {
   padding: 8px 10px;
   background: #f7f9fb;
@@ -1636,7 +1649,9 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 .pcon-avance { display: flex; align-items: center; gap: 8px; }
 .pcon-avance .psso-barra { flex: 1 1 auto; }
 .pcon-avance .pct { min-width: 82px; text-align: center; }
-.pcon-tabla tfoot td {
+/* Total: tabla aparte empujada al fondo del panel → Total SSO y Total MA en la misma línea */
+.pcon-tabla-total { margin-top: auto; }
+.pcon-tabla-total td {
   padding: 9px 10px;
   border-top: 2px solid #24404f;
   background: #f7f9fb;
@@ -1648,6 +1663,7 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 8px;
+  margin-top: auto;          /* queda pegado abajo del panel */
   padding: 12px 16px 14px;
   border-top: 1px solid #e3e8ed;
   background: #fbfcfd;
@@ -1671,6 +1687,8 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 @media (max-width: 991px) {
   .pcon-tarjetas { grid-template-columns: 1fr; }
   .pcon-columnas { grid-template-columns: 1fr; }
+  .pcon-tarjetas > .pcon-global,
+  .pcon-columnas > .pcon-panel { grid-column: auto; }
 }
 
 @media (max-width: 991px) {
@@ -1686,16 +1704,6 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 
 /* ===================== HH Capacitación ===================== */
 /* Operacionales: azul marca · Específicas: verde azulado · Total: azul oscuro */
-
-/* consolidado del mes */
-.pcon-extra.hhc-OPERACIONAL { border-color: #cfe0f5; background: #f5f9fd; }
-.pcon-extra.hhc-OPERACIONAL strong { color: #075f91; }
-.pcon-extra.hhc-ESPECIFICA { border-color: #c7e8e2; background: #f3fbf9; }
-.pcon-extra.hhc-ESPECIFICA strong { color: #0b7469; }
-.pcon-extra.hhc-total-mini { border-color: #24404f; background: #24404f; }
-.pcon-extra.hhc-total-mini span,
-.pcon-extra.hhc-total-mini > small { color: rgba(255, 255, 255, .8); }
-.pcon-extra.hhc-total-mini strong { color: #fff; }
 
 /* popup: categoría */
 .hhc-categoria {

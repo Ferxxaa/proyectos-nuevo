@@ -1087,6 +1087,69 @@
   white-space: nowrap;
 }
 
+/* Consolidado SSO: HH */
+.sso-tabla.sso-tabla-hh-subproyectos {
+  min-width: 720px;
+}
+
+.sso-tabla-hh-consolidado tbody tr.sso-fila-hh-total th,
+.sso-tabla-hh-consolidado tbody tr.sso-fila-hh-total td {
+  border-top: 2px solid #cfd6dc;
+  background: #eef5fa;
+  color: #24404f;
+  font-weight: 700;
+}
+
+.sso-tile.sso-tile-hh-total {
+  border-color: #24404f;
+  background: #24404f;
+}
+
+.sso-tile.sso-tile-hh-total span { color: rgba(255, 255, 255, 0.8); }
+.sso-tile.sso-tile-hh-total strong { color: #fff; }
+
+/* Separador "Control de Asistencia" / "Capacitación" dentro de la tabla mensual */
+.sso-tabla-hh-consolidado tbody tr.sso-fila-hh-grupo th {
+  padding: 6px 8px;
+  border-top: 1px solid #dfe5eb;
+  background: #f4f6f8;
+  color: #075f91;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.sso-tabla-hh-consolidado tbody tr.sso-fila-hh-grupo th .fa {
+  margin-right: 4px;
+}
+
+.sso-tabla-hh-consolidado .sso-ma-indicador {
+  width: 260px;
+  min-width: 260px;
+}
+
+.sso-tabla-hh-consolidado tbody th small,
+.sso-tabla-hh-subproyectos tfoot th small {
+  display: block;
+  color: #8f979f;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sso-tabla-hh-subproyectos tfoot th small {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.sso-nota-hh {
+  margin: 0;
+  padding: 8px 12px 10px;
+  border-top: 1px solid #e3e6ea;
+  color: #7b858e;
+  font-size: 11.5px;
+}
+
 .sso-centro {
   text-align: center;
   font-variant-numeric: tabular-nums;

@@ -1,8 +1,10 @@
-import { Component, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { Component, HostListener, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
 import { sMis_Proyectos } from '../../services/sMis_Proyectos.service';
 import { sUsuarioClienteProyecto } from '../../services/sUsuarioClienteProyecto.service';
 import { firestoreDB } from '../../firebase-init';
+import * as firebase from 'firebase/app';
+import 'firebase/storage';
 import { ControlAsistenciaComponent, HORAS_JORNADA, MOTIVOS_AUSENCIA, motivoAusencia } from '../../Proyectos/estadisticas-hh/control-asistencia.component';
 import {
   TrabajadorCore, listarTrabajadores, guardarTrabajador, eliminarTrabajador, buscarEnAgenda,
@@ -10,6 +12,111 @@ import {
 } from '../trabajadores/trabajadores-core';
 
 const COLECCION_ASISTENCIA = 'asistenciaHH';
+/** Misma colección de la agenda: la ficha completa se guarda en el mismo documento del trabajador. */
+const COLECCION_TRABAJADORES = 'trabajadoresCore';
+
+/** Ficha del trabajador (datos personales, previsión y contrato). Se guarda junto a la agenda. */
+export interface FichaTrabajador {
+  paterno: string;
+  materno: string;
+  fechaNacimiento: string;   // yyyy-mm-dd
+  genero: string;
+  nacionalidad: string;
+  estadoCivil: string;
+  direccion: string;
+  comuna: string;
+  telefono: string;
+  celular: string;
+  email: string;
+  afp: string;
+  salud: string;             // Fonasa o Isapre
+  jubilado: boolean;
+  tipoContrato: string;
+  fechaInicio: string;       // desde
+  fechaTermino: string;      // hasta (plazo fijo / obra)
+  renta: number;
+  colacion: number;
+  movilizacion: number;
+  estado: string;            // 'activo' | 'finiquitado'
+  fechaFiniquito: string;
+  motivoFiniquito: string;   // causal (Código del Trabajo)
+  detalleFiniquito: string;  // razón en palabras
+  adjuntoFiniquito: AdjuntoFiniquito;
+  finiquitoAutomatico: boolean;   // (ya no se usa: el finiquito siempre lo hace una persona)
+}
+
+export interface AdjuntoFiniquito {
+  nombre: string;
+  ruta: string;
+  url: string;
+  tamano: number;
+  tipo: string;
+  fechaSubida: string;
+}
+
+/** Causales de término de contrato (Código del Trabajo). */
+export const CAUSALES_FINIQUITO = [
+  'Art. 159 N°1 · Mutuo acuerdo de las partes',
+  'Art. 159 N°2 · Renuncia del trabajador',
+  'Art. 159 N°3 · Muerte del trabajador',
+  'Art. 159 N°4 · Vencimiento del plazo convenido',
+  'Art. 159 N°5 · Conclusión del trabajo o servicio',
+  'Art. 159 N°6 · Caso fortuito o fuerza mayor',
+  'Art. 160 · Conductas del trabajador (despido disciplinario)',
+  'Art. 161 · Necesidades de la empresa',
+  'Art. 161 · Desahucio',
+  'Otra'
+];
+
+const MAX_MB_FINIQUITO = 20;
+
+/** Archivo de la carpeta de un trabajador (o su foto). */
+export interface DocTrabajador {
+  nombre: string;
+  ruta: string;
+  url: string;
+  tamano: number;
+  tipo: string;
+  fechaSubida: string;
+  subidoPor: string;
+}
+
+/** Carpetas de documentos del trabajador (mismas de la carpeta del servidor). */
+export const CARPETAS_TRABAJADOR = [
+  { id: 'legales', t: '1.- Doc legales', icono: 'fa-balance-scale' },
+  { id: 'formacion', t: '2.- Doc formación', icono: 'fa-graduation-cap' },
+  { id: 'contratos', t: '3.- Contratos', icono: 'fa-file-text-o' },
+  { id: 'sgi', t: '4.- Doc SGI', icono: 'fa-shield' },
+  { id: 'certificados', t: '5.- Certificados - permisos - vacaciones', icono: 'fa-calendar-check-o' },
+  { id: 'prestamos', t: '6.- Préstamos', icono: 'fa-money' },
+  { id: 'licencias', t: '7.- Licencias', icono: 'fa-medkit' },
+  { id: 'amonestaciones', t: '8.- Amonestaciones', icono: 'fa-exclamation-triangle' },
+  { id: 'finiquitos', t: '9.- Finiquitos', icono: 'fa-ban' }
+];
+
+const MAX_MB_DOC = 50;
+const MAX_MB_FOTO = 5;
+
+/** Fila ya calculada de la tabla de trabajadores (la tabla no llama funciones al dibujarse). */
+export interface FilaAgenda {
+  t: TrabajadorCore;
+  f: FichaTrabajador;
+  finiquitado: boolean;
+  vencido: boolean;
+  pendiente: boolean;
+  diasVence: number;      // null = indefinido / finiquitado
+  inicio: string;         // dd-mm-aaaa
+  termino: string;
+  finiquito: string;
+  sps: string[];
+  foto: string;           // url de la foto ('' = iniciales)
+  iniciales: string;
+}
+
+const CAMPOS_FICHA = ['paterno', 'materno', 'fechaNacimiento', 'genero', 'nacionalidad', 'estadoCivil', 'direccion', 'comuna',
+  'telefono', 'celular', 'email', 'afp', 'salud', 'jubilado', 'tipoContrato', 'fechaInicio', 'fechaTermino',
+  'renta', 'colacion', 'movilizacion', 'estado', 'fechaFiniquito',
+  'motivoFiniquito', 'detalleFiniquito', 'adjuntoFiniquito', 'finiquitoAutomatico'];
 
 /** Lo que hizo una persona en un subproyecto (en un mes o en el año). */
 interface ConsSp { id: string; nombre: string; dias: number; extra: number; hh: number; }
@@ -155,6 +262,38 @@ export class ControlAsistenciaPageComponent implements OnInit {
 
   // Agenda
   agenda: TrabajadorCore[] = [];
+  /** Solo los activos: son los que se pueden agregar a la asistencia. */
+  agendaActiva: TrabajadorCore[] = [];
+  /** Ficha completa de cada trabajador (por id de la agenda). */
+  fichas: { [id: string]: FichaTrabajador } = {};
+  fichaForm: FichaTrabajador = this.fichaVacia();
+  fichaAbierta: boolean = false;
+  filtroEstadoAgenda: string = 'activos';   // 'activos' | 'finiquitados' | 'pendientes' | 'todos'
+  filasAgenda: FilaAgenda[] = [];
+  // Foto y carpetas de documentos de cada trabajador (mismo documento de trabajadoresCore)
+  readonly carpetasTrabajador = CARPETAS_TRABAJADOR;
+  private extras: { [id: string]: { foto: DocTrabajador, documentos: { [carpeta: string]: DocTrabajador[] } } } = {};
+  private readonly sinDocs: DocTrabajador[] = [];
+  // Popup del trabajador
+  detalleT: TrabajadorCore = null;
+  detalleF: FichaTrabajador = null;
+  detalleTab: string = 'datos';      // 'datos' | 'carpetas'
+  carpetaSel: string = 'legales';
+  subiendoDetalle: string = '';      // 'foto' | id de carpeta
+  progresoDetalle: number = 0;
+  errorDetalle: string = '';
+  totalActivos: number = 0;
+  totalFiniquitados: number = 0;
+  totalPendientes: number = 0;
+  readonly opcionesGenero = ['Masculino', 'Femenino', 'Otro'];
+  readonly opcionesEstadoCivil = ['Soltero(a)', 'Casado(a)', 'Conviviente civil', 'Divorciado(a)', 'Viudo(a)'];
+  readonly opcionesAfp = ['Capital', 'Cuprum', 'Habitat', 'Modelo', 'PlanVital', 'ProVida', 'Uno', 'No cotiza AFP'];
+  readonly opcionesSalud = ['Fonasa', 'Banmédica', 'Colmena', 'Consalud', 'Cruz Blanca', 'Esencial', 'Nueva Masvida', 'Vida Tres', 'Otra isapre'];
+  readonly opcionesContrato = ['Indefinido', 'Plazo fijo', 'Por obra o faena', 'Honorarios'];
+  readonly causalesFiniquito = CAUSALES_FINIQUITO;
+  /** Archivo de finiquito elegido en la ficha (se sube al guardar). */
+  archivoFiniquito: File = null;
+
   cargandoAgenda: boolean = true;
   errorAgenda: boolean = false;
   busquedaAgenda: string = '';
@@ -633,6 +772,7 @@ export class ControlAsistenciaPageComponent implements OnInit {
         }));
 
         this.asignaciones = asignaciones;
+        this.recalcularAgenda();
         this.resumenes = {};
         this.datosSp = datosSp;
         this.reconstruirOcupacion();
@@ -758,9 +898,15 @@ export class ControlAsistenciaPageComponent implements OnInit {
     this.errorAgregar = '';
 
     const texto = (this.textoTrabajador || '').trim();
-    const t = this.agenda.filter(x => etiquetaTrabajador(x) === texto)[0]
-      || buscarEnAgenda(this.agenda, { rut: texto })
-      || this.agenda.filter(x => normalizarTexto(x.nombre + ' ' + x.apellido) === normalizarTexto(texto))[0];
+    const t = this.agendaActiva.filter(x => etiquetaTrabajador(x) === texto)[0]
+      || buscarEnAgenda(this.agendaActiva, { rut: texto })
+      || this.agendaActiva.filter(x => normalizarTexto(x.nombre + ' ' + x.apellido) === normalizarTexto(texto))[0];
+    const finiquitado = !t && texto && this.agenda.some(x => this.esFiniquitado(x) &&
+      (etiquetaTrabajador(x) === texto || normalizarTexto(x.nombre + ' ' + x.apellido) === normalizarTexto(texto)));
+    if (finiquitado) {
+      this.errorAgregar = 'Ese trabajador está finiquitado. Reactívalo en la pestaña Trabajadores si volvió.';
+      return;
+    }
     if (!t) {
       this.errorAgregar = texto
         ? 'No está en la agenda. Créalo en la pestaña Trabajadores o escríbelo directo en la fila "Agregar..." del subproyecto.'
@@ -828,7 +974,10 @@ export class ControlAsistenciaPageComponent implements OnInit {
     guardarTrabajador({
       id: '', nombre: tr.nombre, apellido: tr.apellido, rut: tr.rut || '', rutLimpio: '', cargo: tr.cargo || ''
     }, this.idUsuario).then(nuevo => {
-      if (!this.agenda.some(x => x.id === nuevo.id)) { this.agenda = ordenarTrabajadores(this.agenda.concat(nuevo)); }
+      if (!this.agenda.some(x => x.id === nuevo.id)) {
+        this.agenda = ordenarTrabajadores(this.agenda.concat(nuevo));
+        this.refrescarActivos();
+      }
     }).catch(error => console.error('No se pudo agregar a la agenda:', error));
   }
 
@@ -837,8 +986,10 @@ export class ControlAsistenciaPageComponent implements OnInit {
   cargarAgenda() {
     this.cargandoAgenda = true;
     this.errorAgenda = false;
-    listarTrabajadores().then(lista => {
-      this.agenda = lista;
+    Promise.all([listarTrabajadores(), this.leerFichas()]).then(res => {
+      this.agenda = res[0];
+      this.fichas = res[1];
+      this.refrescarActivos();
       this.cargandoAgenda = false;
     }).catch(error => {
       console.error('Error al cargar la agenda de trabajadores:', error);
@@ -847,14 +998,520 @@ export class ControlAsistenciaPageComponent implements OnInit {
     });
   }
 
-  get agendaFiltrada(): TrabajadorCore[] {
-    const terminos = normalizarTexto(this.busquedaAgenda).split(/\s+/).filter(x => !!x);
-    if (!terminos.length) { return this.agenda; }
-    return this.agenda.filter(t => {
-      const texto = normalizarTexto([t.nombre, t.apellido, t.rut, t.rutLimpio, t.cargo].join(' '));
-      return terminos.every(x => texto.indexOf(x) >= 0);
+  cambiarFiltroAgenda(filtro: string) {
+    this.filtroEstadoAgenda = filtro;
+    this.recalcularAgenda();
+  }
+
+  /** Arma las filas de la tabla y los contadores (se llama cuando cambian datos, filtro o búsqueda). */
+  recalcularAgenda() {
+    const terminos = normalizarTexto(this.busquedaAgenda || '').split(/\s+/).filter(x => !!x);
+    const filas: FilaAgenda[] = [];
+    let activos = 0, finiquitados = 0, pendientes = 0;
+
+    this.agenda.forEach(t => {
+      let fila: FilaAgenda;
+      try {
+        const f = this.fichaDe(t);
+        const finiquitado = f.estado === 'finiquitado';
+        const vencido = this.contratoVencido(t);
+        const pendiente = this.pendienteFiniquito(t);
+        fila = {
+          t: t, f: f, finiquitado: finiquitado, vencido: vencido, pendiente: pendiente,
+          diasVence: this.diasParaVencer(t),
+          inicio: this.fechaCorta(f.fechaInicio), termino: this.fechaCorta(f.fechaTermino), finiquito: this.fechaCorta(f.fechaFiniquito),
+          sps: this.subProyectosDe(t),
+          foto: this.fotoDe(t), iniciales: this.inicialesDe(t)
+        };
+      } catch (error) {
+        console.error('Ficha con datos raros, se muestra igual:', t, error);
+        fila = { t: t, f: this.fichaVacia(), finiquitado: false, vencido: false, pendiente: false, diasVence: null,
+          inicio: '', termino: '', finiquito: '', sps: [], foto: '', iniciales: this.inicialesDe(t) };
+      }
+
+      if (fila.finiquitado) { finiquitados++; } else { activos++; }
+      if (fila.pendiente) { pendientes++; }
+
+      if (this.filtroEstadoAgenda === 'activos' && fila.finiquitado) { return; }
+      if (this.filtroEstadoAgenda === 'finiquitados' && !fila.finiquitado) { return; }
+      if (this.filtroEstadoAgenda === 'pendientes' && !fila.pendiente) { return; }
+      if (terminos.length) {
+        const texto = normalizarTexto([t.nombre, t.apellido, t.rut, t.rutLimpio, t.cargo, fila.f.tipoContrato, fila.f.comuna].join(' '));
+        if (!terminos.every(x => texto.indexOf(x) >= 0)) { return; }
+      }
+      filas.push(fila);
+    });
+
+    this.filasAgenda = filas;
+    this.totalActivos = activos;
+    this.totalFiniquitados = finiquitados;
+    this.totalPendientes = pendientes;
+  }
+
+  trackFila(i: number, fila: FilaAgenda) { return fila.t.id; }
+
+  // ===================== Ficha del trabajador =====================
+
+  private leerFichas(): Promise<{ [id: string]: FichaTrabajador }> {
+    return firestoreDB.collection(COLECCION_TRABAJADORES).get().then((snap: any) => {
+      const res: { [id: string]: FichaTrabajador } = {};
+      snap.forEach((doc: any) => {
+        const d = doc.data() || {};
+        const f: any = this.fichaVacia();
+        CAMPOS_FICHA.forEach(c => {
+          const v = d[c];
+          if (v === undefined || v === null) { return; }
+          const base = f[c];
+          if (typeof base === 'string') {
+            f[c] = v && typeof v.toDate === 'function' ? this.fechaIso(v.toDate()) : String(v);
+          } else if (typeof base === 'boolean') {
+            f[c] = !!v;
+          } else if (c === 'renta' || c === 'colacion' || c === 'movilizacion') {
+            f[c] = isNaN(Number(v)) ? null : Number(v);
+          } else if (c === 'adjuntoFiniquito') {
+            f[c] = typeof v === 'object' && v.url ? v : null;
+          } else {
+            f[c] = v;
+          }
+        });
+        if (f.estado !== 'finiquitado') { f.estado = 'activo'; }
+        res[doc.id] = f;
+        this.extras[doc.id] = {
+          foto: d.foto && d.foto.url ? d.foto : null,
+          documentos: d.documentos && typeof d.documentos === 'object' ? d.documentos : {}
+        };
+      });
+      return res;
+    }).catch((error: any) => {
+      // Si no se pueden leer las fichas, la agenda igual se muestra (todos como activos)
+      console.error('No se pudieron leer las fichas de los trabajadores:', error);
+      return {};
     });
   }
+
+  fichaDe(t: TrabajadorCore): FichaTrabajador {
+    return (t && this.fichas[t.id]) || this.fichaVacia();
+  }
+
+  esFiniquitado(t: TrabajadorCore): boolean {
+    return this.fichaDe(t).estado === 'finiquitado';
+  }
+
+  private refrescarActivos() {
+    this.agendaActiva = this.agenda.filter(t => !this.esFiniquitado(t));
+    this.recalcularAgenda();
+  }
+
+  private fichaVacia(): FichaTrabajador {
+    return {
+      paterno: '', materno: '', fechaNacimiento: '', genero: '', nacionalidad: 'Chilena', estadoCivil: '',
+      direccion: '', comuna: '', telefono: '', celular: '', email: '',
+      afp: '', salud: '', jubilado: false,
+      tipoContrato: '', fechaInicio: '', fechaTermino: '', renta: null, colacion: null, movilizacion: null,
+      estado: 'activo', fechaFiniquito: '',
+      motivoFiniquito: '', detalleFiniquito: '', adjuntoFiniquito: null, finiquitoAutomatico: false
+    };
+  }
+
+  /** Indefinido y honorarios pueden quedar sin fecha de término. */
+  terminoOpcional(tipo: string): boolean {
+    return tipo === 'Indefinido' || tipo === 'Honorarios';
+  }
+
+  /** Edad en años a partir de la fecha de nacimiento (yyyy-mm-dd). */
+  edad(fecha: string): number {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha || '')) { return null; }
+    const p = fecha.split('-').map(Number);
+    const hoy = new Date();
+    let anios = hoy.getFullYear() - p[0];
+    if (hoy.getMonth() + 1 < p[1] || (hoy.getMonth() + 1 === p[1] && hoy.getDate() < p[2])) { anios--; }
+    return anios >= 0 && anios < 120 ? anios : null;
+  }
+
+  /** dd-mm-yyyy para mostrar. */
+  fechaCorta(fecha: string): string {
+    const p = String(fecha || '').split('-');
+    return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : '';
+  }
+
+  formatearPesos(valor: number): string {
+    if (valor === null || valor === undefined || (valor as any) === '') { return '—'; }
+    return '$' + String(Math.round(Number(valor) || 0)).replace(/\B(?=(\d{3})+$)/g, '.');
+  }
+
+  private hoyTexto(): string {
+    return this.fechaIso(new Date());
+  }
+
+  private fechaIso(d: Date): string {
+    if (!d || isNaN(d.getTime())) { return ''; }
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
+
+  nuevoTrabajador() {
+    this.formulario = this.formularioVacio();
+    this.fichaForm = this.fichaVacia();
+    this.archivoFiniquito = null;
+    this.errorFormulario = '';
+    this.mensajeAgenda = '';
+    this.fichaAbierta = true;
+    this.enfocarFicha();
+  }
+
+  private enfocarFicha(idCampo: string = 'core-form-rut') {
+    setTimeout(() => {
+      const el = document.getElementById('core-ficha');
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      const campo = document.getElementById(idCampo);
+      if (campo) { campo.focus(); }
+    }, 80);
+  }
+
+  /** Guarda solo la ficha (merge), sin tocar lo que guarda la agenda. */
+  private guardarFicha(id: string, ficha: FichaTrabajador): Promise<void> {
+    const datos: any = { fechaActualizacionFicha: new Date().toISOString(), idUsuarioFicha: this.idUsuario };
+    CAMPOS_FICHA.forEach(c => {
+      const v = (ficha as any)[c];
+      datos[c] = v === undefined ? null : v;
+    });
+    ['renta', 'colacion', 'movilizacion'].forEach(c => {
+      const v = datos[c];
+      datos[c] = v === null || v === '' || isNaN(Number(v)) ? null : Math.round(Number(v));
+    });
+    datos.jubilado = !!datos.jubilado;
+    // por si la agenda reescribe el documento completo: se vuelven a dejar la foto y las carpetas
+    const extra = this.extras[id];
+    if (extra && extra.foto) { datos.foto = extra.foto; }
+    if (extra && extra.documentos && Object.keys(extra.documentos).length) { datos.documentos = extra.documentos; }
+    return firestoreDB.collection(COLECCION_TRABAJADORES).doc(id).set(datos, { merge: true }).then(() => {
+      const f = this.fichaVacia();
+      CAMPOS_FICHA.forEach(c => (f as any)[c] = datos[c] === null && typeof (f as any)[c] === 'string' ? '' : datos[c]);
+      this.fichas[id] = f;
+      if (this.detalleT && this.detalleT.id === id) { this.detalleF = f; }
+      this.refrescarActivos();
+    });
+  }
+
+  /** Sigue activo pero su fecha de término ya pasó: hay que subir el finiquito con su causal. */
+  contratoVencido(t: TrabajadorCore): boolean {
+    const f = this.fichaDe(t);
+    return !this.esFiniquitado(t) && /^\d{4}-\d{2}-\d{2}$/.test(f.fechaTermino || '') && f.fechaTermino < this.hoyTexto();
+  }
+
+  /** Contrato vencido sin finiquitar, o finiquitado al que le falta causal, razón o documento. */
+  pendienteFiniquito(t: TrabajadorCore): boolean {
+    if (this.contratoVencido(t)) { return true; }
+    if (!this.esFiniquitado(t)) { return false; }
+    const f = this.fichaDe(t);
+    return !f.motivoFiniquito || !(f.detalleFiniquito || '').trim() || !(f.adjuntoFiniquito && f.adjuntoFiniquito.url);
+  }
+
+  /** La ficha abierta es de un contrato vencido que sigue activo. */
+  get fichaVencida(): boolean {
+    const f = this.fichaForm;
+    return f.estado !== 'finiquitado' && /^\d{4}-\d{2}-\d{2}$/.test(f.fechaTermino || '') && f.fechaTermino < this.hoyTexto();
+  }
+
+  /** Días que le quedan al contrato (null si es indefinido o ya está finiquitado). */
+  diasParaVencer(t: TrabajadorCore): number {
+    const f = this.fichaDe(t);
+    if (this.esFiniquitado(t) || !/^\d{4}-\d{2}-\d{2}$/.test(f.fechaTermino || '')) { return null; }
+    const a = f.fechaTermino.split('-').map(Number);
+    const h = this.hoyTexto().split('-').map(Number);
+    return Math.round((new Date(a[0], a[1] - 1, a[2]).getTime() - new Date(h[0], h[1] - 1, h[2]).getTime()) / 86400000);
+  }
+
+  /** Causal que se propone según el tipo de contrato. */
+  private causalSugerida(f: FichaTrabajador): string {
+    if (f.tipoContrato === 'Plazo fijo') { return CAUSALES_FINIQUITO[3]; }
+    if (f.tipoContrato === 'Por obra o faena') { return CAUSALES_FINIQUITO[4]; }
+    return '';
+  }
+
+  /** Abre la ficha en "Finiquitado" para poner fecha, causal, razón y el documento. */
+  finiquitar(t: TrabajadorCore) {
+    if (this.soloLectura) { return; }
+    this.editarTrabajador(t);
+    const f = this.fichaForm;
+    if (f.estado !== 'finiquitado') {
+      f.estado = 'finiquitado';
+      f.fechaFiniquito = f.fechaTermino && f.fechaTermino < this.hoyTexto() ? f.fechaTermino : this.hoyTexto();
+    }
+    if (!f.motivoFiniquito) { f.motivoFiniquito = this.causalSugerida(f); }
+    this.enfocarFicha('fic-motivo');
+  }
+
+  /** Volver a activo (si su contrato ya venció, conviene extender la fecha de término). */
+  reactivar(t: TrabajadorCore) {
+    if (this.soloLectura) { return; }
+    this.editarTrabajador(t);
+    this.marcarActivo();
+    this.enfocarFicha('fic-termino');
+  }
+
+  /** Botón "Activo" de la ficha. */
+  marcarActivo() {
+    const f = this.fichaForm;
+    f.estado = 'activo';
+    f.fechaFiniquito = '';
+    f.motivoFiniquito = '';
+    f.detalleFiniquito = '';
+    f.adjuntoFiniquito = null;
+    f.finiquitoAutomatico = false;
+    this.archivoFiniquito = null;
+  }
+
+  /** Botón "Finiquitado" de la ficha. */
+  marcarFiniquitado() {
+    const f = this.fichaForm;
+    if (f.estado === 'finiquitado') { return; }
+    f.estado = 'finiquitado';
+    if (!f.fechaFiniquito) {
+      f.fechaFiniquito = f.fechaTermino && f.fechaTermino < this.hoyTexto() ? f.fechaTermino : this.hoyTexto();
+    }
+    if (!f.motivoFiniquito) { f.motivoFiniquito = this.causalSugerida(f); }
+  }
+
+  seleccionarArchivoFiniquito(input: any) {
+    const archivo: File = input && input.files && input.files[0];
+    if (input) { input.value = ''; }
+    if (!archivo) { return; }
+    if (archivo.size > MAX_MB_FINIQUITO * 1024 * 1024) {
+      this.errorFormulario = '"' + archivo.name + '" pesa más de ' + MAX_MB_FINIQUITO + ' MB.';
+      return;
+    }
+    this.errorFormulario = '';
+    this.archivoFiniquito = archivo;
+  }
+
+  quitarArchivoFiniquito() {
+    this.archivoFiniquito = null;
+    this.fichaForm.adjuntoFiniquito = null;
+  }
+
+  /** Sube el documento del finiquito a Storage: trabajadoresCore/<id>/finiquito/... */
+  private subirFiniquito(id: string, archivo: File): Promise<AdjuntoFiniquito> {
+    return this.subirArchivo(COLECCION_TRABAJADORES + '/' + id + '/finiquito', archivo, null).then(d => ({
+      nombre: d.nombre, ruta: d.ruta, url: d.url, tamano: d.tamano, tipo: d.tipo, fechaSubida: d.fechaSubida
+    }));
+  }
+
+  /** Sube un archivo a Storage (nombre limpio, sin tildes ni símbolos) y devuelve su ficha. */
+  private subirArchivo(carpeta: string, archivo: File, alAvanzar: (bytes: number) => void): Promise<DocTrabajador> {
+    const limpio = (archivo.name || 'archivo').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^\w.\-]+/g, '_').substring(0, 120);
+    const ruta = carpeta + '/' + Date.now() + '_' + Math.random().toString(36).substr(2, 4) + '_' + limpio;
+    const tipo = archivo.type || 'application/octet-stream';
+    return new Promise((resolve, reject) => {
+      const tarea: any = (firebase as any).storage().ref(ruta).put(archivo, { contentType: tipo });
+      // la tarea también es una promesa: sin esto el error sale además como "Uncaught (in promise)"
+      if (tarea && typeof tarea.then === 'function') { tarea.then(null, () => null); }
+      tarea.on('state_changed',
+        (estado: any) => { if (alAvanzar) { alAvanzar(estado.bytesTransferred); } },
+        (error: any) => reject(error),
+        () => {
+          const ref = tarea.snapshot.ref;
+          const url = ref && ref.getDownloadURL ? ref.getDownloadURL() : Promise.resolve(tarea.snapshot.downloadURL);
+          url.then((u: string) => resolve({
+            nombre: archivo.name, ruta: ruta, url: u, tamano: archivo.size, tipo: tipo,
+            fechaSubida: new Date().toISOString(), subidoPor: this.nombreUsuarioActual()
+          }), reject);
+        });
+    });
+  }
+
+  private borrarArchivo(ruta: string): Promise<any> {
+    if (!ruta) { return Promise.resolve(); }
+    return (firebase as any).storage().ref(ruta).delete().catch((error: any) => {
+      if (!error || error.code !== 'storage/object-not-found') { throw error; }
+    });
+  }
+
+  private nombreUsuarioActual(): string {
+    try {
+      const u = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
+      return u.nombreUsuario || u.nombre || u.usuario || u.email || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // ===================== Popup del trabajador: datos, foto y carpetas =====================
+
+  fotoDe(t: TrabajadorCore): string {
+    const e = t && this.extras[t.id];
+    return e && e.foto && e.foto.url ? e.foto.url : '';
+  }
+
+  inicialesDe(t: TrabajadorCore): string {
+    if (!t) { return ''; }
+    const a = (t.nombre || '').trim().charAt(0);
+    const b = (t.apellido || '').trim().charAt(0);
+    return (a + b).toUpperCase() || '?';
+  }
+
+  /** Archivos de una carpeta (siempre la misma referencia mientras no cambie). */
+  docsDe(carpeta: string): DocTrabajador[] {
+    const e = this.detalleT && this.extras[this.detalleT.id];
+    return (e && e.documentos && e.documentos[carpeta]) || this.sinDocs;
+  }
+
+  cantidadDocs(carpeta: string): number {
+    const n = this.docsDe(carpeta).length;
+    const fin = carpeta === 'finiquitos' && this.detalleF && this.detalleF.adjuntoFiniquito && this.detalleF.adjuntoFiniquito.url ? 1 : 0;
+    return n + fin;
+  }
+
+  get nombreCarpetaSel(): string {
+    const c = CARPETAS_TRABAJADOR.filter(x => x.id === this.carpetaSel)[0];
+    return c ? c.t : '';
+  }
+
+  abrirDetalle(t: TrabajadorCore) {
+    this.detalleT = t;
+    this.detalleF = this.fichaDe(t);
+    this.detalleTab = 'datos';
+    this.carpetaSel = 'legales';
+    this.errorDetalle = '';
+    this.subiendoDetalle = '';
+  }
+
+  cerrarDetalle() {
+    if (this.subiendoDetalle) { return; }
+    this.detalleT = null;
+    this.detalleF = null;
+  }
+
+  clickFondoDetalle(evento: MouseEvent) {
+    if (evento.target === evento.currentTarget) { this.cerrarDetalle(); }
+  }
+
+  @HostListener('document:keydown.escape')
+  escapeDetalle() {
+    if (this.detalleT) { this.cerrarDetalle(); }
+  }
+
+  /** Desde el popup: abre la ficha para editar. */
+  editarDesdeDetalle() {
+    const t = this.detalleT;
+    this.cerrarDetalle();
+    if (t) { this.editarTrabajador(t); }
+  }
+
+  finiquitarDesdeDetalle() {
+    const t = this.detalleT;
+    this.cerrarDetalle();
+    if (t) { this.finiquitar(t); }
+  }
+
+  private guardarExtras(id: string, datos: any): Promise<any> {
+    return firestoreDB.collection(COLECCION_TRABAJADORES).doc(id).set(datos, { merge: true });
+  }
+
+  subirFoto(input: any) {
+    const t = this.detalleT;
+    const archivo: File = input && input.files && input.files[0];
+    if (input) { input.value = ''; }
+    if (!t || !archivo || this.soloLectura || this.subiendoDetalle) { return; }
+    if (!/^image\//.test(archivo.type || '')) { this.errorDetalle = 'La foto tiene que ser una imagen (JPG o PNG).'; return; }
+    if (archivo.size > MAX_MB_FOTO * 1024 * 1024) { this.errorDetalle = 'La foto pesa más de ' + MAX_MB_FOTO + ' MB.'; return; }
+
+    this.errorDetalle = '';
+    this.subiendoDetalle = 'foto';
+    this.progresoDetalle = 0;
+    const anterior = this.extras[t.id] && this.extras[t.id].foto;
+    this.subirArchivo(COLECCION_TRABAJADORES + '/' + t.id + '/foto', archivo, b => this.progresoDetalle = Math.round(b * 100 / (archivo.size || 1)))
+      .then(foto => this.guardarExtras(t.id, { foto: foto }).then(() => foto))
+      .then(foto => {
+        const e = this.extras[t.id] || (this.extras[t.id] = { foto: null, documentos: {} });
+        e.foto = foto;
+        if (anterior && anterior.ruta) { this.borrarArchivo(anterior.ruta).catch(() => null); }
+        this.subiendoDetalle = '';
+        this.recalcularAgenda();
+      })
+      .catch(error => {
+        console.error('Error al subir la foto:', error);
+        this.subiendoDetalle = '';
+        this.errorDetalle = error && error.code === 'storage/unauthorized'
+          ? 'Storage no deja subir a trabajadoresCore/ (permiso denegado). Hay que agregar esa ruta en las reglas de Storage.'
+          : 'No se pudo subir la foto.';
+      });
+  }
+
+  subirDocumentos(input: any) {
+    const t = this.detalleT;
+    const carpeta = this.carpetaSel;
+    const archivos: File[] = Array.prototype.slice.call((input && input.files) || []);
+    if (input) { input.value = ''; }
+    if (!t || !archivos.length || this.soloLectura || this.subiendoDetalle) { return; }
+    const grande = archivos.filter(a => a.size > MAX_MB_DOC * 1024 * 1024)[0];
+    if (grande) { this.errorDetalle = '"' + grande.name + '" pesa más de ' + MAX_MB_DOC + ' MB.'; return; }
+
+    this.errorDetalle = '';
+    this.subiendoDetalle = carpeta;
+    this.progresoDetalle = 0;
+    const total = archivos.reduce((s, a) => s + a.size, 0) || 1;
+    const avance = archivos.map(() => 0);
+    Promise.all(archivos.map((a, i) => this.subirArchivo(COLECCION_TRABAJADORES + '/' + t.id + '/carpetas/' + carpeta, a, b => {
+      avance[i] = b;
+      this.progresoDetalle = Math.min(100, Math.round(avance.reduce((x, y) => x + y, 0) * 100 / total));
+    })))
+      .then(nuevos => {
+        const e = this.extras[t.id] || (this.extras[t.id] = { foto: null, documentos: {} });
+        const lista = (e.documentos[carpeta] || []).concat(nuevos);
+        return this.guardarExtras(t.id, { documentos: { [carpeta]: lista } }).then(() => {
+          e.documentos = Object.assign({}, e.documentos, { [carpeta]: lista });
+        });
+      })
+      .then(() => { this.subiendoDetalle = ''; })
+      .catch(error => {
+        console.error('Error al subir documentos:', error);
+        this.subiendoDetalle = '';
+        this.errorDetalle = error && error.code === 'storage/unauthorized'
+          ? 'Storage no deja subir a trabajadoresCore/ (permiso denegado). Hay que agregar esa ruta en las reglas de Storage.'
+          : 'No se pudieron subir todos los archivos.';
+      });
+  }
+
+  eliminarDocumento(doc: DocTrabajador) {
+    const t = this.detalleT;
+    const carpeta = this.carpetaSel;
+    if (!t || this.soloLectura) { return; }
+    if (!confirm('¿Eliminar "' + doc.nombre + '"? No se puede deshacer.')) { return; }
+    const e = this.extras[t.id];
+    const lista = ((e && e.documentos[carpeta]) || []).filter(x => x.ruta !== doc.ruta || x.url !== doc.url);
+    this.borrarArchivo(doc.ruta)
+      .then(() => this.guardarExtras(t.id, { documentos: { [carpeta]: lista } }))
+      .then(() => { e.documentos = Object.assign({}, e.documentos, { [carpeta]: lista }); })
+      .catch(error => {
+        console.error('Error al eliminar el documento:', error);
+        this.errorDetalle = 'No se pudo eliminar el archivo.';
+      });
+  }
+
+  iconoArchivo(nombre: string): string {
+    const ext = ((nombre || '').split('.').pop() || '').toLowerCase();
+    if (ext === 'pdf') { return 'fa-file-pdf-o'; }
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp'].indexOf(ext) >= 0) { return 'fa-file-image-o'; }
+    if (['doc', 'docx'].indexOf(ext) >= 0) { return 'fa-file-word-o'; }
+    if (['xls', 'xlsx', 'csv'].indexOf(ext) >= 0) { return 'fa-file-excel-o'; }
+    if (['zip', 'rar', '7z'].indexOf(ext) >= 0) { return 'fa-file-archive-o'; }
+    return 'fa-file-o';
+  }
+
+  tamanoTexto(bytes: number): string {
+    const v = Number(bytes) || 0;
+    if (v < 1024 * 1024) { return Math.max(1, Math.round(v / 1024)) + ' KB'; }
+    return (Math.round(v / 1024 / 1024 * 10) / 10).toString().replace('.', ',') + ' MB';
+  }
+
+  fechaHoraTexto(iso: string): string {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) { return ''; }
+    return ('0' + d.getDate()).slice(-2) + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + d.getFullYear();
+  }
+
+  trackDoc(i: number, d: DocTrabajador) { return d.ruta || d.url; }
 
   subProyectosDe(t: TrabajadorCore): string[] {
     const res: string[] = [];
@@ -872,17 +1529,27 @@ export class ControlAsistenciaPageComponent implements OnInit {
 
   editarTrabajador(t: TrabajadorCore) {
     this.formulario = { id: t.id, nombre: t.nombre, apellido: t.apellido, rut: t.rut, rutLimpio: t.rutLimpio, cargo: t.cargo, fechaCreacion: t.fechaCreacion };
+    const ficha = Object.assign({}, this.fichaDe(t));
+    // Registros antiguos: el apellido venía junto ("Cubillos Cadena") → paterno y materno
+    if (!ficha.paterno && t.apellido) {
+      const partes = t.apellido.trim().split(/\s+/);
+      ficha.paterno = partes.shift() || '';
+      ficha.materno = partes.join(' ');
+    }
+    this.fichaForm = ficha;
+    this.archivoFiniquito = null;
     this.errorFormulario = '';
     this.mensajeAgenda = '';
-    setTimeout(() => {
-      const el = document.getElementById('core-form-nombre');
-      if (el) { el.focus(); }
-    });
+    this.fichaAbierta = true;
+    this.enfocarFicha();
   }
 
   cancelarFormulario() {
     this.formulario = this.formularioVacio();
+    this.fichaForm = this.fichaVacia();
+    this.archivoFiniquito = null;
     this.errorFormulario = '';
+    this.fichaAbierta = false;
   }
 
   guardarFormulario() {
@@ -890,11 +1557,50 @@ export class ControlAsistenciaPageComponent implements OnInit {
     this.errorFormulario = '';
     this.mensajeAgenda = '';
     const f = this.formulario;
+    const ficha = this.fichaForm;
+    ficha.paterno = (ficha.paterno || '').trim();
+    ficha.materno = (ficha.materno || '').trim();
+    f.apellido = [ficha.paterno, ficha.materno].filter(x => !!x).join(' ');
+    f.cargo = (f.cargo || '').trim();
 
-    if (!(f.nombre || '').trim() || !(f.apellido || '').trim()) {
-      this.errorFormulario = 'Nombre y apellido son obligatorios.';
+    if (!(f.nombre || '').trim() || !ficha.paterno) {
+      this.errorFormulario = 'Nombres y apellido paterno son obligatorios.';
       return;
     }
+    if (ficha.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ficha.email.trim())) {
+      this.errorFormulario = 'El e-mail no es válido.';
+      return;
+    }
+    if (!ficha.tipoContrato) {
+      this.errorFormulario = 'Falta el tipo de contrato.';
+      return;
+    }
+    if (!ficha.fechaInicio) {
+      this.errorFormulario = 'Falta la fecha de inicio del contrato.';
+      return;
+    }
+    if (!this.terminoOpcional(ficha.tipoContrato) && !ficha.fechaTermino) {
+      this.errorFormulario = 'Falta la fecha de término (solo indefinido y honorarios pueden ir sin término).';
+      return;
+    }
+    if (ficha.fechaTermino && ficha.fechaTermino < ficha.fechaInicio) {
+      this.errorFormulario = 'La fecha de término no puede ser antes del inicio.';
+      return;
+    }
+    if (ficha.estado === 'finiquitado') {
+      ficha.detalleFiniquito = (ficha.detalleFiniquito || '').trim();
+      if (!ficha.fechaFiniquito) { this.errorFormulario = 'Falta la fecha de finiquito.'; return; }
+      if (ficha.fechaFiniquito < ficha.fechaInicio) { this.errorFormulario = 'El finiquito no puede ser antes del inicio del contrato.'; return; }
+      if (!ficha.motivoFiniquito) { this.errorFormulario = 'Falta la causal del finiquito.'; return; }
+      if (!ficha.detalleFiniquito) { this.errorFormulario = 'Escribe la razón del finiquito.'; return; }
+      if (!this.archivoFiniquito && !(ficha.adjuntoFiniquito && ficha.adjuntoFiniquito.url)) {
+        this.errorFormulario = 'Adjunta el documento del finiquito.';
+        return;
+      }
+    } else {
+      ficha.fechaFiniquito = '';
+    }
+    ficha.email = (ficha.email || '').trim();
     if (f.rut && !rutValido(f.rut)) {
       this.errorFormulario = 'El RUT no es válido (revisa el dígito verificador).';
       return;
@@ -912,10 +1618,24 @@ export class ControlAsistenciaPageComponent implements OnInit {
 
     const editando = !!f.id;
     this.guardandoFormulario = true;
-    guardarTrabajador(f, this.idUsuario).then(guardado => {
+    let guardado: TrabajadorCore = null;
+    guardarTrabajador(f, this.idUsuario).then(g => {
+      guardado = g;
+      if (ficha.estado === 'finiquitado' && this.archivoFiniquito) {
+        return this.subirFiniquito(g.id, this.archivoFiniquito).then(adj => {
+          ficha.adjuntoFiniquito = adj;
+          this.archivoFiniquito = null;
+          return this.guardarFicha(g.id, ficha);
+        });
+      }
+      return this.guardarFicha(g.id, ficha);
+    }).then(() => {
       this.agenda = ordenarTrabajadores(this.agenda.filter(t => t.id !== guardado.id).concat(guardado));
+      this.refrescarActivos();
       this.mensajeAgenda = guardado.nombre + ' ' + guardado.apellido + (editando ? ' quedó actualizado.' : ' quedó en la agenda.');
       this.formulario = this.formularioVacio();
+      this.fichaForm = this.fichaVacia();
+      this.fichaAbierta = false;
       this.guardandoFormulario = false;
     }).catch(error => {
       console.error('Error al guardar el trabajador:', error);
@@ -933,6 +1653,8 @@ export class ControlAsistenciaPageComponent implements OnInit {
     if (!confirm('¿Eliminar a ' + t.nombre + ' ' + t.apellido + ' de la agenda?' + aviso)) { return; }
     eliminarTrabajador(t.id).then(() => {
       this.agenda = this.agenda.filter(x => x.id !== t.id);
+      delete this.fichas[t.id];
+      this.refrescarActivos();
       if (this.formulario.id === t.id) { this.cancelarFormulario(); }
       this.mensajeAgenda = t.nombre + ' ' + t.apellido + ' salió de la agenda.';
     }).catch(error => {

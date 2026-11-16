@@ -4,6 +4,11 @@ import { firestoreDB } from '../../firebase-init';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
 import { sPerfil } from '../../services/sPerfil.service';
 import { ACCIDENTES_HISTORICOS, AccidenteHistorico } from './accidentes-historicos';
+import { sumarHHPrograma, formatoHM } from '../programa-sso/programa-registro';
+import { HORAS_JORNADA } from '../estadisticas-hh/control-asistencia.component';
+import { clavesTrabajador } from '../../CORE/trabajadores/trabajadores-core';
+
+const COLECCION_ASISTENCIA = 'asistenciaHH';
 import * as firebase from 'firebase/app';
 import 'firebase/storage';
 
@@ -82,6 +87,38 @@ interface RegistroConsolidadoMA {
   nombreProyecto: string;
   anio: number;
   meses: any;
+}
+
+/** HH Capacitación de un programa (SSO o MA) de un subproyecto en un mes, en minutos. */
+interface RegistroConsolidadoHH {
+  idSubProyecto: string;
+  nombre: string;
+  anio: number;
+  mes: number;
+  minOperacional: number;
+  minEspecificas: number;
+}
+
+/** Lo que trabajó una persona en un subproyecto en un mes (Control de Asistencia). */
+interface RegistroAsistenciaSSO {
+  idSubProyecto: string;
+  nombre: string;
+  anio: number;
+  mes: number;
+  persona: number;   // misma persona aunque esté en varios subproyectos (agenda, RUT o nombre)
+  dias: number;
+  extra: number;
+  hh: number;        // días × 8,5 + horas extra
+}
+
+/** Fila de la tabla mensual del consolidado SSO. */
+interface FilaConsolidadoSSO {
+  etiqueta: string;
+  ayuda: string;
+  destacada: boolean;
+  grupo: string;     // 'asistencia' | 'capacitacion'
+  meses: string[];
+  anual: string;
 }
 
 interface FilaHistorico extends AccidenteHistorico {
@@ -276,7 +313,23 @@ export class EstadisticasSsoComponent implements OnInit {
   historicoEstadisticas: any = this.calcularEstadisticas([], []);
   errorHistoricoSistema: boolean = false;
 
-  consolidadoVista: string = 'sso';
+  // Pestañas del consolidado: 'seg' = SSO (estadísticas mensuales HH) · 'ma' = Medio Ambiente · 'incs' = Incidentes
+  consolidadoVista: string = 'seg';
+
+  // Consolidado SSO: Control de Asistencia (trabajadores, días, H.E., HH) + HH Capacitación de los Programas SSO/MA
+  consolidadoHHAnios: number[] = [];
+  consolidadoHHAnio: number = new Date().getFullYear();
+  consolidadoHHSubproyecto: string = 'todos';
+  consolidadoHHSubproyectos: { id: string, nombre: string }[] = [];
+  consolidadoHHFilas: FilaConsolidadoSSO[] = [];
+  consolidadoHHPorSubproyecto: { nombre: string, trabajadores: number, dias: string, extra: string, hh: string, capacitacion: string }[] = [];
+  consolidadoHHTotales: any = { trabajadores: 0, dias: '-', extra: '-', hh: '-', capacitacion: '-' };
+  consolidadoHHResumen: any = { subproyectos: 0, trabajadores: 0, hh: '-', extra: '-', capacitacion: '-' };
+  errorConsolidadoHH: boolean = false;
+  errorAsistenciaSSO: boolean = false;
+  private registrosConsolidadoHH: RegistroConsolidadoHH[] = [];
+  private registrosAsistenciaSSO: RegistroAsistenciaSSO[] = [];
+  private nombresAsistenciaSSO: { [id: string]: string } = {};
   consolidadoMAAnios: number[] = [];
   consolidadoMAAnio: number = new Date().getFullYear();
   consolidadoMASubproyecto: string = 'todos';
@@ -1071,9 +1124,10 @@ export class EstadisticasSsoComponent implements OnInit {
           return;
         }
 
-        Promise.all([this.cargarAccidentesSistema(), this.cargarConsolidadoMA()]).then(() => {
+        Promise.all([this.cargarAccidentesSistema(), this.cargarConsolidadoMA(), this.cargarConsolidadoHH(), this.cargarAsistenciaSSO()]).then(() => {
           this.prepararHistorico();
           this.prepararConsolidadoMA();
+          this.prepararConsolidadoHH();
           this.cargando = false;
         });
       },
@@ -1114,6 +1168,259 @@ export class EstadisticasSsoComponent implements OnInit {
 
   reintentarConsolidadoMA() {
     this.cargarConsolidadoMA().then(() => this.prepararConsolidadoMA());
+  }
+
+  // ===== Consolidado SSO: estadísticas mensuales de HH Capacitación =====
+
+  /** Lee los Programas SSO y MA de todas las obras y saca sus HH Capacitación por mes (misma suma que el programa). */
+  private cargarConsolidadoHH(): Promise<void> {
+    this.errorConsolidadoHH = false;
+
+    return Promise.all([firestoreDB.collection('programaSSO').get(), firestoreDB.collection('programaMA').get()])
+      .then((resultados: any[]) => {
+        const registros: RegistroConsolidadoHH[] = [];
+        resultados.forEach((snapshot: any) => snapshot.forEach((doc: any) => {
+          const p = doc.data();
+          if (!p || !p.anio || !p.mes || p.idSubProyecto === undefined || p.idSubProyecto === null) { return; }
+          let hh: any = null;
+          try {
+            hh = sumarHHPrograma(p);
+          } catch (error) {
+            console.error('HH del programa ' + doc.id, error);
+            return;
+          }
+          const operacional = Number(hh && hh.minOperacional) || 0;
+          const especificas = Number(hh && hh.minEspecificas) || 0;
+          if (!operacional && !especificas) { return; }
+          registros.push({
+            idSubProyecto: String(p.idSubProyecto),
+            nombre: p.nombreSubProyecto || '',
+            anio: Number(p.anio),
+            mes: Number(p.mes),
+            minOperacional: operacional,
+            minEspecificas: especificas
+          });
+        }));
+        this.registrosConsolidadoHH = registros;
+      })
+      .catch((error: any) => {
+        console.error('Error al cargar el consolidado SSO (HH):', error);
+        this.registrosConsolidadoHH = [];
+        this.errorConsolidadoHH = true;
+      });
+  }
+
+  reintentarConsolidadoHH() {
+    Promise.all([this.cargarConsolidadoHH(), this.cargarAsistenciaSSO()]).then(() => this.prepararConsolidadoHH());
+  }
+
+  /**
+   * Control de Asistencia de todas las obras (colección 'asistenciaHH'): por cada persona y mes,
+   * días trabajados, horas extra y HH (días × 8,5 + H.E.), igual que el Consolidado de CORE.
+   */
+  private cargarAsistenciaSSO(): Promise<void> {
+    this.errorAsistenciaSSO = false;
+
+    return firestoreDB.collection(COLECCION_ASISTENCIA).get()
+      .then((snapshot: any) => {
+        const registros: RegistroAsistenciaSSO[] = [];
+        const nombres: { [id: string]: string } = {};
+        const porClave: { [clave: string]: number } = {};
+        let siguiente = 0;
+
+        snapshot.forEach((doc: any) => {
+          const d = doc.data() || {};
+          const anio = Number(d.anio);
+          const mes = Number(d.mes);
+          if (!anio || !mes || mes < 1 || mes > 12 || d.idSubProyecto === undefined || d.idSubProyecto === null) { return; }
+          const id = String(d.idSubProyecto);
+          if (d.nombreSubProyecto) { nombres[id] = d.nombreSubProyecto; }
+          const mapa = d.trabajadores || {};
+
+          Object.keys(mapa).forEach(k => {
+            const t = mapa[k];
+            if (!t || t.eliminado) { return; }
+            let dias = 0;
+            let extra = 0;
+            const diasMapa = t.dias || {};
+            Object.keys(diasMapa).forEach(dia => {
+              const v = diasMapa[dia] || {};
+              dias += Number(v.jornada) || 0;
+              extra += Number(v.extra) || 0;
+            });
+            const hh = this.redondearSSO(dias * HORAS_JORNADA + extra);
+            if (!hh) { return; }   // inscrito pero sin días trabajados
+
+            // misma persona aunque esté en varios subproyectos
+            let claves: string[] = [];
+            try { claves = clavesTrabajador(t) || []; } catch (e) { claves = []; }
+            if (!claves.length) { claves = ['fila:' + doc.id + ':' + k]; }
+            let persona: number = null;
+            claves.forEach(c => { if (persona === null && porClave[c] !== undefined) { persona = porClave[c]; } });
+            if (persona === null) { persona = siguiente++; }
+            claves.forEach(c => porClave[c] = persona);
+
+            registros.push({
+              idSubProyecto: id, nombre: '', anio: anio, mes: mes, persona: persona,
+              dias: this.redondearSSO(dias), extra: this.redondearSSO(extra), hh: hh
+            });
+          });
+        });
+
+        this.registrosAsistenciaSSO = registros;
+        this.nombresAsistenciaSSO = nombres;
+      })
+      .catch((error: any) => {
+        console.error('Error al cargar la asistencia para el consolidado SSO:', error);
+        this.registrosAsistenciaSSO = [];
+        this.errorAsistenciaSSO = true;
+      });
+  }
+
+  private prepararConsolidadoHH() {
+    // Nombres: de la asistencia, del programa o de la tabla de MA
+    const nombres: { [id: string]: string } = {};
+    this.registrosConsolidadoMA.forEach(registro => {
+      if (registro.nombre && registro.nombre.indexOf('Subproyecto ') !== 0) { nombres[registro.idSubProyecto] = registro.nombre; }
+    });
+    this.registrosConsolidadoHH.forEach(registro => {
+      if (registro.nombre && registro.nombre.indexOf('Subproyecto ') !== 0) { nombres[registro.idSubProyecto] = registro.nombre; }
+    });
+    Object.keys(this.nombresAsistenciaSSO).forEach(id => nombres[id] = this.nombresAsistenciaSSO[id]);
+    const nombreDe = (id: string) => nombres[id] || ('Subproyecto ' + id);
+    this.registrosConsolidadoHH.forEach(registro => registro.nombre = nombreDe(registro.idSubProyecto));
+    this.registrosAsistenciaSSO.forEach(registro => registro.nombre = nombreDe(registro.idSubProyecto));
+
+    const anios: { [anio: number]: boolean } = {};
+    const subproyectos: { [id: string]: string } = {};
+    anios[this.anioActualMA] = true;
+    (this.registrosConsolidadoHH as { idSubProyecto: string, nombre: string, anio: number }[])
+      .concat(this.registrosAsistenciaSSO)
+      .forEach(registro => {
+        anios[registro.anio] = true;
+        subproyectos[registro.idSubProyecto] = registro.nombre;
+      });
+
+    this.consolidadoHHAnios = Object.keys(anios).map(Number).sort((a, b) => b - a);
+    this.consolidadoHHSubproyectos = Object.keys(subproyectos)
+      .map(id => ({ id: id, nombre: subproyectos[id] }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    if (this.consolidadoHHSubproyecto !== 'todos' && !subproyectos[this.consolidadoHHSubproyecto]) {
+      this.consolidadoHHSubproyecto = 'todos';
+    }
+    this.recalcularConsolidadoHH();
+  }
+
+  recalcularConsolidadoHH() {
+    const anio = Number(this.consolidadoHHAnio);
+    const subproyecto = this.consolidadoHHSubproyecto;
+    const filtro = (registro: { anio: number, idSubProyecto: string }) =>
+      registro.anio === anio && (subproyecto === 'todos' || registro.idSubProyecto === subproyecto);
+    const asistencia = this.registrosAsistenciaSSO.filter(filtro);
+    const programas = this.registrosConsolidadoHH.filter(filtro);
+
+    // ---- helpers ----
+    const sumarAsis = (lista: RegistroAsistenciaSSO[], campo: string, mes?: number): number | null => {
+      let total = 0;
+      let hay = false;
+      lista.forEach(r => {
+        if (mes && r.mes !== mes) { return; }
+        const valor = campo === 'jornada' ? r.dias * HORAS_JORNADA : (r as any)[campo];
+        total += Number(valor) || 0;
+        hay = true;
+      });
+      return hay ? this.redondearSSO(total) : null;
+    };
+    const contarPersonas = (lista: RegistroAsistenciaSSO[], mes?: number): number => {
+      const personas: { [p: number]: boolean } = {};
+      lista.forEach(r => { if (!mes || r.mes === mes) { personas[r.persona] = true; } });
+      return Object.keys(personas).length;
+    };
+    const sumarCap = (lista: RegistroConsolidadoHH[], campo: string, mes?: number): number | null => {
+      let total = 0;
+      let hay = false;
+      lista.forEach(r => {
+        if (mes && r.mes !== mes) { return; }
+        const valor = campo === 'total' ? r.minOperacional + r.minEspecificas : (r as any)[campo];
+        if (valor) { total += valor; hay = true; }
+      });
+      return hay ? total : null;
+    };
+    const numero = (v: number | null) => this.formatearMA(v);
+    const personas = (n: number) => n ? String(n) : '-';
+
+    // ---- tabla mensual ----
+    const filaAsis = (etiqueta: string, ayuda: string, campo: string, destacada: boolean): FilaConsolidadoSSO => ({
+      etiqueta: etiqueta, ayuda: ayuda, destacada: destacada, grupo: 'asistencia',
+      meses: this.mesesMA.map(mes => numero(sumarAsis(asistencia, campo, mes.numero))),
+      anual: numero(sumarAsis(asistencia, campo))
+    });
+    const filaCap = (etiqueta: string, ayuda: string, campo: string, destacada: boolean): FilaConsolidadoSSO => ({
+      etiqueta: etiqueta, ayuda: ayuda, destacada: destacada, grupo: 'capacitacion',
+      meses: this.mesesMA.map(mes => this.textoHH(sumarCap(programas, campo, mes.numero))),
+      anual: this.textoHH(sumarCap(programas, campo))
+    });
+
+    this.consolidadoHHFilas = [
+      {
+        etiqueta: 'N° de trabajadores', ayuda: 'Personas distintas con días trabajados (total año: personas distintas del año)',
+        destacada: false, grupo: 'asistencia',
+        meses: this.mesesMA.map(mes => personas(contarPersonas(asistencia, mes.numero))),
+        anual: personas(contarPersonas(asistencia))
+      },
+      filaAsis('Días trabajados', '1 = jornada completa, 0,5 = media jornada', 'dias', false),
+      filaAsis('HH jornada', 'Días × ' + String(HORAS_JORNADA).replace('.', ',') + ' h', 'jornada', false),
+      filaAsis('Horas extra', 'H.E. del Control de Asistencia', 'extra', false),
+      filaAsis('HH trabajadas', 'HH jornada + horas extra', 'hh', true),
+      filaCap('HH Capacitación operacionales', 'Programas SSO y MA', 'minOperacional', false),
+      filaCap('HH Capacitación específicas', 'Programas SSO y MA', 'minEspecificas', false),
+      filaCap('Total HH Capacitación', 'Operacionales + específicas', 'total', true)
+    ];
+
+    // ---- total del año por subproyecto ----
+    const ids: { [id: string]: string } = {};
+    asistencia.forEach(r => ids[r.idSubProyecto] = r.nombre);
+    programas.forEach(r => ids[r.idSubProyecto] = r.nombre);
+    this.consolidadoHHPorSubproyecto = Object.keys(ids).map(id => {
+      const asis = asistencia.filter(r => r.idSubProyecto === id);
+      const prog = programas.filter(r => r.idSubProyecto === id);
+      return {
+        nombre: ids[id],
+        trabajadores: contarPersonas(asis),
+        dias: numero(sumarAsis(asis, 'dias')),
+        extra: numero(sumarAsis(asis, 'extra')),
+        hh: numero(sumarAsis(asis, 'hh')),
+        capacitacion: this.textoHH(sumarCap(prog, 'total'))
+      };
+    }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    this.consolidadoHHTotales = {
+      trabajadores: contarPersonas(asistencia),
+      dias: numero(sumarAsis(asistencia, 'dias')),
+      extra: numero(sumarAsis(asistencia, 'extra')),
+      hh: numero(sumarAsis(asistencia, 'hh')),
+      capacitacion: this.textoHH(sumarCap(programas, 'total'))
+    };
+    this.consolidadoHHResumen = {
+      subproyectos: this.consolidadoHHPorSubproyecto.length,
+      trabajadores: this.consolidadoHHTotales.trabajadores,
+      hh: this.consolidadoHHTotales.hh,
+      extra: this.consolidadoHHTotales.extra,
+      capacitacion: this.consolidadoHHTotales.capacitacion
+    };
+  }
+
+  private redondearSSO(valor: number): number {
+    return Math.round((Number(valor) || 0) * 100) / 100;
+  }
+
+  /** Minutos a "12 h 30 min" (o "-" si no hay datos). */
+  private textoHH(minutos: number | null): string {
+    return minutos === null || minutos === undefined ? '-' : formatoHM(minutos);
+  }
+
+  esMesActualConsolidadoHH(mes: number): boolean {
+    return Number(this.consolidadoHHAnio) === this.anioActualMA && mes === this.mesActualMA;
   }
 
   private prepararConsolidadoMA() {

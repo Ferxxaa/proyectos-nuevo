@@ -97,6 +97,9 @@
         <h6><i class="fa" [ngClass]="r.tipo === 'MA' ? 'fa-leaf' : 'fa-shield'" aria-hidden="true"></i> Cumplimiento por ítem · {{ r.tipo }}</h6>
         <p class="pcon-vacio" *ngIf="!r.existe">Sin programa {{ r.tipo }} en {{ meses[mesSel - 1] }}.</p>
         <table class="pcon-tabla" *ngIf="r.existe">
+          <colgroup>
+            <col><col class="pcon-c-num"><col class="pcon-c-num"><col class="pcon-col-pct">
+          </colgroup>
           <thead>
             <tr><th>Ítem</th><th>Prog.</th><th>Real.</th><th class="pcon-col-pct">Cumplimiento</th></tr>
           </thead>
@@ -126,38 +129,30 @@
               </tr>
             </ng-container>
           </tbody>
-          <tfoot>
+        </table>
+
+        <!-- Consumos del programa (solo MA: agua, combustible, residuos) -->
+        <div class="pcon-extras" *ngIf="r.existe && r.consumos.length">
+          <div class="pcon-extra pcon-consumo" *ngFor="let c of r.consumos">
+            <span>{{ c.etiqueta }}</span>
+            <strong>{{ c.valor | number:'1.0-2' }} <small>{{ c.unidad }}</small></strong>
+          </div>
+        </div>
+
+        <!-- Total: siempre pegado abajo, así queda a la misma altura en SSO y MA -->
+        <table class="pcon-tabla pcon-tabla-total" *ngIf="r.existe">
+          <colgroup>
+            <col><col class="pcon-c-num"><col class="pcon-c-num"><col class="pcon-col-pct">
+          </colgroup>
+          <tbody>
             <tr>
               <td>Total {{ r.tipo }}</td>
               <td>{{ r.totalProg }}</td>
               <td>{{ r.totalCtrl | number:'1.0-2' }}</td>
               <td class="pcon-col-pct">{{ r.pct === null ? '-' : r.pct + '%' }}</td>
             </tr>
-          </tfoot>
+          </tbody>
         </table>
-
-        <!-- HH y consumos del programa -->
-        <div class="pcon-extras" *ngIf="r.existe">
-          <div class="pcon-extra hhc-mini hhc-OPERACIONAL">
-            <span>HH Operacionales</span>
-            <strong>{{ formatoHM(r.hh.minOperacional) }}</strong>
-            <small>{{ r.hh.minOperacional | number:'1.0-0' }} min</small>
-          </div>
-          <div class="pcon-extra hhc-mini hhc-ESPECIFICA">
-            <span>HH Específicas</span>
-            <strong>{{ formatoHM(r.hh.minEspecificas) }}</strong>
-            <small>{{ r.hh.minEspecificas | number:'1.0-0' }} min</small>
-          </div>
-          <div class="pcon-extra hhc-mini hhc-total-mini">
-            <span>Total HH Capacitación</span>
-            <strong>{{ formatoHM(r.hh.minTotal) }}</strong>
-            <small>{{ r.hh.minTotal | number:'1.0-0' }} min</small>
-          </div>
-          <div class="pcon-extra pcon-consumo" *ngFor="let c of r.consumos">
-            <span>{{ c.etiqueta }}</span>
-            <strong>{{ c.valor | number:'1.0-2' }} <small>{{ c.unidad }}</small></strong>
-          </div>
-        </div>
       </section>
     </div>
   </ng-container>
