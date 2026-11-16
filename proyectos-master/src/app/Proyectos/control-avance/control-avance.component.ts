@@ -75,6 +75,30 @@ interface ControlAvanceItem {
   // Ids de las actividades predecesoras (dependencia termina → inicia, igual que ClickUp):
   // esta actividad no debería empezar hasta que terminen todas las de esta lista.
   dependencias?: string[];
+  // Bloqueo por tiempo: pasadas 24 h desde su creación, se necesita permiso para editar la fila
+  solicitudEdicion?: SolicitudEdicion;
+  autorizacionEdicion?: AutorizacionEdicion;
+}
+
+/** Pedido de permiso para editar una fila que ya pasó sus 24 horas. */
+interface SolicitudEdicion {
+  idUsuario: number;
+  nombre: string;
+  fecha: string;                 // ISO
+  motivo: string;
+  estado: string;                // 'pendiente' | 'aprobada' | 'rechazada'
+  resueltoPor?: string;
+  fechaResolucion?: string;
+  motivoRechazo?: string;
+}
+
+/** Permiso aprobado por Sub-gerente o Director: ese usuario puede editar la fila hasta "hasta". */
+interface AutorizacionEdicion {
+  idUsuario: number;
+  nombre: string;
+  hasta: string;                 // ISO
+  aprobadoPor: string;
+  fecha: string;                 // ISO
 }
 
 interface FilaTabla {
@@ -173,6 +197,12 @@ const DOC_RECUPERACION_CLAVE_AVANCE = '_recuperacionClaveEdicion';
 const EMAILJS_SERVICE_ID = 'service_s0l9tnp';
 const EMAILJS_TEMPLATE_ID = 'template_ud73y7s';
 const EMAILJS_PUBLIC_KEY = 'eU69rwXxt1sceIIXr';
+/**
+ * Plantilla de EmailJS para avisar al Sub-gerente / Director que alguien pide permiso para editar.
+ * Crear en EmailJS (Email Templates > Create New) y pegar aquí su Template ID.
+ * Variables que usa: {{to_email}}, {{nombre}}, {{solicitante}}, {{fila}}, {{proyecto}}, {{motivo}}, {{enlace}}
+ */
+const EMAILJS_TEMPLATE_SOLICITUD_EDICION = 'TU_TEMPLATE_SOLICITUD';
 const MINUTOS_VIGENCIA_CODIGO = 15;
 const MAX_INTENTOS_CODIGO = 5;
 const SEGUNDOS_ENTRE_ENVIOS = 60;
@@ -226,6 +256,13 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   esSubGerente: boolean = false;
   private idsPerfilesUsuario: number[] = [];
   private idsPerfilesSubGerente: number[] = [];
+  /** Perfil cuyo nombre empieza con "DIRECTOR" (Director de Proyecto, etc.): junto al Sub-gerente aprueba permisos de edición. */
+  esDirectorPerfil: boolean = false;
+  private idsPerfilesDirector: number[] = [];
+  /** Horas desde que se crea una fila en que se puede editar libremente. Después hay que pedir permiso. */
+  readonly HORAS_EDICION_LIBRE: number = 24;
+  /** Horas que dura el permiso aprobado. */
+  readonly HORAS_PERMISO_EDICION: number = 24;
 
   avanceTotalProgramado: number = 0;
   avanceTotalReal: number = 0;
@@ -428,8 +465,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   get puedeEditarAvance(): boolean {
-    return !this.soloLectura && this.esDirectorProyectoMatriz;
+    // Director del proyecto matriz, o alguien a quien el Sub-gerente / Director le aprobó editar una fila
+    return !this.soloLectura && (this.esDirectorProyectoMatriz || this.tienePermisoAprobado);
   }
+
+  /** true si el usuario tiene al menos un permiso de edición aprobado y vigente en este control. */
+  tienePermisoAprobado: boolean = false;
 
   get modoSoloLectura(): boolean {
     return !this.puedeEditarAvance;
@@ -669,7 +710,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /** Envía un correo con la API REST de EmailJS (sin instalar paquetes). */
-  private enviarCorreoEmailJS(params: { [clave: string]: string }): Promise<void> {
+  private enviarCorreoEmailJS(params: { [clave: string]: string }, templateId: string = EMAILJS_TEMPLATE_ID): Promise<void> {
     if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY.indexOf('TU_') === 0) {
       return Promise.reject(new Error('Falta configurar la Public Key de EmailJS.'));
     }
@@ -688,7 +729,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       xhr.onerror = () => reject(new Error('No se pudo conectar con el servicio de correo.'));
       xhr.send(JSON.stringify({
         service_id: EMAILJS_SERVICE_ID,
-        template_id: EMAILJS_TEMPLATE_ID,
+        template_id: templateId,
         user_id: EMAILJS_PUBLIC_KEY,
         template_params: params
       }));
@@ -783,8 +824,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   /** Obtiene el correo registrado (módulo Usuarios / sMail) de la persona del usuario conectado. */
   private obtenerCorreoUsuarioActual(): Promise<string> {
     const u = this.usuario || {};
-    const correoDirecto = u.direccionMail || u.email || u.correo || '';
-    const idPersona = Number(u.idPersona);
+    return this.obtenerCorreoPersona(Number(u.idPersona), u.direccionMail || u.email || u.correo || '');
+  }
+
+  /** Correo vigente de una persona (tabla de correos); si no hay, el correo directo que se le pase. */
+  private obtenerCorreoPersona(idPersona: number, correoDirecto: string): Promise<string> {
     if (!idPersona) {
       return Promise.resolve(correoDirecto);
     }
@@ -1194,10 +1238,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         this.idsPerfilesSubGerente = lista
           .filter((perfil: any) => this.esNombrePerfilSubGerente(perfil.nombrePerfil))
           .map((perfil: any) => Number(perfil.idPerfil));
+        this.idsPerfilesDirector = lista
+          .filter((perfil: any) => this.normalizarTextoClave(perfil.nombrePerfil).replace(/[^A-Z]/g, '').indexOf('DIRECTOR') === 0)
+          .map((perfil: any) => Number(perfil.idPerfil));
         this.actualizarEsSubGerente();
       },
       () => {
         this.idsPerfilesSubGerente = [];
+        this.idsPerfilesDirector = [];
         this.actualizarEsSubGerente();
       }
     );
@@ -1211,6 +1259,312 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   private actualizarEsSubGerente() {
     this.esSubGerente = this.idsPerfilesUsuario.some((id: number) => this.idsPerfilesSubGerente.indexOf(id) >= 0);
+    this.esDirectorPerfil = this.idsPerfilesUsuario.some((id: number) => this.idsPerfilesDirector.indexOf(id) >= 0);
+    if (this.idsPerfilesUsuario.length && (this.idsPerfilesSubGerente.length || this.idsPerfilesDirector.length)) {
+      console.info('Control de Avance · permisos de edición:', {
+        perfilesUsuario: this.idsPerfilesUsuario,
+        perfilesSubGerente: this.idsPerfilesSubGerente,
+        perfilesDirector: this.idsPerfilesDirector,
+        esSubGerente: this.esSubGerente,
+        esDirector: this.esDirectorPerfil,
+        esGerencia: this.esUsuarioGerencia()
+      });
+    }
+  }
+
+  // ==========================================================
+  // Bloqueo por tiempo: 24 h para editar; después se pide permiso al Sub-gerente o Director
+  // ==========================================================
+
+  /** Sub-gerente o Director: editan sin plazo y aprueban los permisos. */
+  get esAprobadorEdicion(): boolean {
+    return this.esSubGerente || this.esDirectorPerfil || this.esUsuarioGerencia();
+  }
+
+  /** Solicitudes pendientes de este control (lista ya armada para el panel del Sub-gerente / Director). */
+  solicitudesPendientes: ControlAvanceItem[] = [];
+
+  private actualizarSolicitudesPendientes() {
+    this.solicitudesPendientes = (this.ControlesAvance || [])
+      .filter(it => it.activo !== false && this.solicitudPendiente(it))
+      .sort((a, b) => (a.solicitudEdicion.fecha || '').localeCompare(b.solicitudEdicion.fecha || ''));
+    // (el Gantt se recalcula después, en el mismo flujo de carga)
+    this.tienePermisoAprobado = (this.ControlesAvance || []).some(it => it.activo !== false && this.tieneAutorizacionVigente(it));
+  }
+
+  fechaSolicitud(item: ControlAvanceItem): string {
+    return item && item.solicitudEdicion ? this.fechaHoraCorta(item.solicitudEdicion.fecha) : '';
+  }
+
+  /** Permiso aprobado para el usuario actual y todavía vigente. */
+  tieneAutorizacionVigente(item: ControlAvanceItem): boolean {
+    const a = item && item.autorizacionEdicion;
+    if (!a) { return false; }
+    const hasta = Date.parse(a.hasta || '');
+    return Number(a.idUsuario) === Number(this.usuario && this.usuario.idUsuario) && !isNaN(hasta) && hasta > Date.now();
+  }
+
+  /** true = ya pasaron las 24 h desde que se creó la fila y el usuario no tiene permiso. */
+  estaBloqueadoPorTiempo(item: ControlAvanceItem): boolean {
+    if (!item || !item.id) { return false; }          // fila nueva, aún sin guardar
+    if (this.esAprobadorEdicion) { return false; }
+    if (this.tieneAutorizacionVigente(item)) { return false; }
+    const creada = Date.parse(item.fechaCreacion || '');
+    if (isNaN(creada)) { return true; }                // filas antiguas sin fecha: ya pasaron las 24 h
+    return Date.now() - creada > this.HORAS_EDICION_LIBRE * 3600000;
+  }
+
+  solicitudPendiente(item: ControlAvanceItem): boolean {
+    return !!(item && item.solicitudEdicion && item.solicitudEdicion.estado === 'pendiente');
+  }
+
+  miSolicitudPendiente(item: ControlAvanceItem): boolean {
+    return this.solicitudPendiente(item) &&
+      Number(item.solicitudEdicion.idUsuario) === Number(this.usuario && this.usuario.idUsuario);
+  }
+
+  /** Cantidad de solicitudes por aprobar (solo se muestra al Sub-gerente / Director). */
+  get totalSolicitudesEdicion(): number {
+    return this.solicitudesPendientes.length;
+  }
+
+  /** Texto del botón Editar: cuánto tiempo queda o por qué está bloqueado. */
+  tituloBotonEditar(item: ControlAvanceItem): string {
+    if (this.estaBloqueadoPorTiempo(item)) {
+      return this.miSolicitudPendiente(item)
+        ? 'Ya pediste permiso para editar: falta que lo apruebe el Sub-gerente o el Director'
+        : 'Pasaron ' + this.HORAS_EDICION_LIBRE + ' h desde que se creó: pide permiso al Sub-gerente o Director para editar';
+    }
+    if (this.esAprobadorEdicion) { return 'Editar esta fila'; }
+    if (this.tieneAutorizacionVigente(item)) {
+      return 'Permiso aprobado hasta ' + this.fechaHoraCorta(item.autorizacionEdicion.hasta);
+    }
+    const creada = Date.parse(item && item.fechaCreacion || '');
+    if (!isNaN(creada)) {
+      const restan = Math.max(0, Math.ceil((creada + this.HORAS_EDICION_LIBRE * 3600000 - Date.now()) / 3600000));
+      return 'Editar esta fila (quedan ' + restan + ' h para editar sin permiso)';
+    }
+    return 'Editar esta fila';
+  }
+
+  tituloSolicitud(item: ControlAvanceItem): string {
+    const s = item && item.solicitudEdicion;
+    if (!s) { return ''; }
+    return s.nombre + ' pide editar (' + this.fechaHoraCorta(s.fecha) + '): ' + (s.motivo || 'sin motivo');
+  }
+
+  private fechaHoraCorta(iso: string): string {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) { return ''; }
+    const dos = (n: number) => ('0' + n).slice(-2);
+    return dos(d.getDate()) + '/' + dos(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + dos(d.getHours()) + ':' + dos(d.getMinutes());
+  }
+
+  /** Aviso cuando se intenta editar algo bloqueado (desde la tabla, la Carta Gantt o los archivos). */
+  private avisarBloqueoTiempo(item: ControlAvanceItem) {
+    if (this.miSolicitudPendiente(item)) {
+      Swal.fire('Solicitud pendiente', 'Ya pediste permiso para editar esta fila. Falta que lo apruebe el Sub-gerente o el Director.', 'info');
+      return;
+    }
+    this.pedirPermisoEdicion(item);
+  }
+
+  /** El usuario explica qué necesita corregir y queda la solicitud en la fila. */
+  pedirPermisoEdicion(item: ControlAvanceItem) {
+    if (!item || !item.id) { return; }
+    const s = item.solicitudEdicion;
+    const rechazo = s && s.estado === 'rechazada' && Number(s.idUsuario) === Number(this.usuario && this.usuario.idUsuario)
+      ? '<p style="font-size:13px;color:#a33a3a;margin:0 0 8px">Tu solicitud anterior fue rechazada por ' + (s.resueltoPor || '—') +
+        (s.motivoRechazo ? ': ' + this.escaparHtml(s.motivoRechazo) : '') + '</p>'
+      : '';
+
+    Swal.fire({
+      title: 'Pedir permiso para editar',
+      html:
+        '<p style="font-size:14px">Ya pasaron ' + this.HORAS_EDICION_LIBRE + ' horas desde que se creó <b>' +
+        this.escaparHtml((item.codigo || '') + ' ' + (item.descripcion || '')) + '</b>.<br>' +
+        'El Sub-gerente o el Director tiene que aprobarlo.</p>' + rechazo,
+      input: 'textarea',
+      inputPlaceholder: '¿Qué necesitas corregir y por qué?',
+      showCancelButton: true,
+      confirmButtonText: 'Enviar solicitud',
+      cancelButtonText: 'Cancelar',
+      preConfirm: (texto: string) => {
+        if (!(texto || '').trim()) {
+          Swal.showValidationMessage('Escribe qué necesitas corregir');
+          return false;
+        }
+        return (texto || '').trim();
+      }
+    }).then((resultado: any) => {
+      if (!resultado || !resultado.value) { return; }
+      const solicitud: SolicitudEdicion = {
+        idUsuario: Number(this.usuario && this.usuario.idUsuario) || 0,
+        nombre: this.getNombreUsuarioActual() || 'Usuario',
+        fecha: new Date().toISOString(),
+        motivo: String(resultado.value),
+        estado: 'pendiente'
+      };
+      firestoreDB.collection('controlAvance').doc(item.id).update({ solicitudEdicion: solicitud })
+        .then(() => {
+          item.solicitudEdicion = solicitud;
+          this.actualizarSolicitudesPendientes();
+          Swal.fire({
+            title: 'Solicitud enviada',
+            html: '<p style="font-size:14px">Avisando por correo al Sub-gerente y a los Directores...</p>',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            onOpen: () => { try { Swal.showLoading(); } catch (e) { } },
+            didOpen: () => { try { Swal.showLoading(); } catch (e) { } }
+          });
+          return this.avisarAprobadores(item, solicitud).then(enviados => {
+            Swal.fire({
+              icon: enviados.length ? 'success' : 'warning',
+              title: 'Solicitud enviada',
+              html: enviados.length
+                ? '<p style="font-size:14px">Se avisó por correo a:<br><b>' + enviados.map(n => this.escaparHtml(n)).join('<br>') + '</b></p>' +
+                  '<p style="font-size:12px;color:#888">Cuando lo aprueben, el botón vuelve a decir "Editar".</p>'
+                : '<p style="font-size:14px">La solicitud quedó guardada en la fila, pero <b>no se pudo enviar el correo</b>. ' +
+                  'Avísale directamente al Sub-gerente o al Director.</p>'
+            });
+          });
+        })
+        .catch((error: any) => Swal.fire('Error', 'No se pudo enviar la solicitud: ' + this.getMensajeError(error), 'error'));
+    });
+  }
+
+  /** Sub-gerentes y Directores activos con correo (se arma una vez por sesión). */
+  private aprobadoresCache: Promise<{ idUsuario: number; nombre: string; correo: string }[]> = null;
+
+  private obtenerAprobadores(): Promise<{ idUsuario: number; nombre: string; correo: string }[]> {
+    if (this.aprobadoresCache) { return this.aprobadoresCache; }
+
+    const idsPerfilesListos = this.idsPerfilesSubGerente.length || this.idsPerfilesDirector.length
+      ? Promise.resolve(null)
+      : this.aPromesa(this._sPerfil.getPerfil()).then((perfiles: any) => {
+          const lista = Array.isArray(perfiles) ? perfiles : [];
+          this.idsPerfilesSubGerente = lista.filter((p: any) => this.esNombrePerfilSubGerente(p.nombrePerfil)).map((p: any) => Number(p.idPerfil));
+          this.idsPerfilesDirector = lista
+            .filter((p: any) => this.normalizarTextoClave(p.nombrePerfil).replace(/[^A-Z]/g, '').indexOf('DIRECTOR') === 0)
+            .map((p: any) => Number(p.idPerfil));
+        });
+
+    this.aprobadoresCache = idsPerfilesListos
+      .then(() => Promise.all([
+        this.aPromesa(this._sUsuario.getUsuariobyactivo(true)),
+        this.aPromesa(this._sVisUsuarioPersona.getVis_UsuarioPersona()).catch(() => [])
+      ]))
+      .then((res: any[]) => {
+        const usuarios: any[] = Array.isArray(res[0]) ? res[0] : [];
+        const personas: any[] = Array.isArray(res[1]) ? res[1] : [];
+        const idsAprobadores = this.idsPerfilesSubGerente.concat(this.idsPerfilesDirector);
+        const yo = Number(this.usuario && this.usuario.idUsuario);
+
+        return Promise.all(usuarios
+          .filter((u: any) => u && Number(u.idUsuario) && Number(u.idUsuario) !== yo)
+          .map((u: any) => this.aPromesa(this._sUsuariosPerfiles.getUsuariosPerfilesbyidUsuario(Number(u.idUsuario)))
+            .then((perfiles: any) => {
+              const lista = Array.isArray(perfiles) ? perfiles : [];
+              const esAprobador = lista.some((p: any) => p.activo !== false && !p.fechaRemocion && idsAprobadores.indexOf(Number(p.idPerfil)) >= 0);
+              if (!esAprobador) { return null; }
+              const persona = personas.filter((up: any) => Number(up.idUsuario) === Number(u.idUsuario))[0] || {};
+              const nombre = ((persona.nombre || '') + ' ' + (persona.paterno || '')).trim() || u.nombreUsuario || ('Usuario ' + u.idUsuario);
+              const directo = u.direccionMail || u.email || u.correo || persona.direccionMail || persona.email || '';
+              return this.obtenerCorreoPersona(Number(persona.idPersona || u.idPersona), directo)
+                .then(correo => correo ? { idUsuario: Number(u.idUsuario), nombre: nombre, correo: correo } : null);
+            })
+            .catch(() => null)));
+      })
+      .then((lista: any[]) => lista.filter(x => !!x))
+      .catch((error: any) => {
+        console.error('No se pudo armar la lista de Sub-gerentes / Directores:', error);
+        this.aprobadoresCache = null;
+        return [];
+      });
+    return this.aprobadoresCache;
+  }
+
+  /** Manda el correo de la solicitud a cada Sub-gerente / Director. Devuelve a quiénes les llegó. */
+  private avisarAprobadores(item: ControlAvanceItem, solicitud: SolicitudEdicion): Promise<string[]> {
+    if (!EMAILJS_TEMPLATE_SOLICITUD_EDICION || EMAILJS_TEMPLATE_SOLICITUD_EDICION.indexOf('TU_') === 0) {
+      console.warn('Falta pegar el Template ID de EmailJS en EMAILJS_TEMPLATE_SOLICITUD_EDICION (control-avance.component.ts).');
+      return Promise.resolve([]);
+    }
+    const fila = ((item.codigo || '') + ' ' + (item.descripcion || '')).trim();
+    const proyecto = this.nombreProyectoVisible || ('Subproyecto ' + this.idSubProyecto);
+    return this.obtenerAprobadores().then(aprobadores =>
+      Promise.all(aprobadores.map(a => this.enviarCorreoEmailJS({
+        to_email: a.correo,
+        nombre: a.nombre,
+        solicitante: solicitud.nombre,
+        fila: fila,
+        proyecto: proyecto,
+        motivo: solicitud.motivo,
+        enlace: window.location.href
+      }, EMAILJS_TEMPLATE_SOLICITUD_EDICION).then(() => a.nombre).catch((error: any) => {
+        console.error('No se pudo avisar a ' + a.correo, error);
+        return '';
+      })))
+    ).then(nombres => nombres.filter(n => !!n));
+  }
+
+  aprobarSolicitudEdicion(item: ControlAvanceItem) {
+    if (!this.esAprobadorEdicion || !item || !item.id || !this.solicitudPendiente(item)) { return; }
+    const s = item.solicitudEdicion;
+    Swal.fire({
+      title: 'Aprobar edición',
+      html: '<p style="font-size:14px"><b>' + this.escaparHtml(s.nombre) + '</b> quiere editar <b>' +
+        this.escaparHtml((item.codigo || '') + ' ' + (item.descripcion || '')) + '</b>.</p>' +
+        '<p style="font-size:13px;color:#555">Motivo: ' + this.escaparHtml(s.motivo || '—') + '</p>' +
+        '<p style="font-size:12px;color:#888">Podrá editar esta fila durante ' + this.HORAS_PERMISO_EDICION + ' horas.</p>',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Aprobar',
+      cancelButtonText: 'Cancelar'
+    }).then((r: any) => {
+      if (!r || !(r.value || r.isConfirmed)) { return; }
+      const ahora = new Date();
+      const autorizacion: AutorizacionEdicion = {
+        idUsuario: Number(s.idUsuario),
+        nombre: s.nombre,
+        hasta: new Date(ahora.getTime() + this.HORAS_PERMISO_EDICION * 3600000).toISOString(),
+        aprobadoPor: this.getNombreUsuarioActual() || 'Usuario',
+        fecha: ahora.toISOString()
+      };
+      const solicitud: SolicitudEdicion = Object.assign({}, s, {
+        estado: 'aprobada', resueltoPor: autorizacion.aprobadoPor, fechaResolucion: ahora.toISOString()
+      });
+      firestoreDB.collection('controlAvance').doc(item.id).update({ autorizacionEdicion: autorizacion, solicitudEdicion: solicitud })
+        .then(() => {
+          item.autorizacionEdicion = autorizacion;
+          item.solicitudEdicion = solicitud;
+          this.actualizarSolicitudesPendientes();
+          Swal.fire({ icon: 'success', title: 'Aprobado', text: s.nombre + ' ya puede editar la fila.', timer: 1800, showConfirmButton: false });
+        })
+        .catch((error: any) => Swal.fire('Error', 'No se pudo aprobar: ' + this.getMensajeError(error), 'error'));
+    });
+  }
+
+  rechazarSolicitudEdicion(item: ControlAvanceItem) {
+    if (!this.esAprobadorEdicion || !item || !item.id || !this.solicitudPendiente(item)) { return; }
+    const s = item.solicitudEdicion;
+    Swal.fire({
+      title: 'Rechazar solicitud',
+      text: 'Motivo del rechazo para ' + s.nombre + ' (opcional):',
+      input: 'text',
+      showCancelButton: true,
+      confirmButtonText: 'Rechazar',
+      cancelButtonText: 'Cancelar'
+    }).then((r: any) => {
+      if (!r || r.dismiss || r.value === undefined) { return; }
+      const solicitud: SolicitudEdicion = Object.assign({}, s, {
+        estado: 'rechazada', resueltoPor: this.getNombreUsuarioActual() || 'Usuario',
+        fechaResolucion: new Date().toISOString(), motivoRechazo: String(r.value || '').trim()
+      });
+      firestoreDB.collection('controlAvance').doc(item.id).update({ solicitudEdicion: solicitud })
+        .then(() => { item.solicitudEdicion = solicitud; this.actualizarSolicitudesPendientes(); })
+        .catch((error: any) => Swal.fire('Error', 'No se pudo rechazar: ' + this.getMensajeError(error), 'error'));
+    });
   }
 
   private normalizarTextoClave(texto: string): string {
@@ -1351,6 +1705,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
               }
             });
             this.ControlesAvance = items;
+            this.actualizarSolicitudesPendientes();
             this.migrarDatosAntiguos();
             this.asegurarBitacora();
             this.ControlesAvance.forEach(item => this.normalizarValidadoresEstado(item));
@@ -1666,6 +2021,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    */
   toggleFranjaCompleta(item: ControlAvanceItem, index: number) {
     if (!this.puedeEditarAvance) { return; }
+    if (this.estaBloqueadoPorTiempo(item)) { this.avisarBloqueoTiempo(item); return; }
     item.mostrarFranjaCompleta = !item.mostrarFranjaCompleta;
     this.OnCambio(item, index);
   }
@@ -2629,6 +2985,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   onArchivosFilaSeleccionados(event: any, item: ControlAvanceItem, index: number) {
     if (!this.puedeEditarAvance) { return; }
+    if (this.estaBloqueadoPorTiempo(item)) {
+      if (event && event.target) { event.target.value = ''; }
+      this.avisarBloqueoTiempo(item);
+      return;
+    }
     const files: FileList = event.target.files;
     if (!files || files.length === 0 || !item.id) {
       return;
@@ -2660,6 +3021,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   eliminarArchivoAdjunto(item: ControlAvanceItem, archivo: ArchivoAdjunto, index: number) {
     if (!this.puedeEditarAvance || !item.id) { return; }
+    if (this.estaBloqueadoPorTiempo(item)) { this.avisarBloqueoTiempo(item); return; }
 
     Swal.fire({
       title: 'Eliminar archivo',
@@ -3215,6 +3577,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   activarEdicion(item: ControlAvanceItem, index: number) {
+    if (this.soloLectura) { return; }
+    // Fila con más de 24 h: cualquiera del proyecto puede pedir permiso, aunque hoy no pueda editar
+    if (this.estaBloqueadoPorTiempo(item)) {
+      this.avisarBloqueoTiempo(item);
+      return;
+    }
     if (!this.puedeEditarAvance) { return; }
     this.filaEnEdicion = index;
     this.copiaEdicion = JSON.parse(JSON.stringify(item));
@@ -3777,6 +4145,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
       const editable = this.puedeEditarAvance
         && !!item.id
+        && !this.estaBloqueadoPorTiempo(item)
         && !esFranjaCompleta
         && !(esGrupo && idsConHijos[item.id]);
       const asignable = editable && !item.fechaInicioProgramada && !esHito;
@@ -4154,6 +4523,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   iniciarEdicionNombreGantt(barra: BarraGantt) {
     if (!this.puedeEditarAvance || !barra || !barra.item.id) { return; }
+    if (this.estaBloqueadoPorTiempo(barra.item)) { this.avisarBloqueoTiempo(barra.item); return; }
     this.editandoNombreGanttId = barra.item.id;
     this.nombreGanttOriginal = barra.item.descripcion || '';
     setTimeout(() => {

@@ -21,6 +21,12 @@
         </span>
       </div>
 
+      <!-- Solicitudes de permiso para editar (solo Sub-gerente / Director) -->
+      <span class="solicitudes-edicion-badge" *ngIf="!LoadingTabla && esAprobadorEdicion && totalSolicitudesEdicion > 0"
+            [title]="totalSolicitudesEdicion + ' solicitud(es) para editar filas: búscalas marcadas en naranjo y apruébalas con el check'">
+        <i class="fa fa-unlock-alt"></i> {{totalSolicitudesEdicion}} {{totalSolicitudesEdicion === 1 ? 'solicitud' : 'solicitudes'}} de edición
+      </span>
+
       <!-- Resumen / filtro de bitácora: clic en un número filtra la tabla y el gantt por esa prioridad -->
       <div class="bitacora-resumen" *ngIf="!LoadingTabla && !ocultarFiltros">
         <button type="button" class="bitacora-resumen-item bitacora-resumen-alta"
@@ -78,6 +84,32 @@
       </button>
     </div>
   </header>
+
+  <!-- ===== Panel del Sub-gerente / Director: solicitudes de permiso para editar ===== -->
+  <div class="panel-solicitudes" *ngIf="!LoadingTabla && esAprobadorEdicion && solicitudesPendientes.length > 0">
+    <div class="panel-solicitudes-cab">
+      <i class="fa fa-unlock-alt"></i>
+      <strong>{{solicitudesPendientes.length}} {{solicitudesPendientes.length === 1 ? 'solicitud' : 'solicitudes'}} de permiso para editar</strong>
+      <span>Al aprobar, esa persona puede editar la fila durante {{HORAS_PERMISO_EDICION}} horas.</span>
+    </div>
+    <div class="panel-solicitud" *ngFor="let it of solicitudesPendientes">
+      <div class="panel-solicitud-info">
+        <span class="panel-solicitud-fila"><b>{{it.codigo || 'Sin código'}}</b> {{it.descripcion}}</span>
+        <span class="panel-solicitud-quien">
+          <i class="fa fa-user"></i> {{it.solicitudEdicion.nombre}} · {{fechaSolicitud(it)}}
+        </span>
+        <span class="panel-solicitud-motivo"><i class="fa fa-comment-o"></i> {{it.solicitudEdicion.motivo || 'Sin motivo'}}</span>
+      </div>
+      <div class="panel-solicitud-acciones">
+        <button type="button" class="btn-accion btn-aprobar-permiso" (click)="aprobarSolicitudEdicion(it)">
+          <i class="fa fa-check"></i> Aprobar
+        </button>
+        <button type="button" class="btn-accion btn-rechazar-permiso" (click)="rechazarSolicitudEdicion(it)">
+          <i class="fa fa-ban"></i> Rechazar
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Aviso de filtro activo -->
   <div class="filtro-bitacora-aviso" *ngIf="!ocultarFiltros && filtroBitacora !== 'todas'">
@@ -346,6 +378,7 @@
             [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(fila.item)"
             [class.fila-bitacora-match]="filtroBitacora !== 'todas' && itemCoincideFiltroBitacora(fila.item)"
             [class.fila-drop-target]="filaSobreDrag === fila.item.id"
+            [class.fila-solicitud-edicion]="solicitudPendiente(fila.item)"
             [class.fila-arrastrable]="!modoSoloLectura && filaEnEdicion !== fila.indexOriginal"
             [style.background]="fila.item.esTitulo ? getColorTituloPorNivel(fila.nivel) : null"
             [attr.draggable]="(!modoSoloLectura && filaEnEdicion !== fila.indexOriginal) ? true : null"
@@ -541,7 +574,7 @@
                 </button>
               </div>
             </div>
-            <label class="btn-adjuntar" *ngIf="puedeEditarAvance && fila.item.id" [class.subiendo]="subiendoArchivos[fila.indexOriginal]"
+            <label class="btn-adjuntar" *ngIf="puedeEditarAvance && fila.item.id && !estaBloqueadoPorTiempo(fila.item)" [class.subiendo]="subiendoArchivos[fila.indexOriginal]"
                    [title]="(fila.item.archivos && fila.item.archivos.length > 0) ? 'Agregar otro archivo' : 'Adjuntar archivo'">
               <i class="fa" [ngClass]="subiendoArchivos[fila.indexOriginal] ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
               <span>{{subiendoArchivos[fila.indexOriginal] ? 'Subiendo...' : ((fila.item.archivos && fila.item.archivos.length > 0) ? 'Agregar' : 'Adjuntar')}}</span>
@@ -579,9 +612,24 @@
                 </button>
               </ng-container>
               <ng-template #modoVista>
-                <button class="btn-accion btn-editar" (click)="activarEdicion(fila.item, fila.indexOriginal)" [disabled]="modoSoloLectura" title="Editar esta fila">
+                <button class="btn-accion btn-editar" *ngIf="!estaBloqueadoPorTiempo(fila.item)"
+                        (click)="activarEdicion(fila.item, fila.indexOriginal)" [disabled]="modoSoloLectura" [title]="tituloBotonEditar(fila.item)">
                   <i class="fa fa-pencil"></i> Editar
                 </button>
+                <button class="btn-accion btn-pedir-permiso" *ngIf="estaBloqueadoPorTiempo(fila.item)"
+                        [class.btn-permiso-pendiente]="miSolicitudPendiente(fila.item)"
+                        (click)="activarEdicion(fila.item, fila.indexOriginal)" [disabled]="soloLectura" [title]="tituloBotonEditar(fila.item)">
+                  <i class="fa" [ngClass]="miSolicitudPendiente(fila.item) ? 'fa-hourglass-half' : 'fa-lock'"></i>
+                  {{miSolicitudPendiente(fila.item) ? 'Solicitado' : 'Pedir permiso'}}
+                </button>
+                <ng-container *ngIf="esAprobadorEdicion && solicitudPendiente(fila.item)">
+                  <button class="btn-accion btn-aprobar-permiso" (click)="aprobarSolicitudEdicion(fila.item)" [title]="'Aprobar · ' + tituloSolicitud(fila.item)">
+                    <i class="fa fa-check"></i>
+                  </button>
+                  <button class="btn-accion btn-rechazar-permiso" (click)="rechazarSolicitudEdicion(fila.item)" [title]="'Rechazar · ' + tituloSolicitud(fila.item)">
+                    <i class="fa fa-ban"></i>
+                  </button>
+                </ng-container>
                 <button class="btn-accion btn-eliminar" (click)="PrepararEliminar(fila.indexOriginal)"
                         [disabled]="modoSoloLectura || !puedeEliminarControlAvance()"
                         [class.btn-eliminar-bloqueado]="!puedeEliminarControlAvance()"

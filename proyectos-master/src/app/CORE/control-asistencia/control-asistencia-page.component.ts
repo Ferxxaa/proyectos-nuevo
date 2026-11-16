@@ -230,6 +230,10 @@ export class ControlAsistenciaPageComponent implements OnInit {
   cargandoSubProyectos: boolean = true;
   errorCarga: boolean = false;
   subProyectos: any[] = [];
+  /** Lista del buscador "Lugar de trabajo": por defecto solo los subproyectos activos. */
+  subProyectosLista: any[] = [];
+  soloSubProyectosActivos: boolean = true;
+  totalSubProyectosActivos: number = 0;
   private permitidos: { [id: string]: any } = {};
   private idUsuario: any = null;
 
@@ -384,8 +388,41 @@ export class ControlAsistenciaPageComponent implements OnInit {
     this.permitidos = unicos;
     this.subProyectos = Object.keys(unicos).map(id => unicos[id]).sort((a, b) =>
       (a.nombreSubProyecto || '').localeCompare(b.nombreSubProyecto || '', 'es', { sensitivity: 'base' }));
+    if (this.subProyectos.length) {
+      // para revisar en la consola qué campos trae cada subproyecto (estado, fechas...)
+      console.info('Control Asistencia · campos del subproyecto:', Object.keys(this.subProyectos[0]).join(', '));
+    }
+    this.totalSubProyectosActivos = this.subProyectos.filter(sp => this.esSubProyectoActivo(sp)).length;
+    this.filtrarSubProyectos();
     this.cargandoSubProyectos = false;
     this.cargarGrupos();
+  }
+
+  /**
+   * Activo = no está finalizado, cerrado, terminado, anulado ni cancelado.
+   * Se revisan los campos de estado que traiga el subproyecto (texto o booleano).
+   */
+  esSubProyectoActivo(sp: any): boolean {
+    if (!sp) { return false; }
+    if (sp.activo === false || sp.activo === 0 || sp.vigente === false || sp.vigente === 0) { return false; }
+    if (sp.finalizado === true || sp.finalizado === 1 || sp.cerrado === true || sp.cerrado === 1) { return false; }
+    const textos = ['nombreEstado', 'estado', 'estadoSubProyecto', 'nombreEstadoSubProyecto', 'descripcionEstado', 'estadoProyecto', 'nombreEstadoProyecto']
+      .map(c => sp[c])
+      .filter(v => typeof v === 'string' && v.trim())
+      .map(v => normalizarTexto(v));
+    return !textos.some(v => /finaliz|cerrad|terminad|anulad|cancelad|abortad|suspendid|inactiv/.test(v));
+  }
+
+  /** Arma la lista del buscador de subproyectos según "solo activos". */
+  filtrarSubProyectos() {
+    this.subProyectosLista = this.soloSubProyectosActivos
+      ? this.subProyectos.filter(sp => this.esSubProyectoActivo(sp))
+      : this.subProyectos;
+  }
+
+  alternarSoloActivos() {
+    this.soloSubProyectosActivos = !this.soloSubProyectosActivos;
+    this.filtrarSubProyectos();
   }
 
   etiquetaSubProyecto(sp: any): string {

@@ -78,9 +78,16 @@
                            placeholder="Busca por nombre o RUT" [(ngModel)]="textoTrabajador">
                   </div>
                   <div class="core-campo core-campo-ancho">
-                    <label for="core-subproyecto">Lugar de trabajo (subproyecto)</label>
+                    <label for="core-subproyecto" class="core-label-sp">
+                      Lugar de trabajo (subproyecto)
+                      <button type="button" class="core-solo-activos" [class.activo]="soloSubProyectosActivos" (click)="alternarSoloActivos()"
+                              [title]="soloSubProyectosActivos ? 'Mostrando solo subproyectos activos. Clic para ver todos.' : 'Mostrando todos. Clic para ver solo los activos.'">
+                        <i class="fa" [ngClass]="soloSubProyectosActivos ? 'fa-check-square-o' : 'fa-square-o'" aria-hidden="true"></i>
+                        Solo activos ({{soloSubProyectosActivos ? subProyectosLista.length : totalSubProyectosActivos}} de {{subProyectos.length}})
+                      </button>
+                    </label>
                     <input id="core-subproyecto" name="subproyecto" type="text" autocomplete="off" list="core-lista-subproyectos"
-                           placeholder="Busca el subproyecto" [(ngModel)]="textoSubProyecto">
+                           [placeholder]="soloSubProyectosActivos ? 'Busca un subproyecto activo' : 'Busca el subproyecto'" [(ngModel)]="textoSubProyecto">
                   </div>
                   <button type="submit" class="core-boton-principal" [disabled]="agregando || cargandoAgenda">
                     <i class="fa" [ngClass]="agregando ? 'fa-spinner fa-spin' : 'fa-plus'" aria-hidden="true"></i> Agregar
@@ -92,7 +99,7 @@
                     <option *ngFor="let t of agendaActiva" [value]="etiquetaAgenda(t)">{{t.cargo}}</option>
                   </datalist>
                   <datalist id="core-lista-subproyectos">
-                    <option *ngFor="let sp of subProyectos" [value]="etiquetaSubProyecto(sp)"></option>
+                    <option *ngFor="let sp of subProyectosLista" [value]="etiquetaSubProyecto(sp)"></option>
                   </datalist>
                 </form>
 

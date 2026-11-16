@@ -1862,3 +1862,28 @@
   .tp-carpetas { grid-template-columns: minmax(0, 1fr); }
   .tp-cab { flex-wrap: wrap; }
 }
+
+/* Filtro "Solo activos" del buscador de subproyectos */
+.core-label-sp {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.core-solo-activos {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #8f979f;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.core-solo-activos.activo { color: #2d8a44; }
+.core-solo-activos:hover { background: #eef1f4; }
