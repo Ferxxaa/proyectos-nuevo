@@ -399,18 +399,21 @@ export class ControlAsistenciaPageComponent implements OnInit {
   }
 
   /**
-   * Activo = no está finalizado, cerrado, terminado, anulado ni cancelado.
-   * Se revisan los campos de estado que traiga el subproyecto (texto o booleano).
+   * Mismo criterio que Mis Proyectos:
+   *  - activo = sin estado o con estado distinto de finalizado / cerrado (nombreEstadoProyecto)
+   *  - no se muestran las matrices de prueba
    */
   esSubProyectoActivo(sp: any): boolean {
     if (!sp) { return false; }
-    if (sp.activo === false || sp.activo === 0 || sp.vigente === false || sp.vigente === 0) { return false; }
-    if (sp.finalizado === true || sp.finalizado === 1 || sp.cerrado === true || sp.cerrado === 1) { return false; }
-    const textos = ['nombreEstado', 'estado', 'estadoSubProyecto', 'nombreEstadoSubProyecto', 'descripcionEstado', 'estadoProyecto', 'nombreEstadoProyecto']
-      .map(c => sp[c])
-      .filter(v => typeof v === 'string' && v.trim())
-      .map(v => normalizarTexto(v));
-    return !textos.some(v => /finaliz|cerrad|terminad|anulad|cancelad|abortad|suspendid|inactiv/.test(v));
+    const estado = String(sp.nombreEstadoProyecto || '').toLowerCase().trim();
+    if (estado && ['finalizado', 'finalizada', 'cerrado', 'cerrada'].indexOf(estado) >= 0) { return false; }
+    return !this.esMatrizOculta(sp);
+  }
+
+  /** Matrices de prueba que Mis Proyectos no muestra. */
+  private esMatrizOculta(sp: any): boolean {
+    const nombre = String(sp && sp.nombreProyectoMatriz || '').toLowerCase().trim();
+    return ['matriz trazas', 'proyecto matriz 2', 'prueba proyecto matriz', 'prueba cliente'].indexOf(nombre) >= 0;
   }
 
   /** Arma la lista del buscador de subproyectos según "solo activos". */
