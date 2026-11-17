@@ -29,6 +29,9 @@ export interface RegistroDia {
   trabajadoresDia?: number;
   horasDia?: number;
 
+  // HH trabajadas del día (horas). Se ingresan en el popup chico de Capacitación Operacional / Específicas.
+  hhTrabajadas?: number;
+
   // ---- Campos en horas decimales: se siguen escribiendo para compatibilidad
   //      (Estadísticas HH y registros antiguos). La fuente de verdad es hhMinutos.
   hhCapacitacion: number;      // HH capacitación = operacionales + específicas (horas)
@@ -73,6 +76,9 @@ export interface ResumenHH {
   porEntidad: { [entidad: string]: number };
   /** HH específicas por entidad, en minutos */
   porEntidadMin: { [entidad: string]: number };
+  /** HH trabajadas (horas) anotadas en el popup de Capacitación Operacional / Específicas */
+  hhTrabajadas?: number;
+  hhTrabajadasPorDia?: { [dia: number]: number };
 }
 
 export const NIVELES_CUMPLIMIENTO = [
@@ -281,7 +287,8 @@ export function resumenHHVacio(): ResumenHH {
     minOperacional: 0, minEspecificas: 0, minTotal: 0,
     trabajadoresOperacional: 0, trabajadoresEspecificas: 0,
     registrosOperacional: 0, registrosEspecificas: 0,
-    porDia: {}, porEntidad: {}, porEntidadMin: {}
+    porDia: {}, porEntidad: {}, porEntidadMin: {},
+    hhTrabajadas: 0, hhTrabajadasPorDia: {}
   };
 }
 
@@ -289,12 +296,21 @@ export function resumenHHVacio(): ResumenHH {
 export function sumarHHPrograma(p: ProgramaMes, acumulado?: ResumenHH): ResumenHH {
   const r = acumulado || resumenHHVacio();
   if (!r.porEntidadMin) { r.porEntidadMin = {}; }
+  if (!r.hhTrabajadasPorDia) { r.hhTrabajadasPorDia = {}; }
+  if (!r.hhTrabajadas) { r.hhTrabajadas = 0; }
   if (!p || !p.actividades) { return r; }
   p.actividades.forEach(a => {
     const regs = registrosDe(a);
     Object.keys(regs).forEach(k => {
       const reg = regs[k];
       if (!reg) { return; }
+      // HH trabajadas (horas): se suman aunque el día no tenga HH de capacitación
+      const trab = Math.max(0, Number((reg as any).hhTrabajadas) || 0);
+      if (trab) {
+        const d = Number(k);
+        r.hhTrabajadasPorDia[d] = redondear((r.hhTrabajadasPorDia[d] || 0) + trab);
+        r.hhTrabajadas = redondear(r.hhTrabajadas + trab);
+      }
       const hh = hhRegistroMin(reg);
       if (!hh.minTotal) { return; }
       const dia = Number(k);
@@ -451,4 +467,14 @@ export function hhTrabajadoresDe(p: any, dia: number): HHTrabajadoresDia {
     }
   }
   return vacio;
+}
+
+/** HH trabajadas del día (horas, 0 a 99.999, acepta 8,5). */
+export function horasTrabajadasDia(v: any): number {
+  if (v === null || v === undefined || String(v).trim() === '') { return 0; }
+  const n = Number(String(v).trim().replace(',', '.'));
+  if (!isFinite(n)) { throw new Error('HH trabajadas: ingresa un número.'); }
+  if (n < 0) { throw new Error('HH trabajadas no puede ser negativo.'); }
+  if (n > 99999) { throw new Error('HH trabajadas parece demasiado alto, revisa el valor.'); }
+  return Math.round(n * 100) / 100;
 }

@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { firestoreDB } from '../../firebase-init';
 import { CAMPO_CAPACITACION } from './control-asistencia.component';
-import { sumarHHPrograma, redondear } from '../programa-sso/programa-registro';
+import { sumarHHPrograma, redondear, formatoHM } from '../programa-sso/programa-registro';
 import { ProgramaSsoService } from '../programa-sso/programa-sso.service';
 
 /**
@@ -19,9 +19,17 @@ const ANIOS_ANTERIORES = 5;
  */
 const COLECCIONES_PROGRAMA = ['programaSSO', 'programaMA'];
 const MAPA_PROGRAMA: { [campoRegistro: string]: string } = {
+  // HH trabajadas del popup de Capacitación Operacional / Específicas: se suman a la fila "HH trabajadas"
+  hhTrabajadas: 'hh',
   hhCapacitacion: 'hhCapacitacion',
   hhEspecificas: 'hhEspecificas',
   hhOperacional: 'hhOperacional'
+};
+/** Minutos de capacitación de los programas -> indicador (estas filas se muestran en "1 h 25 min"). */
+const MAPA_MINUTOS: { [campoResumen: string]: string } = {
+  minTotal: 'hhCapacitacion',
+  minEspecificas: 'hhEspecificas',
+  minOperacional: 'hhOperacional'
 };
 /** Indicadores que solo vienen de los programas (no se escriben a mano). */
 export const CAMPOS_SOLO_PROGRAMA = ['hhCapacitacion', 'hhEspecificas', 'hhOperacional'];
@@ -98,6 +106,8 @@ export class EstadisticasHhComponent implements OnInit {
   datosPorAnio: { [anio: number]: any } = {};
   /** HH de los Programas SSO/MA por indicador: hhProgramas[anio][mes][campo] (solo los que tienen horas) */
   hhProgramas: { [anio: number]: any } = {};
+  /** Los mismos indicadores de capacitación, en minutos exactos (para mostrar "1 h 25 min" sin redondeos) */
+  minProgramas: { [anio: number]: any } = {};
   cargandoProgramas: boolean = false;
   errorProgramas: boolean = false;
   private cargaProgramas: number = 0;
@@ -128,6 +138,7 @@ export class EstadisticasHhComponent implements OnInit {
     }
 
     this.hhProgramas = {};
+    this.minProgramas = {};
     const estadisticas = firestoreDB.collection(COLECCION).where('idSubProyecto', '==', this.idSubProyecto).get();
     // los programas del año se leen en paralelo; si fallan, igual se muestran las estadísticas
     const programas = this.cargarProgramasAnio(Number(this.anio));
@@ -178,9 +189,17 @@ export class EstadisticasHhComponent implements OnInit {
     return Promise.all(lecturas).then((lista: any[]) => {
       if (carga !== this.cargaProgramas) { return; }
       const delAnio: any = {};
+      const delAnioMin: any = {};
       lista.forEach(item => {
         if (!item.programa) { return; }
         const hh: any = sumarHHPrograma(item.programa);
+        Object.keys(MAPA_MINUTOS).forEach(campoResumen => {
+          const minutos = Math.round(Number(hh[campoResumen]) || 0);
+          if (minutos <= 0) { return; }
+          const campo = MAPA_MINUTOS[campoResumen];
+          const delMes = delAnioMin[item.mes] || (delAnioMin[item.mes] = {});
+          delMes[campo] = (delMes[campo] || 0) + minutos;
+        });
         Object.keys(MAPA_PROGRAMA).forEach(campoRegistro => {
           const horas = Number(hh[campoRegistro]) || 0;
           if (horas <= 0) { return; }
@@ -190,6 +209,7 @@ export class EstadisticasHhComponent implements OnInit {
         });
       });
       this.hhProgramas[anio] = delAnio;
+      this.minProgramas[anio] = delAnioMin;
       this.cargandoProgramas = false;
       this.errorProgramas = fallas === lista.length && lista.length > 0;
     });
@@ -199,6 +219,7 @@ export class EstadisticasHhComponent implements OnInit {
   actualizarProgramas() {
     const anio = Number(this.anio);
     delete this.hhProgramas[anio];
+    delete this.minProgramas[anio];
     this.cargarProgramasAnio(anio);
   }
 
@@ -256,6 +277,19 @@ export class EstadisticasHhComponent implements OnInit {
     return valor === null || valor === undefined ? null : Number(valor);
   }
 
+  /** Filas de capacitación de los programas: se muestran en horas y minutos ("1 h 25 min"). */
+  private esEnMinutos(campo: string): boolean {
+    return CAMPOS_SOLO_PROGRAMA.indexOf(campo) >= 0;
+  }
+
+  /** Minutos exactos de un indicador de capacitación en el mes (null si no hay). */
+  private getMinutos(mes: number, campo: string): number | null {
+    const delAnio = this.minProgramas[Number(this.anio)];
+    const delMes = delAnio ? delAnio[mes] : null;
+    const valor = delMes ? delMes[campo] : null;
+    return valor ? Number(valor) : null;
+  }
+
   /** Valor que se muestra: lo guardado (asistencia o manual) + lo de programas. */
   getValor(mes: number, campo: string): number | null {
     const base = (this.valores[mes] || {})[campo];
@@ -290,7 +324,8 @@ export class EstadisticasHhComponent implements OnInit {
       partes.push((this.esDeAsistencia(mes, campo) ? 'Control de asistencia: ' : 'Ingresado a mano: ') + this.formatear(base));
     }
     if (programas !== null) {
-      partes.push('Programas SSO/MA: ' + this.formatear(programas));
+      const minutos = this.esEnMinutos(campo) ? this.getMinutos(mes, campo) : null;
+      partes.push('Programas SSO/MA: ' + (minutos !== null ? formatoHM(minutos) : this.formatear(programas)));
     }
     if (!partes.length && CAMPOS_SOLO_PROGRAMA.indexOf(campo) >= 0) {
       return 'Se calcula desde los registros de los Programas SSO y MA';
@@ -399,6 +434,10 @@ export class EstadisticasHhComponent implements OnInit {
   }
 
   getTextoCelda(mes: number, campo: string): string {
+    if (this.esEnMinutos(campo)) {
+      const minutos = this.getMinutos(mes, campo);
+      return minutos ? formatoHM(minutos) : '';
+    }
     const valor = this.getValor(mes, campo);
     return valor === null ? '' : this.formatear(valor);
   }
@@ -430,6 +469,10 @@ export class EstadisticasHhComponent implements OnInit {
   }
 
   getTotal(campo: string): string {
+    if (this.esEnMinutos(campo)) {
+      const total = this.meses.reduce((suma, mes) => suma + (this.getMinutos(mes.numero, campo) || 0), 0);
+      return total ? formatoHM(total) : '-';
+    }
     return this.formatear(this.sumar(campo));
   }
 

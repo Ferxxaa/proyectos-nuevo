@@ -581,11 +581,12 @@
 
   <!-- ===================== Popup de registro ===================== -->
   <div class="psso-modal-fondo" *ngIf="modal" (mousedown)="clickFondoModal($event)">
-    <div class="psso-modal" role="dialog" aria-modal="true" aria-labelledby="psso-modal-titulo">
+    <div class="psso-modal" role="dialog" aria-modal="true" aria-labelledby="psso-modal-titulo"
+         [ngClass]="modal.conPestanas ? 'hh-' + modal.categoriaPestanas : ''">
 
       <header class="psso-modal-cab">
         <div class="psso-modal-cab-texto">
-          <span class="psso-modal-kicker">{{ modal.soloLectura ? 'Detalle del registro' : 'Registrar actividad' }} · {{ esMA ? 'MA' : 'SSO' }}</span>
+          <span class="psso-modal-kicker">{{ modal.soloLectura ? 'Detalle del registro' : 'Registrar actividad' }} · {{ esMA ? 'MA' : 'SSO' }}<ng-container *ngIf="modal.conPestanas"> · {{ etiquetaHHPestana }}</ng-container></span>
           <h6 id="psso-modal-titulo">{{ modal.act.nombre }}</h6>
           <p><i class="fa fa-calendar" aria-hidden="true"></i> {{ modal.fechaTexto }}</p>
         </div>
@@ -594,7 +595,61 @@
         </button>
       </header>
 
+      <!-- Pestañas (solo Capacitación Operacional / Capacitaciones Específicas) -->
+      <nav class="preg-pestanas" *ngIf="modal.conPestanas" role="tablist" aria-label="Registro del día">
+        <button type="button" role="tab" class="preg-pestana" [class.activa]="modal.pestana === 'hh'"
+                [attr.aria-selected]="modal.pestana === 'hh'" (click)="cambiarPestana('hh')">
+          <span class="preg-pestana-num">1</span>
+          <span class="preg-pestana-texto">
+            <b><i class="fa fa-clock-o" aria-hidden="true"></i> HH del día</b>
+            <small [class.vacio]="resumenPestanaHH === 'Sin HH'">{{ resumenPestanaHH }}</small>
+          </span>
+        </button>
+        <button type="button" role="tab" class="preg-pestana" [class.activa]="modal.pestana === 'cumplimiento'"
+                [attr.aria-selected]="modal.pestana === 'cumplimiento'" (click)="cambiarPestana('cumplimiento')">
+          <span class="preg-pestana-num">2</span>
+          <span class="preg-pestana-texto">
+            <b><i class="fa fa-check-square-o" aria-hidden="true"></i> Cumplimiento</b>
+            <small [class.vacio]="modal.cumplimiento === null || modal.cumplimiento === undefined">{{ resumenPestanaCumplimiento }}</small>
+          </span>
+        </button>
+      </nav>
+
       <div class="psso-modal-cuerpo">
+
+        <!-- Pestaña 1: HH del día -->
+        <div class="preg-panel-hh" *ngIf="modal.conPestanas && modal.pestana === 'hh'" role="tabpanel">
+          <p class="preg-ayuda">
+            <i class="fa fa-info-circle" aria-hidden="true"></i>
+            <span>Anota las HH de este día. El cumplimiento y los respaldos van en la pestaña <b>2 · Cumplimiento</b>.</span>
+          </p>
+          <div class="phh-fila">
+            <label class="phh-etiqueta" for="preg-trab"><i class="fa fa-users" aria-hidden="true"></i> HH trabajadas</label>
+            <div class="phh-campos">
+              <input id="preg-trab" type="text" inputmode="decimal" name="hhTrabajadas" placeholder="0"
+                     [(ngModel)]="modal.hhTrabajadas" [disabled]="modal.soloLectura" autocomplete="off"
+                     (keydown.enter)="guardarRegistro()">
+              <span class="phh-unidad">h</span>
+            </div>
+          </div>
+          <div class="phh-fila">
+            <label class="phh-etiqueta" for="preg-horas"><i class="fa fa-graduation-cap" aria-hidden="true"></i> {{ etiquetaHHPestana }}</label>
+            <div class="phh-campos">
+              <input id="preg-horas" type="number" min="0" max="24" step="1" name="hhHoras" placeholder="0"
+                     [(ngModel)]="modal.hhHoras" [disabled]="modal.soloLectura" (keydown.enter)="guardarRegistro()">
+              <span class="phh-unidad">h</span>
+              <input type="number" min="0" max="59" step="1" name="hhMinutos" placeholder="0" aria-label="Minutos"
+                     [(ngModel)]="modal.hhMinutos" [disabled]="modal.soloLectura" (keydown.enter)="guardarRegistro()">
+              <span class="phh-unidad">min</span>
+            </div>
+          </div>
+          <button type="button" class="preg-siguiente" (click)="cambiarPestana('cumplimiento')">
+            Ir a <b>2 · Cumplimiento</b> <i class="fa fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <!-- Pestaña 2 (o popup normal): cumplimiento, consumo, observación y adjuntos -->
+        <ng-container *ngIf="!modal.conPestanas || modal.pestana === 'cumplimiento'">
 
         <!-- Cumplimiento -->
         <div class="psso-campo">
@@ -626,8 +681,8 @@
           </p>
         </div>
 
-        <!-- HH Trabajadores (solo se guarda, para comparar con el Control de Asistencia) -->
-        <div class="psso-campo">
+        <!-- HH Trabajadores: ya no se piden aquí (van en el popup chico de Capacitación Operacional / Específicas) -->
+        <div class="psso-campo" *ngIf="modal.conHH">
           <span class="psso-campo-titulo">
             HH Trabajadores del proyecto
             <small class="hht-nota"><i class="fa fa-floppy-o" aria-hidden="true"></i> solo se guarda, para comparar con la asistencia</small>
@@ -647,8 +702,8 @@
           </div>
         </div>
 
-        <!-- HH Capacitación: solo los minutos de la capacitación -->
-        <div class="psso-campo">
+        <!-- HH Capacitación: ya no se piden aquí (van en el popup chico de Capacitación Operacional / Específicas) -->
+        <div class="psso-campo" *ngIf="modal.conHH">
           <span class="psso-campo-titulo">
             HH Capacitación
             <small><i class="fa fa-bar-chart" aria-hidden="true"></i> se suman a Estadísticas HH</small>
@@ -761,6 +816,8 @@
             Subiendo {{ subiendo }} {{ subiendo === 1 ? 'archivo' : 'archivos' }}... {{ progresoSubida }}%
           </div>
         </div>
+
+        </ng-container>
 
         <div class="psso-modal-error" *ngIf="errorModal" role="alert">
           <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ errorModal }}

@@ -6,6 +6,7 @@ import {
   registrosDe, sumarHHPrograma, redondear, subirAdjunto, borrarAdjunto,
   CATEGORIAS_HH, CATEGORIA_ESPECIFICA, categoriaFijaDe, hhRegistroMin, formatoHM, minutosAHoras,
   minutosCapacitacion, trabajadoresDelDia, horasPromedioDia, hhTrabajadoresDe,
+  horasTrabajadasDia, calcularHH,
   textoCategoriaHH, ResumenHH, resumenHHVacio, textoEntidad
 } from './programa-registro';
 import { exportarProgramaExcel, exportarConsolidadoAnualExcel } from './programa-excel';
@@ -129,6 +130,7 @@ interface CeldaVista {
   cump: number;   // 100 | 75 | 50 | 0 | null (sin registro)
   adj: number;    // cantidad de adjuntos
   hhMin: number;  // HH capacitación registradas ese día (minutos)
+  hhTrab: number; // HH trabajadas registradas ese día (horas)
 }
 
 interface FilaVista {
@@ -181,6 +183,14 @@ interface ModalRegistro {
   soloLectura: boolean;
   existente: boolean;
   cumplimiento: number;
+  conHH: boolean;                    // false: las HH antiguas (trabajadores × horas / categoría) ya no se piden
+  // Capacitación Operacional / Específicas: el popup va en 2 pestañas (HH del día | Cumplimiento y respaldos)
+  conPestanas: boolean;
+  pestana: string;                   // 'hh' | 'cumplimiento'
+  categoriaPestanas: string;         // OPERACIONAL | ESPECIFICA (según la sección)
+  hhTrabajadas: any;                 // horas
+  hhHoras: any;                      // HH operacionales / específicas: horas
+  hhMinutos: any;                    //                                 y minutos
   categoria: string;                 // OPERACIONAL | ESPECIFICA | '' (no aplica)
   categoriaFija: boolean;            // true = la define la sección de la actividad
   trabajadoresDia: any;              // HH Trabajadores del PROYECTO ese día (solo se guarda, para comparar con asistencia)
@@ -1121,7 +1131,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
         x: cump !== null && cump > 0,
         cump: cump,
         adj: marcada && reg && reg.adjuntos ? reg.adjuntos.length : 0,
-        hhMin: marcada && reg ? hhRegistroMin(reg).minTotal : 0
+        hhMin: marcada && reg ? hhRegistroMin(reg).minTotal : 0,
+        hhTrab: marcada && reg ? Math.max(0, Number((reg as any).hhTrabajadas) || 0) : 0
       };
     });
 
@@ -1169,6 +1180,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (this.enEdicion) { return true; }
     if (!this.esMarcada(c)) { return false; }
     if (this.enControl) { return true; }
+    if (categoriaFijaDe(f.act) && (c.hhMin || c.hhTrab)) { return true; } // solo lectura: ver las HH
     return c.cump !== null; // solo lectura: se puede ver el detalle de lo registrado
   }
 
@@ -1179,6 +1191,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     else if (c.cump === 75) { t = 'Parcial (75%)'; }
     else if (c.cump === 50) { t = 'Parcial (50%)'; }
     else if (c.cump === 0) { t = 'No hecho (0%)'; }
+    if (c.hhTrab) { t += ' · ' + String(c.hhTrab).replace('.', ',') + ' HH trabajadas'; }
     if (c.hhMin) { t += ' · ' + formatoHM(c.hhMin) + ' HH'; }
     if (c.adj) { t += ' · ' + c.adj + (c.adj === 1 ? ' adjunto' : ' adjuntos'); }
     if (this.enControl) { t += c.cump === null ? ' — clic para registrar' : ' — clic para ver o editar'; }
@@ -1403,6 +1416,13 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       soloLectura: !this.enControl,
       existente: !!reg || enRealizados,
       cumplimiento: reg ? reg.cumplimiento : 100,
+      conHH: false,
+      conPestanas: false,
+      pestana: 'cumplimiento',
+      categoriaPestanas: '',
+      hhTrabajadas: null,
+      hhHoras: null,
+      hhMinutos: null,
       categoria: '',
       categoriaFija: false,
       trabajadoresDia: null,
@@ -1419,6 +1439,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       consumo: reg && reg.consumo !== null && reg.consumo !== undefined ? reg.consumo : null
     };
     this.cargarHHModal(this.modal, reg);
+    this.cargarPestanasHH(this.modal, reg);
     this.adjNuevos = [];
     this.adjQuitados = [];
     this.errorModal = '';
@@ -1426,8 +1447,62 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.guardandoRegistro = false;
   }
 
+  // ===================== Pestañas del popup: HH del día | Cumplimiento y respaldos =====================
+
+  /** Capacitación Operacional / Específicas: activa las pestañas y carga las HH registradas. */
+  private cargarPestanasHH(m: ModalRegistro, reg: RegistroDia) {
+    const categoria = categoriaFijaDe(m.act);
+    if (!categoria) { return; }
+    const x: any = reg || {};
+    const hh = hhRegistroMin(reg);
+    const trab = Math.max(0, Number(x.hhTrabajadas) || 0);
+    m.conPestanas = true;
+    m.pestana = 'hh';
+    m.categoriaPestanas = categoria;
+    // sin registro, el cumplimiento parte SIN marcar (no se da por hecho al anotar solo las HH)
+    if (!reg) { m.cumplimiento = null; }
+    m.hhTrabajadas = trab ? String(trab).replace('.', ',') : null;
+    m.hhHoras = hh.minTotal ? (Math.floor(hh.minTotal / 60) || null) : null;
+    m.hhMinutos = hh.minTotal ? ((hh.minTotal % 60) || null) : null;
+    m.entidad = x.entidadEspecifica ||
+      (this.claveNombre(m.act.nombre).indexOf('mutual') >= 0 ? 'MUTUAL' : 'OTROS');
+  }
+
+  cambiarPestana(p: string) {
+    if (this.modal) { this.modal.pestana = p; }
+  }
+
+  get etiquetaHHPestana(): string {
+    return this.modal && this.modal.categoriaPestanas === CATEGORIA_ESPECIFICA ? 'HH específicas' : 'HH operacionales';
+  }
+
+  /** Resumen que se ve en la pestaña "HH del día" (lo que lleva escrito). */
+  get resumenPestanaHH(): string {
+    const m = this.modal;
+    if (!m) { return ''; }
+    const partes: string[] = [];
+    const trab = Number(String(m.hhTrabajadas || '').replace(',', '.')) || 0;
+    if (trab > 0) { partes.push(String(trab).replace('.', ',') + ' h'); }
+    const min = (Number(m.hhHoras) || 0) * 60 + (Number(m.hhMinutos) || 0);
+    if (min > 0) { partes.push(formatoHM(min)); }
+    return partes.length ? partes.join(' · ') : 'Sin HH';
+  }
+
+  /** Resumen que se ve en la pestaña "Cumplimiento" (lo que lleva marcado). */
+  get resumenPestanaCumplimiento(): string {
+    const m = this.modal;
+    if (!m) { return ''; }
+    let t = m.cumplimiento === null || m.cumplimiento === undefined ? 'Sin marcar' : m.cumplimiento + '%';
+    if (m.adjuntos && m.adjuntos.length) { t += ' · ' + m.adjuntos.length + (m.adjuntos.length === 1 ? ' adjunto' : ' adjuntos'); }
+    return t;
+  }
+
   /** Llena la parte de HH del popup según la actividad y lo que ya estaba registrado. */
   private cargarHHModal(m: ModalRegistro, reg: RegistroDia) {
+    // Las HH ya no se piden en este popup: van en el popup chico de Capacitación Operacional / Específicas.
+    // (Si el registro traía HH, se conservan al guardar.)
+    m.conHH = false;
+    if (!m.conHH) { return; }
     const fija = categoriaFijaDe(m.act);
     const hh = hhRegistroMin(reg);
     m.categoriaFija = !!fija;
@@ -1509,19 +1584,31 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     let consumo: number = null;
     let trabDia = 0;
     let horasDia = 0;
+    let hhTrabajadas = 0;
     try {
-      // HH Trabajadores: solo se guardan (para comparar con el Control de Asistencia)
-      trabDia = trabajadoresDelDia(m.trabajadoresDia);
-      horasDia = horasPromedioDia(m.horasDia);
-      if (m.categoria && this.hayDatosHH(m)) {
-        const min = minutosCapacitacion(m.minutosCap);
-        calc = { trabajadores: 0, duracionMin: min, hhMinutos: min };
-        if (cumplimiento === null) { throw new Error('Marca el cumplimiento para registrar HH (o deja las HH en blanco).'); }
-        if (cumplimiento === 0) { throw new Error('La actividad quedó como "No hecho (0%)": deja las HH en blanco o cambia el cumplimiento.'); }
-        categoria = m.categoria;
-      } else if (m.antiguo && !m.descartarAntiguo) {
-        // registro antiguo sin desglose: se conserva tal cual (no se borra información)
-        mantenerAntiguo = true;
+      if (m.conHH) {
+        // HH Trabajadores: solo se guardan (para comparar con el Control de Asistencia)
+        trabDia = trabajadoresDelDia(m.trabajadoresDia);
+        horasDia = horasPromedioDia(m.horasDia);
+        if (m.categoria && this.hayDatosHH(m)) {
+          const min = minutosCapacitacion(m.minutosCap);
+          calc = { trabajadores: 0, duracionMin: min, hhMinutos: min };
+          if (cumplimiento === null) { throw new Error('Marca el cumplimiento para registrar HH (o deja las HH en blanco).'); }
+          if (cumplimiento === 0) { throw new Error('La actividad quedó como "No hecho (0%)": deja las HH en blanco o cambia el cumplimiento.'); }
+          categoria = m.categoria;
+        } else if (m.antiguo && !m.descartarAntiguo) {
+          // registro antiguo sin desglose: se conserva tal cual (no se borra información)
+          mantenerAntiguo = true;
+        }
+      }
+      if (m.conPestanas) {
+        // Pestaña "HH del día": HH trabajadas (horas) + HH operacionales / específicas (horas y minutos)
+        hhTrabajadas = horasTrabajadasDia(m.hhTrabajadas);
+        const min = calcularHH(1, m.hhHoras, m.hhMinutos).hhMinutos;
+        if (min) {
+          calc = { trabajadores: 0, duracionMin: min, hhMinutos: min };
+          categoria = m.categoriaPestanas;
+        }
       }
       if (m.consumoDef && m.consumo !== null && m.consumo !== undefined && String(m.consumo) !== '') {
         consumo = Number(String(m.consumo).replace(',', '.'));
@@ -1530,6 +1617,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       }
     } catch (e) {
       this.errorModal = e.message;
+      if (m.conPestanas && /HH|Horas|Minutos|minutos|duración/.test(e.message)) { m.pestana = 'hh'; }
       return;
     }
 
@@ -1573,13 +1661,23 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       registradoPor: this.nombreUsuario || '',
       fechaRegistro: new Date().toISOString()
     };
+    // Las HH (del popup chico o de versiones anteriores) se conservan tal cual al guardar el registro completo
+    if (m.conPestanas) {
+      (reg as any).hhTrabajadas = hhTrabajadas;
+    } else if (!m.conHH && (hhRegistroMin(anterior).minTotal > 0 || Number(anterior.hhTrabajadas) > 0)) {
+      const x: any = reg;
+      ['categoriaHH', 'trabajadores', 'duracionMin', 'hhMinutos', 'hhCapacitacion', 'hhEspecificas',
+        'entidadEspecifica', 'hhOperacional', 'hhTrabajadas'].forEach(k => {
+        if (anterior[k] === undefined) { delete x[k]; } else { x[k] = anterior[k]; }
+      });
+    }
     this.guardandoRegistro = true;
 
     const a = m.act;
-    this.guardarHHTrabajadores(m.dia, trabDia, horasDia);
+    if (m.conHH) { this.guardarHHTrabajadores(m.dia, trabDia, horasDia); }
     // Sin cumplimiento y sin nada más (HH, observación, adjuntos, consumo): el día vuelve a quedar sin registro
-    const sinDatos = cumplimiento === null && !categoria && !mantenerAntiguo && !reg.observacion &&
-      !reg.adjuntos.length && (consumo === null || consumo === undefined);
+    const sinDatos = cumplimiento === null && !hhRegistroMin(reg).minTotal && !(Number((reg as any).hhTrabajadas) > 0) &&
+      !reg.observacion && !reg.adjuntos.length && (consumo === null || consumo === undefined);
     if (sinDatos) {
       delete registrosDe(a)[String(m.dia)];
     } else {

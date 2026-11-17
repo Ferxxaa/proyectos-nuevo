@@ -406,7 +406,7 @@ function registrosOrdenados(p: ProgramaMes): FilaRegistro[] {
 function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
   // Ítem, Actividad, Fecha, Cumplimiento, Categoría HH, Trabajadores (día), Horas promedio día, Minutos capacitación,
   // Capacitación h:min, Capacitación h decimal, Entidad, Consumo, Observación, Registrado por, Adjuntos
-  const anchos = [26, 44, 11, 17, 17, 12, 15, 12, 15, 11, 14, 14, 40, 18, 36];
+  const anchos = [26, 44, 11, 17, 17, 12, 15, 13, 12, 15, 11, 14, 14, 40, 18, 36];
   const nc = anchos.length;
   const h = new Hoja('Registro HH', anchos, { filas: 4, cols: 0 });
 
@@ -416,7 +416,7 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
   h.fila();
 
   const titulos = ['Ítem', 'Actividad', 'Fecha', 'Cumplimiento', 'Categoría HH', 'Trabajadores (día)', 'Horas promedio día',
-    'Minutos capacitación', 'Capacitación (h:min)', 'Capacitación (h decimal)', 'Entidad (específicas)', 'Consumo (MA)', 'Observación', 'Registrado por', 'Adjuntos'];
+    'HH trabajadas (h)', 'Minutos capacitación', 'Capacitación (h:min)', 'Capacitación (h decimal)', 'Entidad (específicas)', 'Consumo (MA)', 'Observación', 'Registrado por', 'Adjuntos'];
   f = h.fila(30);
   titulos.forEach((t, i) => h.set(f, i + 1, t, 'head'));
 
@@ -440,6 +440,7 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
     const ht = hhTrabajadoresDe(d.programa, x.dia);   // por proyecto (mismo valor para todas las actividades del día)
     h.set(f, col++, ht.trabajadores || '', 'centro');
     h.set(f, col++, ht.horas || '', 'centro');
+    h.set(f, col++, Number(r.hhTrabajadas) || '', 'centro');
     if (hh.minTotal) {
       h.set(f, col++, hh.minTotal, 'centro');
       h.set(f, col++, formatoHM(hh.minTotal), 'centro');
@@ -467,10 +468,10 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
   const minTotal = minOp + minEsp;
   h.fila();
   f = h.fila(20);
-  h.set(f, 1, 'HH CAPACITACIÓN', 'total', { merge: 6 });
-  h.set(f, 8, 'Total minutos', 'head');
-  h.set(f, 9, 'HH netas', 'head');
-  h.set(f, 10, 'HH (decimal)', 'head');
+  h.set(f, 1, 'HH CAPACITACIÓN', 'total', { merge: 7 });
+  h.set(f, 9, 'Total minutos', 'head');
+  h.set(f, 10, 'HH netas', 'head');
+  h.set(f, 11, 'HH (decimal)', 'head');
   const filasResumen: [string, number, string, string, string][] = [
     ['HH Operacionales', minOp, 'act', 'centro', 'centro'],
     ['HH Específicas', minEsp, 'act', 'centro', 'centro'],
@@ -478,10 +479,10 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
   ];
   filasResumen.forEach(x => {
     f = h.fila(18);
-    h.set(f, 1, x[0], x[2], { merge: 6 });
-    h.set(f, 8, x[1], x[3]);
-    h.set(f, 9, formatoHM(x[1]), x[4]);
-    h.set(f, 10, redondear(minutosAHoras(x[1])), x[4]);
+    h.set(f, 1, x[0], x[2], { merge: 7 });
+    h.set(f, 9, x[1], x[3]);
+    h.set(f, 10, formatoHM(x[1]), x[4]);
+    h.set(f, 11, redondear(minutosAHoras(x[1])), x[4]);
   });
   return h;
 }
