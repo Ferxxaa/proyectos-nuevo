@@ -647,14 +647,22 @@
         <i class="fa fa-link"></i> Mover dependientes
       </label>
 
-      <button type="button" class="btn-deshacer-gantt"
-              *ngIf="!modoSoloLectura && ultimoCambioFechasGantt"
-              [disabled]="guardandoCambioFechasGantt"
-              (click)="deshacerCambioFechasGantt()"
-              title="Deshacer el último movimiento de fechas">
-        <i class="fa" [ngClass]="guardandoCambioFechasGantt ? 'fa-spinner fa-spin' : 'fa-undo'"></i>
-        {{guardandoCambioFechasGantt ? 'Guardando...' : 'Deshacer movimiento'}}
-      </button>
+      <ng-container *ngIf="!modoSoloLectura && pasosDeshacerGantt > 0">
+        <button type="button" class="btn-deshacer-gantt"
+                [disabled]="guardandoCambioFechasGantt"
+                (click)="deshacerCambioFechasGantt()"
+                [title]="'Deshacer el último movimiento de fechas (' + pasosDeshacerGantt + ' en el historial)'">
+          <i class="fa" [ngClass]="guardandoCambioFechasGantt ? 'fa-spinner fa-spin' : 'fa-undo'"></i>
+          {{guardandoCambioFechasGantt ? 'Guardando...' : 'Deshacer (' + pasosDeshacerGantt + ')'}}
+        </button>
+        <button type="button" class="btn-deshacer-gantt btn-deshacer-todo-gantt"
+                *ngIf="pasosDeshacerGantt > 1"
+                [disabled]="guardandoCambioFechasGantt"
+                (click)="deshacerTodoGantt()"
+                title="Volver a la versión que había antes del primer movimiento">
+          <i class="fa fa-history"></i> Deshacer todo
+        </button>
+      </ng-container>
 
       <!-- Exportar a Excel: vive junto a la leyenda de la Carta Gantt, no en el header -->
       <button type="button" class="btn-exportar-excel" *ngIf="!ocultarExportacion && !LoadingTabla && ganttBarras.length > 0"

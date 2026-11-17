@@ -336,10 +336,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   /** Editor rápido de fechas (doble clic en una barra): fecha de inicio y plazo exactos. */
   editorFechasGantt: { barra: BarraGantt; inicio: string; inicioTexto: string; plazo: number; x: number; y: number } | null = null;
   guardandoCambioFechasGantt: boolean = false;
-  ultimoCambioFechasGantt: {
+  /**
+   * Historial de movimientos de fechas hechos en la Carta Gantt (el más reciente al final).
+   * "Deshacer" retrocede paso a paso hasta la versión que había al empezar a mover.
+   */
+  historialCambiosFechasGantt: Array<{
     antes: EstadoFechasProgramadasGantt;
     despues: EstadoFechasProgramadasGantt;
-  } | null = null;
+  }> = [];
+  /** Máximo de pasos que se pueden deshacer. */
+  private readonly MAX_HISTORIAL_GANTT: number = 50;
   /** Id del item cuya descripción se está editando inline en la columna de nombres del Gantt. */
   editandoNombreGanttId: string | null = null;
   private nombreGanttOriginal: string = '';
@@ -991,6 +997,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.suscribirPlantillasPersonalizadas();
       this.cargarValidadoresSeleccionados();
       this.suscribirBloqueo();
+      this.historialCambiosFechasGantt = [];
     }
   }
 
@@ -3852,7 +3859,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (!hayCambios) { return; }
     this.guardandoCambioFechasGantt = true;
     this.guardarEstadoFechasGanttEnFirestore(estadoDespues, estadoAntes).then(() => {
-      this.ultimoCambioFechasGantt = { antes: estadoAntes, despues: estadoDespues };
+      this.historialCambiosFechasGantt.push({ antes: estadoAntes, despues: estadoDespues });
+      if (this.historialCambiosFechasGantt.length > this.MAX_HISTORIAL_GANTT) {
+        this.historialCambiosFechasGantt.shift();
+      }
       this.guardandoCambioFechasGantt = false;
     }).catch((error: any) => {
       this.restaurarEstadoFechasGantt(estadoAntes);
@@ -3862,27 +3872,67 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     });
   }
 
-  deshacerCambioFechasGantt() {
-    if (!this.puedeEditarAvance) { return; }
-    const cambio = this.ultimoCambioFechasGantt;
-    if (!cambio || this.guardandoCambioFechasGantt) { return; }
+  get pasosDeshacerGantt(): number {
+    return this.historialCambiosFechasGantt.length;
+  }
 
+  /**
+   * true si las fechas actuales siguen siendo las que dejó el último movimiento del historial.
+   * Solo compara las filas que siguen existiendo (si alguien agregó o eliminó filas no estorba).
+   */
+  private estadoCoincideConHistorial(actual: EstadoFechasProgramadasGantt, esperado: EstadoFechasProgramadasGantt): boolean {
+    return Object.keys(esperado).every(id =>
+      !actual[id] || this.huellaEstadoFechasGantt(actual[id]) === this.huellaEstadoFechasGantt(esperado[id])
+    );
+  }
+
+  /** Deshace el último movimiento. Se puede apretar varias veces hasta llegar a la versión inicial. */
+  deshacerCambioFechasGantt() {
+    this.deshacerPasosGantt(1);
+  }
+
+  /** Vuelve de una a la versión que había antes del primer movimiento del historial. */
+  deshacerTodoGantt() {
+    const pasos = this.historialCambiosFechasGantt.length;
+    if (!pasos || this.guardandoCambioFechasGantt) { return; }
+    Swal.fire({
+      title: 'Volver a la versión inicial',
+      text: 'Se desharán los ' + pasos + ' movimiento(s) de fechas hechos en la Carta Gantt.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Deshacer todo',
+      cancelButtonText: 'Cancelar'
+    }).then((r: any) => {
+      if (r && (r.value || r.isConfirmed)) { this.deshacerPasosGantt(pasos); }
+    });
+  }
+
+  private deshacerPasosGantt(pasos: number) {
+    if (!this.puedeEditarAvance || this.guardandoCambioFechasGantt) { return; }
+    const historial = this.historialCambiosFechasGantt;
+    if (!historial.length) { return; }
+    pasos = Math.min(Math.max(pasos, 1), historial.length);
+
+    const ultimo = historial[historial.length - 1];
+    const objetivo = historial[historial.length - pasos].antes;
     const estadoActual = this.capturarEstadoFechasGantt();
-    if (!this.estadosFechasGanttIguales(estadoActual, cambio.despues)) {
-      this.ultimoCambioFechasGantt = null;
-      Swal.fire('No se puede deshacer', 'Las fechas cambiaron después de este movimiento. Haz el movimiento nuevamente si necesitas deshacerlo.', 'info');
+
+    if (!this.estadoCoincideConHistorial(estadoActual, ultimo.despues)) {
+      this.historialCambiosFechasGantt = [];
+      Swal.fire('No se puede deshacer', 'Las fechas se modificaron fuera de la Carta Gantt (tabla u otro usuario). El historial se reinició.', 'info');
       return;
     }
 
     this.guardandoCambioFechasGantt = true;
-    this.restaurarEstadoFechasGantt(cambio.antes);
+    this.restaurarEstadoFechasGantt(objetivo);
     this.refrescarTrasCambioGantt();
 
-    this.guardarEstadoFechasGanttEnFirestore(cambio.antes, estadoActual).then(() => {
-      this.ultimoCambioFechasGantt = null;
+    this.guardarEstadoFechasGanttEnFirestore(objetivo, estadoActual).then(() => {
+      this.historialCambiosFechasGantt = historial.slice(0, historial.length - pasos);
       this.guardandoCambioFechasGantt = false;
+      const quedan = this.historialCambiosFechasGantt.length;
       Swal.fire({
-        title: 'Movimiento deshecho',
+        title: quedan ? 'Movimiento deshecho (quedan ' + quedan + ')' : 'Volviste a la versión inicial',
         icon: 'success',
         timer: 1800,
         showConfirmButton: false,
