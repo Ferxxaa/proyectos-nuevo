@@ -3,9 +3,6 @@ import { sUsuario } from '../../services/sUsuario.service';
 import { sVis_UsuarioPersona } from '../../services/sVis_UsuarioPersona.service';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
 import { sPerfil } from '../../services/sPerfil.service';
-import { sMail } from '../../services/sMail.service';
-import { sProyecto } from '../../services/sProyecto.service';
-import { sVis_DirectorProyectoMatriz } from '../../services/sVis_DirectorProyectoMatriz.service';
 import { firestoreDB, storageRef } from '../../firebase-init';
 import * as XlsxPopulate from 'xlsx-populate';
 import * as JSZip from 'jszip';
@@ -75,30 +72,6 @@ interface ControlAvanceItem {
   // Ids de las actividades predecesoras (dependencia termina → inicia, igual que ClickUp):
   // esta actividad no debería empezar hasta que terminen todas las de esta lista.
   dependencias?: string[];
-  // Bloqueo por tiempo: pasadas 24 h desde su creación, se necesita permiso para editar la fila
-  solicitudEdicion?: SolicitudEdicion;
-  autorizacionEdicion?: AutorizacionEdicion;
-}
-
-/** Pedido de permiso para editar una fila que ya pasó sus 24 horas. */
-interface SolicitudEdicion {
-  idUsuario: number;
-  nombre: string;
-  fecha: string;                 // ISO
-  motivo: string;
-  estado: string;                // 'pendiente' | 'aprobada' | 'rechazada'
-  resueltoPor?: string;
-  fechaResolucion?: string;
-  motivoRechazo?: string;
-}
-
-/** Permiso aprobado por Sub-gerente o Director: ese usuario puede editar la fila hasta "hasta". */
-interface AutorizacionEdicion {
-  idUsuario: number;
-  nombre: string;
-  hasta: string;                 // ISO
-  aprobadoPor: string;
-  fecha: string;                 // ISO
 }
 
 interface FilaTabla {
@@ -191,32 +164,15 @@ interface GrupoPlantillaPersonalizada extends GrupoPlantillas {
   personalizada: true;
 }
 
-/** Documento de controlAvanceConfig con el código de recuperación de la clave de edición (solo hash). */
-const DOC_RECUPERACION_CLAVE_AVANCE = '_recuperacionClaveEdicion';
-/** Credenciales de EmailJS (las mismas que usa Control de Hallazgos). */
-const EMAILJS_SERVICE_ID = 'service_s0l9tnp';
-const EMAILJS_TEMPLATE_ID = 'template_ud73y7s';
-const EMAILJS_PUBLIC_KEY = 'eU69rwXxt1sceIIXr';
-/**
- * Plantilla de EmailJS para avisar al Sub-gerente / Director que alguien pide permiso para editar.
- * Crear en EmailJS (Email Templates > Create New) y pegar aquí su Template ID.
- * Variables que usa: {{to_email}}, {{nombre}}, {{solicitante}}, {{fila}}, {{proyecto}}, {{motivo}}, {{enlace}}
- */
-const EMAILJS_TEMPLATE_SOLICITUD_EDICION = 'TU_TEMPLATE_SOLICITUD';
-const MINUTOS_VIGENCIA_CODIGO = 15;
-const MAX_INTENTOS_CODIGO = 5;
-const SEGUNDOS_ENTRE_ENVIOS = 60;
-
 @Component({
   selector: 'app-control-avance',
   templateUrl: './control-avance.component.html',
   styleUrls: ['./control-avance.component.css'],
-  providers: [sUsuario, sVis_UsuarioPersona, sUsuariosPerfiles, sPerfil, sMail, sProyecto, sVis_DirectorProyectoMatriz],
+  providers: [sUsuario, sVis_UsuarioPersona, sUsuariosPerfiles, sPerfil],
   encapsulation: ViewEncapsulation.None
 })
 export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
-  private static readonly DOC_CLAVE_EDICION = '_claveEdicion';
   private static readonly KEY_REPROGRAMAR_DEPENDENCIAS = 'controlAvanceReprogramarDependencias';
 
   @Input() idProyecto: number;
@@ -229,9 +185,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   @Input() ocultarFiltros: boolean = false;
   @Input() ocultarExportacion: boolean = false;
   @Input() vistaInicial: 'tabla' | 'gantt' = 'tabla';
-  accesoEdicionConClave: boolean = false;
-  esDirectorProyectoMatriz: boolean = false;
-  private solicitudPermisoDirectorMatriz: number = 0;
+  /** Bloqueo con clave puesto por un Sub-gerente / Director (null = libre para todos). */
+  bloqueoControl: { bloqueado: boolean; hash: string; salt: string; nombre?: string; fecha?: string; idUsuario?: number } | null = null;
+  /** Hash de la clave que este usuario ingresó en esta sesión (sirve mientras no cambie la clave). */
+  private hashDesbloqueado: string | null = null;
+  private unsubscribeBloqueo: (() => void) | null = null;
 
   ControlesAvance: Array<ControlAvanceItem>;
 
@@ -252,17 +210,13 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   subProyectoActual: any = null;
   esGerenciaConfirmado: boolean = false;
-  /** Solo el perfil SUB-GERENTE puede recuperar la clave de edición (se detecta por nombre de perfil, igual que en Hallazgos). */
+  /** Perfil SUB-GERENTE (se detecta por nombre de perfil, igual que en Hallazgos): puede bloquear/desbloquear con clave. */
   esSubGerente: boolean = false;
   private idsPerfilesUsuario: number[] = [];
   private idsPerfilesSubGerente: number[] = [];
-  /** Perfil cuyo nombre empieza con "DIRECTOR" (Director de Proyecto, etc.): junto al Sub-gerente aprueba permisos de edición. */
+  /** Perfil cuyo nombre empieza con "DIRECTOR" (Director de Proyecto, etc.): junto al Sub-gerente puede bloquear/desbloquear con clave. */
   esDirectorPerfil: boolean = false;
   private idsPerfilesDirector: number[] = [];
-  /** Horas desde que se crea una fila en que se puede editar libremente. Después hay que pedir permiso. */
-  readonly HORAS_EDICION_LIBRE: number = 24;
-  /** Horas que dura el permiso aprobado. */
-  readonly HORAS_PERMISO_EDICION: number = 24;
 
   avanceTotalProgramado: number = 0;
   avanceTotalReal: number = 0;
@@ -440,9 +394,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     private _sVisUsuarioPersona: sVis_UsuarioPersona,
     private _sUsuariosPerfiles: sUsuariosPerfiles,
     private _sPerfil: sPerfil,
-    private _sMail: sMail,
-    private _sProyecto: sProyecto,
-    private _sVisDirectorProyectoMatriz: sVis_DirectorProyectoMatriz,
     private _ngZone: NgZone,
     private _elementRef: ElementRef
   ) {
@@ -464,13 +415,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return this.nombreProyecto || this.nombreProyectoLocal || '';
   }
 
+  /** Libre para todos, salvo que un Sub-gerente / Director lo haya bloqueado con clave. */
   get puedeEditarAvance(): boolean {
-    // Director del proyecto matriz, o alguien a quien el Sub-gerente / Director le aprobó editar una fila
-    return !this.soloLectura && (this.esDirectorProyectoMatriz || this.tienePermisoAprobado);
+    if (this.soloLectura) { return false; }
+    if (!this.controlBloqueado) { return true; }
+    return this.esAprobadorEdicion || this.desbloqueadoConClave;
   }
-
-  /** true si el usuario tiene al menos un permiso de edición aprobado y vigente en este control. */
-  tienePermisoAprobado: boolean = false;
 
   get modoSoloLectura(): boolean {
     return !this.puedeEditarAvance;
@@ -484,411 +434,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   /** Cantidad de láminas (no títulos) que entran al promedio del avance total. */
   get totalLaminasAvance(): number {
     return this.ControlesAvance.filter(doc => doc.activo !== false && !doc.esTitulo).length;
-  }
-
-  async abrirAccesoEdicion() {
-    if (this.soloLectura) { return; }
-    if (this.accesoEdicionConClave) {
-      this.bloquearEdicion();
-      return;
-    }
-
-    try {
-      const config = await this.obtenerConfigClaveEdicion();
-      if (!config || !config.clave) {
-        const clave = await this.solicitarNuevaClaveEdicion();
-        if (!clave) { return; }
-        await this.guardarClaveEdicion(clave, !config);
-        this.accesoEdicionConClave = true;
-        // Las barras pasan a ser editables (conectores, arrastre): se recalcula el Gantt.
-        this.actualizarDatosGantt();
-        Swal.fire({
-          icon: 'success',
-          title: config ? 'Clave reemplazada' : 'Clave configurada',
-          text: 'La edición quedó habilitada en esta pantalla.',
-          timer: 1800,
-          showConfirmButton: false
-        });
-        return;
-      }
-
-      const valida = await this.solicitarClaveEdicion(config);
-      if (valida) {
-        this.accesoEdicionConClave = true;
-        this.actualizarDatosGantt();
-      }
-    } catch (error) {
-      Swal.fire('Error', 'No se pudo habilitar la edición: ' + this.getMensajeError(error), 'error');
-    }
-  }
-
-  bloquearEdicion() {
-    this.accesoEdicionConClave = false;
-    Object.keys(this.tiempoGuardado || {}).forEach(indice => {
-      clearTimeout(this.tiempoGuardado[indice]);
-    });
-    if (this.tiempoRecalculo) {
-      clearTimeout(this.tiempoRecalculo);
-      this.tiempoRecalculo = null;
-    }
-    if (this.filaEnEdicion !== null) {
-      const item = this.ControlesAvance[this.filaEnEdicion];
-      if (item) { this.cancelarEdicion(item, this.filaEnEdicion); }
-    }
-    if (this.editandoNombreGanttId) {
-      const barra = this.ganttBarras.find(item => item.item.id === this.editandoNombreGanttId);
-      if (barra) { this.cancelarNombreGantt(barra); }
-    }
-    this.cancelarConexionGantt();
-    this.mostrarFormulario = false;
-    this.nuevaFilaGantt = null;
-    this.editorFechasGantt = null;
-    this.actualizarDatosGantt();
-  }
-
-  async cambiarClaveEdicion() {
-    if (!this.puedeEditarAvance) { return; }
-    try {
-      const config = await this.obtenerConfigClaveEdicion();
-      if (!config || (config.clave && !(await this.solicitarClaveEdicion(config)))) { return; }
-      const nuevaClave = await this.solicitarNuevaClaveEdicion();
-      if (!nuevaClave) { return; }
-      await this.guardarClaveEdicion(nuevaClave);
-      Swal.fire({
-        icon: 'success',
-        title: 'Clave actualizada',
-        timer: 1800,
-        showConfirmButton: false
-      });
-    } catch (error) {
-      Swal.fire('Error', 'No se pudo cambiar la clave: ' + this.getMensajeError(error), 'error');
-    }
-  }
-
-  private obtenerConfigClaveEdicion(): Promise<any> {
-    return firestoreDB.collection('controlAvanceConfig').doc(ControlAvanceComponent.DOC_CLAVE_EDICION)
-      .get().then((doc: any) => {
-        const data = doc.exists ? doc.data() : null;
-        return data && (typeof data.clave === 'string' || (data.hash && data.salt)) ? data : null;
-      });
-  }
-
-  private async solicitarClaveEdicion(config: any): Promise<boolean> {
-    let pidioRecuperar = false;
-
-    const promesa = Swal.fire({
-      title: 'Habilitar edición',
-      html:
-        '<p>Ingresa la clave compartida para modificar el Control de Avance.</p>' +
-        this.htmlCampoClave('swal-control-avance-clave', 'Clave', 'current-password') +
-        '<div class="ca-clave-recuperar">' +
-        '<a href="#" id="swal-control-avance-recuperar" class="ca-clave-recuperar-link">¿Olvidaste la clave?</a>' +
-        '</div>',
-      focusConfirm: false,
-      showCancelButton: true,
-      confirmButtonText: 'Desbloquear',
-      cancelButtonText: 'Cancelar',
-      preConfirm: async () => {
-        const clave = (document.getElementById('swal-control-avance-clave') as HTMLInputElement).value || '';
-        if (typeof config.clave !== 'string') {
-          Swal.showValidationMessage('La clave anterior debe reemplazarse. Cierra este cuadro y vuelve a habilitar la edición.');
-          return false;
-        }
-        if (clave !== config.clave) {
-          Swal.showValidationMessage('Clave incorrecta');
-          return false;
-        }
-        return true;
-      }
-    });
-
-    // Se conecta después de abrir (no depende de onOpen/didOpen, que cambian según la versión de SweetAlert)
-    setTimeout(() => {
-      this.activarOjosClave();
-      const link = document.getElementById('swal-control-avance-recuperar');
-      if (link) {
-        link.addEventListener('click', (e: Event) => {
-          e.preventDefault();
-          pidioRecuperar = true;
-          Swal.close();
-        });
-      }
-    }, 0);
-
-    const resultado = await promesa;
-
-    if (pidioRecuperar) {
-      const restablecida = await this.iniciarRecuperacionClave();
-      if (!restablecida) { return false; }
-      // Con la clave nueva ya guardada, se vuelve a pedir para desbloquear
-      const configActual = (await this.obtenerConfigClaveEdicion()) || config;
-      return this.solicitarClaveEdicion(configActual);
-    }
-
-    return !!(resultado && resultado.value === true);
-  }
-
-  // ==========================================================
-  // Recuperación de clave por correo (misma lógica que Control de Hallazgos)
-  // ==========================================================
-
-  /** Envía un código al correo del sub-gerente y le deja definir una clave nueva. Devuelve true si se restableció. */
-  private async iniciarRecuperacionClave(): Promise<boolean> {
-    if (!this.esSubGerente) {
-      await Swal.fire({
-        icon: 'info',
-        title: 'Recuperar clave',
-        text: 'Solo el Sub-Gerente puede recuperar la clave de edición. Solicítasela a él.',
-        confirmButtonText: 'Entendido'
-      });
-      return false;
-    }
-
-    try {
-      const correoDestino = await this.obtenerCorreoUsuarioActual();
-      if (!correoDestino) {
-        await Swal.fire('Sin correo', 'Tu usuario no tiene un correo registrado. Pide que lo agreguen en Usuarios.', 'warning');
-        return false;
-      }
-
-      const doc = await firestoreDB.collection('controlAvanceConfig').doc(DOC_RECUPERACION_CLAVE_AVANCE).get();
-      const data = doc.exists ? doc.data() : null;
-      const ahora = Date.now();
-      const enviadoHace = data && data.fechaEnvio ? (ahora - new Date(data.fechaEnvio).getTime()) / 1000 : Infinity;
-      const vigente = data && data.expira && new Date(data.expira).getTime() > ahora &&
-        Number(data.idUsuario) === Number(this.usuario && this.usuario.idUsuario);
-
-      // Si ya hay un código recién enviado, no se reenvía: se va directo a ingresarlo
-      if (vigente && enviadoHace < SEGUNDOS_ENTRE_ENVIOS) {
-        return this.pedirCodigoYNuevaClave(correoDestino);
-      }
-
-      const confirmar = await Swal.fire({
-        title: 'Recuperar clave',
-        html: 'Te enviaremos un código de verificación a<br><strong>' + this.enmascararCorreo(correoDestino) + '</strong>',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Enviar código',
-        cancelButtonText: 'Cancelar'
-      });
-      if (!confirmar || !confirmar.value) { return false; }
-
-      await this.enviarCodigoRecuperacion(correoDestino);
-      return this.pedirCodigoYNuevaClave(correoDestino);
-    } catch (error) {
-      await Swal.fire('Error', 'No se pudo iniciar la recuperación: ' + this.getMensajeError(error), 'error');
-      return false;
-    }
-  }
-
-  private enviarCodigoRecuperacion(correo: string): Promise<any> {
-    const codigo = this.generarCodigoRecuperacion();
-    const salt = this.generarSalt();
-    const ahora = new Date();
-    const expira = new Date(ahora.getTime() + MINUTOS_VIGENCIA_CODIGO * 60000);
-    const nombre = this.getNombreUsuarioActual();
-    const ref = firestoreDB.collection('controlAvanceConfig').doc(DOC_RECUPERACION_CLAVE_AVANCE);
-
-    return ref.set({
-      codigoHash: this.sha256(salt + ':' + codigo),
-      salt: salt,
-      idUsuario: Number(this.usuario && this.usuario.idUsuario) || null,
-      fechaEnvio: ahora.toISOString(),
-      expira: expira.toISOString(),
-      intentos: 0
-    }).then(() => {
-      return this.enviarCorreoEmailJS({
-        to_email: correo,
-        nombre: nombre,
-        codigo: codigo,
-        minutos: String(MINUTOS_VIGENCIA_CODIGO)
-      }).catch((error: any) => {
-        // Si el correo no salió, se elimina el código para que pueda pedir otro al tiro
-        return ref.delete().then(() => { throw error; }, () => { throw error; });
-      });
-    });
-  }
-
-  /** Envía un correo con la API REST de EmailJS (sin instalar paquetes). */
-  private enviarCorreoEmailJS(params: { [clave: string]: string }, templateId: string = EMAILJS_TEMPLATE_ID): Promise<void> {
-    if (!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY.indexOf('TU_') === 0) {
-      return Promise.reject(new Error('Falta configurar la Public Key de EmailJS.'));
-    }
-
-    return new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', 'https://api.emailjs.com/api/v1.0/email/send', true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve();
-        } else {
-          reject(new Error('EmailJS respondió ' + xhr.status + ': ' + (xhr.responseText || 'error desconocido')));
-        }
-      };
-      xhr.onerror = () => reject(new Error('No se pudo conectar con el servicio de correo.'));
-      xhr.send(JSON.stringify({
-        service_id: EMAILJS_SERVICE_ID,
-        template_id: templateId,
-        user_id: EMAILJS_PUBLIC_KEY,
-        template_params: params
-      }));
-    });
-  }
-
-  private async pedirCodigoYNuevaClave(correo: string): Promise<boolean> {
-    const promesa = Swal.fire({
-      title: 'Restablecer clave',
-      html:
-        '<p style="font-size:13px;margin-bottom:10px">Ingresa el código que enviamos a <strong>' +
-        this.enmascararCorreo(correo) + '</strong> y la nueva clave.</p>' +
-        '<input id="swal-control-avance-codigo" type="text" class="swal2-input" placeholder="Código del correo" autocomplete="off" style="text-transform:uppercase;letter-spacing:3px">' +
-        this.htmlCampoClave('swal-control-avance-nueva-1', 'Nueva clave (mín. 8 caracteres)', 'new-password') +
-        this.htmlCampoClave('swal-control-avance-nueva-2', 'Repetir nueva clave', 'new-password'),
-      focusConfirm: false,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar clave',
-      cancelButtonText: 'Cancelar',
-      showLoaderOnConfirm: true,
-      preConfirm: () => {
-        const codigo = ((document.getElementById('swal-control-avance-codigo') as HTMLInputElement).value || '').trim().toUpperCase();
-        const c1 = (document.getElementById('swal-control-avance-nueva-1') as HTMLInputElement).value || '';
-        const c2 = (document.getElementById('swal-control-avance-nueva-2') as HTMLInputElement).value || '';
-        if (!codigo) { Swal.showValidationMessage('Ingresa el código'); return false; }
-        if (c1.length < 8) { Swal.showValidationMessage('La clave debe tener al menos 8 caracteres'); return false; }
-        if (c1 !== c2) { Swal.showValidationMessage('Las claves no coinciden'); return false; }
-
-        return this.validarCodigoRecuperacion(codigo).then((error: string) => {
-          if (error) {
-            Swal.showValidationMessage(error);
-            return false;
-          }
-          return c1;
-        });
-      }
-    });
-
-    setTimeout(() => {
-      this.activarOjosClave();
-      const codigo = document.getElementById('swal-control-avance-codigo') as HTMLInputElement;
-      if (codigo) { setTimeout(() => codigo.focus(), 60); }
-    }, 0);
-
-    const resultado = await promesa;
-    if (!resultado || !resultado.value) { return false; }
-
-    try {
-      await this.guardarClaveEdicion(resultado.value);
-      await firestoreDB.collection('controlAvanceConfig').doc(DOC_RECUPERACION_CLAVE_AVANCE).delete();
-      await Swal.fire({
-        icon: 'success',
-        title: 'Clave restablecida',
-        text: 'Ya puedes usar la nueva clave.',
-        timer: 2000,
-        showConfirmButton: false
-      });
-      return true;
-    } catch (error) {
-      await Swal.fire('Error', 'No se pudo guardar la clave: ' + this.getMensajeError(error), 'error');
-      return false;
-    }
-  }
-
-  /** Devuelve '' si el código es válido, o el mensaje de error. */
-  private validarCodigoRecuperacion(codigo: string): Promise<string> {
-    const ref = firestoreDB.collection('controlAvanceConfig').doc(DOC_RECUPERACION_CLAVE_AVANCE);
-    return ref.get().then((doc: any) => {
-      const data = doc.exists ? doc.data() : null;
-      if (!data || !data.codigoHash) {
-        return 'No hay un código vigente. Solicita uno nuevo.';
-      }
-      if (Number(data.idUsuario) !== Number(this.usuario && this.usuario.idUsuario)) {
-        return 'Este código fue solicitado por otro usuario.';
-      }
-      if (new Date(data.expira).getTime() < Date.now()) {
-        return 'El código venció. Solicita uno nuevo.';
-      }
-      const intentos = Number(data.intentos) || 0;
-      if (intentos >= MAX_INTENTOS_CODIGO) {
-        return 'Demasiados intentos. Solicita un código nuevo.';
-      }
-      if (this.sha256(data.salt + ':' + codigo) !== data.codigoHash) {
-        return ref.update({ intentos: intentos + 1 }).then(() =>
-          'Código incorrecto (' + (MAX_INTENTOS_CODIGO - intentos - 1) + ' intentos restantes)'
-        );
-      }
-      return '';
-    }).catch((error: any) => 'No se pudo validar el código: ' + this.getMensajeError(error));
-  }
-
-  /** Obtiene el correo registrado (módulo Usuarios / sMail) de la persona del usuario conectado. */
-  private obtenerCorreoUsuarioActual(): Promise<string> {
-    const u = this.usuario || {};
-    return this.obtenerCorreoPersona(Number(u.idPersona), u.direccionMail || u.email || u.correo || '');
-  }
-
-  /** Correo vigente de una persona (tabla de correos); si no hay, el correo directo que se le pase. */
-  private obtenerCorreoPersona(idPersona: number, correoDirecto: string): Promise<string> {
-    if (!idPersona) {
-      return Promise.resolve(correoDirecto);
-    }
-
-    const servicio: any = this._sMail;
-    let llamada: any = null;
-    if (typeof servicio.getMailbyidPersona === 'function') {
-      llamada = servicio.getMailbyidPersona(idPersona);
-    } else if (typeof servicio.getMailbyIdPersona === 'function') {
-      llamada = servicio.getMailbyIdPersona(idPersona);
-    } else if (typeof servicio.getMail === 'function') {
-      llamada = servicio.getMail();
-    }
-    if (!llamada) {
-      return Promise.resolve(correoDirecto);
-    }
-
-    return this.aPromesa(llamada).then((res: any) => {
-      const lista: any[] = Array.isArray(res) ? res : (res ? [res] : []);
-      const delUsuario = lista.filter((m: any) =>
-        m && Number(m.idPersona) === idPersona && m.activo !== false && !m.fechaRemocion && m.direccionMail
-      );
-      return delUsuario.length ? String(delUsuario[delUsuario.length - 1].direccionMail).trim() : correoDirecto;
-    }).catch(() => correoDirecto);
-  }
-
-  /** Convierte un Observable, Promise o jqXHR en Promise. */
-  private aPromesa(valor: any): Promise<any> {
-    if (valor && typeof valor.subscribe === 'function') {
-      return new Promise((resolve, reject) => {
-        const sub = valor.subscribe((r: any) => { resolve(r); setTimeout(() => sub && sub.unsubscribe && sub.unsubscribe()); }, reject);
-      });
-    }
-    if (valor && typeof valor.then === 'function') {
-      return new Promise((resolve, reject) => valor.then(resolve, reject));
-    }
-    return Promise.resolve(valor);
-  }
-
-  private generarCodigoRecuperacion(): string {
-    // Sin caracteres confusos (0/O, 1/I/L)
-    const alfabeto = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    const bytes = new Uint8Array(8);
-    const c: any = (window as any).crypto || (window as any).msCrypto;
-    if (c && c.getRandomValues) {
-      c.getRandomValues(bytes);
-    } else {
-      for (let i = 0; i < bytes.length; i++) { bytes[i] = Math.floor(Math.random() * 256); }
-    }
-    let codigo = '';
-    for (let i = 0; i < bytes.length; i++) { codigo += alfabeto.charAt(bytes[i] % alfabeto.length); }
-    return codigo;
-  }
-
-  private enmascararCorreo(correo: string): string {
-    const partes = (correo || '').split('@');
-    if (partes.length !== 2) { return this.escaparHtml(correo); }
-    const nombre = partes[0];
-    const visible = nombre.length <= 2 ? nombre.charAt(0) : nombre.substring(0, 2);
-    return this.escaparHtml(visible + '***@' + partes[1]);
   }
 
   private escaparHtml(texto: string): string {
@@ -981,36 +526,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return H.map((x: number) => ('00000000' + (x >>> 0).toString(16)).slice(-8)).join('');
   }
 
-  private async solicitarNuevaClaveEdicion(): Promise<string | null> {
-    const promesa = Swal.fire({
-      title: 'Configurar clave de edición',
-      html:
-        '<p>Define la clave compartida para editar todos los controles de avance.</p>' +
-        this.htmlCampoClave('swal-control-avance-clave-1', 'Clave (mín. 8 caracteres)', 'new-password') +
-        this.htmlCampoClave('swal-control-avance-clave-2', 'Repetir clave', 'new-password'),
-      focusConfirm: false,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar clave',
-      cancelButtonText: 'Cancelar',
-      preConfirm: () => {
-        const primera = (document.getElementById('swal-control-avance-clave-1') as HTMLInputElement).value || '';
-        const segunda = (document.getElementById('swal-control-avance-clave-2') as HTMLInputElement).value || '';
-        if (primera.length < 8) {
-          Swal.showValidationMessage('La clave debe tener al menos 8 caracteres');
-          return false;
-        }
-        if (primera !== segunda) {
-          Swal.showValidationMessage('Las claves no coinciden');
-          return false;
-        }
-        return primera;
-      }
-    });
-    setTimeout(() => this.activarOjosClave(), 0);
-    const resultado = await promesa;
-    return resultado && resultado.value ? resultado.value : null;
-  }
-
   // Campo de clave con botón "ojito" para mostrar/ocultar lo escrito
   private htmlCampoClave(id: string, placeholder: string, autocomplete: string): string {
     return '<div class="ca-clave-wrap">' +
@@ -1059,20 +574,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
     const primero = popup.querySelector('.ca-clave-input:not([readonly])') as HTMLInputElement;
     if (primero) { setTimeout(() => primero.focus(), 50); }
-  }
-
-  private async guardarClaveEdicion(clave: string, soloSiNoExiste: boolean = false): Promise<void> {
-    const referencia = firestoreDB.collection('controlAvanceConfig').doc(ControlAvanceComponent.DOC_CLAVE_EDICION);
-    const datos = {
-      clave,
-      fechaActualizacion: new Date().toISOString()
-    };
-    await firestoreDB.runTransaction((transaccion: any) => transaccion.get(referencia).then((doc: any) => {
-      if (soloSiNoExiste && doc.exists) {
-        throw new Error('La clave ya fue configurada en otro control. Intenta ingresar con la clave vigente.');
-      }
-      transaccion.set(referencia, datos);
-    }));
   }
 
   private getMensajeError(error: any): string {
@@ -1146,7 +647,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnInit() {
     this.vistaActiva = this.vistaInicial;
-    this.cargarPermisoDirectorProyectoMatriz();
+    this.suscribirBloqueo();
     this.cargarUsuariosValidadores();
     this.cargarValidadoresSeleccionados();
     this.suscribirControlesAvance();
@@ -1156,52 +657,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (this.detalleSeguimiento && this.detalleSeguimiento.length > 0) {
       this.calcularAvancesYValidaciones();
     }
-  }
-
-  private cargarPermisoDirectorProyectoMatriz() {
-    const solicitud = ++this.solicitudPermisoDirectorMatriz;
-    this.esDirectorProyectoMatriz = false;
-    const idUsuario = Number(this.usuario && this.usuario.idUsuario);
-    const idProyecto = Number(this.idProyecto);
-    if (this.soloLectura || !idUsuario || !idProyecto) { return; }
-
-    this._sProyecto.getProyectobyID(idProyecto).subscribe(
-      proyecto => {
-        if (solicitud !== this.solicitudPermisoDirectorMatriz) { return; }
-        const idProyectoMatriz = Number(proyecto && proyecto.idProyectoMatriz);
-        if (!idProyectoMatriz) {
-          console.error('No se pudo determinar el proyecto matriz del Control de Avance.', proyecto);
-          Swal.fire('Error', 'No se pudo verificar el permiso de edición del Control de Avance.', 'error');
-          return;
-        }
-
-        this._sVisDirectorProyectoMatriz.getVis_DirectorProyectoMatrizbyidProyectoMatriz(idProyectoMatriz).subscribe(
-          directores => {
-            if (solicitud !== this.solicitudPermisoDirectorMatriz) { return; }
-            if (!Array.isArray(directores)) {
-              console.error('La respuesta de directores del proyecto matriz no es válida.', directores);
-              Swal.fire('Error', 'No se pudo verificar el permiso de edición del Control de Avance.', 'error');
-              return;
-            }
-            this.esDirectorProyectoMatriz = directores.some((director: any) =>
-              Number(director.idUsuarioDirector) === idUsuario &&
-              Number(director.idProyectoMatriz) === idProyectoMatriz &&
-              (director.activo === true || director.activo === 'true' || director.activo === 1)
-            );
-          },
-          error => {
-            if (solicitud !== this.solicitudPermisoDirectorMatriz) { return; }
-            console.error('Error al consultar los directores del proyecto matriz.', error);
-            Swal.fire('Error', 'No se pudo verificar el permiso de edición del Control de Avance.', 'error');
-          }
-        );
-      },
-      error => {
-        if (solicitud !== this.solicitudPermisoDirectorMatriz) { return; }
-        console.error('Error al consultar el proyecto del Control de Avance.', error);
-        Swal.fire('Error', 'No se pudo verificar el permiso de edición del Control de Avance.', 'error');
-      }
-    );
   }
 
   private cargarPermisoGerencia() {
@@ -1270,87 +725,244 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         esGerencia: this.esUsuarioGerencia()
       });
     }
+    // Si el control está bloqueado, al confirmar el perfil cambian las barras editables del Gantt
+    if (this.controlBloqueado) { this.actualizarDatosGantt(); }
   }
 
   // ==========================================================
-  // Bloqueo por tiempo: 24 h para editar; después se pide permiso al Sub-gerente o Director
+  // Bloqueo con clave: el control queda libre para todos. Un Sub-gerente o Director
+  // puede bloquearlo con una clave; mientras esté bloqueado, el resto necesita esa clave para editar.
   // ==========================================================
 
-  /** Sub-gerente o Director: editan sin plazo y aprueban los permisos. */
+  /** Sub-gerente, Director (o gerencia): ponen/quitan el bloqueo y editan aunque esté bloqueado. */
   get esAprobadorEdicion(): boolean {
     return this.esSubGerente || this.esDirectorPerfil || this.esUsuarioGerencia();
   }
 
-  /** Solicitudes pendientes de este control (lista ya armada para el panel del Sub-gerente / Director). */
-  solicitudesPendientes: ControlAvanceItem[] = [];
-
-  private actualizarSolicitudesPendientes() {
-    this.solicitudesPendientes = (this.ControlesAvance || [])
-      .filter(it => it.activo !== false && this.solicitudPendiente(it))
-      .sort((a, b) => (a.solicitudEdicion.fecha || '').localeCompare(b.solicitudEdicion.fecha || ''));
-    // (el Gantt se recalcula después, en el mismo flujo de carga)
-    this.tienePermisoAprobado = (this.ControlesAvance || []).some(it => it.activo !== false && this.tieneAutorizacionVigente(it));
+  get controlBloqueado(): boolean {
+    return !!(this.bloqueoControl && this.bloqueoControl.bloqueado);
   }
 
-  fechaSolicitud(item: ControlAvanceItem): string {
-    return item && item.solicitudEdicion ? this.fechaHoraCorta(item.solicitudEdicion.fecha) : '';
+  /** true si este usuario ingresó la clave vigente en esta sesión del navegador. */
+  get desbloqueadoConClave(): boolean {
+    return this.controlBloqueado && !!this.hashDesbloqueado && this.hashDesbloqueado === this.bloqueoControl.hash;
   }
 
-  /** Permiso aprobado para el usuario actual y todavía vigente. */
-  tieneAutorizacionVigente(item: ControlAvanceItem): boolean {
-    const a = item && item.autorizacionEdicion;
-    if (!a) { return false; }
-    const hasta = Date.parse(a.hasta || '');
-    return Number(a.idUsuario) === Number(this.usuario && this.usuario.idUsuario) && !isNaN(hasta) && hasta > Date.now();
+  get textoBloqueo(): string {
+    if (!this.bloqueoControl) { return ''; }
+    const quien = this.bloqueoControl.nombre || 'Sub-gerente / Director';
+    const cuando = this.fechaHoraCorta(this.bloqueoControl.fecha);
+    return 'Bloqueado por ' + quien + (cuando ? ' el ' + cuando : '');
   }
 
-  /** true = ya pasaron las 24 h desde que se creó la fila y el usuario no tiene permiso. */
-  estaBloqueadoPorTiempo(item: ControlAvanceItem): boolean {
-    if (!item || !item.id) { return false; }          // fila nueva, aún sin guardar
-    if (this.esAprobadorEdicion) { return false; }
-    if (this.tieneAutorizacionVigente(item)) { return false; }
-    const creada = Date.parse(item.fechaCreacion || '');
-    if (isNaN(creada)) { return true; }                // filas antiguas sin fecha: ya pasaron las 24 h
-    return Date.now() - creada > this.HORAS_EDICION_LIBRE * 3600000;
+  private getIdDocBloqueo(): string {
+    return 'bloqueo_' + (Number(this.idProyecto) || 0) + '_' + (Number(this.getIdSubProyectoActual()) || 0);
   }
 
-  solicitudPendiente(item: ControlAvanceItem): boolean {
-    return !!(item && item.solicitudEdicion && item.solicitudEdicion.estado === 'pendiente');
+  private getClaveSesionBloqueo(): string {
+    return 'controlAvanceDesbloqueo_' + this.getIdDocBloqueo();
   }
 
-  miSolicitudPendiente(item: ControlAvanceItem): boolean {
-    return this.solicitudPendiente(item) &&
-      Number(item.solicitudEdicion.idUsuario) === Number(this.usuario && this.usuario.idUsuario);
+  private leerDesbloqueoSesion(): string | null {
+    try { return sessionStorage.getItem(this.getClaveSesionBloqueo()); } catch (e) { return null; }
   }
 
-  /** Cantidad de solicitudes por aprobar (solo se muestra al Sub-gerente / Director). */
-  get totalSolicitudesEdicion(): number {
-    return this.solicitudesPendientes.length;
+  private guardarDesbloqueoSesion(hash: string | null) {
+    try {
+      if (hash) {
+        sessionStorage.setItem(this.getClaveSesionBloqueo(), hash);
+      } else {
+        sessionStorage.removeItem(this.getClaveSesionBloqueo());
+      }
+    } catch (e) { }
   }
 
-  /** Texto del botón Editar: cuánto tiempo queda o por qué está bloqueado. */
-  tituloBotonEditar(item: ControlAvanceItem): string {
-    if (this.estaBloqueadoPorTiempo(item)) {
-      return this.miSolicitudPendiente(item)
-        ? 'Ya pediste permiso para editar: falta que lo apruebe el Sub-gerente o el Director'
-        : 'Pasaron ' + this.HORAS_EDICION_LIBRE + ' h desde que se creó: pide permiso al Sub-gerente o Director para editar';
+  /** Escucha en tiempo real si el control está bloqueado (doc por proyecto + subproyecto). */
+  private suscribirBloqueo() {
+    if (this.unsubscribeBloqueo) {
+      this.unsubscribeBloqueo();
+      this.unsubscribeBloqueo = null;
     }
-    if (this.esAprobadorEdicion) { return 'Editar esta fila'; }
-    if (this.tieneAutorizacionVigente(item)) {
-      return 'Permiso aprobado hasta ' + this.fechaHoraCorta(item.autorizacionEdicion.hasta);
-    }
-    const creada = Date.parse(item && item.fechaCreacion || '');
-    if (!isNaN(creada)) {
-      const restan = Math.max(0, Math.ceil((creada + this.HORAS_EDICION_LIBRE * 3600000 - Date.now()) / 3600000));
-      return 'Editar esta fila (quedan ' + restan + ' h para editar sin permiso)';
-    }
-    return 'Editar esta fila';
+    this.bloqueoControl = null;
+    this.hashDesbloqueado = this.leerDesbloqueoSesion();
+    if (!Number(this.idProyecto)) { return; }
+
+    this.unsubscribeBloqueo = firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocBloqueo())
+      .onSnapshot((doc: any) => {
+        this._ngZone.run(() => {
+          const podiaEditar = this.puedeEditarAvance;
+          const data = doc.exists ? doc.data() : null;
+          this.bloqueoControl = data && data.bloqueado && data.hash && data.salt ? data : null;
+
+          // Si cambiaron la clave o quitaron el bloqueo, el desbloqueo guardado ya no sirve
+          if (this.hashDesbloqueado && (!this.bloqueoControl || this.bloqueoControl.hash !== this.hashDesbloqueado)) {
+            this.hashDesbloqueado = null;
+            this.guardarDesbloqueoSesion(null);
+          }
+
+          if (podiaEditar && !this.puedeEditarAvance) {
+            this.cerrarEdicionesAbiertas();
+          } else {
+            this.actualizarDatosGantt();
+          }
+        });
+      }, (error: any) => {
+        console.error('No se pudo leer el bloqueo del Control de Avance:', error);
+      });
   }
 
-  tituloSolicitud(item: ControlAvanceItem): string {
-    const s = item && item.solicitudEdicion;
-    if (!s) { return ''; }
-    return s.nombre + ' pide editar (' + this.fechaHoraCorta(s.fecha) + '): ' + (s.motivo || 'sin motivo');
+  /** Sub-gerente / Director: bloquea el control con una clave. */
+  async bloquearControl() {
+    if (this.soloLectura || !this.esAprobadorEdicion) { return; }
+    const clave = await this.solicitarNuevaClaveBloqueo();
+    if (!clave) { return; }
+
+    const salt = this.generarSalt();
+    const datos = {
+      bloqueado: true,
+      salt: salt,
+      hash: this.sha256(salt + ':' + clave),
+      idProyecto: Number(this.idProyecto) || 0,
+      idSubProyecto: Number(this.getIdSubProyectoActual()) || 0,
+      idUsuario: Number(this.usuario && this.usuario.idUsuario) || null,
+      nombre: this.getNombreUsuarioActual() || 'Usuario',
+      fecha: new Date().toISOString()
+    };
+
+    try {
+      await firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocBloqueo()).set(datos);
+      Swal.fire({
+        icon: 'success',
+        title: 'Control bloqueado',
+        text: 'Desde ahora, para editar hay que ingresar la clave.',
+        timer: 1800,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      Swal.fire('Error', 'No se pudo bloquear: ' + this.getMensajeError(error), 'error');
+    }
+  }
+
+  /** Sub-gerente / Director: quita el bloqueo y el control vuelve a quedar libre para todos. */
+  async quitarBloqueo() {
+    if (this.soloLectura || !this.esAprobadorEdicion || !this.controlBloqueado) { return; }
+    const r = await Swal.fire({
+      title: 'Quitar bloqueo',
+      text: 'El Control de Avance quedará libre para que cualquiera lo edite.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Quitar bloqueo',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!r || !(r.value || r.isConfirmed)) { return; }
+
+    try {
+      await firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocBloqueo()).delete();
+      Swal.fire({ icon: 'success', title: 'Bloqueo quitado', timer: 1500, showConfirmButton: false });
+    } catch (error) {
+      Swal.fire('Error', 'No se pudo quitar el bloqueo: ' + this.getMensajeError(error), 'error');
+    }
+  }
+
+  /** Cualquier usuario: ingresa la clave para poder editar mientras el control esté bloqueado. */
+  async ingresarClaveBloqueo() {
+    if (this.soloLectura || !this.controlBloqueado) { return; }
+    const bloqueo = this.bloqueoControl;
+
+    const promesa = Swal.fire({
+      title: 'Control bloqueado',
+      html:
+        '<p style="font-size:14px">' + this.escaparHtml(this.textoBloqueo) + '.<br>Ingresa la clave para poder editar.</p>' +
+        this.htmlCampoClave('swal-control-avance-clave', 'Clave', 'current-password') +
+        '<p style="font-size:12px;color:#888;margin-top:8px">Si no tienes la clave, pídesela al Sub-gerente o al Director.</p>',
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Desbloquear',
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const clave = (document.getElementById('swal-control-avance-clave') as HTMLInputElement).value || '';
+        if (!clave) {
+          Swal.showValidationMessage('Ingresa la clave');
+          return false;
+        }
+        if (this.sha256(bloqueo.salt + ':' + clave) !== bloqueo.hash) {
+          Swal.showValidationMessage('Clave incorrecta');
+          return false;
+        }
+        return true;
+      }
+    });
+    setTimeout(() => this.activarOjosClave(), 0);
+
+    const resultado = await promesa;
+    if (!resultado || resultado.value !== true) { return; }
+
+    this.hashDesbloqueado = bloqueo.hash;
+    this.guardarDesbloqueoSesion(bloqueo.hash);
+    this.actualizarDatosGantt();
+    Swal.fire({ icon: 'success', title: 'Edición habilitada', timer: 1300, showConfirmButton: false });
+  }
+
+  /** Quien entró con clave puede volver a dejarlo bloqueado para sí mismo (ej. al terminar). */
+  volverABloquear() {
+    this.hashDesbloqueado = null;
+    this.guardarDesbloqueoSesion(null);
+    this.cerrarEdicionesAbiertas();
+  }
+
+  /** Cierra cualquier edición en curso cuando el usuario deja de poder editar. */
+  private cerrarEdicionesAbiertas() {
+    Object.keys(this.tiempoGuardado || {}).forEach(indice => {
+      clearTimeout(this.tiempoGuardado[indice]);
+    });
+    if (this.tiempoRecalculo) {
+      clearTimeout(this.tiempoRecalculo);
+      this.tiempoRecalculo = null;
+    }
+    if (this.filaEnEdicion !== null) {
+      const item = this.ControlesAvance[this.filaEnEdicion];
+      if (item) { this.cancelarEdicion(item, this.filaEnEdicion); }
+    }
+    if (this.editandoNombreGanttId) {
+      const barra = this.ganttBarras.find(item => item.item.id === this.editandoNombreGanttId);
+      if (barra) { this.cancelarNombreGantt(barra); }
+    }
+    this.cancelarConexionGantt();
+    this.mostrarFormulario = false;
+    this.nuevaFilaGantt = null;
+    this.editorFechasGantt = null;
+    this.actualizarDatosGantt();
+  }
+
+  private async solicitarNuevaClaveBloqueo(): Promise<string | null> {
+    const promesa = Swal.fire({
+      title: 'Bloquear Control de Avance',
+      html:
+        '<p style="font-size:14px">Define la clave. Mientras esté bloqueado, solo quien tenga la clave ' +
+        '(o un Sub-gerente / Director) podrá editar.</p>' +
+        this.htmlCampoClave('swal-control-avance-clave-1', 'Clave (mín. 4 caracteres)', 'new-password') +
+        this.htmlCampoClave('swal-control-avance-clave-2', 'Repetir clave', 'new-password'),
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Bloquear',
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const primera = (document.getElementById('swal-control-avance-clave-1') as HTMLInputElement).value || '';
+        const segunda = (document.getElementById('swal-control-avance-clave-2') as HTMLInputElement).value || '';
+        if (primera.length < 4) {
+          Swal.showValidationMessage('La clave debe tener al menos 4 caracteres');
+          return false;
+        }
+        if (primera !== segunda) {
+          Swal.showValidationMessage('Las claves no coinciden');
+          return false;
+        }
+        return primera;
+      }
+    });
+    setTimeout(() => this.activarOjosClave(), 0);
+    const resultado = await promesa;
+    return resultado && resultado.value ? resultado.value : null;
   }
 
   private fechaHoraCorta(iso: string): string {
@@ -1359,214 +971,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const dos = (n: number) => ('0' + n).slice(-2);
     return dos(d.getDate()) + '/' + dos(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + dos(d.getHours()) + ':' + dos(d.getMinutes());
   }
-
-  /** Aviso cuando se intenta editar algo bloqueado (desde la tabla, la Carta Gantt o los archivos). */
-  private avisarBloqueoTiempo(item: ControlAvanceItem) {
-    if (this.miSolicitudPendiente(item)) {
-      Swal.fire('Solicitud pendiente', 'Ya pediste permiso para editar esta fila. Falta que lo apruebe el Sub-gerente o el Director.', 'info');
-      return;
-    }
-    this.pedirPermisoEdicion(item);
-  }
-
-  /** El usuario explica qué necesita corregir y queda la solicitud en la fila. */
-  pedirPermisoEdicion(item: ControlAvanceItem) {
-    if (!item || !item.id) { return; }
-    const s = item.solicitudEdicion;
-    const rechazo = s && s.estado === 'rechazada' && Number(s.idUsuario) === Number(this.usuario && this.usuario.idUsuario)
-      ? '<p style="font-size:13px;color:#a33a3a;margin:0 0 8px">Tu solicitud anterior fue rechazada por ' + (s.resueltoPor || '—') +
-        (s.motivoRechazo ? ': ' + this.escaparHtml(s.motivoRechazo) : '') + '</p>'
-      : '';
-
-    Swal.fire({
-      title: 'Pedir permiso para editar',
-      html:
-        '<p style="font-size:14px">Ya pasaron ' + this.HORAS_EDICION_LIBRE + ' horas desde que se creó <b>' +
-        this.escaparHtml((item.codigo || '') + ' ' + (item.descripcion || '')) + '</b>.<br>' +
-        'El Sub-gerente o el Director tiene que aprobarlo.</p>' + rechazo,
-      input: 'textarea',
-      inputPlaceholder: '¿Qué necesitas corregir y por qué?',
-      showCancelButton: true,
-      confirmButtonText: 'Enviar solicitud',
-      cancelButtonText: 'Cancelar',
-      preConfirm: (texto: string) => {
-        if (!(texto || '').trim()) {
-          Swal.showValidationMessage('Escribe qué necesitas corregir');
-          return false;
-        }
-        return (texto || '').trim();
-      }
-    }).then((resultado: any) => {
-      if (!resultado || !resultado.value) { return; }
-      const solicitud: SolicitudEdicion = {
-        idUsuario: Number(this.usuario && this.usuario.idUsuario) || 0,
-        nombre: this.getNombreUsuarioActual() || 'Usuario',
-        fecha: new Date().toISOString(),
-        motivo: String(resultado.value),
-        estado: 'pendiente'
-      };
-      firestoreDB.collection('controlAvance').doc(item.id).update({ solicitudEdicion: solicitud })
-        .then(() => {
-          item.solicitudEdicion = solicitud;
-          this.actualizarSolicitudesPendientes();
-          Swal.fire({
-            title: 'Solicitud enviada',
-            html: '<p style="font-size:14px">Avisando por correo al Sub-gerente y a los Directores...</p>',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            onOpen: () => { try { Swal.showLoading(); } catch (e) { } },
-            didOpen: () => { try { Swal.showLoading(); } catch (e) { } }
-          });
-          return this.avisarAprobadores(item, solicitud).then(enviados => {
-            Swal.fire({
-              icon: enviados.length ? 'success' : 'warning',
-              title: 'Solicitud enviada',
-              html: enviados.length
-                ? '<p style="font-size:14px">Se avisó por correo a:<br><b>' + enviados.map(n => this.escaparHtml(n)).join('<br>') + '</b></p>' +
-                  '<p style="font-size:12px;color:#888">Cuando lo aprueben, el botón vuelve a decir "Editar".</p>'
-                : '<p style="font-size:14px">La solicitud quedó guardada en la fila, pero <b>no se pudo enviar el correo</b>. ' +
-                  'Avísale directamente al Sub-gerente o al Director.</p>'
-            });
-          });
-        })
-        .catch((error: any) => Swal.fire('Error', 'No se pudo enviar la solicitud: ' + this.getMensajeError(error), 'error'));
-    });
-  }
-
-  /** Sub-gerentes y Directores activos con correo (se arma una vez por sesión). */
-  private aprobadoresCache: Promise<{ idUsuario: number; nombre: string; correo: string }[]> = null;
-
-  private obtenerAprobadores(): Promise<{ idUsuario: number; nombre: string; correo: string }[]> {
-    if (this.aprobadoresCache) { return this.aprobadoresCache; }
-
-    const idsPerfilesListos = this.idsPerfilesSubGerente.length || this.idsPerfilesDirector.length
-      ? Promise.resolve(null)
-      : this.aPromesa(this._sPerfil.getPerfil()).then((perfiles: any) => {
-          const lista = Array.isArray(perfiles) ? perfiles : [];
-          this.idsPerfilesSubGerente = lista.filter((p: any) => this.esNombrePerfilSubGerente(p.nombrePerfil)).map((p: any) => Number(p.idPerfil));
-          this.idsPerfilesDirector = lista
-            .filter((p: any) => this.normalizarTextoClave(p.nombrePerfil).replace(/[^A-Z]/g, '').indexOf('DIRECTOR') === 0)
-            .map((p: any) => Number(p.idPerfil));
-        });
-
-    this.aprobadoresCache = idsPerfilesListos
-      .then(() => Promise.all([
-        this.aPromesa(this._sUsuario.getUsuariobyactivo(true)),
-        this.aPromesa(this._sVisUsuarioPersona.getVis_UsuarioPersona()).catch(() => [])
-      ]))
-      .then((res: any[]) => {
-        const usuarios: any[] = Array.isArray(res[0]) ? res[0] : [];
-        const personas: any[] = Array.isArray(res[1]) ? res[1] : [];
-        const idsAprobadores = this.idsPerfilesSubGerente.concat(this.idsPerfilesDirector);
-        const yo = Number(this.usuario && this.usuario.idUsuario);
-
-        return Promise.all(usuarios
-          .filter((u: any) => u && Number(u.idUsuario) && Number(u.idUsuario) !== yo)
-          .map((u: any) => this.aPromesa(this._sUsuariosPerfiles.getUsuariosPerfilesbyidUsuario(Number(u.idUsuario)))
-            .then((perfiles: any) => {
-              const lista = Array.isArray(perfiles) ? perfiles : [];
-              const esAprobador = lista.some((p: any) => p.activo !== false && !p.fechaRemocion && idsAprobadores.indexOf(Number(p.idPerfil)) >= 0);
-              if (!esAprobador) { return null; }
-              const persona = personas.filter((up: any) => Number(up.idUsuario) === Number(u.idUsuario))[0] || {};
-              const nombre = ((persona.nombre || '') + ' ' + (persona.paterno || '')).trim() || u.nombreUsuario || ('Usuario ' + u.idUsuario);
-              const directo = u.direccionMail || u.email || u.correo || persona.direccionMail || persona.email || '';
-              return this.obtenerCorreoPersona(Number(persona.idPersona || u.idPersona), directo)
-                .then(correo => correo ? { idUsuario: Number(u.idUsuario), nombre: nombre, correo: correo } : null);
-            })
-            .catch(() => null)));
-      })
-      .then((lista: any[]) => lista.filter(x => !!x))
-      .catch((error: any) => {
-        console.error('No se pudo armar la lista de Sub-gerentes / Directores:', error);
-        this.aprobadoresCache = null;
-        return [];
-      });
-    return this.aprobadoresCache;
-  }
-
-  /** Manda el correo de la solicitud a cada Sub-gerente / Director. Devuelve a quiénes les llegó. */
-  private avisarAprobadores(item: ControlAvanceItem, solicitud: SolicitudEdicion): Promise<string[]> {
-    if (!EMAILJS_TEMPLATE_SOLICITUD_EDICION || EMAILJS_TEMPLATE_SOLICITUD_EDICION.indexOf('TU_') === 0) {
-      console.warn('Falta pegar el Template ID de EmailJS en EMAILJS_TEMPLATE_SOLICITUD_EDICION (control-avance.component.ts).');
-      return Promise.resolve([]);
-    }
-    const fila = ((item.codigo || '') + ' ' + (item.descripcion || '')).trim();
-    const proyecto = this.nombreProyectoVisible || ('Subproyecto ' + this.idSubProyecto);
-    return this.obtenerAprobadores().then(aprobadores =>
-      Promise.all(aprobadores.map(a => this.enviarCorreoEmailJS({
-        to_email: a.correo,
-        nombre: a.nombre,
-        solicitante: solicitud.nombre,
-        fila: fila,
-        proyecto: proyecto,
-        motivo: solicitud.motivo,
-        enlace: window.location.href
-      }, EMAILJS_TEMPLATE_SOLICITUD_EDICION).then(() => a.nombre).catch((error: any) => {
-        console.error('No se pudo avisar a ' + a.correo, error);
-        return '';
-      })))
-    ).then(nombres => nombres.filter(n => !!n));
-  }
-
-  aprobarSolicitudEdicion(item: ControlAvanceItem) {
-    if (!this.esAprobadorEdicion || !item || !item.id || !this.solicitudPendiente(item)) { return; }
-    const s = item.solicitudEdicion;
-    Swal.fire({
-      title: 'Aprobar edición',
-      html: '<p style="font-size:14px"><b>' + this.escaparHtml(s.nombre) + '</b> quiere editar <b>' +
-        this.escaparHtml((item.codigo || '') + ' ' + (item.descripcion || '')) + '</b>.</p>' +
-        '<p style="font-size:13px;color:#555">Motivo: ' + this.escaparHtml(s.motivo || '—') + '</p>' +
-        '<p style="font-size:12px;color:#888">Podrá editar esta fila durante ' + this.HORAS_PERMISO_EDICION + ' horas.</p>',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Aprobar',
-      cancelButtonText: 'Cancelar'
-    }).then((r: any) => {
-      if (!r || !(r.value || r.isConfirmed)) { return; }
-      const ahora = new Date();
-      const autorizacion: AutorizacionEdicion = {
-        idUsuario: Number(s.idUsuario),
-        nombre: s.nombre,
-        hasta: new Date(ahora.getTime() + this.HORAS_PERMISO_EDICION * 3600000).toISOString(),
-        aprobadoPor: this.getNombreUsuarioActual() || 'Usuario',
-        fecha: ahora.toISOString()
-      };
-      const solicitud: SolicitudEdicion = Object.assign({}, s, {
-        estado: 'aprobada', resueltoPor: autorizacion.aprobadoPor, fechaResolucion: ahora.toISOString()
-      });
-      firestoreDB.collection('controlAvance').doc(item.id).update({ autorizacionEdicion: autorizacion, solicitudEdicion: solicitud })
-        .then(() => {
-          item.autorizacionEdicion = autorizacion;
-          item.solicitudEdicion = solicitud;
-          this.actualizarSolicitudesPendientes();
-          Swal.fire({ icon: 'success', title: 'Aprobado', text: s.nombre + ' ya puede editar la fila.', timer: 1800, showConfirmButton: false });
-        })
-        .catch((error: any) => Swal.fire('Error', 'No se pudo aprobar: ' + this.getMensajeError(error), 'error'));
-    });
-  }
-
-  rechazarSolicitudEdicion(item: ControlAvanceItem) {
-    if (!this.esAprobadorEdicion || !item || !item.id || !this.solicitudPendiente(item)) { return; }
-    const s = item.solicitudEdicion;
-    Swal.fire({
-      title: 'Rechazar solicitud',
-      text: 'Motivo del rechazo para ' + s.nombre + ' (opcional):',
-      input: 'text',
-      showCancelButton: true,
-      confirmButtonText: 'Rechazar',
-      cancelButtonText: 'Cancelar'
-    }).then((r: any) => {
-      if (!r || r.dismiss || r.value === undefined) { return; }
-      const solicitud: SolicitudEdicion = Object.assign({}, s, {
-        estado: 'rechazada', resueltoPor: this.getNombreUsuarioActual() || 'Usuario',
-        fechaResolucion: new Date().toISOString(), motivoRechazo: String(r.value || '').trim()
-      });
-      firestoreDB.collection('controlAvance').doc(item.id).update({ solicitudEdicion: solicitud })
-        .then(() => { item.solicitudEdicion = solicitud; this.actualizarSolicitudesPendientes(); })
-        .catch((error: any) => Swal.fire('Error', 'No se pudo rechazar: ' + this.getMensajeError(error), 'error'));
-    });
-  }
-
   private normalizarTextoClave(texto: string): string {
     let t = (texto || '').toString();
     try { t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) { }
@@ -1586,10 +990,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.suscribirControlesAvance();
       this.suscribirPlantillasPersonalizadas();
       this.cargarValidadoresSeleccionados();
-    }
-    if ((changes.idProyecto && !changes.idProyecto.firstChange) ||
-        (changes.soloLectura && !changes.soloLectura.firstChange)) {
-      this.cargarPermisoDirectorProyectoMatriz();
+      this.suscribirBloqueo();
     }
   }
 
@@ -1599,6 +1000,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     }
     if (this.unsubscribeValidadoresConfig) {
       this.unsubscribeValidadoresConfig();
+    }
+    if (this.unsubscribeBloqueo) {
+      this.unsubscribeBloqueo();
     }
     if (this.unsubscribePlantillasPersonalizadas) {
       this.unsubscribePlantillasPersonalizadas();
@@ -1705,7 +1109,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
               }
             });
             this.ControlesAvance = items;
-            this.actualizarSolicitudesPendientes();
             this.migrarDatosAntiguos();
             this.asegurarBitacora();
             this.ControlesAvance.forEach(item => this.normalizarValidadoresEstado(item));
@@ -2021,7 +1424,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    */
   toggleFranjaCompleta(item: ControlAvanceItem, index: number) {
     if (!this.puedeEditarAvance) { return; }
-    if (this.estaBloqueadoPorTiempo(item)) { this.avisarBloqueoTiempo(item); return; }
     item.mostrarFranjaCompleta = !item.mostrarFranjaCompleta;
     this.OnCambio(item, index);
   }
@@ -2985,11 +2387,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   onArchivosFilaSeleccionados(event: any, item: ControlAvanceItem, index: number) {
     if (!this.puedeEditarAvance) { return; }
-    if (this.estaBloqueadoPorTiempo(item)) {
-      if (event && event.target) { event.target.value = ''; }
-      this.avisarBloqueoTiempo(item);
-      return;
-    }
     const files: FileList = event.target.files;
     if (!files || files.length === 0 || !item.id) {
       return;
@@ -3021,7 +2418,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   eliminarArchivoAdjunto(item: ControlAvanceItem, archivo: ArchivoAdjunto, index: number) {
     if (!this.puedeEditarAvance || !item.id) { return; }
-    if (this.estaBloqueadoPorTiempo(item)) { this.avisarBloqueoTiempo(item); return; }
 
     Swal.fire({
       title: 'Eliminar archivo',
@@ -3463,22 +2859,15 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return this.usuario && (this.usuario.idPerfil === 1 || this.usuario.idPerfil === 2 || this.usuario.idPerfil === 11);
   }
 
+  /** Igual que editar: libre para todos, salvo que el control esté bloqueado con clave. */
   puedeEliminarControlAvance(): boolean {
-    if (!this.usuario || !this.usuario.idUsuario) {
-      return false;
-    }
-
-    if (this.esUsuarioGerencia()) {
-      return true;
-    }
-
-    const idUsuarioActual = Number(this.usuario.idUsuario);
-    const idUsuarioCreadorSubProyecto = Number(this.subProyectoActual && this.subProyectoActual.idUsuarioCreador);
-    return idUsuarioActual > 0 && idUsuarioActual === idUsuarioCreadorSubProyecto;
+    return this.puedeEditarAvance;
   }
 
   getMensajePermisoEliminacionAvance(): string {
-    return 'Solo el creador del subproyecto o un usuario con rol de gerencia pueden eliminar documentos.';
+    return this.controlBloqueado
+      ? 'Control bloqueado: ingresa la clave para eliminar.'
+      : 'No tienes permiso para eliminar en este control.';
   }
 
   puedeConfigurarValidadores(): boolean {
@@ -3577,12 +2966,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   activarEdicion(item: ControlAvanceItem, index: number) {
-    if (this.soloLectura) { return; }
-    // Fila con más de 24 h: cualquiera del proyecto puede pedir permiso, aunque hoy no pueda editar
-    if (this.estaBloqueadoPorTiempo(item)) {
-      this.avisarBloqueoTiempo(item);
-      return;
-    }
     if (!this.puedeEditarAvance) { return; }
     this.filaEnEdicion = index;
     this.copiaEdicion = JSON.parse(JSON.stringify(item));
@@ -3682,12 +3065,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    * También se limpian las dependencias que otras actividades tenían hacia lo eliminado.
    */
   PrepararEliminar(index: number) {
-    if (!this.puedeEditarAvance) {
-      Swal.fire('Edición bloqueada', 'Ingresa la clave para modificar el Control de Avance.', 'info');
-      return;
-    }
     if (!this.puedeEliminarControlAvance()) {
-      Swal.fire('Acceso denegado', this.getMensajePermisoEliminacionAvance(), 'warning');
+      if (this.controlBloqueado && !this.soloLectura) { this.ingresarClaveBloqueo(); }
       return;
     }
 
@@ -4145,7 +3524,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
       const editable = this.puedeEditarAvance
         && !!item.id
-        && !this.estaBloqueadoPorTiempo(item)
         && !esFranjaCompleta
         && !(esGrupo && idsConHijos[item.id]);
       const asignable = editable && !item.fechaInicioProgramada && !esHito;
@@ -4523,7 +3901,6 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   iniciarEdicionNombreGantt(barra: BarraGantt) {
     if (!this.puedeEditarAvance || !barra || !barra.item.id) { return; }
-    if (this.estaBloqueadoPorTiempo(barra.item)) { this.avisarBloqueoTiempo(barra.item); return; }
     this.editandoNombreGanttId = barra.item.id;
     this.nombreGanttOriginal = barra.item.descripcion || '';
     setTimeout(() => {

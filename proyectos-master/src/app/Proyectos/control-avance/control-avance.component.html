@@ -21,11 +21,14 @@
         </span>
       </div>
 
-      <!-- Solicitudes de permiso para editar (solo Sub-gerente / Director) -->
-      <span class="solicitudes-edicion-badge" *ngIf="!LoadingTabla && esAprobadorEdicion && totalSolicitudesEdicion > 0"
-            [title]="totalSolicitudesEdicion + ' solicitud(es) para editar filas: búscalas marcadas en naranjo y apruébalas con el check'">
-        <i class="fa fa-unlock-alt"></i> {{totalSolicitudesEdicion}} {{totalSolicitudesEdicion === 1 ? 'solicitud' : 'solicitudes'}} de edición
-      </span>
+      <!-- Bloqueo con clave (solo Sub-gerente / Director) -->
+      <button type="button" class="btn-bloqueo-control" *ngIf="!LoadingTabla && !soloLectura && esAprobadorEdicion"
+              [class.bloqueado]="controlBloqueado"
+              (click)="controlBloqueado ? quitarBloqueo() : bloquearControl()"
+              [title]="controlBloqueado ? textoBloqueo + ' · clic para quitar el bloqueo' : 'Bloquear la edición con una clave'">
+        <i class="fa" [ngClass]="controlBloqueado ? 'fa-lock' : 'fa-unlock-alt'"></i>
+        {{controlBloqueado ? 'Quitar bloqueo' : 'Bloquear'}}
+      </button>
 
       <!-- Resumen / filtro de bitácora: clic en un número filtra la tabla y el gantt por esa prioridad -->
       <div class="bitacora-resumen" *ngIf="!LoadingTabla && !ocultarFiltros">
@@ -85,30 +88,22 @@
     </div>
   </header>
 
-  <!-- ===== Panel del Sub-gerente / Director: solicitudes de permiso para editar ===== -->
-  <div class="panel-solicitudes" *ngIf="!LoadingTabla && esAprobadorEdicion && solicitudesPendientes.length > 0">
-    <div class="panel-solicitudes-cab">
-      <i class="fa fa-unlock-alt"></i>
-      <strong>{{solicitudesPendientes.length}} {{solicitudesPendientes.length === 1 ? 'solicitud' : 'solicitudes'}} de permiso para editar</strong>
-      <span>Al aprobar, esa persona puede editar la fila durante {{HORAS_PERMISO_EDICION}} horas.</span>
-    </div>
-    <div class="panel-solicitud" *ngFor="let it of solicitudesPendientes">
-      <div class="panel-solicitud-info">
-        <span class="panel-solicitud-fila"><b>{{it.codigo || 'Sin código'}}</b> {{it.descripcion}}</span>
-        <span class="panel-solicitud-quien">
-          <i class="fa fa-user"></i> {{it.solicitudEdicion.nombre}} · {{fechaSolicitud(it)}}
-        </span>
-        <span class="panel-solicitud-motivo"><i class="fa fa-comment-o"></i> {{it.solicitudEdicion.motivo || 'Sin motivo'}}</span>
-      </div>
-      <div class="panel-solicitud-acciones">
-        <button type="button" class="btn-accion btn-aprobar-permiso" (click)="aprobarSolicitudEdicion(it)">
-          <i class="fa fa-check"></i> Aprobar
-        </button>
-        <button type="button" class="btn-accion btn-rechazar-permiso" (click)="rechazarSolicitudEdicion(it)">
-          <i class="fa fa-ban"></i> Rechazar
-        </button>
-      </div>
-    </div>
+  <!-- ===== Aviso: control bloqueado con clave por un Sub-gerente / Director ===== -->
+  <div class="aviso-bloqueo" *ngIf="!LoadingTabla && !soloLectura && controlBloqueado"
+       [class.aviso-bloqueo-abierto]="puedeEditarAvance">
+    <i class="fa" [ngClass]="puedeEditarAvance ? 'fa-unlock-alt' : 'fa-lock'"></i>
+    <span>
+      <strong>{{textoBloqueo}}.</strong>
+      <ng-container *ngIf="!puedeEditarAvance">Para editar necesitas la clave.</ng-container>
+      <ng-container *ngIf="puedeEditarAvance && esAprobadorEdicion">Como Sub-gerente / Director puedes editar sin clave.</ng-container>
+      <ng-container *ngIf="puedeEditarAvance && !esAprobadorEdicion">Ingresaste la clave: puedes editar.</ng-container>
+    </span>
+    <button type="button" class="aviso-bloqueo-btn" *ngIf="!puedeEditarAvance" (click)="ingresarClaveBloqueo()">
+      <i class="fa fa-key"></i> Ingresar clave
+    </button>
+    <button type="button" class="aviso-bloqueo-btn" *ngIf="desbloqueadoConClave && !esAprobadorEdicion" (click)="volverABloquear()">
+      <i class="fa fa-lock"></i> Volver a bloquear
+    </button>
   </div>
 
   <!-- Aviso de filtro activo -->
@@ -378,7 +373,6 @@
             [class.fila-atenuada]="filtroBitacora !== 'todas' && !itemCoincideFiltroBitacora(fila.item)"
             [class.fila-bitacora-match]="filtroBitacora !== 'todas' && itemCoincideFiltroBitacora(fila.item)"
             [class.fila-drop-target]="filaSobreDrag === fila.item.id"
-            [class.fila-solicitud-edicion]="solicitudPendiente(fila.item)"
             [class.fila-arrastrable]="!modoSoloLectura && filaEnEdicion !== fila.indexOriginal"
             [style.background]="fila.item.esTitulo ? getColorTituloPorNivel(fila.nivel) : null"
             [attr.draggable]="(!modoSoloLectura && filaEnEdicion !== fila.indexOriginal) ? true : null"
@@ -574,7 +568,7 @@
                 </button>
               </div>
             </div>
-            <label class="btn-adjuntar" *ngIf="puedeEditarAvance && fila.item.id && !estaBloqueadoPorTiempo(fila.item)" [class.subiendo]="subiendoArchivos[fila.indexOriginal]"
+            <label class="btn-adjuntar" *ngIf="puedeEditarAvance && fila.item.id" [class.subiendo]="subiendoArchivos[fila.indexOriginal]"
                    [title]="(fila.item.archivos && fila.item.archivos.length > 0) ? 'Agregar otro archivo' : 'Adjuntar archivo'">
               <i class="fa" [ngClass]="subiendoArchivos[fila.indexOriginal] ? 'fa-spinner fa-spin' : 'fa-plus'"></i>
               <span>{{subiendoArchivos[fila.indexOriginal] ? 'Subiendo...' : ((fila.item.archivos && fila.item.archivos.length > 0) ? 'Agregar' : 'Adjuntar')}}</span>
@@ -612,26 +606,13 @@
                 </button>
               </ng-container>
               <ng-template #modoVista>
-                <button class="btn-accion btn-editar" *ngIf="!estaBloqueadoPorTiempo(fila.item)"
-                        (click)="activarEdicion(fila.item, fila.indexOriginal)" [disabled]="modoSoloLectura" [title]="tituloBotonEditar(fila.item)">
-                  <i class="fa fa-pencil"></i> Editar
+                <button class="btn-accion btn-editar"
+                        (click)="activarEdicion(fila.item, fila.indexOriginal)" [disabled]="modoSoloLectura"
+                        [title]="modoSoloLectura && controlBloqueado ? 'Control bloqueado: ingresa la clave para editar' : 'Editar esta fila'">
+                  <i class="fa" [ngClass]="modoSoloLectura && controlBloqueado ? 'fa-lock' : 'fa-pencil'"></i> Editar
                 </button>
-                <button class="btn-accion btn-pedir-permiso" *ngIf="estaBloqueadoPorTiempo(fila.item)"
-                        [class.btn-permiso-pendiente]="miSolicitudPendiente(fila.item)"
-                        (click)="activarEdicion(fila.item, fila.indexOriginal)" [disabled]="soloLectura" [title]="tituloBotonEditar(fila.item)">
-                  <i class="fa" [ngClass]="miSolicitudPendiente(fila.item) ? 'fa-hourglass-half' : 'fa-lock'"></i>
-                  {{miSolicitudPendiente(fila.item) ? 'Solicitado' : 'Pedir permiso'}}
-                </button>
-                <ng-container *ngIf="esAprobadorEdicion && solicitudPendiente(fila.item)">
-                  <button class="btn-accion btn-aprobar-permiso" (click)="aprobarSolicitudEdicion(fila.item)" [title]="'Aprobar · ' + tituloSolicitud(fila.item)">
-                    <i class="fa fa-check"></i>
-                  </button>
-                  <button class="btn-accion btn-rechazar-permiso" (click)="rechazarSolicitudEdicion(fila.item)" [title]="'Rechazar · ' + tituloSolicitud(fila.item)">
-                    <i class="fa fa-ban"></i>
-                  </button>
-                </ng-container>
                 <button class="btn-accion btn-eliminar" (click)="PrepararEliminar(fila.indexOriginal)"
-                        [disabled]="modoSoloLectura || !puedeEliminarControlAvance()"
+                        [disabled]="!puedeEliminarControlAvance()"
                         [class.btn-eliminar-bloqueado]="!puedeEliminarControlAvance()"
                         [title]="puedeEliminarControlAvance() ? (fila.item.esTitulo && fila.tieneHijos ? 'Eliminar título y todas sus láminas' : 'Eliminar') : getMensajePermisoEliminacionAvance()">
                   <i class="fa fa-trash"></i>
