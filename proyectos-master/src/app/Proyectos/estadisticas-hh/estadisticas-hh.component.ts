@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { firestoreDB } from '../../firebase-init';
 import { CAMPO_CAPACITACION } from './control-asistencia.component';
-import { sumarHHPrograma, redondear, formatoHM, juntarTrabajadoresPorDia, promedioTrabajadores } from '../programa-sso/programa-registro';
+import { sumarHHPrograma, redondear, formatoHM, juntarTrabajadoresPorDia, promedioTrabajadores, registrosDe } from '../programa-sso/programa-registro';
 import { ProgramaSsoService } from '../programa-sso/programa-sso.service';
 
 /**
@@ -181,7 +181,7 @@ export class EstadisticasHhComponent implements OnInit {
               console.error('Error al leer ' + coleccion + ' ' + mes.numero + '/' + anio + ':', error);
               return null;
             })
-            .then((programa: any) => ({ mes: mes.numero, programa: programa }))
+            .then((programa: any) => ({ mes: mes.numero, programa: programa, coleccion: coleccion }))
         );
       });
     });
@@ -191,11 +191,39 @@ export class EstadisticasHhComponent implements OnInit {
       const delAnio: any = {};
       const delAnioMin: any = {};
       const trabajadoresPorMes: { [mes: number]: { [dia: number]: number } } = {};
-      lista.forEach(item => {
+      // Mismo día en SSO y MA: HH trabajadas y N° de trabajadores mandan las del SSO; MA solo aporta los días que el SSO no tiene.
+      // (la capacitación operacional / específica de los dos programas sí se suma)
+      const ordenados = lista.slice().sort((a, b) =>
+        (a.coleccion === 'programaSSO' ? 0 : 1) - (b.coleccion === 'programaSSO' ? 0 : 1));
+      const diasSSO: { [mes: number]: { hh: any, trab: any } } = {};
+      const hhTrabajadasPorMes: { [mes: number]: number } = {};
+      ordenados.forEach(item => {
         if (!item.programa) { return; }
+        const esSSO = item.coleccion === 'programaSSO';
+        const marca = diasSSO[item.mes] || (diasSSO[item.mes] = { hh: {}, trab: {} });
+        // HH trabajadas día por día (una vez por día dentro del programa)
+        const porDia: { [dia: string]: number } = {};
+        ((item.programa && item.programa.actividades) || []).forEach((act: any) => {
+          const regs: any = registrosDe(act) || {};
+          Object.keys(regs).forEach(k => {
+            const v = Number(regs[k] && regs[k].hhTrabajadas) || 0;
+            if (v > (porDia[k] || 0)) { porDia[k] = v; }
+          });
+        });
+        Object.keys(porDia).forEach(d => {
+          if (!porDia[d]) { return; }
+          if (esSSO) { marca.hh[d] = true; } else if (marca.hh[d]) { return; }
+          hhTrabajadasPorMes[item.mes] = (hhTrabajadasPorMes[item.mes] || 0) + porDia[d];
+        });
         const hh: any = sumarHHPrograma(item.programa);
-        // N° de trabajadores: se juntan los días de SSO y MA (por día el mayor) y después se promedia
-        trabajadoresPorMes[item.mes] = juntarTrabajadoresPorDia(trabajadoresPorMes[item.mes] || {}, hh.trabajadoresPorDia || {});
+        // N° de trabajadores: días del SSO + días del MA que el SSO no tiene, y después se promedia
+        const trabDia: any = {};
+        Object.keys(hh.trabajadoresPorDia || {}).forEach(d => {
+          const v = Number(hh.trabajadoresPorDia[d]) || 0;
+          if (!v) { return; }
+          if (esSSO) { marca.trab[d] = true; trabDia[d] = v; } else if (!marca.trab[d]) { trabDia[d] = v; }
+        });
+        trabajadoresPorMes[item.mes] = juntarTrabajadoresPorDia(trabajadoresPorMes[item.mes] || {}, trabDia);
         Object.keys(MAPA_MINUTOS).forEach(campoResumen => {
           const minutos = Math.round(Number(hh[campoResumen]) || 0);
           if (minutos <= 0) { return; }
@@ -204,12 +232,20 @@ export class EstadisticasHhComponent implements OnInit {
           delMes[campo] = (delMes[campo] || 0) + minutos;
         });
         Object.keys(MAPA_PROGRAMA).forEach(campoRegistro => {
+          if (campoRegistro === 'hhTrabajadas') { return; }   // se suma aparte, día por día (manda el SSO)
           const horas = Number(hh[campoRegistro]) || 0;
           if (horas <= 0) { return; }
           const campo = MAPA_PROGRAMA[campoRegistro];
           const delMes = delAnio[item.mes] || (delAnio[item.mes] = {});
           delMes[campo] = redondear((delMes[campo] || 0) + horas);
         });
+      });
+      Object.keys(hhTrabajadasPorMes).forEach(k => {
+        const horas = hhTrabajadasPorMes[Number(k)];
+        if (horas > 0) {
+          const delMes = delAnio[Number(k)] || (delAnio[Number(k)] = {});
+          delMes.hh = redondear((delMes.hh || 0) + horas);
+        }
       });
       Object.keys(trabajadoresPorMes).forEach(k => {
         const promedio = promedioTrabajadores(trabajadoresPorMes[Number(k)]);
@@ -314,6 +350,7 @@ export class EstadisticasHhComponent implements OnInit {
   /** Viene del Control de asistencia. */
   esDeAsistencia(mes: number, campo: string): boolean {
     const delMes = this.valores[mes] || {};
+    if (delMes.manuales && delMes.manuales[campo]) { return false; }   // escrito a mano encima de la asistencia
     if (campo === CAMPO_CAPACITACION) { return !!delMes.asistenciaCapacitacion; }
     return !!delMes.asistencia && (campo === 'hh' || campo === 'horasExtra' || campo === 'trabajadores');
   }
@@ -323,9 +360,66 @@ export class EstadisticasHhComponent implements OnInit {
     return CAMPOS_SOLO_PROGRAMA.indexOf(campo) >= 0 || this.getProgramas(mes, campo) !== null;
   }
 
-  /** No se puede escribir a mano: lo calcula la asistencia y/o los programas. */
+  /** Escrito a mano encima de lo que traía el Control de asistencia. */
+  esManualSobreAsistencia(mes: number, campo: string): boolean {
+    const delMes = this.valores[mes] || {};
+    return !!(delMes.manuales && delMes.manuales[campo]);
+  }
+
+  /**
+   * No se puede escribir a mano: lo calculan los programas.
+   * Lo de la asistencia SÍ se puede sobrescribir (queda marcado como escrito a mano).
+   */
   esCalculado(mes: number, campo: string): boolean {
-    return this.esDeAsistencia(mes, campo) || this.esDePrograma(mes, campo);
+    return this.esDePrograma(mes, campo);
+  }
+
+  /** ¿El mes tiene algo guardado en la tabla (asistencia o a mano)? */
+  mesTieneDatos(mes: number): boolean {
+    const delMes = this.valores[mes] || {};
+    return this.indicadores.some(ind => delMes[ind.campo] !== null && delMes[ind.campo] !== undefined);
+  }
+
+  /** Borra todo lo guardado en la tabla para ese mes (ej. montos de prueba). No toca los Programas SSO/MA. */
+  limpiarMes(mes: number) {
+    if (this.soloLectura) { return; }
+    const nombre = (this.meses.filter(m => m.numero === mes)[0] || { nombre: '' }).nombre;
+    if (!confirm('¿Limpiar ' + nombre + ' ' + this.anio + '?\n\nSe borran los valores guardados en esta tabla para ese mes ' +
+      '(los que vienen del Control de asistencia o escritos a mano). Las HH de los Programas SSO/MA no se tocan.\n\n' +
+      'Si la asistencia de ese mes sigue teniendo datos, se volverán a cargar la próxima vez que se guarde la asistencia.')) { return; }
+
+    const anio = Number(this.anio);
+    const limpio: any = { asistencia: false, asistenciaCapacitacion: false, manuales: null, hhTotales: null };
+    this.indicadores.forEach(ind => { if (CAMPOS_SOLO_PROGRAMA.indexOf(ind.campo) < 0) { limpio[ind.campo] = null; } });
+
+    const delMes = this.valores[mes] || (this.valores[mes] = {});
+    const anterior = JSON.parse(JSON.stringify(delMes));
+    Object.keys(limpio).forEach(k => {
+      delMes[k] = limpio[k];
+      this.respaldo[this.getClave(anio, mes, k)] = limpio[k];
+    });
+    this.guardadosPendientes++;
+    this.estadoGuardado = 'guardando';
+    firestoreDB.collection(COLECCION).doc(this.idSubProyecto + '_' + anio).set({
+      idSubProyecto: this.idSubProyecto,
+      idProyecto: this.idProyecto === undefined ? null : this.idProyecto,
+      nombreSubProyecto: this.nombreSubProyecto || '',
+      anio: anio,
+      idUsuarioActualizacion: this.idUsuario,
+      fechaActualizacion: new Date().toISOString(),
+      meses: { [mes]: limpio }
+    }, { merge: true })
+      .then(() => {
+        this.guardadosPendientes--;
+        if (!this.guardadosPendientes && this.estadoGuardado !== 'error') { this.estadoGuardado = 'guardado'; }
+      })
+      .catch((error: any) => {
+        console.error('Error al limpiar el mes:', error);
+        this.guardadosPendientes--;
+        this.valores[mes] = anterior;
+        this.datosPorAnio[anio][mes] = anterior;
+        this.estadoGuardado = 'error';
+      });
   }
 
   getTituloCelda(mes: number, campo: string): string {
@@ -337,7 +431,8 @@ export class EstadisticasHhComponent implements OnInit {
         (base !== null && base !== undefined ? ' · reemplaza ' + this.formatear(base) + ' de la tabla' : '');
     }
     if (base !== null && base !== undefined && CAMPOS_SOLO_PROGRAMA.indexOf(campo) < 0) {
-      partes.push((this.esDeAsistencia(mes, campo) ? 'Control de asistencia: ' : 'Ingresado a mano: ') + this.formatear(base));
+      partes.push((this.esDeAsistencia(mes, campo) ? 'Control de asistencia (puedes escribir encima): '
+        : (this.esManualSobreAsistencia(mes, campo) ? 'Escrito a mano (reemplaza al Control de asistencia): ' : 'Ingresado a mano: ')) + this.formatear(base));
     }
     if (programas !== null) {
       const minutos = this.esEnMinutos(campo) ? this.getMinutos(mes, campo) : null;
@@ -355,6 +450,7 @@ export class EstadisticasHhComponent implements OnInit {
     const anio = Number(this.anio);
     const clave = this.getClave(anio, mes, indicador.campo);
     const valor = this.normalizarValor(input.value, indicador.decimales);
+    const eraDeAsistencia = this.esDeAsistencia(mes, indicador.campo);
 
     if (valor === undefined) { // Negativo o inválido: queda lo que estaba
       input.value = this.getTextoCelda(mes, indicador.campo);
@@ -370,6 +466,16 @@ export class EstadisticasHhComponent implements OnInit {
     this.guardadosPendientes++;
     this.estadoGuardado = 'guardando';
 
+    // si la celda venía del Control de asistencia, queda marcada como escrita a mano
+    const sobreAsistencia = eraDeAsistencia || this.esManualSobreAsistencia(mes, indicador.campo);
+    const cambios: any = { [indicador.campo]: valor };
+    if (sobreAsistencia) {
+      const delMes = this.valores[mes];
+      delMes.manuales = delMes.manuales || {};
+      delMes.manuales[indicador.campo] = true;
+      cambios.manuales = { [indicador.campo]: true };
+    }
+
     firestoreDB.collection(COLECCION).doc(this.idSubProyecto + '_' + anio).set({
       idSubProyecto: this.idSubProyecto,
       idProyecto: this.idProyecto === undefined ? null : this.idProyecto,
@@ -377,7 +483,7 @@ export class EstadisticasHhComponent implements OnInit {
       anio: anio,
       idUsuarioActualizacion: this.idUsuario,
       fechaActualizacion: new Date().toISOString(),
-      meses: { [mes]: { [indicador.campo]: valor } }
+      meses: { [mes]: cambios }
     }, { merge: true })
       .then(() => {
         this.guardadosPendientes--;

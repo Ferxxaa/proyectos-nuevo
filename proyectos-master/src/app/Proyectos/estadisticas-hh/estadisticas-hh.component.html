@@ -44,7 +44,15 @@
         <thead>
           <tr>
             <th class="ehh-col-indicador">Indicador</th>
-            <th *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">{{mes.nombre}}</th>
+            <th *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">
+              <span class="ehh-mes-cab">
+                {{mes.nombre}}
+                <button type="button" class="ehh-limpiar-mes" *ngIf="!soloLectura && mesTieneDatos(mes.numero)"
+                        (click)="limpiarMes(mes.numero)" [title]="'Limpiar ' + mes.nombre + ' (borra lo guardado en la tabla)'">
+                  <i class="fa fa-eraser" aria-hidden="true"></i>
+                </button>
+              </span>
+            </th>
             <th class="ehh-col-total">Total año</th>
           </tr>
         </thead>
@@ -58,6 +66,7 @@
               <td *ngFor="let mes of meses; trackBy: trackMes" [class.mes-actual]="esMesActual(mes.numero)">
                 <input type="text" inputmode="decimal" autocomplete="off"
                        [class.ehh-calculado]="esDeAsistencia(mes.numero, indicador.campo)"
+                       [class.ehh-manual-asistencia]="esManualSobreAsistencia(mes.numero, indicador.campo)"
                        [class.ehh-programa]="esDePrograma(mes.numero, indicador.campo)"
                        [class.ehh-sin-valor]="getValor(mes.numero, indicador.campo) === null"
                        [value]="getTextoCelda(mes.numero, indicador.campo)" [disabled]="soloLectura || esCalculado(mes.numero, indicador.campo)"
@@ -79,10 +88,13 @@
     <p class="ehh-nota">
       IS = días perdidos × 1.000 / HH. Las HH incluyen jornadas, horas extra y, con asistencia, capacitación.
       Cada fila suma el Control de asistencia (o lo escrito a mano) y los registros de los Programas SSO y MA;
-      pasa el mouse por una celda para ver el detalle. 
+      si un día tiene HH trabajadas en SSO y en MA, se toman solo las del SSO. Lo que viene de la asistencia se puede
+      escribir encima, y con <i class="fa fa-eraser" aria-hidden="true"></i> en el mes se limpia lo guardado.
+      Pasa el mouse por una celda para ver el detalle. 
       <span class="ehh-leyenda"><i class="ehh-ley-asistencia"></i> Control de asistencia</span>
       <span class="ehh-leyenda"><i class="ehh-ley-programa"></i> Programas SSO/MA</span>
       <span class="ehh-leyenda"><i class="ehh-ley-mixto"></i> Ambos</span>
+      <span class="ehh-leyenda"><i class="ehh-ley-manual"></i> Escrito a mano sobre la asistencia</span>
     </p>
   </ng-container>
   </ng-container>

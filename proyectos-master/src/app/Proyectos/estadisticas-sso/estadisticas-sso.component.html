@@ -609,34 +609,311 @@
 
       <!-- ===== SSO: suma de las tablas de Seguridad de cada obra + Programas SSO/MA ===== -->
       <ng-container *ngIf="consolidadoVista === 'seg'">
-        <div class="sso-aviso" *ngIf="errorConsolidadoHH || errorAsistenciaSSO" role="alert">
-          {{errorAsistenciaSSO ? 'No se pudieron cargar las tablas SSO de los subproyectos.' : 'No se pudieron cargar los programas SSO / MA.'}}
+        <div class="sso-aviso" *ngIf="errorConsolidadoHH || errorTablasSSO" role="alert">
+          {{errorTablasSSO ? 'No se pudieron cargar las tablas SSO de los subproyectos.' : 'No se pudieron cargar los programas SSO / MA.'}}
           <button type="button" class="sso-boton" (click)="reintentarConsolidadoHH()">Reintentar</button>
         </div>
 
-        <div class="sso-tiles">
-          <div class="sso-tile sso-tile-hh-total"><span>HH trabajadas · {{consolidadoHHAnio}}</span><strong>{{consolidadoHHResumen.hh}}</strong></div>
-          <div class="sso-tile"><span>Horas extra</span><strong>{{consolidadoHHResumen.extra}}</strong></div>
-          <div class="sso-tile"><span>HH capacitadas</span><strong>{{consolidadoHHResumen.capacitacion}}</strong></div>
-          <div class="sso-tile"><span>Días perdidos</span><strong>{{consolidadoHHResumen.diasPerdidos}}</strong></div>
+        <!-- Filtros: mandan sobre tarjetas, gráficos y tablas -->
+        <div class="ssof-barra">
+          <div class="ssof-izq">
+            <div class="ssof-vista" role="tablist" aria-label="Vista del consolidado">
+              <button type="button" role="tab" [class.activa]="vistaConsolidadoHH === 'anio'" [attr.aria-selected]="vistaConsolidadoHH === 'anio'"
+                      (click)="cambiarVistaHH('anio')">
+                <i class="fa fa-calendar" aria-hidden="true"></i> Año completo
+              </button>
+              <button type="button" role="tab" [class.activa]="vistaConsolidadoHH === 'mes'" [attr.aria-selected]="vistaConsolidadoHH === 'mes'"
+                      (click)="cambiarVistaHH('mes')">
+                <i class="fa fa-calendar-o" aria-hidden="true"></i> Por mes
+              </button>
+            </div>
+            <div class="ssof-texto">
+              Mostrando <b>{{consolidadoHHResumen.filtro || 'Todas las obras'}}</b> ·
+              <b>{{vistaConsolidadoHH === 'mes' ? resumenMesHH.periodo : 'año ' + consolidadoHHAnio}}</b>
+            </div>
+          </div>
+          <div class="ssof-campos">
+            <label for="sso-consolidado-hh-anio">Año</label>
+            <select id="sso-consolidado-hh-anio" [(ngModel)]="consolidadoHHAnio" (ngModelChange)="cambiarAnioHH()">
+              <option *ngFor="let opcion of consolidadoHHAnios" [ngValue]="opcion">{{opcion}}</option>
+            </select>
+            <label for="sso-consolidado-hh-subproyecto">Obra</label>
+            <select id="sso-consolidado-hh-subproyecto" class="ssof-obra" [(ngModel)]="consolidadoHHSubproyecto" (ngModelChange)="recalcularConsolidadoHH()">
+              <option value="todos">Todas las obras</option>
+              <option *ngFor="let opcion of consolidadoHHSubproyectos" [value]="opcion.id">{{opcion.nombre}}</option>
+            </select>
+            <button type="button" class="ssof-limpiar" *ngIf="consolidadoHHSubproyecto !== 'todos'"
+                    (click)="consolidadoHHSubproyecto = 'todos'; recalcularConsolidadoHH()" title="Ver todas las obras">
+              <i class="fa fa-times" aria-hidden="true"></i> Quitar filtro
+            </button>
+          </div>
+        </div>
+
+        <!-- Meses (solo en la vista "Por mes") -->
+        <div class="ssom-meses" *ngIf="vistaConsolidadoHH === 'mes'">
+          <button type="button" class="ssom-flecha" (click)="moverMesHH(-1)" [disabled]="mesConsolidadoHH <= 1" title="Mes anterior">
+            <i class="fa fa-chevron-left" aria-hidden="true"></i>
+          </button>
+          <button type="button" *ngFor="let m of mesesMA" class="ssom-mes"
+                  [class.activo]="m.numero === mesConsolidadoHH" [class.con-dato]="mesesConDatoHH[m.numero]"
+                  [class.actual]="esMesActualConsolidadoHH(m.numero)"
+                  [title]="m.nombre + (mesesConDatoHH[m.numero] ? '' : ' (sin datos)')" (click)="verMesHH(m.numero)">
+            {{m.corto}}
+            <i class="ssom-punto" *ngIf="mesesConDatoHH[m.numero]" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="ssom-flecha" (click)="moverMesHH(1)" [disabled]="mesConsolidadoHH >= 12" title="Mes siguiente">
+            <i class="fa fa-chevron-right" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="ssok-tarjetas">
+          <div class="ssok ssok-principal">
+            <span class="ssok-icono"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
+            <div><span>HH trabajadas</span><strong>{{kpiHH.hh}}</strong>
+              <small>{{vistaConsolidadoHH === 'mes' ? 'en ' + resumenMesHH.periodo : 'en ' + consolidadoHHAnio}}</small></div>
+          </div>
+          <div class="ssok">
+            <span class="ssok-icono ssok-azul"><i class="fa fa-users" aria-hidden="true"></i></span>
+            <div><span>Trabajadores</span><strong>{{kpiHH.trabajadores}}</strong>
+              <small>{{vistaConsolidadoHH === 'mes' ? 'promedio por día' : 'promedio por mes'}}</small></div>
+          </div>
+          <div class="ssok">
+            <span class="ssok-icono ssok-verde"><i class="fa fa-graduation-cap" aria-hidden="true"></i></span>
+            <div><span>HH capacitación</span><strong>{{kpiHH.capacitacion}}</strong>
+              <small>{{kpiHH.pctCapacitacion ? kpiHH.pctCapacitacion + ' de las HH trabajadas' : 'operacionales + específicas'}}</small></div>
+          </div>
+          <div class="ssok">
+            <span class="ssok-icono ssok-naranjo"><i class="fa fa-hourglass-half" aria-hidden="true"></i></span>
+            <div><span>Horas extra</span><strong>{{kpiHH.extra}}</strong><small>fuera de jornada</small></div>
+          </div>
+          <div class="ssok">
+            <span class="ssok-icono ssok-rojo"><i class="fa fa-medkit" aria-hidden="true"></i></span>
+            <div><span>Días perdidos</span><strong>{{kpiHH.diasPerdidos}}</strong><small>IS {{kpiHH.is}} · {{kpiHH.incidentes}} incidentes</small></div>
+          </div>
+        </div>
+
+        <!-- ======================= VISTA POR MES ======================= -->
+        <ng-container *ngIf="vistaConsolidadoHH === 'mes'">
+          <div class="ssog-vacio ssom-vacio" *ngIf="!obrasMesHH.length">
+            <i class="fa fa-calendar-times-o" aria-hidden="true"></i>
+            No hay datos en {{resumenMesHH.periodo}}. Elige otro mes (los que tienen datos llevan un punto verde).
+          </div>
+
+          <div class="ssog-grilla ssom-grilla" *ngIf="obrasMesHH.length">
+            <!-- HH trabajadas por obra -->
+            <section class="ssog-panel">
+              <div class="ssog-cab">
+                <h6><i class="fa fa-users" aria-hidden="true"></i> HH trabajadas por obra</h6>
+                <span class="ssog-total">{{resumenMesHH.hh}} HH · {{resumenMesHH.obras}} {{resumenMesHH.obras === 1 ? 'obra' : 'obras'}}</span>
+              </div>
+              <div class="ssom-ranking">
+                <div class="ssom-fila" *ngFor="let o of obrasMesHH; let n = index">
+                  <span class="ssom-pos">{{n + 1}}</span>
+                  <div class="ssom-fila-cuerpo">
+                    <div class="ssom-fila-tit">
+                      <span [title]="o.nombre">{{o.nombre}}</span>
+                      <b>{{o.hh}}</b>
+                    </div>
+                    <div class="ssog-hbarra"><i class="ssog-hh" [style.width.%]="o.anchoHH"></i></div>
+                    <small>{{o.trabajadores !== '-' ? o.trabajadores + ' trab. promedio' : 'sin N° de trabajadores'}}{{o.extra !== '-' ? ' · ' + o.extra + ' h extra' : ''}}</small>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Capacitación del mes: dona + por obra -->
+            <section class="ssog-panel">
+              <div class="ssog-cab">
+                <h6><i class="fa fa-graduation-cap" aria-hidden="true"></i> Capacitación del mes</h6>
+                <div class="ssog-leyenda">
+                  <span><i class="ssog-op"></i> Operacionales</span>
+                  <span><i class="ssog-esp"></i> Específicas</span>
+                </div>
+              </div>
+              <div class="ssog-vacio" *ngIf="!donaMesHH">Sin HH de capacitación en {{resumenMesHH.periodo}}.</div>
+              <ng-container *ngIf="donaMesHH">
+                <div class="ssom-dona-fila">
+                  <div class="ssom-dona">
+                    <svg viewBox="0 0 100 100" aria-hidden="true">
+                      <circle cx="50" cy="50" r="40" fill="none" stroke="#eef1f4" stroke-width="14"></circle>
+                      <circle cx="50" cy="50" r="40" fill="none" stroke="#1f8fd1" stroke-width="14" transform="rotate(-90 50 50)"
+                              [attr.stroke-dasharray]="donaMesHH.dashOp"></circle>
+                      <circle cx="50" cy="50" r="40" fill="none" stroke="#2f9e5b" stroke-width="14" transform="rotate(-90 50 50)"
+                              [attr.stroke-dasharray]="donaMesHH.dashEsp" [attr.stroke-dashoffset]="donaMesHH.offsetEsp"></circle>
+                    </svg>
+                    <div class="ssom-dona-centro">
+                      <strong>{{resumenMesHH.capacitacion}}</strong>
+                      <span>{{resumenMesHH.pctCapacitacion ? resumenMesHH.pctCapacitacion + ' de las HH' : 'total'}}</span>
+                    </div>
+                  </div>
+                  <ul class="ssom-dona-ley">
+                    <li><i class="ssog-op"></i> Operacionales <b>{{totalesMesHH.op}}</b> <em>{{donaMesHH.pctOp}}</em></li>
+                    <li><i class="ssog-esp"></i> Específicas <b>{{totalesMesHH.esp}}</b> <em>{{donaMesHH.pctEsp}}</em></li>
+                    <li class="ssom-dona-charlas"><i class="fa fa-comments-o" aria-hidden="true"></i> Charlas diarias <b>{{totalesMesHH.charlas}}</b></li>
+                    <li class="ssom-dona-origen"><i class="fa fa-shield" aria-hidden="true"></i> Desde Programa SSO <b>{{totalesMesHH.capSSO}}</b></li>
+                    <li class="ssom-dona-origen" [class.ssom-ma-alerta]="totalesMesHH.capMA !== '-'"
+                        title="HH de capacitación anotadas en el reloj del Programa MA">
+                      <i class="fa fa-leaf" aria-hidden="true"></i> Desde Programa MA <b>{{totalesMesHH.capMA}}</b>
+                    </li>
+                  </ul>
+                </div>
+                <div class="ssom-cap-obras">
+                  <div class="ssom-cap-obra" *ngFor="let o of obrasMesHH">
+                    <span [title]="o.nombre">{{o.nombre}}</span>
+                    <div class="ssog-hbarra"><i class="ssog-op" [style.width.%]="o.anchoOp"></i><i class="ssog-esp" [style.width.%]="o.anchoEsp"></i></div>
+                    <b>{{o.cap}}<small class="ssog-desglose" *ngIf="o.desglose">{{o.desglose}}</small></b>
+                  </div>
+                </div>
+              </ng-container>
+            </section>
+          </div>
+
+          <!-- Detalle por obra del mes -->
+          <section class="sso-panel" *ngIf="obrasMesHH.length">
+            <h6><i class="fa fa-table" aria-hidden="true"></i> Detalle por obra · {{resumenMesHH.periodo}}</h6>
+            <div class="sso-tabla-scroll">
+              <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado sso-tabla-hh-subproyectos ssom-tabla">
+                <thead>
+                  <tr>
+                    <th class="sso-ma-indicador">Obra</th>
+                    <th>Trabajadores</th>
+                    <th>HH trabajadas</th>
+                    <th>Horas extra</th>
+                    <th>Charlas</th>
+                    <th>HH operacionales</th>
+                    <th>HH específicas</th>
+                    <th>Total capacitación</th>
+                    <th>Cap. Programa SSO</th>
+                    <th>Cap. Programa MA</th>
+                    <th>Incidentes</th>
+                    <th>Días perdidos</th>
+                    <th title="Índice de severidad">IS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let o of obrasMesHH">
+                    <th scope="row" class="sso-ma-indicador">{{o.nombre}}</th>
+                    <td>{{o.trabajadores}}</td>
+                    <td><b>{{o.hh}}</b></td>
+                    <td>{{o.extra}}</td>
+                    <td>{{o.charlas}}</td>
+                    <td>{{o.op}}</td>
+                    <td>{{o.esp}}</td>
+                    <td><b>{{o.cap}}</b></td>
+                    <td>{{o.capSSO}}</td>
+                    <td [class.ssom-ma-alerta]="o.capMA !== '-'">{{o.capMA}}</td>
+                    <td>{{o.incidentes}}</td>
+                    <td>{{o.diasPerdidos}}</td>
+                    <td>{{o.is}}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th scope="row">Total {{nombreMesHH}}</th>
+                    <td>{{totalesMesHH.trabajadores}}</td>
+                    <td>{{totalesMesHH.hh}}</td>
+                    <td>{{totalesMesHH.extra}}</td>
+                    <td>{{totalesMesHH.charlas}}</td>
+                    <td>{{totalesMesHH.op}}</td>
+                    <td>{{totalesMesHH.esp}}</td>
+                    <td>{{totalesMesHH.cap}}</td>
+                    <td>{{totalesMesHH.capSSO}}</td>
+                    <td>{{totalesMesHH.capMA}}</td>
+                    <td>{{totalesMesHH.incidentes}}</td>
+                    <td>{{totalesMesHH.diasPerdidos}}</td>
+                    <td>{{totalesMesHH.is}}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        </ng-container>
+
+        <!-- ======================= VISTA AÑO COMPLETO ======================= -->
+        <ng-container *ngIf="vistaConsolidadoHH === 'anio'">
+        <!-- ===== Gráficos: lo mismo de la tabla, para leerlo de un vistazo ===== -->
+        <div class="ssog-grilla" *ngIf="consolidadoHHPorSubproyecto.length">
+
+          <!-- HH trabajadas por mes -->
+          <section class="ssog-panel">
+            <div class="ssog-cab">
+              <h6><i class="fa fa-users" aria-hidden="true"></i> HH trabajadas por mes <small class="ssog-tip">clic en un mes para verlo en detalle</small></h6>
+              <span class="ssog-total">{{consolidadoHHResumen.hh}} en {{consolidadoHHAnio}}</span>
+            </div>
+            <div class="ssog-vacio" *ngIf="!hayGraficoHH">Sin HH trabajadas en {{consolidadoHHAnio}}.</div>
+            <div class="ssog-columnas" *ngIf="hayGraficoHH">
+              <div class="ssog-col ssog-clic" *ngFor="let c of graficoHHMes" [class.ssog-actual]="esMesActualConsolidadoHH(c.mes)" (click)="verMesHH(c.mes)"
+                   [title]="c.nombre + ': ' + (c.texto || '0') + ' HH · clic para ver el mes'">
+                <div class="ssog-area">
+                  <b *ngIf="c.texto">{{c.texto}}</b>
+                  <i class="ssog-barra ssog-hh" [style.height.%]="c.alto"></i>
+                </div>
+                <span>{{c.corto}}</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Capacitación por mes -->
+          <section class="ssog-panel">
+            <div class="ssog-cab">
+              <h6><i class="fa fa-graduation-cap" aria-hidden="true"></i> Capacitación por mes</h6>
+              <div class="ssog-leyenda">
+                <span><i class="ssog-op"></i> Operacionales</span>
+                <span><i class="ssog-esp"></i> Específicas</span>
+              </div>
+            </div>
+            <div class="ssog-vacio" *ngIf="!hayGraficoCap">Sin HH de capacitación en {{consolidadoHHAnio}}.</div>
+            <div class="ssog-columnas" *ngIf="hayGraficoCap">
+              <div class="ssog-col ssog-clic" *ngFor="let c of graficoCapMes" [class.ssog-actual]="esMesActualConsolidadoHH(c.mes)" (click)="verMesHH(c.mes)"
+                   [title]="c.nombre + ': ' + (c.texto || '0')">
+                <div class="ssog-area">
+                  <b *ngIf="c.texto">{{c.texto}}</b>
+                  <div class="ssog-pila" [style.height.%]="c.alto">
+                    <i class="ssog-esp" [style.height.%]="pctDe(c.esp, c.total)"></i>
+                    <i class="ssog-op" [style.height.%]="pctDe(c.op, c.total)"></i>
+                  </div>
+                </div>
+                <span>{{c.corto}}</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Por obra -->
+          <section class="ssog-panel ssog-ancho" *ngIf="graficoObras.length > 1">
+            <div class="ssog-cab">
+              <h6><i class="fa fa-building-o" aria-hidden="true"></i> Por obra · {{consolidadoHHAnio}}</h6>
+              <div class="ssog-leyenda">
+                <span><i class="ssog-hh"></i> HH trabajadas</span>
+                <span><i class="ssog-op"></i> Cap. operacionales</span>
+                <span><i class="ssog-esp"></i> Cap. específicas</span>
+              </div>
+            </div>
+            <div class="ssog-obras">
+              <div class="ssog-obras-tit">
+                <span></span><span>HH trabajadas</span><span>HH capacitación</span>
+              </div>
+              <div class="ssog-obra" *ngFor="let o of graficoObras">
+                <span class="ssog-obra-nombre" [title]="o.nombre">{{o.nombre}}</span>
+                <div class="ssog-hbarra-celda">
+                  <div class="ssog-hbarra"><i class="ssog-hh" [style.width.%]="o.anchoHH"></i></div>
+                  <b>{{o.textoHH}}</b>
+                </div>
+                <div class="ssog-hbarra-celda">
+                  <div class="ssog-hbarra">
+                    <i class="ssog-op" [style.width.%]="o.anchoOp"></i><i class="ssog-esp" [style.width.%]="o.anchoEsp"></i>
+                  </div>
+                  <b>{{o.textoCap}}<small class="ssog-desglose" *ngIf="o.desglose">{{o.desglose}}</small></b>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
 
         <section class="sso-panel sso-panel-ma">
           <div class="sso-ma-encabezado">
-            <h6>Estadísticas mensuales HH (SSO) · todas las obras</h6>
-            <div class="sso-ma-controles">
-              <label for="sso-consolidado-hh-anio">Año</label>
-              <select id="sso-consolidado-hh-anio" [(ngModel)]="consolidadoHHAnio" (ngModelChange)="recalcularConsolidadoHH()">
-                <option *ngFor="let opcion of consolidadoHHAnios" [ngValue]="opcion">{{opcion}}</option>
-              </select>
-              <label for="sso-consolidado-hh-subproyecto">Subproyecto</label>
-              <select id="sso-consolidado-hh-subproyecto" class="sso-ma-subproyecto" [(ngModel)]="consolidadoHHSubproyecto" (ngModelChange)="recalcularConsolidadoHH()">
-                <option value="todos">Todos</option>
-                <option *ngFor="let opcion of consolidadoHHSubproyectos" [value]="opcion.id">{{opcion.nombre}}</option>
-              </select>
-            </div>
+            <h6><i class="fa fa-table" aria-hidden="true"></i> Detalle mes a mes · {{consolidadoHHResumen.filtro || 'Todas las obras'}} · {{consolidadoHHAnio}}</h6>
           </div>
-          <div class="sso-mensaje" *ngIf="!errorConsolidadoHH && !errorAsistenciaSSO && !consolidadoHHPorSubproyecto.length">No hay registros para este filtro.</div>
+          <div class="sso-mensaje" *ngIf="!errorConsolidadoHH && !errorTablasSSO && !consolidadoHHPorSubproyecto.length">No hay registros para este filtro.</div>
           <div class="sso-tabla-scroll" *ngIf="consolidadoHHPorSubproyecto.length">
             <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado sso-tabla-hh-consolidado">
               <thead>
@@ -650,8 +927,9 @@
                 <ng-container *ngFor="let fila of consolidadoHHFilas; let i = index">
                   <tr class="sso-fila-hh-grupo" *ngIf="i === 0 || fila.grupo !== consolidadoHHFilas[i - 1].grupo">
                     <th scope="colgroup" [attr.colspan]="mesesMA.length + 2">
-                      <i class="fa" [ngClass]="fila.grupo === 'sso' ? 'fa-shield' : (fila.grupo === 'indice' ? 'fa-line-chart' : 'fa-graduation-cap')" aria-hidden="true"></i>
-                      {{fila.grupo === 'sso' ? 'Tabla SSO de cada subproyecto' : (fila.grupo === 'indice' ? 'Índices' : 'Capacitación (Programas SSO y MA)')}}
+                      <span class="sso-grupo-num" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-right:6px;border-radius:50%;background:#075f91;color:#fff;font-size:10.5px;font-weight:800;">{{fila.grupo === 'personal' ? '1' : (fila.grupo === 'capacitacion' ? '2' : '3')}}</span>
+                      <i class="fa" [ngClass]="fila.grupo === 'personal' ? 'fa-users' : (fila.grupo === 'capacitacion' ? 'fa-graduation-cap' : 'fa-medkit')" aria-hidden="true"></i>
+                      {{fila.grupo === 'personal' ? 'Personal y horas trabajadas' : (fila.grupo === 'capacitacion' ? 'Capacitación' : 'Accidentabilidad')}}
                     </th>
                   </tr>
                   <tr [class.sso-fila-hh-total]="fila.destacada">
@@ -666,7 +944,7 @@
         </section>
 
         <section class="sso-panel" *ngIf="consolidadoHHPorSubproyecto.length">
-          <h6>Total del año por subproyecto</h6>
+          <h6><i class="fa fa-building-o" aria-hidden="true"></i> Total del año por obra</h6>
           <div class="sso-tabla-scroll">
             <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado sso-tabla-hh-subproyectos">
               <thead>
@@ -674,10 +952,10 @@
                   <th class="sso-ma-indicador">Subproyecto</th>
                   <th>HH trabajadas</th>
                   <th>Horas extra</th>
-                  <th>HH capacitadas</th>
+                  <th>HH capacitación</th>
                   <th>N° incidentes</th>
                   <th>Días perdidos</th>
-                  <th>IS</th>
+                  <th title="Índice de severidad">IS</th>
                 </tr>
               </thead>
               <tbody>
@@ -685,7 +963,7 @@
                   <th scope="row" class="sso-ma-indicador">{{fila.nombre}}</th>
                   <td><b>{{fila.hh}}</b></td>
                   <td>{{fila.extra}}</td>
-                  <td>{{fila.capacitacion}}</td>
+                  <td>{{fila.capacitacion}}<small class="ssog-desglose" *ngIf="fila.desglose">{{fila.desglose}}</small></td>
                   <td>{{fila.incidentes}}</td>
                   <td>{{fila.diasPerdidos}}</td>
                   <td>{{fila.is}}</td>
@@ -704,12 +982,14 @@
               </tfoot>
             </table>
           </div>
-          <p class="sso-nota-hh">
-            Es la suma de las tablas de Seguridad (SSO) de cada subproyecto, con las mismas reglas: HH trabajadas = lo de la tabla SSO
-            + las HH trabajadas anotadas en los Programas SSO y MA. La capacitación sale de los Programas SSO y MA.
-            IS = días perdidos × 1.000 / HH (incluye horas extra).
-          </p>
+          <ul class="sso-nota-hh sso-nota-lista" style="margin:10px 0 0;padding-left:18px;line-height:1.6;">
+            <li><b>¿De dónde sale?</b> Es la suma de la tabla <b>Seguimiento de seguridad</b> de cada subproyecto: lo que ves aquí es lo mismo que en cada obra, sumado.</li>
+            <li><b>HH trabajadas y N° de trabajadores:</b> lo escrito en la tabla de la obra + lo anotado en el reloj de los Programas SSO/MA. Si el mismo día tiene HH en SSO y en MA, <b>se toman solo las del SSO</b>.</li>
+            <li><b>Capacitación:</b> las HH operacionales y específicas vienen del reloj del Programa SSO. Lo del <b>Programa MA</b> también se suma (operacionales y específicas), pero se muestra aparte para que se vea de dónde viene. Las charlas vienen de la tabla de la obra.</li>
+            <li><b>IS:</b> días perdidos × 1.000 / HH trabajadas (con horas extra).</li>
+          </ul>
         </section>
+        </ng-container>
       </ng-container>
 
       <ng-container *ngIf="consolidadoVista === 'incs'">

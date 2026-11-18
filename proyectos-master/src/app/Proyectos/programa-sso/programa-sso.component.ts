@@ -31,6 +31,10 @@ interface ModalHHDia {
   hayOperacional: boolean;   // hay actividades de Capacitación Operacional
   hayEspecifica: boolean;    // hay actividades de Capacitaciones Específicas
   especifica: boolean;       // se abrió desde la fila de Capacitaciones Específicas
+  ambas: boolean;            // Programa MA: un solo reloj con operacionales y específicas
+  cargandoSSO?: boolean;     // Programa MA: leyendo si el Programa SSO ya tiene HH trabajadas ese día
+  ssoHHTrabajadas?: number;  // HH trabajadas del Programa SSO ese mismo día (mandan sobre las de MA)
+  ssoTrabajadores?: number;
 }
 
 /** Campos de HH que se guardan dentro de un registro de actividad. */
@@ -1778,15 +1782,51 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   /** Actividad que guarda las HH del día para una categoría (la primera de esa sección). */
   private actividadHH(especifica: boolean): ActividadPrograma {
-    return ((this.programa && this.programa.actividades) || []).filter((act: ActividadPrograma) => {
+    const acts: ActividadPrograma[] = (this.programa && this.programa.actividades) || [];
+    const fija = acts.filter((act: ActividadPrograma) => {
       const c = categoriaFijaDe(act);
       return !!c && (especifica ? c === CATEGORIA_ESPECIFICA : c !== CATEGORIA_ESPECIFICA);
-    })[0] || null;
+    })[0];
+    if (fija) { return fija; }
+    // Programa MA (sin secciones de capacitación): las HH del día se guardan en las 2 primeras
+    // actividades del ítem de capacitación (la 1ª lleva operacionales y trabajadas, la 2ª específicas)
+    if (!this.filaHHGeneral) { return null; }
+    const delGrupo = acts.filter(a => a.grupo === this.grupoHHGeneral);
+    const base = delGrupo.length >= 2 ? delGrupo : acts;
+    return (especifica ? base[1] : base[0]) || null;
+  }
+
+  /** Programa MA: no tiene secciones de capacitación, así que lleva una sola fila de relojes. */
+  get filaHHGeneral(): boolean {
+    const acts: ActividadPrograma[] = (this.programa && this.programa.actividades) || [];
+    return this.esMA && acts.length >= 2 && !acts.some(a => !!categoriaFijaDe(a));
+  }
+
+  /** Ítem donde va la fila de relojes del Programa MA (el de capacitación, o el primero). */
+  get grupoHHGeneral(): string {
+    const nombres = (this.grupos || []).map((g: any) => g.nombre);
+    return nombres.filter(n => (n || '').toUpperCase().indexOf('CAPACIT') >= 0)[0] || nombres[0] || '';
+  }
+
+  /** Categoría de HH operacional (la que no es específica). */
+  private get categoriaOperacional(): string {
+    const c = (CATEGORIAS_HH || []).filter((x: any) => x.v !== CATEGORIA_ESPECIFICA)[0];
+    return c ? c.v : '';
   }
 
   /** ¿Se muestra el reloj de "HH del día"? (programa con capacitaciones y fuera del modo programación) */
   get mostrarHHDia(): boolean {
     return !!this.programa && !this.enEdicion && !!(this.actividadHH(false) || this.actividadHH(true));
+  }
+
+  /** Reloj de la fila general (MA): se marca si el día tiene cualquier HH. */
+  tieneHHDiaGeneral(dia: number): boolean {
+    return this.tieneHHDia(dia, false) || this.tieneHHDia(dia, true);
+  }
+
+  totalHHGeneral(): string {
+    const min = this.minHHSeccion.op + this.minHHSeccion.esp;
+    return min > 0 ? formatoHM(min) : '';
   }
 
   /** ¿La sección es Capacitación Operacional / Específicas? (lleva fila con relojes) */
@@ -1862,7 +1902,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     return { minOp: minOp, minEsp: minEsp, entidad: entidad, nTrabajadores: d.nTrabajadores, hhTrabajadas: d.hhTrabajadas };
   }
 
-  abrirHHDia(dia: number, especifica: boolean) {
+  abrirHHDia(dia: number, especifica: boolean, ambas: boolean = false) {
     const info = this.dias[dia - 1];
     const x = this.hhDelDia(dia);
     this.hhDia = {
@@ -1879,9 +1919,46 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       entidad: x.entidad || 'MUTUAL',
       hayOperacional: !!this.actividadHH(false),
       hayEspecifica: !!this.actividadHH(true),
-      especifica: !!especifica
+      especifica: !!especifica,
+      ambas: !!ambas,
+      cargandoSSO: false,
+      ssoHHTrabajadas: 0,
+      ssoTrabajadores: 0
     };
     this.errorHHDia = '';
+    if (this.esMA) { this.leerHHTrabajadasSSO(this.hhDia); }
+  }
+
+  /**
+   * Programa MA: revisa si el Programa SSO del mismo mes ya tiene HH trabajadas / trabajadores ese día.
+   * Si las tiene, mandan las del SSO y las de MA no se suman (en la tabla de la obra ni en el consolidado).
+   */
+  private leerHHTrabajadasSSO(h: ModalHHDia) {
+    h.cargandoSSO = true;
+    Promise.resolve(this.sPrograma.obtener(this.idSubProyecto, this.anio, this.mesSel, 'programaSSO'))
+      .then((sso: any) => {
+        let hh = 0;
+        let trab = 0;
+        ((sso && sso.actividades) || []).forEach((act: ActividadPrograma) => {
+          const r: any = registrosDe(act)[String(h.dia)];
+          if (!r) { return; }
+          hh = Math.max(hh, Number(r.hhTrabajadas) || 0);
+          trab = Math.max(trab, Number(r.nTrabajadores) || 0);
+        });
+        h.ssoHHTrabajadas = hh;
+        h.ssoTrabajadores = trab;
+        h.cargandoSSO = false;
+      })
+      .catch((err: any) => {
+        console.error('No se pudo leer el Programa SSO para comparar HH trabajadas:', err);
+        h.cargandoSSO = false;
+      });
+  }
+
+  /** Programa MA: el SSO ya tiene HH trabajadas (o trabajadores) ese día. */
+  get ssoMandaHHDia(): boolean {
+    const h = this.hhDia;
+    return !!h && this.esMA && ((h.ssoHHTrabajadas || 0) > 0 || (h.ssoTrabajadores || 0) > 0);
   }
 
   cerrarHHDia() {
@@ -1897,9 +1974,9 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   get resumenHHDia(): string {
     const h = this.hhDia;
     if (!h) { return ''; }
-    const min = h.especifica
-      ? (Number(h.espHoras) || 0) * 60 + (Number(h.espMinutos) || 0)
-      : (Number(h.opHoras) || 0) * 60 + (Number(h.opMinutos) || 0);
+    const esp = (Number(h.espHoras) || 0) * 60 + (Number(h.espMinutos) || 0);
+    const op = (Number(h.opHoras) || 0) * 60 + (Number(h.opMinutos) || 0);
+    const min = h.ambas ? op + esp : (h.especifica ? esp : op);
     return min > 0 ? formatoHM(min) : '0 min';
   }
 
@@ -1948,7 +2025,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     };
     const ponerMinutos = (act: ActividadPrograma, min: number, especifica: boolean) => {
       const r = registroDe(act);
-      r.categoriaHH = categoriaFijaDe(act);
+      r.categoriaHH = categoriaFijaDe(act) || (especifica ? CATEGORIA_ESPECIFICA : this.categoriaOperacional);
       r.trabajadores = 0;
       r.duracionMin = min;
       r.hhMinutos = min;
