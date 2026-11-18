@@ -913,24 +913,24 @@
 }
 
 .pz-card-body {
-  padding: 2px 18px 0;
+  padding: 6px 20px 4px;
 }
 
 .pz-seccion {
-  padding: 10px 0 12px;
+  padding: 14px 0 18px;
 }
 
 .pz-seccion-titulo {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   font-size: 11px;
 }
 
 .pz-grid {
-  gap: 8px 12px;
+  gap: 14px 16px;
 }
 
 .pz-campo {
-  gap: 3px;
+  gap: 5px;
 }
 
 .pz-label {
@@ -942,8 +942,8 @@
 .pz-lista select,
 .pz-lista-fila select,
 .pz-input-prefijo {
-  height: 32px;
-  padding: 0 9px;
+  height: 34px;
+  padding: 0 10px;
   font-size: 12px;
   border-radius: 5px;
 }
@@ -962,8 +962,8 @@
 }
 
 .pz-responsables {
-  margin-top: 8px;
-  padding: 6px 10px;
+  margin-top: 14px;
+  padding: 8px 12px;
   gap: 6px 20px;
 }
 
@@ -983,7 +983,7 @@
 .pz-clientes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 10px;
+  gap: 8px 12px;
 }
 
 .pz-clientes .pz-lista-fila {
@@ -993,8 +993,8 @@
 .pz-clientes select {
   flex: 1;
   min-width: 0;
-  height: 32px;
-  padding: 0 9px;
+  height: 34px;
+  padding: 0 10px;
   border: 1px solid #cfd8e3;
   border-radius: 5px;
   background: #fff;
@@ -1013,8 +1013,8 @@
 }
 
 .pz-acciones {
-  margin: 0 -18px;
-  padding: 10px 18px;
+  margin: 0 -20px;
+  padding: 12px 20px;
 }
 
 .pz-btn {
