@@ -310,7 +310,7 @@
         </div>
       </div>
       <p class="pan-nota">
-        % de cada mes = realizadas ÷ programadas del programa (100% / 75% / 50% / 0%). Total de la obra = promedio de sus meses;
+        % de cada mes = realizadas ÷ programadas del programa (100% / 50% / 0%). Total de la obra = promedio de sus meses;
         total por mes = promedio de las obras.
         <ng-container *ngIf="!editable"> Ves solo tu subproyecto.</ng-container>
       </p>
@@ -476,13 +476,38 @@
 
               <!-- Secciones del ítem (subtítulos) y sus actividades -->
               <ng-container *ngFor="let s of g.secciones; trackBy: trackSeccion">
-                <tr *ngIf="s.nombre" class="fila-seccion">
+                <!-- Sección normal -->
+                <tr *ngIf="s.nombre && !seccionConHH(s)" class="fila-seccion">
                   <td [attr.colspan]="totalColumnas">
                     <div class="seccion-cabecera">
                       <span class="seccion-nombre">{{ s.nombre }}</span>
                       <span class="grupo-cantidad">{{ s.filas.length }} {{ s.filas.length === 1 ? 'actividad' : 'actividades' }}</span>
                       <span class="pct" [ngClass]="claseSemaforo(s.pct)">{{ s.pct === null ? 'Sin programar' : s.pct + '%' }}</span>
                     </div>
+                  </td>
+                </tr>
+                <!-- Capacitación Operacional / Específicas: un reloj por día para las HH del día -->
+                <tr *ngIf="s.nombre && seccionConHH(s)" class="fila-seccion fila-seccion-hh">
+                  <td colspan="2">
+                    <div class="seccion-cabecera">
+                      <span class="seccion-nombre">{{ s.nombre }}</span>
+                      <span class="grupo-cantidad">{{ s.filas.length }} {{ s.filas.length === 1 ? 'actividad' : 'actividades' }}</span>
+                      <span class="pct" [ngClass]="claseSemaforo(s.pct)">{{ s.pct === null ? 'Sin programar' : s.pct + '%' }}</span>
+                    </div>
+                  </td>
+                  <td *ngFor="let d of dias; trackBy: trackDia" class="col-dia celda celda-hh"
+                      style="padding: 0; text-align: center; vertical-align: middle;"
+                      [class.dia-rojo]="d.rojo" [class.dia-hoy]="d.hoy">
+                    <button type="button" class="dia-hh" style="display: inline-flex; margin: 0; vertical-align: middle;" [class.con-hh]="tieneHHDia(d.dia, esSeccionEspecifica(s))"
+                            [title]="textoBotonHH(d.dia, esSeccionEspecifica(s))"
+                            (click)="abrirHHDia(d.dia, esSeccionEspecifica(s))">
+                      <i class="fa fa-clock-o" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                  <td class="col-avance celda-hh-pie">
+                    <span class="hh-seccion-total" *ngIf="totalHHSeccion(esSeccionEspecifica(s))">
+                      <i class="fa fa-clock-o" aria-hidden="true"></i> {{ totalHHSeccion(esSeccionEspecifica(s)) }}
+                    </span>
                   </td>
                 </tr>
 
@@ -568,16 +593,115 @@
         <span><i class="marca m-azul"></i> Programado</span>
         <span><i class="marca m-verde"></i> Según necesidad</span>
         <span><i class="marca m-azul hecho"><b class="fa fa-check"></b></i> Realizado 100%</span>
-        <span><i class="marca m-azul parcial"><b class="marca-txt">¾</b></i> Parcial 75%</span>
+        <span><i class="marca m-azul parcial"><b class="marca-txt">¾</b></i> Parcial 75% (registros antiguos)</span>
         <span><i class="marca m-azul medio"><b class="marca-txt">½</b></i> Parcial 50%</span>
         <span><i class="marca m-azul nohecho"><b class="fa fa-times"></b></i> No hecho 0%</span>
         <span><i class="marca m-azul"><em class="marca-clip"></em></i> Con adjuntos</span>
         <span><i class="ley-rojo"></i> Fin de semana o feriado</span>
         <span><i class="ley-hoy"></i> Hoy</span>
+        <span *ngIf="mostrarHHDia"><i class="dia-hh dia-hh-ley con-hh"><b class="fa fa-clock-o"></b></i> HH del día registradas (fila de la sección)</span>
       </div>
     </div>
 
   </ng-container>
+
+  <!-- ===================== Popup HH del día ===================== -->
+  <div class="psso-modal-fondo" *ngIf="hhDia" (mousedown)="clickFondoHHDia($event)">
+    <div class="psso-modal phd-modal" role="dialog" aria-modal="true" aria-labelledby="phd-titulo">
+      <header class="psso-modal-cab">
+        <div class="psso-modal-cab-texto">
+          <span class="psso-modal-kicker">{{ hhDia.soloLectura ? 'Detalle' : 'Registrar' }} · HH del día</span>
+          <h6 id="phd-titulo">{{ hhDia.especifica ? 'Capacitaciones Específicas' : 'Capacitación Operacional' }}</h6>
+          <p><i class="fa fa-calendar" aria-hidden="true"></i> {{ hhDia.fechaTexto }}</p>
+        </div>
+        <button type="button" class="psso-modal-cerrar" (click)="cerrarHHDia()" title="Cerrar" aria-label="Cerrar">
+          <i class="fa fa-times"></i>
+        </button>
+      </header>
+
+      <div class="psso-modal-cuerpo">
+        <p class="preg-ayuda">
+          <i class="fa fa-info-circle" aria-hidden="true"></i>
+          <span>Se anota <b>una sola vez por día</b>, no en cada actividad. El N° de trabajadores y las HH trabajadas son las mismas para operacionales y específicas.</span>
+        </p>
+
+        <div class="phd-bloque">
+          <span class="phd-bloque-titulo"><i class="fa fa-users" aria-hidden="true"></i> Trabajo del día</span>
+          <div class="phh-fila">
+            <label class="phh-etiqueta" for="phd-ntrab">N° de trabajadores</label>
+            <div class="phh-campos">
+              <input id="phd-ntrab" type="number" min="0" step="1" placeholder="0" name="phdTrab"
+                     [(ngModel)]="hhDia.nTrabajadores" [disabled]="hhDia.soloLectura" (keydown.enter)="guardarHHDia()">
+              <span class="phh-unidad">trab.</span>
+            </div>
+          </div>
+          <div class="phh-fila">
+            <label class="phh-etiqueta" for="phd-hhtrab">HH trabajadas</label>
+            <div class="phh-campos">
+              <input id="phd-hhtrab" type="text" inputmode="decimal" placeholder="0" name="phdHHTrab" autocomplete="off"
+                     [(ngModel)]="hhDia.hhTrabajadas" [disabled]="hhDia.soloLectura" (keydown.enter)="guardarHHDia()">
+              <span class="phh-unidad">h</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="phd-bloque" *ngIf="!hhDia.especifica">
+          <span class="phd-bloque-titulo"><i class="fa fa-cogs" aria-hidden="true"></i> HH operacionales <small>(capacitación operacional)</small></span>
+          <div class="phh-fila">
+            <label class="phh-etiqueta" for="phd-op">Tiempo de capacitación</label>
+            <div class="phh-campos">
+              <input id="phd-op" type="number" min="0" max="24" step="1" placeholder="0" name="phdOpH"
+                     [(ngModel)]="hhDia.opHoras" [disabled]="hhDia.soloLectura" (keydown.enter)="guardarHHDia()">
+              <span class="phh-unidad">h</span>
+              <input type="number" min="0" max="59" step="1" placeholder="0" name="phdOpM" aria-label="Minutos operacionales"
+                     [(ngModel)]="hhDia.opMinutos" [disabled]="hhDia.soloLectura" (keydown.enter)="guardarHHDia()">
+              <span class="phh-unidad">min</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="phd-bloque" *ngIf="hhDia.especifica">
+          <span class="phd-bloque-titulo"><i class="fa fa-graduation-cap" aria-hidden="true"></i> HH específicas <small>(capacitaciones específicas)</small></span>
+          <div class="phh-fila">
+            <label class="phh-etiqueta" for="phd-esp">Tiempo de capacitación</label>
+            <div class="phh-campos">
+              <input id="phd-esp" type="number" min="0" max="24" step="1" placeholder="0" name="phdEspH"
+                     [(ngModel)]="hhDia.espHoras" [disabled]="hhDia.soloLectura" (keydown.enter)="guardarHHDia()">
+              <span class="phh-unidad">h</span>
+              <input type="number" min="0" max="59" step="1" placeholder="0" name="phdEspM" aria-label="Minutos específicos"
+                     [(ngModel)]="hhDia.espMinutos" [disabled]="hhDia.soloLectura" (keydown.enter)="guardarHHDia()">
+              <span class="phh-unidad">min</span>
+            </div>
+          </div>
+          <div class="phh-fila">
+            <label class="phh-etiqueta" for="phd-ent">Entidad</label>
+            <div class="phh-campos">
+              <select id="phd-ent" name="phdEntidad" class="psso-hh-select" [(ngModel)]="hhDia.entidad" [disabled]="hhDia.soloLectura">
+                <option *ngFor="let e of entidadesEspecificas" [value]="e.v">{{ e.t }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="phd-total">
+          <span>{{ hhDia.especifica ? 'HH específicas' : 'HH operacionales' }} del día</span>
+          <strong>{{ resumenHHDia }}</strong>
+        </div>
+
+        <div class="psso-modal-error" *ngIf="errorHHDia" role="alert">
+          <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ errorHHDia }}
+        </div>
+      </div>
+
+      <footer class="psso-modal-pie">
+        <span class="psso-modal-espacio"></span>
+        <button type="button" class="psso-btn" (click)="cerrarHHDia()">{{ hhDia.soloLectura ? 'Cerrar' : 'Cancelar' }}</button>
+        <button *ngIf="!hhDia.soloLectura" type="button" class="psso-btn primario" (click)="guardarHHDia()">
+          <i class="fa fa-check"></i> Guardar HH del día
+        </button>
+      </footer>
+    </div>
+  </div>
 
   <!-- ===================== Popup de registro ===================== -->
   <div class="psso-modal-fondo" *ngIf="modal" (mousedown)="clickFondoModal($event)">
@@ -621,8 +745,16 @@
         <div class="preg-panel-hh" *ngIf="modal.conPestanas && modal.pestana === 'hh'" role="tabpanel">
           <p class="preg-ayuda">
             <i class="fa fa-info-circle" aria-hidden="true"></i>
-            <span>Anota las HH de este día. El cumplimiento y los respaldos van en la pestaña <b>2 · Cumplimiento</b>.</span>
+            <span><b>N° de trabajadores</b> y <b>HH trabajadas</b> son del día completo: se anotan una vez y se ven igual en todas las actividades de este día (no se suman por actividad). Las <b>{{ etiquetaHHPestana }}</b> son solo de esta actividad. El cumplimiento va en la pestaña <b>2 · Cumplimiento</b>.</span>
           </p>
+          <div class="phh-fila">
+            <label class="phh-etiqueta" for="preg-ntrab"><i class="fa fa-user" aria-hidden="true"></i> N° de trabajadores</label>
+            <div class="phh-campos">
+              <input id="preg-ntrab" type="number" min="0" step="1" name="nTrabajadores" placeholder="0"
+                     [(ngModel)]="modal.nTrabajadores" [disabled]="modal.soloLectura" (keydown.enter)="guardarRegistro()">
+              <span class="phh-unidad">trab.</span>
+            </div>
+          </div>
           <div class="phh-fila">
             <label class="phh-etiqueta" for="preg-trab"><i class="fa fa-users" aria-hidden="true"></i> HH trabajadas</label>
             <div class="phh-campos">
@@ -671,10 +803,6 @@
               <span>{{ n.t }}</span>
             </button>
           </div>
-          <p class="psso-evidencia" *ngIf="modal.cumplimiento === 100 && !tieneEvidencia && !modal.soloLectura">
-            <i class="fa fa-paperclip" aria-hidden="true"></i>
-            El 100% exige evidencia: adjunta un respaldo abajo o se guardará automáticamente en <b>75%</b>.
-          </p>
           <p class="psso-sin-cump" *ngIf="modal.cumplimiento === null">
             <i class="fa fa-info-circle" aria-hidden="true"></i>
             Sin cumplimiento marcado.<ng-container *ngIf="!modal.soloLectura"> Al guardar, el día queda como programado (no cuenta como realizado).</ng-container>

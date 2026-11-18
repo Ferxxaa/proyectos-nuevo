@@ -18,6 +18,25 @@
         </a>
       </header>
 
+      <div class="hallazgos-tabs-wrap">
+        <nav class="hallazgos-tabs" aria-label="Vistas de hallazgos consolidados">
+          <a [routerLink]="['/Proyectos-ReportesHallazgos']" class="hallazgos-tab">
+            <i class="fa fa-bar-chart" aria-hidden="true"></i>
+            Hallazgos Consolidados
+          </a>
+          <a [routerLink]="['/Proyectos-ConsolidadoHallazgos']"
+             class="hallazgos-tab activa"
+             aria-current="page">
+            <i class="fa fa-calendar" aria-hidden="true"></i>
+            Hallazgos Anuales
+          </a>
+          <a [routerLink]="['/Proyectos-MejorasConsolidadas']" class="hallazgos-tab">
+            <i class="fa fa-check-square-o" aria-hidden="true"></i>
+            Mejoras Consolidadas
+          </a>
+        </nav>
+      </div>
+
       <div class="widget-body consolidado-pagina-cuerpo">
         <section class="consolidado-hallazgos">
           <div class="consolidado-mensaje" *ngIf="cargando">

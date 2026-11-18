@@ -1,6 +1,30 @@
-<app-main *ngIf="reporteSolo"></app-main>
+<app-main *ngIf="reporteSolo && !reporteSoloEmbed"></app-main>
 
-<div class="control-hallazgos-container" [class.reporte-solo]="reporteSolo" [class.content-wrap]="reporteSolo" [class.content]="reporteSolo">
+<div class="control-hallazgos-container"
+     [class.reporte-solo]="reporteSolo"
+     [class.reporte-solo-embebido]="reporteSoloEmbed"
+     [class.content-wrap]="reporteSolo && !reporteSoloEmbed"
+     [class.content]="reporteSolo && !reporteSoloEmbed">
+
+  <!-- Embebido en Reportes de hallazgos: los tabs y el header los pone la página de afuera -->
+  <div *ngIf="reporteSolo && !reporteSoloEmbed" class="hallazgos-tabs-wrap">
+    <nav class="hallazgos-tabs" aria-label="Vistas de hallazgos consolidados">
+      <a [routerLink]="['/Proyectos-ReportesHallazgos']" class="hallazgos-tab">
+        <i class="fa fa-bar-chart" aria-hidden="true"></i>
+        Hallazgos Consolidados
+      </a>
+      <a [routerLink]="['/Proyectos-ConsolidadoHallazgos']" class="hallazgos-tab">
+        <i class="fa fa-calendar" aria-hidden="true"></i>
+        Hallazgos Anuales
+      </a>
+      <a [routerLink]="['/Proyectos-MejorasConsolidadas']"
+         class="hallazgos-tab activa"
+         aria-current="page">
+        <i class="fa fa-check-square-o" aria-hidden="true"></i>
+        Mejoras Consolidadas
+      </a>
+    </nav>
+  </div>
 
   <div class="reporte-solo-mensaje" *ngIf="reporteSolo && !reportePermisosCargados">
     <i class="fa fa-spinner fa-spin"></i> Verificando permisos...
@@ -411,7 +435,7 @@
     <div class="reporte-om-overlay" *ngIf="modalReporteAbierto" (click)="cerrarReporteMejoras()">
       <div class="reporte-om-dialog" (click)="$event.stopPropagation()">
         <!-- Mismo encabezado que los demás reportes -->
-        <div class="reporte-om-header">
+        <div class="reporte-om-header" *ngIf="!reporteSoloEmbed">
           <div class="reporte-om-header-titulo">
             <span class="reporte-om-header-icono"><i class="fa fa-line-chart" aria-hidden="true"></i></span>
             <div>
@@ -434,6 +458,25 @@
               <span aria-hidden="true">&times;</span>
             </button>
           </div>
+        </div>
+
+        <!-- Embebido: solo el selector de año, sin header azul (lo pone la página de afuera) -->
+        <div class="reporte-om-barra-embed" *ngIf="reporteSoloEmbed">
+          <span class="reporte-om-embed-label">Año del reporte</span>
+          <div class="reporte-om-embed-selector">
+            <div class="reporte-om-embed-select-wrap">
+              <i class="fa fa-calendar reporte-om-embed-icono" aria-hidden="true"></i>
+              <select class="reporte-om-embed-select" [(ngModel)]="reporteAnio" (ngModelChange)="recalcularReporte()"
+                      [disabled]="cargandoReporte || !reporteAnios.length" aria-label="Año del reporte">
+                <option value="todos">Todos los años</option>
+                <option *ngFor="let anio of reporteAnios" [value]="anio">{{anio}}</option>
+              </select>
+              <i class="fa fa-caret-down reporte-om-embed-caret" aria-hidden="true"></i>
+            </div>
+          </div>
+          <span class="reporte-om-embed-tag" *ngIf="reporteAnio !== 'todos'">
+            <i class="fa fa-filter" aria-hidden="true"></i> Solo {{reporteAnio}}
+          </span>
         </div>
 
         <div class="reporte-om-scroll">

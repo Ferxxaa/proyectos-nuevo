@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { firestoreDB } from '../../firebase-init';
 import { CAMPO_CAPACITACION } from './control-asistencia.component';
-import { sumarHHPrograma, redondear, formatoHM } from '../programa-sso/programa-registro';
+import { sumarHHPrograma, redondear, formatoHM, juntarTrabajadoresPorDia, promedioTrabajadores } from '../programa-sso/programa-registro';
 import { ProgramaSsoService } from '../programa-sso/programa-sso.service';
 
 /**
@@ -190,9 +190,12 @@ export class EstadisticasHhComponent implements OnInit {
       if (carga !== this.cargaProgramas) { return; }
       const delAnio: any = {};
       const delAnioMin: any = {};
+      const trabajadoresPorMes: { [mes: number]: { [dia: number]: number } } = {};
       lista.forEach(item => {
         if (!item.programa) { return; }
         const hh: any = sumarHHPrograma(item.programa);
+        // N° de trabajadores: se juntan los días de SSO y MA (por día el mayor) y después se promedia
+        trabajadoresPorMes[item.mes] = juntarTrabajadoresPorDia(trabajadoresPorMes[item.mes] || {}, hh.trabajadoresPorDia || {});
         Object.keys(MAPA_MINUTOS).forEach(campoResumen => {
           const minutos = Math.round(Number(hh[campoResumen]) || 0);
           if (minutos <= 0) { return; }
@@ -207,6 +210,13 @@ export class EstadisticasHhComponent implements OnInit {
           const delMes = delAnio[item.mes] || (delAnio[item.mes] = {});
           delMes[campo] = redondear((delMes[campo] || 0) + horas);
         });
+      });
+      Object.keys(trabajadoresPorMes).forEach(k => {
+        const promedio = promedioTrabajadores(trabajadoresPorMes[Number(k)]);
+        if (promedio) {
+          const delMes = delAnio[Number(k)] || (delAnio[Number(k)] = {});
+          delMes.trabajadores = promedio;
+        }
       });
       this.hhProgramas[anio] = delAnio;
       this.minProgramas[anio] = delAnioMin;
@@ -294,6 +304,8 @@ export class EstadisticasHhComponent implements OnInit {
   getValor(mes: number, campo: string): number | null {
     const base = (this.valores[mes] || {})[campo];
     const programas = this.getProgramas(mes, campo);
+    // N° de trabajadores no se suma: si el mes tiene trabajadores en los programas, manda el programa
+    if (campo === 'trabajadores' && programas !== null) { return programas; }
     const hayBase = base !== null && base !== undefined;
     if (!hayBase && programas === null) { return null; }
     return redondear((hayBase ? Number(base) : 0) + (programas || 0));
@@ -320,6 +332,10 @@ export class EstadisticasHhComponent implements OnInit {
     const partes: string[] = [];
     const base = (this.valores[mes] || {})[campo];
     const programas = this.getProgramas(mes, campo);
+    if (campo === 'trabajadores' && programas !== null) {
+      return 'Programas SSO/MA: ' + this.formatear(programas) + ' (promedio de los días con trabajadores registrados)' +
+        (base !== null && base !== undefined ? ' · reemplaza ' + this.formatear(base) + ' de la tabla' : '');
+    }
     if (base !== null && base !== undefined && CAMPOS_SOLO_PROGRAMA.indexOf(campo) < 0) {
       partes.push((this.esDeAsistencia(mes, campo) ? 'Control de asistencia: ' : 'Ingresado a mano: ') + this.formatear(base));
     }

@@ -607,23 +607,23 @@
         </button>
       </div>
 
-      <!-- ===== SSO: estadísticas mensuales HH de todas las obras (Control de Asistencia + Programas SSO/MA) ===== -->
+      <!-- ===== SSO: suma de las tablas de Seguridad de cada obra + Programas SSO/MA ===== -->
       <ng-container *ngIf="consolidadoVista === 'seg'">
         <div class="sso-aviso" *ngIf="errorConsolidadoHH || errorAsistenciaSSO" role="alert">
-          {{errorAsistenciaSSO ? 'No se pudo cargar el Control de Asistencia.' : 'No se pudieron cargar los programas SSO / MA.'}}
+          {{errorAsistenciaSSO ? 'No se pudieron cargar las tablas SSO de los subproyectos.' : 'No se pudieron cargar los programas SSO / MA.'}}
           <button type="button" class="sso-boton" (click)="reintentarConsolidadoHH()">Reintentar</button>
         </div>
 
         <div class="sso-tiles">
-          <div class="sso-tile"><span>Trabajadores · {{consolidadoHHAnio}}</span><strong>{{consolidadoHHResumen.trabajadores}}</strong></div>
-          <div class="sso-tile sso-tile-hh-total"><span>HH trabajadas</span><strong>{{consolidadoHHResumen.hh}}</strong></div>
+          <div class="sso-tile sso-tile-hh-total"><span>HH trabajadas · {{consolidadoHHAnio}}</span><strong>{{consolidadoHHResumen.hh}}</strong></div>
           <div class="sso-tile"><span>Horas extra</span><strong>{{consolidadoHHResumen.extra}}</strong></div>
-          <div class="sso-tile"><span>HH Capacitación</span><strong>{{consolidadoHHResumen.capacitacion}}</strong></div>
+          <div class="sso-tile"><span>HH capacitadas</span><strong>{{consolidadoHHResumen.capacitacion}}</strong></div>
+          <div class="sso-tile"><span>Días perdidos</span><strong>{{consolidadoHHResumen.diasPerdidos}}</strong></div>
         </div>
 
         <section class="sso-panel sso-panel-ma">
           <div class="sso-ma-encabezado">
-            <h6>Estadísticas mensuales HH (SSO)</h6>
+            <h6>Estadísticas mensuales HH (SSO) · todas las obras</h6>
             <div class="sso-ma-controles">
               <label for="sso-consolidado-hh-anio">Año</label>
               <select id="sso-consolidado-hh-anio" [(ngModel)]="consolidadoHHAnio" (ngModelChange)="recalcularConsolidadoHH()">
@@ -650,8 +650,8 @@
                 <ng-container *ngFor="let fila of consolidadoHHFilas; let i = index">
                   <tr class="sso-fila-hh-grupo" *ngIf="i === 0 || fila.grupo !== consolidadoHHFilas[i - 1].grupo">
                     <th scope="colgroup" [attr.colspan]="mesesMA.length + 2">
-                      <i class="fa" [ngClass]="fila.grupo === 'asistencia' ? 'fa-calendar-check-o' : 'fa-graduation-cap'" aria-hidden="true"></i>
-                      {{fila.grupo === 'asistencia' ? 'Control de Asistencia' : 'Capacitación (Programas SSO y MA)'}}
+                      <i class="fa" [ngClass]="fila.grupo === 'sso' ? 'fa-shield' : (fila.grupo === 'indice' ? 'fa-line-chart' : 'fa-graduation-cap')" aria-hidden="true"></i>
+                      {{fila.grupo === 'sso' ? 'Tabla SSO de cada subproyecto' : (fila.grupo === 'indice' ? 'Índices' : 'Capacitación (Programas SSO y MA)')}}
                     </th>
                   </tr>
                   <tr [class.sso-fila-hh-total]="fila.destacada">
@@ -672,38 +672,42 @@
               <thead>
                 <tr>
                   <th class="sso-ma-indicador">Subproyecto</th>
-                  <th>N° trabajadores</th>
-                  <th>Días trabajados</th>
-                  <th>Horas extra</th>
                   <th>HH trabajadas</th>
-                  <th>HH Capacitación</th>
+                  <th>Horas extra</th>
+                  <th>HH capacitadas</th>
+                  <th>N° incidentes</th>
+                  <th>Días perdidos</th>
+                  <th>IS</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let fila of consolidadoHHPorSubproyecto">
                   <th scope="row" class="sso-ma-indicador">{{fila.nombre}}</th>
-                  <td>{{fila.trabajadores || '-'}}</td>
-                  <td>{{fila.dias}}</td>
-                  <td>{{fila.extra}}</td>
                   <td><b>{{fila.hh}}</b></td>
+                  <td>{{fila.extra}}</td>
                   <td>{{fila.capacitacion}}</td>
+                  <td>{{fila.incidentes}}</td>
+                  <td>{{fila.diasPerdidos}}</td>
+                  <td>{{fila.is}}</td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr>
-                  <th scope="row">Total <small>trabajadores sin repetir</small></th>
-                  <td>{{consolidadoHHTotales.trabajadores || '-'}}</td>
-                  <td>{{consolidadoHHTotales.dias}}</td>
-                  <td>{{consolidadoHHTotales.extra}}</td>
+                  <th scope="row">Total</th>
                   <td>{{consolidadoHHTotales.hh}}</td>
+                  <td>{{consolidadoHHTotales.extra}}</td>
                   <td>{{consolidadoHHTotales.capacitacion}}</td>
+                  <td>{{consolidadoHHTotales.incidentes}}</td>
+                  <td>{{consolidadoHHTotales.diasPerdidos}}</td>
+                  <td>{{consolidadoHHTotales.is}}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
           <p class="sso-nota-hh">
-            HH trabajadas = días × 8,5 + horas extra (Control de Asistencia, igual que el Consolidado de CORE). La capacitación sale de los Programas SSO y MA.
-            Un trabajador en dos subproyectos cuenta en cada uno, pero en el total se cuenta una sola vez.
+            Es la suma de las tablas de Seguridad (SSO) de cada subproyecto, con las mismas reglas: HH trabajadas = lo de la tabla SSO
+            + las HH trabajadas anotadas en los Programas SSO y MA. La capacitación sale de los Programas SSO y MA.
+            IS = días perdidos × 1.000 / HH (incluye horas extra).
           </p>
         </section>
       </ng-container>

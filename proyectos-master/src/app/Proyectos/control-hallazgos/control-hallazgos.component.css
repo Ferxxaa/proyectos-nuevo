@@ -361,6 +361,71 @@
   text-align: center;
 }
 
+.control-hallazgos-container.reporte-solo-embebido {
+  padding: 0;
+  min-height: 0;
+  background: #fff;
+}
+
+.control-hallazgos-container.reporte-solo-embebido .reporte-solo-mensaje {
+  padding: 18px 24px;
+}
+
+.control-hallazgos-container.reporte-solo .hallazgos-tabs-wrap {
+  margin: -70px -40px 24px;
+  padding: 18px 22px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e5eaf1;
+  box-sizing: border-box;
+}
+
+.control-hallazgos-container.reporte-solo .hallazgos-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #d5dde3;
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(16, 40, 60, 0.06);
+}
+
+.control-hallazgos-container.reporte-solo .hallazgos-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-left: 1px solid #d5dde3;
+  background: #fff;
+  color: #36414c;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 36px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.control-hallazgos-container.reporte-solo .hallazgos-tab:first-child {
+  border-left: 0;
+}
+
+.control-hallazgos-container.reporte-solo .hallazgos-tab:hover,
+.control-hallazgos-container.reporte-solo .hallazgos-tab:focus {
+  background: #f3f7fa;
+  color: #075f91;
+  text-decoration: none;
+}
+
+.control-hallazgos-container.reporte-solo .hallazgos-tab.activa {
+  border-left-color: #075f91;
+  background: #075f91;
+  color: #fff;
+}
+
 .control-hallazgos-container header {
   margin: 0;
 }
@@ -3020,4 +3085,127 @@ select.input-tipo:disabled {
     margin-right: 0;
     margin-left: 0;
   }
+}
+
+/* ================================ */
+/* Mejoras Consolidadas embebido     */
+/* (dentro de Reportes de hallazgos) */
+/* ================================ */
+.control-hallazgos-container.reporte-solo.reporte-solo-embebido {
+  padding: 0;
+  background: transparent;
+}
+
+.reporte-solo-embebido .reporte-om-dialog {
+  border: 1px solid #e3ebf1;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(16, 40, 60, 0.04);
+}
+/* Barra del año: mismo estilo que el selector de año de Hallazgos Consolidados */
+.control-hallazgos-container .reporte-om-barra-embed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e3ebf1;
+  background: #fff;
+}
+
+.control-hallazgos-container .reporte-om-embed-label {
+  color: #5a6b77;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.control-hallazgos-container .reporte-om-embed-selector {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 9px;
+  background: #eef3f7;
+}
+
+.control-hallazgos-container .reporte-om-embed-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.control-hallazgos-container .reporte-om-embed-icono {
+  position: absolute;
+  left: 11px;
+  color: #0879b2;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.control-hallazgos-container .reporte-om-embed-caret {
+  position: absolute;
+  right: 11px;
+  color: #6e7f8a;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.control-hallazgos-container .reporte-om-embed-select {
+  height: 32px;
+  min-width: 170px;
+  margin: 0;
+  padding: 0 30px 0 32px;
+  border: 1px solid #d5e2ea;
+  border-radius: 7px;
+  background: #fff;
+  color: #075f91;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 30px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  box-shadow: 0 1px 3px rgba(16, 40, 60, 0.1);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.control-hallazgos-container .reporte-om-embed-select::-ms-expand {
+  display: none;
+}
+
+.control-hallazgos-container .reporte-om-embed-select:hover:not(:disabled) {
+  border-color: #9ccbe6;
+}
+
+.control-hallazgos-container .reporte-om-embed-select:focus {
+  outline: none;
+  border-color: #0879b2;
+  box-shadow: 0 0 0 3px rgba(8, 121, 178, 0.14);
+}
+
+.control-hallazgos-container .reporte-om-embed-select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.control-hallazgos-container .reporte-om-embed-select option {
+  color: #1f3646;
+  font-weight: 600;
+}
+
+.control-hallazgos-container .reporte-om-embed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #e5f2f9;
+  color: #075f91;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
 }

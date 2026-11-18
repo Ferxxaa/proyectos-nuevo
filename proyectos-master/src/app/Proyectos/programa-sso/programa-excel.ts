@@ -438,7 +438,7 @@ function hojaRegistro(d: DatosExcelPrograma, lista: FilaRegistro[]): Hoja {
     const cat = hh.categoria ? textoCategoriaHH(hh.categoria) : 'Operacionales + Específicas';
     h.set(f, col++, hh.minTotal ? cat + (hh.antiguo ? ' (registro anterior)' : '') : '', 'centro');
     const ht = hhTrabajadoresDe(d.programa, x.dia);   // por proyecto (mismo valor para todas las actividades del día)
-    h.set(f, col++, ht.trabajadores || '', 'centro');
+    h.set(f, col++, Number(r.nTrabajadores) || ht.trabajadores || '', 'centro');
     h.set(f, col++, ht.horas || '', 'centro');
     h.set(f, col++, Number(r.hhTrabajadas) || '', 'centro');
     if (hh.minTotal) {

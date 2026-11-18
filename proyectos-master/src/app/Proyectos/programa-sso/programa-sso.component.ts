@@ -16,6 +16,27 @@ import { ConsumoMA, consumoMADe, CONSUMOS_MA } from './programa-registro';
 /** Tabla de Medio Ambiente (pestaña MA de Estadísticas SSO/MA/INCS). */
 const COLECCION_ESTADISTICAS_MA = 'estadisticasMA';
 
+/** Popup "HH del día": todo lo del día en un solo lugar (no por actividad). */
+interface ModalHHDia {
+  dia: number;
+  fechaTexto: string;
+  soloLectura: boolean;
+  nTrabajadores: any;
+  hhTrabajadas: any;
+  opHoras: any;
+  opMinutos: any;
+  espHoras: any;
+  espMinutos: any;
+  entidad: string;
+  hayOperacional: boolean;   // hay actividades de Capacitación Operacional
+  hayEspecifica: boolean;    // hay actividades de Capacitaciones Específicas
+  especifica: boolean;       // se abrió desde la fila de Capacitaciones Específicas
+}
+
+/** Campos de HH que se guardan dentro de un registro de actividad. */
+const CAMPOS_HH = ['categoriaHH', 'trabajadores', 'duracionMin', 'hhMinutos', 'hhCapacitacion', 'hhEspecificas',
+  'entidadEspecifica', 'hhOperacional', 'hhTrabajadas', 'nTrabajadores'];
+
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -189,6 +210,7 @@ interface ModalRegistro {
   pestana: string;                   // 'hh' | 'cumplimiento'
   categoriaPestanas: string;         // OPERACIONAL | ESPECIFICA (según la sección)
   hhTrabajadas: any;                 // horas
+  nTrabajadores: any;                // N° de trabajadores del día
   hhHoras: any;                      // HH operacionales / específicas: horas
   hhMinutos: any;                    //                                 y minutos
   categoria: string;                 // OPERACIONAL | ESPECIFICA | '' (no aplica)
@@ -223,7 +245,11 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   @Input() idProyecto: any = null;          // opcional: se guarda en la tabla de MA si el documento es nuevo
 
   meses = MESES;
-  nivelesCumplimiento = NIVELES_CUMPLIMIENTO;
+  /** Botones de cumplimiento: ya no se ofrece 75%. Solo aparece si el registro abierto es antiguo y ya está en 75%. */
+  get nivelesCumplimiento() {
+    const actual = this.modal ? this.modal.cumplimiento : null;
+    return NIVELES_CUMPLIMIENTO.filter(n => n.v !== 75 || actual === 75);
+  }
   categoriasHH = CATEGORIAS_HH;
   formatoHM = formatoHM;
   textoCategoriaHH = textoCategoriaHH;
@@ -275,6 +301,12 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   // HH Capacitación del mes (operacionales + específicas, en minutos). Van a Estadísticas HH.
   hhMes: ResumenHH = resumenHHVacio();
+
+  // Popup "HH del día" (aparte del registro de cada actividad)
+  hhDia: ModalHHDia = null;
+  errorHHDia = '';
+  diasConHH: { [clave: string]: boolean } = {};   // 'op|5' / 'esp|5' → ese día tiene HH
+  minHHSeccion = { op: 0, esp: 0 };               // total del mes por sección (minutos)
 
   // Popup de registro
   modal: ModalRegistro = null;
@@ -1078,6 +1110,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.pctProgramado = totalProg > 0 ? Math.round(hastaHoy * 100 / totalProg) : 0;
 
     this.hhMes = sumarHHPrograma(this.programa);
+    this.calcularDiasConHH();
   }
 
   /** Agrupa las filas por sección en el orden en que aparecen; las sin sección van primero. */
@@ -1421,6 +1454,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       pestana: 'cumplimiento',
       categoriaPestanas: '',
       hhTrabajadas: null,
+      nTrabajadores: null,
       hhHoras: null,
       hhMinutos: null,
       categoria: '',
@@ -1449,23 +1483,13 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   // ===================== Pestañas del popup: HH del día | Cumplimiento y respaldos =====================
 
-  /** Capacitación Operacional / Específicas: activa las pestañas y carga las HH registradas. */
+  /**
+   * Antes activaba la pestaña "HH del día" dentro del popup de la actividad.
+   * Ahora las HH del día van en su propio popup (reloj sobre cada día), así que el popup
+   * de la actividad queda solo con cumplimiento, observación y respaldos.
+   */
   private cargarPestanasHH(m: ModalRegistro, reg: RegistroDia) {
-    const categoria = categoriaFijaDe(m.act);
-    if (!categoria) { return; }
-    const x: any = reg || {};
-    const hh = hhRegistroMin(reg);
-    const trab = Math.max(0, Number(x.hhTrabajadas) || 0);
-    m.conPestanas = true;
-    m.pestana = 'hh';
-    m.categoriaPestanas = categoria;
-    // sin registro, el cumplimiento parte SIN marcar (no se da por hecho al anotar solo las HH)
-    if (!reg) { m.cumplimiento = null; }
-    m.hhTrabajadas = trab ? String(trab).replace('.', ',') : null;
-    m.hhHoras = hh.minTotal ? (Math.floor(hh.minTotal / 60) || null) : null;
-    m.hhMinutos = hh.minTotal ? ((hh.minTotal % 60) || null) : null;
-    m.entidad = x.entidadEspecifica ||
-      (this.claveNombre(m.act.nombre).indexOf('mutual') >= 0 ? 'MUTUAL' : 'OTROS');
+    m.conPestanas = false;
   }
 
   cambiarPestana(p: string) {
@@ -1481,6 +1505,8 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     const m = this.modal;
     if (!m) { return ''; }
     const partes: string[] = [];
+    const nTrab = Number(m.nTrabajadores) || 0;
+    if (nTrab > 0) { partes.push(nTrab + ' trab.'); }
     const trab = Number(String(m.hhTrabajadas || '').replace(',', '.')) || 0;
     if (trab > 0) { partes.push(String(trab).replace('.', ',') + ' h'); }
     const min = (Number(m.hhHoras) || 0) * 60 + (Number(m.hhMinutos) || 0);
@@ -1559,6 +1585,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
 
   @HostListener('document:keydown.escape')
   escapeModal() {
+    if (this.hhDia) { this.cerrarHHDia(); return; }
     if (this.modal && !this.subiendo) { this.cancelarRegistro(); }
   }
 
@@ -1585,6 +1612,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     let trabDia = 0;
     let horasDia = 0;
     let hhTrabajadas = 0;
+    let nTrabajadores = 0;
     try {
       if (m.conHH) {
         // HH Trabajadores: solo se guardan (para comparar con el Control de Asistencia)
@@ -1603,6 +1631,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       }
       if (m.conPestanas) {
         // Pestaña "HH del día": HH trabajadas (horas) + HH operacionales / específicas (horas y minutos)
+        nTrabajadores = trabajadoresDelDia(m.nTrabajadores);
         hhTrabajadas = horasTrabajadasDia(m.hhTrabajadas);
         const min = calcularHH(1, m.hhHoras, m.hhMinutos).hhMinutos;
         if (min) {
@@ -1621,12 +1650,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    // 100% exige evidencia: sin adjuntos queda automáticamente en 75%
-    let bajadoA75 = false;
-    if (cumplimiento === 100 && !m.adjuntos.length) {
-      cumplimiento = 75;
-      bajadoA75 = true;
-    }
+    // El 100% ya no exige evidencia adjunta: se guarda el cumplimiento tal como se marcó
 
     const anterior: any = registrosDe(m.act)[String(m.dia)] || {};
     const minOp = categoria && categoria !== CATEGORIA_ESPECIFICA ? calc.hhMinutos : 0;
@@ -1664,10 +1688,11 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     // Las HH (del popup chico o de versiones anteriores) se conservan tal cual al guardar el registro completo
     if (m.conPestanas) {
       (reg as any).hhTrabajadas = hhTrabajadas;
-    } else if (!m.conHH && (hhRegistroMin(anterior).minTotal > 0 || Number(anterior.hhTrabajadas) > 0)) {
+      (reg as any).nTrabajadores = nTrabajadores;
+    } else if (!m.conHH && (hhRegistroMin(anterior).minTotal > 0 || Number(anterior.hhTrabajadas) > 0 || Number(anterior.nTrabajadores) > 0)) {
       const x: any = reg;
       ['categoriaHH', 'trabajadores', 'duracionMin', 'hhMinutos', 'hhCapacitacion', 'hhEspecificas',
-        'entidadEspecifica', 'hhOperacional', 'hhTrabajadas'].forEach(k => {
+        'entidadEspecifica', 'hhOperacional', 'hhTrabajadas', 'nTrabajadores'].forEach(k => {
         if (anterior[k] === undefined) { delete x[k]; } else { x[k] = anterior[k]; }
       });
     }
@@ -1677,12 +1702,15 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     if (m.conHH) { this.guardarHHTrabajadores(m.dia, trabDia, horasDia); }
     // Sin cumplimiento y sin nada más (HH, observación, adjuntos, consumo): el día vuelve a quedar sin registro
     const sinDatos = cumplimiento === null && !hhRegistroMin(reg).minTotal && !(Number((reg as any).hhTrabajadas) > 0) &&
+      !(Number((reg as any).nTrabajadores) > 0) &&
       !reg.observacion && !reg.adjuntos.length && (consumo === null || consumo === undefined);
     if (sinDatos) {
       delete registrosDe(a)[String(m.dia)];
     } else {
       registrosDe(a)[String(m.dia)] = reg;
     }
+    // N° de trabajadores y HH trabajadas: quedan en UN solo registro del día, así no se suman dos veces
+    if (m.conPestanas) { this.dejarDatosDiaEn(sinDatos ? null : a, m.dia); }
     // "realizados" queda solo con lo hecho (100%, 75% o 50%); el 0% queda registrado pero no cuenta como hecho
     if (reg.cumplimiento > 0) {
       if (a.realizados.indexOf(m.dia) < 0) { a.realizados.push(m.dia); a.realizados.sort((x, y) => x - y); }
@@ -1696,8 +1724,251 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.modal = null;
     this.guardandoRegistro = false;
     this.recalcular();   // acumulados al día
-    this.guardarInmediato(sinDatos ? 'Cumplimiento quitado' : bajadoA75 ? 'Guardado en 75%: el 100% requiere evidencia adjunta' : 'Registro guardado');
+    this.guardarInmediato(sinDatos ? 'Cumplimiento quitado' : 'Registro guardado');
     if (m.consumoDef) { this.sincronizarConsumoMA(m.consumoDef.campo); }
+  }
+
+  // ===================== HH del día (N° de trabajadores y HH trabajadas) =====================
+  // Son del día completo, no de cada actividad: se guardan en un solo registro del día
+  // para que el total del mes no las sume una vez por cada actividad.
+
+  /** N° de trabajadores y HH trabajadas anotadas ese día (en cualquier actividad). */
+  private datosDiaDe(dia: number): { hhTrabajadas: number, nTrabajadores: number } {
+    let res = { hhTrabajadas: 0, nTrabajadores: 0 };
+    ((this.programa && this.programa.actividades) || []).some((act: ActividadPrograma) => {
+      const r: any = registrosDe(act)[String(dia)];
+      if (r && (Number(r.hhTrabajadas) > 0 || Number(r.nTrabajadores) > 0)) {
+        res = { hhTrabajadas: Math.max(0, Number(r.hhTrabajadas) || 0), nTrabajadores: Math.max(0, Number(r.nTrabajadores) || 0) };
+        return true;
+      }
+      return false;
+    });
+    return res;
+  }
+
+  /** Borra las HH del día de todas las actividades menos "duena" (y quita los registros que queden vacíos). */
+  private dejarDatosDiaEn(duena: ActividadPrograma, dia: number) {
+    ((this.programa && this.programa.actividades) || []).forEach((act: ActividadPrograma) => {
+      if (act === duena) { return; }
+      const regs = registrosDe(act);
+      const r: any = regs[String(dia)];
+      if (!r || (r.hhTrabajadas === undefined && r.nTrabajadores === undefined)) { return; }
+      delete r.hhTrabajadas;
+      delete r.nTrabajadores;
+      if (this.registroVacio(r)) {
+        delete regs[String(dia)];
+        this.quitar(act.realizados, dia);
+      }
+    });
+  }
+
+  /** ¿El registro quedó sin nada (sin cumplimiento, HH, observación, adjuntos ni consumo)? */
+  private registroVacio(r: any): boolean {
+    return (r.cumplimiento === null || r.cumplimiento === undefined) &&
+      !hhRegistroMin(r).minTotal &&
+      !(Number(r.hhTrabajadas) > 0) && !(Number(r.nTrabajadores) > 0) &&
+      !r.observacion && !(r.adjuntos && r.adjuntos.length) &&
+      (r.consumo === null || r.consumo === undefined);
+  }
+
+  // ===================== Popup "HH del día" =====================
+  // N° de trabajadores, HH trabajadas, HH operacionales y HH específicas del día completo.
+  // Se guardan una sola vez: las operacionales en la primera actividad de Capacitación Operacional
+  // y las específicas en la primera de Capacitaciones Específicas, así el total del mes no las repite.
+
+  /** Actividad que guarda las HH del día para una categoría (la primera de esa sección). */
+  private actividadHH(especifica: boolean): ActividadPrograma {
+    return ((this.programa && this.programa.actividades) || []).filter((act: ActividadPrograma) => {
+      const c = categoriaFijaDe(act);
+      return !!c && (especifica ? c === CATEGORIA_ESPECIFICA : c !== CATEGORIA_ESPECIFICA);
+    })[0] || null;
+  }
+
+  /** ¿Se muestra el reloj de "HH del día"? (programa con capacitaciones y fuera del modo programación) */
+  get mostrarHHDia(): boolean {
+    return !!this.programa && !this.enEdicion && !!(this.actividadHH(false) || this.actividadHH(true));
+  }
+
+  /** ¿La sección es Capacitación Operacional / Específicas? (lleva fila con relojes) */
+  seccionConHH(s: SeccionVista): boolean {
+    return !this.enEdicion && !!s && !!s.filas.length && !!categoriaFijaDe(s.filas[0].act);
+  }
+
+  esSeccionEspecifica(s: SeccionVista): boolean {
+    return !!s && !!s.filas.length && categoriaFijaDe(s.filas[0].act) === CATEGORIA_ESPECIFICA;
+  }
+
+  tieneHHDia(dia: number, especifica: boolean): boolean {
+    return !!this.diasConHH[(especifica ? 'esp|' : 'op|') + dia];
+  }
+
+  textoBotonHH(dia: number, especifica: boolean): string {
+    return (this.tieneHHDia(dia, especifica) ? 'Ver / editar' : 'Registrar') +
+      (especifica ? ' HH específicas' : ' HH operacionales') + ' del día ' + dia;
+  }
+
+  totalHHSeccion(especifica: boolean): string {
+    const min = especifica ? this.minHHSeccion.esp : this.minHHSeccion.op;
+    return min > 0 ? formatoHM(min) : '';
+  }
+
+  private calcularDiasConHH() {
+    const mapa: { [clave: string]: boolean } = {};
+    const tot = { op: 0, esp: 0 };
+    ((this.programa && this.programa.actividades) || []).forEach((act: ActividadPrograma) => {
+      const regs = registrosDe(act);
+      Object.keys(regs).forEach(k => {
+        const r: any = regs[k];
+        if (!r) { return; }
+        const hh = hhRegistroMin(r);
+        let op = 0;
+        let esp = 0;
+        if (hh.antiguo) {
+          op = hh.minOperacional || 0;
+          esp = hh.minEspecificas || 0;
+        } else if (hh.minTotal) {
+          if ((hh.categoria || categoriaFijaDe(act)) === CATEGORIA_ESPECIFICA) { esp = hh.minTotal; } else { op = hh.minTotal; }
+        }
+        tot.op += op;
+        tot.esp += esp;
+        const trab = Number(r.hhTrabajadas) > 0 || Number(r.nTrabajadores) > 0;
+        if (op > 0 || trab) { mapa['op|' + k] = true; }
+        if (esp > 0 || trab) { mapa['esp|' + k] = true; }
+      });
+    });
+    this.diasConHH = mapa;
+    this.minHHSeccion = tot;
+  }
+
+  /** Suma lo que hay anotado ese día en todas las actividades (incluye registros antiguos). */
+  private hhDelDia(dia: number) {
+    let minOp = 0;
+    let minEsp = 0;
+    let entidad = '';
+    ((this.programa && this.programa.actividades) || []).forEach((act: ActividadPrograma) => {
+      const r: any = registrosDe(act)[String(dia)];
+      if (!r) { return; }
+      const hh = hhRegistroMin(r);
+      if (hh.antiguo) {
+        minOp += hh.minOperacional || 0;
+        minEsp += hh.minEspecificas || 0;
+      } else if (hh.minTotal) {
+        const cat = hh.categoria || categoriaFijaDe(act);
+        if (cat === CATEGORIA_ESPECIFICA) { minEsp += hh.minTotal; } else { minOp += hh.minTotal; }
+      }
+      if (!entidad && r.entidadEspecifica) { entidad = r.entidadEspecifica; }
+    });
+    const d = this.datosDiaDe(dia);
+    return { minOp: minOp, minEsp: minEsp, entidad: entidad, nTrabajadores: d.nTrabajadores, hhTrabajadas: d.hhTrabajadas };
+  }
+
+  abrirHHDia(dia: number, especifica: boolean) {
+    const info = this.dias[dia - 1];
+    const x = this.hhDelDia(dia);
+    this.hhDia = {
+      dia: dia,
+      fechaTexto: (info ? NOMBRE_DIA_LARGO[info.dow] + ' ' : '') + dia + ' de ' +
+        this.meses[this.mesSel - 1].toLowerCase() + ' ' + this.anio,
+      soloLectura: !this.enControl,
+      nTrabajadores: x.nTrabajadores > 0 ? x.nTrabajadores : null,
+      hhTrabajadas: x.hhTrabajadas > 0 ? String(x.hhTrabajadas).replace('.', ',') : null,
+      opHoras: x.minOp ? (Math.floor(x.minOp / 60) || null) : null,
+      opMinutos: x.minOp ? ((x.minOp % 60) || null) : null,
+      espHoras: x.minEsp ? (Math.floor(x.minEsp / 60) || null) : null,
+      espMinutos: x.minEsp ? ((x.minEsp % 60) || null) : null,
+      entidad: x.entidad || 'MUTUAL',
+      hayOperacional: !!this.actividadHH(false),
+      hayEspecifica: !!this.actividadHH(true),
+      especifica: !!especifica
+    };
+    this.errorHHDia = '';
+  }
+
+  cerrarHHDia() {
+    this.hhDia = null;
+    this.errorHHDia = '';
+  }
+
+  clickFondoHHDia(evento: MouseEvent) {
+    if (evento.target === evento.currentTarget) { this.cerrarHHDia(); }
+  }
+
+  /** Total del día que se ve en el pie del popup. */
+  get resumenHHDia(): string {
+    const h = this.hhDia;
+    if (!h) { return ''; }
+    const min = h.especifica
+      ? (Number(h.espHoras) || 0) * 60 + (Number(h.espMinutos) || 0)
+      : (Number(h.opHoras) || 0) * 60 + (Number(h.opMinutos) || 0);
+    return min > 0 ? formatoHM(min) : '0 min';
+  }
+
+  guardarHHDia() {
+    const h = this.hhDia;
+    if (!h || h.soloLectura || !this.enControl) { return; }
+    let nTrab = 0;
+    let hhTrab = 0;
+    let minOp = 0;
+    let minEsp = 0;
+    try {
+      nTrab = trabajadoresDelDia(h.nTrabajadores);
+      hhTrab = horasTrabajadasDia(h.hhTrabajadas);
+      minOp = h.hayOperacional ? calcularHH(1, h.opHoras, h.opMinutos).hhMinutos : 0;
+      minEsp = h.hayEspecifica ? calcularHH(1, h.espHoras, h.espMinutos).hhMinutos : 0;
+    } catch (e) {
+      this.errorHHDia = e.message;
+      return;
+    }
+    const dia = h.dia;
+    const actOp = this.actividadHH(false);
+    const actEsp = this.actividadHH(true);
+
+    // 1) borra las HH de ese día en todas las actividades (así no quedan repetidas)
+    ((this.programa && this.programa.actividades) || []).forEach((act: ActividadPrograma) => {
+      const regs = registrosDe(act);
+      const r: any = regs[String(dia)];
+      if (!r) { return; }
+      CAMPOS_HH.forEach(k => { delete r[k]; });
+      if (this.registroVacio(r)) {
+        delete regs[String(dia)];
+        this.quitar(act.realizados, dia);
+      }
+    });
+
+    // 2) las deja una sola vez
+    const registroDe = (act: ActividadPrograma): any => {
+      const regs = registrosDe(act);
+      if (!regs[String(dia)]) {
+        regs[String(dia)] = {
+          cumplimiento: null, observacion: '', adjuntos: [],
+          registradoPor: this.nombreUsuario || '', fechaRegistro: new Date().toISOString()
+        } as any;
+      }
+      return regs[String(dia)];
+    };
+    const ponerMinutos = (act: ActividadPrograma, min: number, especifica: boolean) => {
+      const r = registroDe(act);
+      r.categoriaHH = categoriaFijaDe(act);
+      r.trabajadores = 0;
+      r.duracionMin = min;
+      r.hhMinutos = min;
+      r.hhCapacitacion = minutosAHoras(min);
+      r.hhEspecificas = especifica ? minutosAHoras(min) : 0;
+      r.hhOperacional = especifica ? 0 : minutosAHoras(min);
+      r.entidadEspecifica = especifica ? (h.entidad || 'OTROS') : '';
+    };
+    if (actOp && minOp > 0) { ponerMinutos(actOp, minOp, false); }
+    if (actEsp && minEsp > 0) { ponerMinutos(actEsp, minEsp, true); }
+    const actTrab = actOp || actEsp;
+    if (actTrab && (nTrab > 0 || hhTrab > 0)) {
+      const r = registroDe(actTrab);
+      r.nTrabajadores = nTrab;
+      r.hhTrabajadas = hhTrab;
+    }
+
+    this.hhDia = null;
+    this.recalcular();
+    this.guardarInmediato('HH del día guardadas');
   }
 
   /** HH Trabajadores del proyecto en el día (una sola vez por día, para todas las actividades). */
@@ -1743,8 +2014,20 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     this.adjNuevos.forEach(x => { if (todos.indexOf(x) < 0) { todos.push(x); } });
     todos.forEach(adj => borrarAdjunto(adj));
 
+    // Las HH del día (popup del reloj) no se borran al quitar el registro de la actividad
+    const soloHH: any = {};
+    const anteriorReg: any = reg || {};
+    CAMPOS_HH.forEach(k => { if (anteriorReg[k] !== undefined) { soloHH[k] = anteriorReg[k]; } });
     delete registrosDe(a)[String(m.dia)];
     this.quitar(a.realizados, m.dia);
+    if (hhRegistroMin(soloHH).minTotal > 0 || Number(soloHH.hhTrabajadas) > 0 || Number(soloHH.nTrabajadores) > 0) {
+      soloHH.cumplimiento = null;
+      soloHH.observacion = '';
+      soloHH.adjuntos = [];
+      soloHH.registradoPor = this.nombreUsuario || '';
+      soloHH.fechaRegistro = new Date().toISOString();
+      registrosDe(a)[String(m.dia)] = soloHH;
+    }
 
     this.adjNuevos = [];
     this.adjQuitados = [];

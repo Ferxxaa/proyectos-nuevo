@@ -148,8 +148,8 @@ const route = [
   },
   {
     path: 'Proyectos-MejorasConsolidadas',
-    component: ControlHallazgosComponent,
-    data: { reporteSolo: true }
+    component: ReportesHallazgosComponent,
+    data: { pestanaHallazgos: 'mejoras' }
   },
   {
     path: 'Proyectos-ConsolidadoSSO',

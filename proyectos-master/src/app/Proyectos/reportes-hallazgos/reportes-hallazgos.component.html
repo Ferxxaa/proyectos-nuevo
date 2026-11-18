@@ -4,31 +4,70 @@
   <main id="content" role="main" class="content">
     <section class="widget reportes-hallazgos-widget">
 
-      <!-- ================= CABECERA ================= -->
+      <!-- ================= CABECERA (una sola, cambia según la pestaña) ================= -->
       <header class="reportes-cabecera">
         <div class="reportes-cabecera-titulo">
-          <span class="reportes-cabecera-icono"><i class="fa fa-bar-chart"></i></span>
+          <span class="reportes-cabecera-icono">
+            <i class="fa" [ngClass]="pestanaActiva === 'mejoras' ? 'fa-check-square-o' : 'fa-bar-chart'" aria-hidden="true"></i>
+          </span>
           <div>
-            <span class="reportes-kicker">ANÁLISIS DE PROYECTOS</span>
-            <h2>CONSOLIDADO DE HALLAZGOS -  REG. 08- Seguimiento Calidad de Producto</h2>
-            <p>Resumen anual de proyectos activos, inactivos y finalizados</p>
+            <ng-container *ngIf="pestanaActiva !== 'mejoras'">
+              <span class="reportes-kicker">ANÁLISIS DE PROYECTOS</span>
+              <h2>CONSOLIDADO DE HALLAZGOS -  REG. 08- Seguimiento Calidad de Producto</h2>
+              <p>Resumen anual de proyectos activos, inactivos y finalizados</p>
+            </ng-container>
+            <ng-container *ngIf="pestanaActiva === 'mejoras'">
+              <span class="reportes-kicker">REPORTES DE PROYECTOS</span>
+              <h2>MEJORAS CONSOLIDADAS</h2>
+              <p>Oportunidades de mejora y lecciones aprendidas consolidadas</p>
+            </ng-container>
           </div>
         </div>
         <div class="reportes-cabecera-acciones">
-          <span class="reportes-en-vivo" *ngIf="actualizando && !error">
-            <i class="fa fa-refresh fa-spin"></i> Actualizando...
-          </span>
-          <span class="reportes-en-vivo" *ngIf="!actualizando && !cargandoSubProyectos && !cargandoHallazgos && !error">
-            <span class="punto-en-vivo"></span> En tiempo real
-          </span>
+          <ng-container *ngIf="pestanaActiva !== 'mejoras'">
+            <span class="reportes-en-vivo" *ngIf="actualizando && !error">
+              <i class="fa fa-refresh fa-spin"></i> Actualizando...
+            </span>
+            <span class="reportes-en-vivo" *ngIf="!actualizando && !cargandoSubProyectos && !cargandoHallazgos && !error">
+              <span class="punto-en-vivo"></span> En tiempo real
+            </span>
+          </ng-container>
           <a class="btn btn-volver-reportes" [routerLink]="['/Proyectos-MisProyectos']">
-            <i class="fa fa-arrow-left"></i>
+            <i class="fa fa-arrow-left" aria-hidden="true"></i>
             <span>Volver a Mis Proyectos</span>
           </a>
         </div>
       </header>
 
-      <div class="widget-body reportes-body">
+      <div class="hallazgos-tabs-wrap">
+        <nav class="hallazgos-tabs" aria-label="Vistas de hallazgos consolidados">
+          <a [routerLink]="['/Proyectos-ReportesHallazgos']"
+             class="hallazgos-tab"
+             [class.activa]="pestanaActiva !== 'mejoras'"
+             [attr.aria-current]="pestanaActiva !== 'mejoras' ? 'page' : null">
+            <i class="fa fa-bar-chart" aria-hidden="true"></i>
+            Hallazgos Consolidados
+          </a>
+          <a [routerLink]="['/Proyectos-ConsolidadoHallazgos']" class="hallazgos-tab">
+            <i class="fa fa-calendar" aria-hidden="true"></i>
+            Hallazgos Anuales
+          </a>
+          <a [routerLink]="['/Proyectos-MejorasConsolidadas']"
+             class="hallazgos-tab"
+             [class.activa]="pestanaActiva === 'mejoras'"
+             [attr.aria-current]="pestanaActiva === 'mejoras' ? 'page' : null">
+            <i class="fa fa-check-square-o" aria-hidden="true"></i>
+            Mejoras Consolidadas
+          </a>
+        </nav>
+      </div>
+
+      <!-- ================= MEJORAS CONSOLIDADAS ================= -->
+      <div class="widget-body reportes-body mejoras-body" *ngIf="pestanaActiva === 'mejoras'">
+        <app-control-hallazgos [reporteSoloEmbed]="true"></app-control-hallazgos>
+      </div>
+
+      <div class="widget-body reportes-body" *ngIf="pestanaActiva !== 'mejoras'">
         <div class="alert alert-danger reportes-alerta" *ngIf="error">
           <i class="fa fa-exclamation-triangle"></i> {{error}}
         </div>

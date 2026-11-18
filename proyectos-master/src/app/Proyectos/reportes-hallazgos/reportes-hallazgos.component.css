@@ -11,6 +11,97 @@
 }
 
 /* ============================ CABECERA ============================ */
+/* Tabs Hallazgos Consolidados / Hallazgos Anuales: mismo bloque en las dos pantallas.
+   Selectores reforzados para que ningún estilo global (widget, nav, a, .btn) los cambie. */
+.widget .hallazgos-tabs-wrap {
+  display: block;
+  float: none;
+  margin: 0;
+  padding: 18px 22px 16px;
+  background: #fff;
+  border: 0;
+  border-bottom: 1px solid #e5eaf1;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.widget .hallazgos-tabs-wrap .hallazgos-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  float: none;
+  max-width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  border: 1px solid #d5dde3;
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(16, 40, 60, 0.06);
+  box-sizing: border-box;
+  vertical-align: top;
+}
+
+.widget .hallazgos-tabs-wrap .hallazgos-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  float: none;
+  height: 36px;
+  min-height: 0;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-left: 1px solid #d5dde3;
+  border-radius: 0;
+  background: #fff;
+  color: #36414c;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  box-sizing: border-box;
+  box-shadow: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.widget .hallazgos-tabs-wrap .hallazgos-tab:first-child {
+  border-left: 0;
+}
+
+.widget .hallazgos-tabs-wrap .hallazgos-tab .fa {
+  margin: 0;
+  font-size: 13px;
+}
+
+.widget .hallazgos-tabs-wrap .hallazgos-tab:hover,
+.widget .hallazgos-tabs-wrap .hallazgos-tab:focus {
+  background: #f3f7fa;
+  color: #075f91;
+  text-decoration: none;
+  outline: none;
+}
+
+.widget .hallazgos-tabs-wrap .hallazgos-tab.activa,
+.widget .hallazgos-tabs-wrap .hallazgos-tab.activa:hover,
+.widget .hallazgos-tabs-wrap .hallazgos-tab.activa:focus {
+  border-left-color: #075f91;
+  background: #075f91;
+  color: #fff;
+}
+
+.widget .hallazgos-tabs-wrap .hallazgos-tab.activa + .hallazgos-tab {
+  border-left-color: #075f91;
+}
+
+@media (max-width: 767px) {
+  .widget .hallazgos-tabs-wrap {
+    padding: 14px;
+  }
+}
+
 .reportes-cabecera {
   position: relative;
   display: flex;
@@ -3221,3 +3312,19 @@
 .cg-texto-mandante { fill: #075f91; font-weight: 700; }
 .cg-texto-anio { fill: #758691; }
 .cg-texto-anio-vivo { fill: #23804f; font-weight: 700; }
+
+/* ============================ MEJORAS CONSOLIDADAS (embebido) ============================ */
+/* El componente embebido queda dentro del mismo cuerpo gris que las otras pestañas */
+.mejoras-body {
+  padding: 20px 22px 24px;
+}
+
+.mejoras-body > app-control-hallazgos {
+  display: block;
+}
+
+@media (max-width: 767px) {
+  .mejoras-body {
+    padding: 14px;
+  }
+}

@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs/Subscription';
 import { firestoreDB } from '../../firebase-init';
 import { HallazgoItem, sHallazgos } from '../../services/sHallazgos.service';
@@ -324,6 +324,7 @@ interface ResumenDetecta {
   providers: [sHallazgos, sMis_Proyectos, sUsuarioClienteProyecto, sUsuariosPerfiles]
 })
 export class ReportesHallazgosComponent implements OnInit, OnDestroy {
+  pestanaActiva: 'consolidados' | 'anuales' | 'mejoras' = 'consolidados';
   subProyectos: SubProyectoReporte[] = [];
   hallazgos: HallazgoItem[] = [];
   hallazgosDelAnio: HallazgoItem[] = [];
@@ -463,10 +464,12 @@ export class ReportesHallazgosComponent implements OnInit, OnDestroy {
     private _sUsuariosPerfiles: sUsuariosPerfiles,
     private _sUsuarioClienteProyecto: sUsuarioClienteProyecto,
     private _sHallazgos: sHallazgos,
+    private _route: ActivatedRoute,
     private _router: Router
   ) {}
 
   ngOnInit() {
+    this.pestanaActiva = this._route.snapshot.data['pestanaHallazgos'] || 'consolidados';
     this.calcularConsolidado();
     // 1. Si hay datos guardados de la última visita, se pintan de inmediato
     this.leerCache();

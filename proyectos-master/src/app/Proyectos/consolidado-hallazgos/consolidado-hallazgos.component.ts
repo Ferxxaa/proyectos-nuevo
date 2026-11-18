@@ -183,6 +183,10 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
       }
     });
 
+    // Las dos fuentes se cargan por separado: los hallazgos no deben quedar
+    // esperando indefinidamente si la carga de proyectos se demora.
+    this.escucharHallazgos();
+
     this._sMisProyectos.getMis_Proyectos().subscribe(
       (data: any) => {
         if (!Array.isArray(data)) {
@@ -192,7 +196,9 @@ export class ConsolidadoHallazgosComponent implements OnInit, OnDestroy {
         }
 
         this.armarProyectos(data);
-        this.escucharHallazgos();
+        if (this.datosCargados) {
+          this.actualizarConsolidado();
+        }
       },
       error => {
         console.error('Error al cargar proyectos para el consolidado de hallazgos:', error);

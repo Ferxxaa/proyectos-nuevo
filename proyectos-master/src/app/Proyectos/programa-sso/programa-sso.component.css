@@ -1000,7 +1000,9 @@ thead .sticky-1 { z-index: 3; }
 /* niveles de cumplimiento */
 .psso-niveles {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr); /* se reparten parejo: 3 botones (o 4 si el registro antiguo está en 75%) */
   gap: 8px;
 }
 .psso-nivel {
@@ -1698,7 +1700,7 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 
 @media (max-width: 575px) {
   .psso-hh { grid-template-columns: 1fr 1fr; }
-  .psso-niveles { grid-template-columns: 1fr 1fr; }
+  .psso-niveles { grid-template-columns: 1fr 1fr; grid-auto-flow: row; }
   .psso-modal-pie { flex-wrap: wrap; }
 }
 
@@ -2066,3 +2068,124 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 .hh-ESPECIFICA .phh-campos input:focus { border-color: #0e8a7e; box-shadow: 0 0 0 3px rgba(14, 138, 126, .14); }
 .phh-campos input:disabled { background: #f4f6f8; color: #4a525a; }
 .phh-unidad { min-width: 20px; color: #8f979f; font-size: 11px; font-weight: 600; }
+
+/* ===================== HH del día (reloj en la fila de la sección + popup aparte) ===================== */
+.psso-tabla tbody tr.fila-seccion-hh td.celda-hh {
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* fines de semana / feriados y hoy: mismas franjas que las celdas de abajo (clase .celda) */
+
+.psso-tabla tbody tr.fila-seccion-hh .dia-hh {
+  display: inline-flex;
+  margin: 0;
+  vertical-align: middle;
+}
+
+.psso-tabla tbody tr.fila-seccion-hh td.celda-hh-pie {
+  padding: 0 10px;
+  text-align: right;
+}
+
+.hh-seccion-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #eef6fb;
+  color: #075f91;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dia-hh {
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid #d5dde3;
+  border-radius: 5px;
+  background: #fff;
+  color: #9aa8b2;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+
+.dia-hh:hover {
+  border-color: #075f91;
+  color: #075f91;
+  background: #eef6fb;
+}
+
+.dia-hh.con-hh {
+  border-color: #075f91;
+  background: #075f91;
+  color: #fff;
+}
+
+.dia-hh:focus { outline: none; box-shadow: 0 0 0 2px rgba(7, 95, 145, .25); }
+
+.dia-hh-ley {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-right: 4px;
+  cursor: default;
+}
+
+.dia-hh-ley b { font-weight: normal; }
+
+.phd-modal { max-width: 460px; }
+
+.phd-bloque {
+  margin-top: 10px;
+  padding: 10px 12px 4px;
+  border: 1px solid #e3ebf1;
+  border-radius: 8px;
+  background: #fbfdfe;
+}
+
+.phd-bloque-titulo {
+  display: block;
+  margin-bottom: 6px;
+  color: #075f91;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.phd-bloque-titulo .fa { margin-right: 4px; }
+
+.phd-bloque-titulo small {
+  color: #8796a0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.phd-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #eef6fb;
+  color: #4f6a7a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.phd-total strong {
+  color: #075f91;
+  font-size: 16px;
+  font-weight: 800;
+}

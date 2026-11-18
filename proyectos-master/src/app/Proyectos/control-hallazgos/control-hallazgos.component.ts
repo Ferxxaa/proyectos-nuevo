@@ -121,6 +121,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   @Input() esOficina: boolean = false;
   @Input() subProyectoSeleccionado: any = null;
   @Input() ocultarFormulario: boolean = false;
+  @Input() reporteSoloEmbed: boolean = false;
 
   usuario: any;
   proyecto: mProyecto | null = null;
@@ -281,7 +282,7 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.reporteSolo = this.route.snapshot.data['reporteSolo'] === true;
+    this.reporteSolo = this.route.snapshot.data['reporteSolo'] === true || this.reporteSoloEmbed;
     this.usuario = JSON.parse(localStorage.usuario || 'null');
     if (this.reporteSolo) {
       this.cargarPermisoEliminacion();

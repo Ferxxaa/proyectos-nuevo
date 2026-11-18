@@ -31,6 +31,8 @@ export interface RegistroDia {
 
   // HH trabajadas del día (horas). Se ingresan en el popup chico de Capacitación Operacional / Específicas.
   hhTrabajadas?: number;
+  // N° de trabajadores del día (mismo popup)
+  nTrabajadores?: number;
 
   // ---- Campos en horas decimales: se siguen escribiendo para compatibilidad
   //      (Estadísticas HH y registros antiguos). La fuente de verdad es hhMinutos.
@@ -79,6 +81,10 @@ export interface ResumenHH {
   /** HH trabajadas (horas) anotadas en el popup de Capacitación Operacional / Específicas */
   hhTrabajadas?: number;
   hhTrabajadasPorDia?: { [dia: number]: number };
+  /** N° de trabajadores por día (el mayor entre las actividades de ese día) */
+  trabajadoresPorDia?: { [dia: number]: number };
+  /** N° de trabajadores del mes: promedio de los días con dato (null si no hay) */
+  trabajadoresPromedio?: number;
 }
 
 export const NIVELES_CUMPLIMIENTO = [
@@ -288,7 +294,8 @@ export function resumenHHVacio(): ResumenHH {
     trabajadoresOperacional: 0, trabajadoresEspecificas: 0,
     registrosOperacional: 0, registrosEspecificas: 0,
     porDia: {}, porEntidad: {}, porEntidadMin: {},
-    hhTrabajadas: 0, hhTrabajadasPorDia: {}
+    hhTrabajadas: 0, hhTrabajadasPorDia: {},
+    trabajadoresPorDia: {}, trabajadoresPromedio: null
   };
 }
 
@@ -298,6 +305,7 @@ export function sumarHHPrograma(p: ProgramaMes, acumulado?: ResumenHH): ResumenH
   if (!r.porEntidadMin) { r.porEntidadMin = {}; }
   if (!r.hhTrabajadasPorDia) { r.hhTrabajadasPorDia = {}; }
   if (!r.hhTrabajadas) { r.hhTrabajadas = 0; }
+  if (!r.trabajadoresPorDia) { r.trabajadoresPorDia = {}; }
   if (!p || !p.actividades) { return r; }
   p.actividades.forEach(a => {
     const regs = registrosDe(a);
@@ -310,6 +318,12 @@ export function sumarHHPrograma(p: ProgramaMes, acumulado?: ResumenHH): ResumenH
         const d = Number(k);
         r.hhTrabajadasPorDia[d] = redondear((r.hhTrabajadasPorDia[d] || 0) + trab);
         r.hhTrabajadas = redondear(r.hhTrabajadas + trab);
+      }
+      // N° de trabajadores: por día se toma el mayor (son las mismas personas en varias actividades)
+      const nTrab = Math.max(0, Math.round(Number((reg as any).nTrabajadores) || 0));
+      if (nTrab) {
+        const d = Number(k);
+        r.trabajadoresPorDia[d] = Math.max(r.trabajadoresPorDia[d] || 0, nTrab);
       }
       const hh = hhRegistroMin(reg);
       if (!hh.minTotal) { return; }
@@ -338,6 +352,7 @@ export function sumarHHPrograma(p: ProgramaMes, acumulado?: ResumenHH): ResumenH
     });
   });
   r.minTotal = r.minOperacional + r.minEspecificas;
+  r.trabajadoresPromedio = promedioTrabajadores(r.trabajadoresPorDia);
   r.hhOperacional = redondear(r.minOperacional / 60);
   r.hhEspecificas = redondear(r.minEspecificas / 60);
   r.total = redondear(r.minTotal / 60);
@@ -477,4 +492,23 @@ export function horasTrabajadasDia(v: any): number {
   if (n < 0) { throw new Error('HH trabajadas no puede ser negativo.'); }
   if (n > 99999) { throw new Error('HH trabajadas parece demasiado alto, revisa el valor.'); }
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * N° de trabajadores del mes a partir de los días con dato: promedio redondeado (null si no hay días).
+ * Se usa en Estadísticas SSO (tabla del subproyecto y consolidado).
+ */
+export function promedioTrabajadores(porDia: { [dia: number]: number }): number {
+  const dias = Object.keys(porDia || {}).map(k => Number(porDia[k as any]) || 0).filter(v => v > 0);
+  if (!dias.length) { return null; }
+  return Math.round(dias.reduce((a, b) => a + b, 0) / dias.length);
+}
+
+/** Junta los trabajadores por día de varios programas (SSO + MA): por día queda el mayor. */
+export function juntarTrabajadoresPorDia(destino: { [dia: number]: number }, origen: { [dia: number]: number }) {
+  Object.keys(origen || {}).forEach(k => {
+    const d = Number(k);
+    destino[d] = Math.max(destino[d] || 0, Number(origen[k as any]) || 0);
+  });
+  return destino;
 }

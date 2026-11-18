@@ -125,24 +125,10 @@
                             Hallazgos Consolidados
                         </a>
                     </li>
-                    <li>
-                        <a [routerLink]="['/Proyectos-ConsolidadoHallazgos']" routerLinkActive="router-link-active">
-                            Hallazgos Anuales
-                        </a>
-                    </li>
-                    <li>
-                        <a [routerLink]="['/Proyectos-BibliotecaCertificados']" routerLinkActive="router-link-active">
-                            Biblioteca de certificados
-                        </a>
-                    </li>
+                    
                     <li *ngIf="!Cliente">
                         <a [routerLink]="['/Proyectos-ConsolidadoSSO']" routerLinkActive="router-link-active">
-                            Consolidado SSO/MA/HH
-                        </a>
-                    </li>
-                    <li *ngIf="SubGerenteProy || DirectorProy || GerenteAdmin">
-                        <a [routerLink]="['/Proyectos-MejorasConsolidadas']" routerLinkActive="router-link-active">
-                            Mejoras Consolidadas
+                            Consolidado SSO/MA
                         </a>
                     </li>
                 </ul>
