@@ -2,539 +2,313 @@
 
 <div class="content-wrap">
   <main id="content" role="main" class="content">
-    <div>
-      <div class="row">
-        <div class="col-lg-12">
+    <div class="pz-pagina">
 
-          <!-- FORMULARIO CREACIÓN -->
-          <mat-card class="proyecto-card">
-            <mat-card-header class="proyecto-header">
-              <mat-card-title>
-                <mat-icon class="header-icon">account_tree</mat-icon>
-                Creación de Sub Proyecto
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content class="proyecto-content">
-              <form #CForm="ngForm" (ngSubmit)="Agregar(CForm)">
-                <mat-tab-group class="form-tabs" animationDuration="300">
+      <!-- ============================ CREACIÓN ============================ -->
+      <section class="pz-card">
+        <header class="pz-card-header">
+          <div class="pz-card-titulo">
+            <mat-icon>account_tree</mat-icon>
+            <span>Creación de Sub Proyecto</span>
+          </div>
+          <span class="pz-card-nota"><span class="pz-req">*</span> obligatorio</span>
+        </header>
 
-                  <!-- TAB 1: Información General -->
-                  <mat-tab>
-                    <ng-template mat-tab-label>
-                      <mat-icon>info</mat-icon>
-                      <span class="tab-label">Información</span>
-                    </ng-template>
-                    <div class="tab-content">
-                      <h4 class="section-title">Datos del Proyecto</h4>
-                      <div class="form-row">
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Proyecto Matriz (*)</mat-label>
-                          <mat-select [(ngModel)]="drdProyectoMatriz" name="drdProyectoMatriz" (selectionChange)="CargaProyectos()" required>
-                            <mat-option [value]="0">--- Seleccione ---</mat-option>
-                            <mat-option *ngFor="let ProyectoMatriz of ProyectosMatriz" [value]="ProyectoMatriz.idProyectoMatriz">
-                              {{ProyectoMatriz.nombreProyectoMatriz}}
-                            </mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Proyecto (*)</mat-label>
-                          <mat-select [(ngModel)]="Subproyecto.idProyecto" name="drdProyecto" (selectionChange)="CargaDatosProyecto()" required>
-                            <mat-option [value]="0">--- Seleccione ---</mat-option>
-                            <mat-option *ngFor="let Proyecto of Proyectos" [value]="Proyecto.idProyecto">
-                              {{Proyecto.nombreProyecto}}
-                            </mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Centro de costo</mat-label>
-                          <input matInput [value]="centroCosto" disabled>
-                        </mat-form-field>
-                      </div>
+        <div class="pz-card-body" *ngIf="!editando">
+          <ng-container *ngTemplateOutlet="tplCampos; context: { modo: 'crear' }"></ng-container>
 
-                      <h4 class="section-title">Datos del Sub-Proyecto</h4>
-                      <div class="form-row">
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Nombre Sub-Proyecto (*)</mat-label>
-                          <input matInput type="text" [(ngModel)]="Subproyecto.nombreSubProyecto" name="txtSubProyecto" required>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Sub-Centro de costo</mat-label>
-                          <input matInput type="text" [(ngModel)]="Subproyecto.centroCosto" name="txtCentroCosto">
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Tipo de intervención (*)</mat-label>
-                          <mat-select [(ngModel)]="Subproyecto.idTipoIntervencion" name="drdTipoIntervencion" required>
-                            <mat-option [value]="0">--- Seleccione ---</mat-option>
-                            <mat-option *ngFor="let TipoIntervencion of TiposIntervencion" [value]="TipoIntervencion.idTipoIntervencion">
-                              {{TipoIntervencion.nombreTipoIntervencion}}
-                            </mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                      </div>
-                      <div class="form-row">
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Superficie</mat-label>
-                          <input matInput type="text" [(ngModel)]="Subproyecto.superficie" name="txtSuperficie" pattern="[0-9]+">
-                          <mat-hint>Solo números</mat-hint>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Costo Estimado</mat-label>
-                          <input matInput type="text" [(ngModel)]="Subproyecto.costoEstimado" name="txtCostoEstimado">
-                          <mat-hint>Monto en moneda local</mat-hint>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Dirección</mat-label>
-                          <input matInput type="text" [(ngModel)]="Direccion.calle" name="txtDireccion">
-                        </mat-form-field>
-                      </div>
-                    </div>
-                  </mat-tab>
+          <!-- Resumen de lo que falta (después del primer intento de guardar) -->
+          <div class="pz-faltan" *ngIf="intentoCrear && faltantes('crear').length">
+            <mat-icon>error_outline</mat-icon>
+            <span class="pz-faltan-titulo">Falta completar:</span>
+            <button type="button" class="pz-chip-falta" *ngFor="let f of faltantes('crear')" (click)="irACampo('crear', f.clave)">{{f.texto}}</button>
+          </div>
+          <div class="pz-listo" *ngIf="intentoCrear && !faltantes('crear').length">
+            <mat-icon>check_circle</mat-icon> Todo listo para crear el sub proyecto
+          </div>
 
-                  <!-- TAB 2: Ubicación -->
-                  <mat-tab>
-                    <ng-template mat-tab-label>
-                      <mat-icon>location_on</mat-icon>
-                      <span class="tab-label">Ubicación</span>
-                    </ng-template>
-                    <div class="tab-content">
-                      <h4 class="section-title">Ubicación Geográfica</h4>
-                      <div class="form-row">
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>País</mat-label>
-                          <mat-select [(ngModel)]="drdPais" name="drdPais" (selectionChange)="CargaRegiones()">
-                            <mat-option [value]="0">--- Seleccione ---</mat-option>
-                            <mat-option *ngFor="let Pais of Paises" [value]="Pais.idPais">{{Pais.nombrePais}}</mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Región</mat-label>
-                          <mat-select [(ngModel)]="drdRegion" name="drdRegion" (selectionChange)="CargaProvincias()">
-                            <mat-option [value]="0">--- Seleccione ---</mat-option>
-                            <mat-option *ngFor="let Region of Regiones" [value]="Region.idRegion">{{Region.nombreRegion}}</mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Provincia</mat-label>
-                          <mat-select [(ngModel)]="drdProvincia" name="drdProvincia" (selectionChange)="CargaComunas()">
-                            <mat-option [value]="0">--- Seleccione ---</mat-option>
-                            <mat-option *ngFor="let Provincia of Provincias" [value]="Provincia.idProvincia">{{Provincia.nombreProvincia}}</mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                      </div>
-                      <div class="form-row">
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Comuna</mat-label>
-                          <mat-select [(ngModel)]="Direccion.idComuna" name="drdComuna">
-                            <mat-option [value]="0">--- Seleccione ---</mat-option>
-                            <mat-option *ngFor="let Comuna of Comunas" [value]="Comuna.idComuna">{{Comuna.nombreComuna}}</mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                      </div>
-                    </div>
-                  </mat-tab>
-
-                  <!-- TAB 3: Personas -->
-                  <mat-tab>
-                    <ng-template mat-tab-label>
-                      <mat-icon>groups</mat-icon>
-                      <span class="tab-label">Personas</span>
-                    </ng-template>
-                    <div class="tab-content">
-                      <h4 class="section-title">Responsables</h4>
-                      <div class="form-row">
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Gerente</mat-label>
-                          <input matInput [value]="Gerente" disabled>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Sub Gerente</mat-label>
-                          <input matInput [value]="Gerente" disabled>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Coordinadores</mat-label>
-                          <input matInput
-                            [value]="coordinadoresText"
-                            disabled>
-                        </mat-form-field>
-                      </div>
-
-                      <h4 class="section-title">Clientes Internos</h4>
-                      <div class="form-row">
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Cliente Interno 1</mat-label>
-                          <mat-select [(ngModel)]="drdCliente1" name="drdCliente1">
-                            <mat-option [value]="0">--- Seleccione ---</mat-option>
-                            <mat-option *ngFor="let Cliente of Clientes" [value]="Cliente.idUsuario">
-                              {{Cliente.nombre + " " + Cliente.paterno}}
-                            </mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Cliente Interno 2</mat-label>
-                          <mat-select [(ngModel)]="drdCliente2" name="drdCliente2">
-                            <mat-option [value]="0">--- Seleccione ---</mat-option>
-                            <mat-option *ngFor="let Cliente of Clientes" [value]="Cliente.idUsuario">
-                              {{Cliente.nombre + " " + Cliente.paterno}}
-                            </mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                      </div>
-                    </div>
-                  </mat-tab>
-
-                  <!-- TAB 4: Fechas -->
-                  <mat-tab>
-                    <ng-template mat-tab-label>
-                      <mat-icon>calendar_today</mat-icon>
-                      <span class="tab-label">Fechas</span>
-                    </ng-template>
-                    <div class="tab-content">
-                      <h4 class="section-title">Planificación</h4>
-                      <div class="form-row">
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Fecha de Inicio (*)</mat-label>
-                          <input matInput [matDatepicker]="pickerInicio" [(ngModel)]="fechaInicioInput" name="txtInicio" (dateChange)="onFechaInicioChange($event)" required>
-                          <mat-datepicker-toggle matSuffix [for]="pickerInicio"></mat-datepicker-toggle>
-                          <mat-datepicker #pickerInicio></mat-datepicker>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="form-field-3col">
-                          <mat-label>Fecha de Término (*)</mat-label>
-                          <input matInput [matDatepicker]="pickerTermino" [(ngModel)]="fechaTerminoInput" name="txtTermino" (dateChange)="onFechaTerminoChange($event)" required>
-                          <mat-datepicker-toggle matSuffix [for]="pickerTermino"></mat-datepicker-toggle>
-                          <mat-datepicker #pickerTermino></mat-datepicker>
-                        </mat-form-field>
-                      </div>
-                      <div class="error-msg" *ngIf="error">{{error}}</div>
-                    </div>
-                  </mat-tab>
-
-                </mat-tab-group>
-
-                <div class="form-actions">
-                  <button mat-raised-button color="primary" type="submit" [disabled]="!CForm.valid">
-                    <mat-icon>save</mat-icon>
-                    Crear Sub-Proyecto
-                  </button>
-                </div>
-              </form>
-            </mat-card-content>
-          </mat-card>
-
-          <!-- TABLA SUB PROYECTOS -->
-          <mat-card class="proyecto-card">
-            <mat-card-header class="proyecto-header">
-              <mat-card-title>
-                <mat-icon class="header-icon">list</mat-icon>
-                Sub Proyectos Registrados
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content class="proyecto-content">
-              <div class="table-toolbar">
-                <mat-form-field appearance="outline" class="table-filter-field">
-                  <mat-label>Filtrar por matriz</mat-label>
-                  <mat-select [(ngModel)]="filtroProyectoMatrizTabla" name="filtroProyectoMatrizTabla">
-                    <mat-option [value]="0">Todas las matrices</mat-option>
-                    <mat-option *ngFor="let ProyectoMatriz of ProyectosMatriz" [value]="ProyectoMatriz.idProyectoMatriz">
-                      {{ProyectoMatriz.nombreProyectoMatriz}}
-                    </mat-option>
-                  </mat-select>
-                </mat-form-field>
-                <div class="table-toolbar-count">
-                  {{ (subProyectosFiltrados || []).length }} subproyectos
-                </div>
-              </div>
-              <div class="projects-table-wrapper">
-                <table class="table table-bordered table-striped table-hover no-footer">
-                  <thead>
-                    <tr>
-                      <th scope="col">Proyecto Matriz</th>
-                      <th scope="col">Proyecto</th>
-                      <th scope="col">Sub Proyecto</th>
-                      <th scope="col">Tipo Intervención</th>
-                      <th scope="col">Estado</th>
-                      <th scope="col">Fecha Creación</th>
-                      <th scope="col">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let SubProyecto of subProyectosFiltrados | sortSp">
-                      <td>{{SubProyecto.nombreProyectoMatriz}}</td>
-                      <td>{{SubProyecto.nombreProyecto}}</td>
-                      <td><strong>{{SubProyecto.nombreSubProyecto}}</strong></td>
-                      <td>{{SubProyecto.nombreTipoIntervencion}}</td>
-                      <td>
-                        <span class="badge-estado">{{SubProyecto.nombreEstadoProyecto}}</span>
-                      </td>
-                      <td class="center">{{SubProyecto.fechaCreacion | date:'dd/MM/yyyy'}}</td>
-                      <td class="center action-cell">
-                        <button mat-icon-button (click)="Editar(getSubProyectoIndex(SubProyecto))" matTooltip="Editar" color="primary">
-                          <mat-icon>edit</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="Confirmacion(getSubProyectoIndex(SubProyecto))" matTooltip="Eliminar" color="warn">
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </td>
-                    </tr>
-                    <tr *ngIf="(subProyectosFiltrados || []).length === 0">
-                      <td colspan="7" class="table-empty-state">No hay subproyectos para la matriz seleccionada.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <mat-spinner *ngIf="LoadingTabla" diameter="50" class="spinner-center"></mat-spinner>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-spinner *ngIf="Loading" diameter="100" class="spinner-center"></mat-spinner>
+          <footer class="pz-acciones">
+            <button type="button" class="pz-btn pz-btn-sec" (click)="Reset()" [disabled]="Loading">
+              <mat-icon>refresh</mat-icon> Limpiar
+            </button>
+            <button type="button" class="pz-btn pz-btn-ok" (click)="Agregar()" [disabled]="Loading">
+              <mat-icon>save</mat-icon> Crear sub proyecto
+            </button>
+          </footer>
         </div>
-      </div>
+
+        <div class="pz-card-body pz-editando-aviso" *ngIf="editando">
+          <mat-icon>edit</mat-icon> Estás editando un sub proyecto. Al cerrar la ventana vuelves a lo que tenías escrito acá.
+        </div>
+      </section>
+
+      <!-- ============================ LISTADO ============================ -->
+      <section class="pz-card">
+        <header class="pz-card-header">
+          <div class="pz-card-titulo">
+            <mat-icon>list</mat-icon>
+            <span>Sub Proyectos Registrados</span>
+            <span class="pz-contador" *ngIf="!LoadingTabla">{{subProyectosFiltrados.length}}<span *ngIf="subProyectosFiltrados.length !== (SubProyectos?.length || 0)"> de {{SubProyectos?.length || 0}}</span></span>
+          </div>
+          <div class="pz-header-filtros">
+            <select class="pz-filtro-select" [(ngModel)]="filtroProyectoMatrizTabla" title="Filtrar por proyecto matriz">
+              <option [ngValue]="0">Todas las matrices</option>
+              <option *ngFor="let PM of ProyectosMatriz" [ngValue]="PM.idProyectoMatriz">{{PM.nombreProyectoMatriz}}</option>
+            </select>
+            <div class="pz-buscador">
+              <mat-icon>search</mat-icon>
+              <input type="text" [(ngModel)]="filtroTabla" placeholder="Buscar sub proyecto, proyecto, tipo o estado..." autocomplete="off">
+              <button type="button" *ngIf="filtroTabla" (click)="filtroTabla = ''" title="Limpiar"><mat-icon>close</mat-icon></button>
+            </div>
+          </div>
+        </header>
+
+        <div class="pz-tabla-wrap">
+          <table class="pz-tabla">
+            <thead>
+              <tr>
+                <th>Proyecto</th>
+                <th>Sub Proyecto</th>
+                <th>Tipo intervención</th>
+                <th class="pz-col-estado">Estado</th>
+                <th class="pz-col-fecha">Creación</th>
+                <th class="pz-col-acc">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let SP of subProyectosFiltrados | sortSp">
+                <td>
+                  <div class="pz-proy-nombre pz-proy-normal">{{SP.nombreProyecto || '—'}}</div>
+                  <div class="pz-proy-matriz">{{SP.nombreProyectoMatriz}}</div>
+                </td>
+                <td><div class="pz-proy-nombre">{{SP.nombreSubProyecto}}</div></td>
+                <td>
+                  <span class="pz-tag" *ngIf="SP.nombreTipoIntervencion">{{SP.nombreTipoIntervencion}}</span>
+                  <span class="pz-vacio" *ngIf="!SP.nombreTipoIntervencion">—</span>
+                </td>
+                <td class="pz-col-estado">
+                  <span class="pz-estado" [ngClass]="claseEstado(SP.nombreEstadoProyecto)" *ngIf="SP.nombreEstadoProyecto">{{SP.nombreEstadoProyecto}}</span>
+                  <span class="pz-vacio" *ngIf="!SP.nombreEstadoProyecto">—</span>
+                </td>
+                <td class="pz-col-fecha">{{SP.fechaCreacion | date:'dd/MM/yyyy'}}</td>
+                <td class="pz-col-acc">
+                  <button type="button" class="pz-icon-btn pz-icon-edit" (click)="Editar(SP)" title="Editar" [disabled]="Loading"><mat-icon>edit</mat-icon></button>
+                  <button type="button" class="pz-icon-btn pz-icon-del" (click)="Confirmacion(SP)" title="Eliminar" [disabled]="Loading"><mat-icon>delete</mat-icon></button>
+                </td>
+              </tr>
+              <tr *ngIf="!LoadingTabla && !subProyectosFiltrados.length">
+                <td colspan="6" class="pz-tabla-vacia">
+                  {{(filtroTabla || filtroProyectoMatrizTabla) ? 'No hay sub proyectos que coincidan con el filtro' : 'Aún no hay sub proyectos registrados'}}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="pz-cargando" *ngIf="LoadingTabla"><mat-spinner diameter="40"></mat-spinner></div>
+        </div>
+      </section>
+
+      <div class="pz-overlay" *ngIf="Loading"><mat-spinner diameter="60"></mat-spinner></div>
     </div>
   </main>
+</div>
 
-  <!-- MODAL EDITAR -->
-  <div class="modal fade" id="exampleModalLong" tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle" aria-hidden="true">
-    <div class="modal-dialog editar" role="document">
-      <div class="modal-content">
-        <div class="modal-header modal-header-edit">
-          <h4 class="modal-title" id="exampleModalLongTitle">
-            <mat-icon class="modal-title-icon">edit</mat-icon>
-            Editar Sub-Proyecto
-          </h4>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="OcultarPopUpEditar()">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body modal-body-edit">
-          <form #EForm="ngForm" (ngSubmit)="Actualizar(EForm)">
+<!-- =====================================================================
+     CAMPOS DEL FORMULARIO (los mismos para crear y para editar)
+     ===================================================================== -->
+<ng-template #tplCampos let-modo="modo">
 
-            <!-- Sección: Proyecto -->
-            <div class="edit-section">
-              <h5 class="edit-section-title">Datos del Proyecto</h5>
-              <div class="edit-row">
-                <div class="edit-field">
-                  <label class="edit-label">Proyecto Matriz (*)</label>
-                  <select id="drdProyectoMatrizEdit" class="form-control edit-input"
-                    [(ngModel)]="drdProyectoMatriz" name="drdProyectoMatrizEdit" (change)="CargaProyectos()">
-                    <option value=0>--- Seleccione ---</option>
-                    <option *ngFor="let ProyectoMatriz of ProyectosMatriz" value={{ProyectoMatriz.idProyectoMatriz}}>
-                      {{ProyectoMatriz.nombreProyectoMatriz}}
-                    </option>
-                  </select>
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Proyecto (*)</label>
-                  <select id="drdProyectoEdit" class="form-control edit-input"
-                    [(ngModel)]="Subproyecto.idProyecto" name="drdProyectoEdit" (change)="CargaDatosProyecto()">
-                    <option value=0>--- Seleccione ---</option>
-                    <option *ngFor="let Proyecto of Proyectos" value={{Proyecto.idProyecto}}>
-                      {{Proyecto.nombreProyecto}}
-                    </option>
-                  </select>
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Centro de costo</label>
-                  <div class="edit-readonly">{{centroCosto || '-'}}</div>
-                </div>
-              </div>
-            </div>
+  <!-- Proyecto al que pertenece -->
+  <div class="pz-seccion">
+    <div class="pz-seccion-titulo"><mat-icon>folder</mat-icon> Proyecto al que pertenece</div>
+    <div class="pz-grid pz-grid-6">
+      <label class="pz-campo pz-span-2" [class.pz-error]="falta(modo, 'matriz')">
+        <span class="pz-label">Proyecto Matriz <span class="pz-req">*</span></span>
+        <select [id]="'pz-' + modo + '-matriz'" [(ngModel)]="drdProyectoMatriz" (ngModelChange)="CargaProyectos()">
+          <option [ngValue]="0">Selecciona...</option>
+          <option *ngFor="let PM of ProyectosMatriz" [ngValue]="PM.idProyectoMatriz">{{PM.nombreProyectoMatriz}}</option>
+        </select>
+        <small class="pz-msg" *ngIf="falta(modo, 'matriz')">Selecciona el proyecto matriz</small>
+      </label>
+      <label class="pz-campo pz-span-2" [class.pz-error]="falta(modo, 'proyecto')">
+        <span class="pz-label">Proyecto <span class="pz-req">*</span></span>
+        <select [id]="'pz-' + modo + '-proyecto'" [(ngModel)]="Subproyecto.idProyecto" (ngModelChange)="CargaDatosProyecto()" [disabled]="!(drdProyectoMatriz > 0)">
+          <option [ngValue]="0">{{drdProyectoMatriz > 0 ? 'Selecciona...' : 'Primero elige la matriz'}}</option>
+          <option *ngFor="let P of Proyectos" [ngValue]="P.idProyecto">{{P.nombreProyecto}}</option>
+        </select>
+        <small class="pz-msg" *ngIf="falta(modo, 'proyecto')">Selecciona el proyecto</small>
+      </label>
+      <label class="pz-campo pz-span-2">
+        <span class="pz-label">Centro de costo del proyecto</span>
+        <input type="text" [value]="centroCosto || ''" placeholder="—" readonly class="pz-solo-lectura">
+      </label>
+    </div>
 
-            <!-- Sección: Sub-Proyecto -->
-            <div class="edit-section">
-              <h5 class="edit-section-title">Datos del Sub-Proyecto</h5>
-              <div class="edit-row">
-                <div class="edit-field">
-                  <label class="edit-label">Nombre Sub-Proyecto (*)</label>
-                  <input type="text" name="txtSubProyectoEdit" class="form-control edit-input"
-                    [(ngModel)]="Subproyecto.nombreSubProyecto" required />
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Sub-Centro de costo</label>
-                  <input type="text" name="txtCentroCostoEdit" class="form-control edit-input"
-                    [(ngModel)]="Subproyecto.centroCosto" />
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Tipo de intervención (*)</label>
-                  <select id="drdTipoIntervencionEdit" class="form-control edit-input"
-                    [(ngModel)]="Subproyecto.idTipoIntervencion" name="drdTipoIntervencionEdit">
-                    <option value=0>--- Seleccione ---</option>
-                    <option *ngFor="let TipoIntervencion of TiposIntervencion" value={{TipoIntervencion.idTipoIntervencion}}>
-                      {{TipoIntervencion.nombreTipoIntervencion}}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="edit-row">
-                <div class="edit-field">
-                  <label class="edit-label">Superficie</label>
-                  <input type="text" name="txtSuperficieEdit" class="form-control edit-input"
-                    [(ngModel)]="Subproyecto.superficie" pattern="[0-9]+" />
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Costo Estimado</label>
-                  <input type="text" name="txtCostoEstimadoEdit" class="form-control edit-input"
-                    [(ngModel)]="Subproyecto.costoEstimado" />
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Dirección</label>
-                  <input type="text" name="txtDireccionEdit" class="form-control edit-input"
-                    [(ngModel)]="Direccion.calle" />
-                </div>
-              </div>
-            </div>
-
-            <!-- Sección: Personas -->
-            <div class="edit-section">
-              <h5 class="edit-section-title">Personas</h5>
-              <div class="edit-row">
-                <div class="edit-field">
-                  <label class="edit-label">Gerente</label>
-                  <div class="edit-readonly">{{Gerente || '-'}}</div>
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Sub Gerente</label>
-                  <div class="edit-readonly">{{Gerente || '-'}}</div>
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Coordinadores</label>
-                  <div class="edit-readonly" *ngIf="Coordinadores && Coordinadores.length > 0">
-                    <span *ngFor="let coordinador of Coordinadores; let i = index">
-                      {{coordinador.nombre}} {{coordinador.paterno}}<span *ngIf="i < Coordinadores.length - 1"> | </span>
-                    </span>
-                  </div>
-                  <div class="edit-readonly" *ngIf="!Coordinadores || Coordinadores.length === 0">-</div>
-                </div>
-              </div>
-              <div class="edit-row">
-                <div class="edit-field">
-                  <label class="edit-label">Cliente Interno 1</label>
-                  <select id="drdCliente1Edit" class="form-control edit-input"
-                    [(ngModel)]="drdCliente1" name="drdCliente1Edit">
-                    <option value=0>--- Seleccione ---</option>
-                    <option *ngFor="let Cliente of Clientes" value={{Cliente.idUsuario}}>
-                      {{Cliente.nombre + " " + Cliente.paterno}}
-                    </option>
-                  </select>
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Cliente Interno 2</label>
-                  <select id="drdCliente2Edit" class="form-control edit-input"
-                    [(ngModel)]="drdCliente2" name="drdCliente2Edit">
-                    <option value=0>--- Seleccione ---</option>
-                    <option *ngFor="let Cliente of Clientes" value={{Cliente.idUsuario}}>
-                      {{Cliente.nombre + " " + Cliente.paterno}}
-                    </option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sección: Ubicación -->
-            <div class="edit-section">
-              <h5 class="edit-section-title">Ubicación</h5>
-              <div class="edit-row">
-                <div class="edit-field">
-                  <label class="edit-label">País</label>
-                  <select id="drdPaisEdit" class="form-control edit-input"
-                    [(ngModel)]="drdPais" name="drdPaisEdit" (change)="CargaRegiones()">
-                    <option value=0>--- Seleccione ---</option>
-                    <option *ngFor="let Pais of Paises" value={{Pais.idPais}}>{{Pais.nombrePais}}</option>
-                  </select>
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Región</label>
-                  <select id="drdRegionEdit" class="form-control edit-input"
-                    [(ngModel)]="drdRegion" name="drdRegionEdit" (change)="CargaProvincias()">
-                    <option value=0>--- Seleccione ---</option>
-                    <option *ngFor="let Region of Regiones" value={{Region.idRegion}}>{{Region.nombreRegion}}</option>
-                  </select>
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Provincia</label>
-                  <select id="drdProvinciaEdit" class="form-control edit-input"
-                    [(ngModel)]="drdProvincia" name="drdProvinciaEdit" (change)="CargaComunas()">
-                    <option value=0>--- Seleccione ---</option>
-                    <option *ngFor="let Provincia of Provincias" value={{Provincia.idProvincia}}>{{Provincia.nombreProvincia}}</option>
-                  </select>
-                </div>
-              </div>
-              <div class="edit-row">
-                <div class="edit-field">
-                  <label class="edit-label">Comuna</label>
-                  <select id="drdComunaEdit" class="form-control edit-input"
-                    [(ngModel)]="Direccion.idComuna" name="drdComunaEdit">
-                    <option value=0>--- Seleccione ---</option>
-                    <option *ngFor="let Comuna of Comunas" value={{Comuna.idComuna}}>{{Comuna.nombreComuna}}</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sección: Fechas -->
-            <div class="edit-section">
-              <h5 class="edit-section-title">Fechas</h5>
-              <div class="edit-row">
-                <div class="edit-field">
-                  <label class="edit-label">Fecha de Inicio (*)</label>
-                  <div class="input-group date">
-                    <input id="txtInicioEdit" name="txtInicioEdit" type="text" class="form-control edit-input" required
-                      (focusout)="asignaFechaInicio('txtInicioEdit')" />
-                    <span class="input-group-addon">
-                      <span class="fa fa-calendar"></span>
-                    </span>
-                  </div>
-                </div>
-                <div class="edit-field">
-                  <label class="edit-label">Fecha de Término (*)</label>
-                  <div class="input-group date">
-                    <input id="txtTerminoEdit" name="txtTerminoEdit" type="text" class="form-control edit-input" required
-                      (focusout)="asignaFechaTermino('txtTerminoEdit')" />
-                    <span class="input-group-addon">
-                      <span class="fa fa-calendar"></span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div class="error-msg" *ngIf="error">{{error}}</div>
-            </div>
-
-            <div class="modal-form-actions">
-              <button type="button" class="btn btn-default" data-dismiss="modal" (click)="OcultarPopUpEditar()">
-                Cancelar
-              </button>
-              <button type="submit" class="btn btn-success" [disabled]="!EForm.valid">
-                <i class="fa fa-check"></i> Guardar Cambios
-              </button>
-            </div>
-          </form>
-        </div>
+    <!-- Responsables (vienen del proyecto, solo lectura) -->
+    <div class="pz-responsables" *ngIf="Gerente || Coordinadores?.length">
+      <div class="pz-resp-item" *ngIf="Gerente">
+        <span class="pz-resp-label">Gerente</span>
+        <span class="pz-tag pz-tag-cli">{{Gerente}}</span>
+      </div>
+      <div class="pz-resp-item" *ngIf="Coordinadores?.length">
+        <span class="pz-resp-label">Coordinadores</span>
+        <span class="pz-tag" *ngFor="let c of Coordinadores">{{c.nombre}} {{c.paterno}}</span>
       </div>
     </div>
   </div>
 
-  <!-- MODAL CONFIRMACIÓN ELIMINAR -->
-  <div class="modal fade" id="Confirm" tabindex="-1" role="dialog" aria-labelledby="ConfirmLongTitle" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header modal-header-delete">
-          <h4 class="modal-title" id="ConfirmLongTitle">
-            <mat-icon class="modal-title-icon">warning</mat-icon>
-            Confirmación
-          </h4>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="OcultarConfirmacion()">
-            <span aria-hidden="true">&times;</span>
-          </button>
+  <!-- Datos, ubicación y fechas -->
+  <div class="pz-seccion">
+    <div class="pz-seccion-titulo"><mat-icon>info</mat-icon> Datos del sub proyecto</div>
+    <div class="pz-grid pz-grid-6">
+      <!-- fila 1 -->
+      <label class="pz-campo pz-span-2" [class.pz-error]="falta(modo, 'nombre')">
+        <span class="pz-label">Nombre del sub proyecto <span class="pz-req">*</span></span>
+        <input [id]="'pz-' + modo + '-nombre'" type="text" [(ngModel)]="Subproyecto.nombreSubProyecto" maxlength="200" autocomplete="off" placeholder="Ej: Torre A">
+        <small class="pz-msg" *ngIf="falta(modo, 'nombre')">Escribe el nombre</small>
+      </label>
+      <label class="pz-campo" [class.pz-error]="falta(modo, 'tipo')">
+        <span class="pz-label">Tipo intervención <span class="pz-req">*</span></span>
+        <select [id]="'pz-' + modo + '-tipo'" [(ngModel)]="Subproyecto.idTipoIntervencion">
+          <option [ngValue]="0">Selecciona...</option>
+          <option *ngFor="let T of TiposIntervencion" [ngValue]="T.idTipoIntervencion">{{T.nombreTipoIntervencion}}</option>
+        </select>
+        <small class="pz-msg" *ngIf="falta(modo, 'tipo')">Selecciona el tipo</small>
+      </label>
+      <label class="pz-campo">
+        <span class="pz-label">Sub centro de costo</span>
+        <input type="text" [(ngModel)]="Subproyecto.centroCosto" autocomplete="off" placeholder="Opcional">
+      </label>
+      <label class="pz-campo" [class.pz-error]="falta(modo, 'superficie')">
+        <span class="pz-label">Superficie</span>
+        <div class="pz-input-prefijo pz-input-sufijo">
+          <input [id]="'pz-' + modo + '-superficie'" type="text" inputmode="decimal" [(ngModel)]="Subproyecto.superficie" placeholder="0">
+          <span>m²</span>
         </div>
-        <div class="modal-body">
-          <p>¿Está seguro de eliminar este elemento?</p>
+        <small class="pz-msg" *ngIf="falta(modo, 'superficie')">Solo números</small>
+      </label>
+      <label class="pz-campo">
+        <span class="pz-label">Costo estimado</span>
+        <div class="pz-input-prefijo">
+          <span>$</span>
+          <input type="text" inputmode="numeric" [(ngModel)]="Subproyecto.costoEstimado" placeholder="0">
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-default" data-dismiss="modal" (click)="OcultarConfirmacion()">Cancelar</button>
-          <button type="button" class="btn btn-danger" data-dismiss="modal" (click)="Eliminar()">
-            <i class="fa fa-trash"></i> Eliminar
-          </button>
+      </label>
+
+      <!-- fila 2 -->
+      <label class="pz-campo" [class.pz-error]="falta(modo, 'comuna') && !(drdPais > 0)">
+        <span class="pz-label">País <span class="pz-req">*</span></span>
+        <select [id]="'pz-' + modo + '-pais'" [(ngModel)]="drdPais" (ngModelChange)="CargaRegiones()">
+          <option [ngValue]="0">Selecciona...</option>
+          <option *ngFor="let P of Paises" [ngValue]="P.idPais">{{P.nombrePais}}</option>
+        </select>
+      </label>
+      <label class="pz-campo" [class.pz-error]="falta(modo, 'comuna') && drdPais > 0 && !(drdRegion > 0)">
+        <span class="pz-label">Región <span class="pz-req">*</span></span>
+        <select [id]="'pz-' + modo + '-region'" [(ngModel)]="drdRegion" (ngModelChange)="CargaProvincias()" [disabled]="!(drdPais > 0)">
+          <option [ngValue]="0">{{drdPais > 0 ? 'Selecciona...' : 'Primero el país'}}</option>
+          <option *ngFor="let R of Regiones" [ngValue]="R.idRegion">{{R.nombreRegion}}</option>
+        </select>
+      </label>
+      <label class="pz-campo" [class.pz-error]="falta(modo, 'comuna') && drdRegion > 0 && !(drdProvincia > 0)">
+        <span class="pz-label">Provincia <span class="pz-req">*</span></span>
+        <select [id]="'pz-' + modo + '-provincia'" [(ngModel)]="drdProvincia" (ngModelChange)="CargaComunas()" [disabled]="!(drdRegion > 0)">
+          <option [ngValue]="0">{{drdRegion > 0 ? 'Selecciona...' : 'Primero la región'}}</option>
+          <option *ngFor="let Pr of Provincias" [ngValue]="Pr.idProvincia">{{Pr.nombreProvincia}}</option>
+        </select>
+      </label>
+      <label class="pz-campo" [class.pz-error]="falta(modo, 'comuna') && drdProvincia > 0">
+        <span class="pz-label">Comuna <span class="pz-req">*</span></span>
+        <select [id]="'pz-' + modo + '-comuna'" [(ngModel)]="Direccion.idComuna" [disabled]="!(drdProvincia > 0)">
+          <option [ngValue]="0">{{drdProvincia > 0 ? 'Selecciona...' : 'Primero la provincia'}}</option>
+          <option *ngFor="let C of Comunas" [ngValue]="C.idComuna">{{C.nombreComuna}}</option>
+        </select>
+        <small class="pz-msg" *ngIf="falta(modo, 'comuna')">{{drdProvincia > 0 ? 'Selecciona la comuna' : 'Completa la ubicación'}}</small>
+      </label>
+      <label class="pz-campo pz-span-2">
+        <span class="pz-label">Dirección</span>
+        <input type="text" [(ngModel)]="Direccion.calle" autocomplete="off" placeholder="Calle y número">
+      </label>
+
+      <!-- fila 3 -->
+      <label class="pz-campo" [class.pz-error]="falta(modo, 'inicio')">
+        <span class="pz-label">Fecha inicio <span class="pz-req">*</span></span>
+        <input [id]="'pz-' + modo + '-inicio'" type="date" [ngModel]="fechaInicio" (ngModelChange)="onFechaInicio($event)">
+        <small class="pz-msg" *ngIf="falta(modo, 'inicio')">Indica la fecha</small>
+      </label>
+      <label class="pz-campo" [class.pz-error]="falta(modo, 'termino')">
+        <span class="pz-label">Fecha término <span class="pz-req">*</span></span>
+        <input [id]="'pz-' + modo + '-termino'" type="date" [ngModel]="fechaTermino" (ngModelChange)="onFechaTermino($event)" [min]="fechaInicio">
+        <small class="pz-msg" *ngIf="falta(modo, 'termino')">{{fechaTermino ? 'Antes del inicio' : 'Indica la fecha'}}</small>
+      </label>
+
+      <!-- Clientes internos, en la misma fila -->
+      <div class="pz-campo pz-span-4">
+        <div class="pz-clientes-head">
+          <span class="pz-label">Clientes internos <span class="pz-opc">(opcional)</span></span>
+          <button type="button" class="pz-link" (click)="AgregarCliente()"><mat-icon>add</mat-icon> Agregar</button>
+        </div>
+        <div class="pz-clientes">
+          <div class="pz-lista-fila" *ngFor="let c of clientesList; let i = index; trackBy: trackIndex">
+            <select [(ngModel)]="clientesList[i]">
+              <option [ngValue]="0">Selecciona cliente...</option>
+              <option *ngFor="let U of Clientes" [ngValue]="U.idUsuario" [disabled]="usuarioUsado(clientesList, U.idUsuario, i)">{{nombreCompleto(U)}}</option>
+            </select>
+            <button type="button" class="pz-quitar" (click)="QuitarCliente(i)" title="Quitar"><mat-icon>close</mat-icon></button>
+          </div>
         </div>
       </div>
     </div>
   </div>
+</ng-template>
 
+<!-- ============================ MODAL EDITAR ============================ -->
+<div class="modal fade" id="exampleModalLong" tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle">
+  <div class="modal-dialog pz-modal-dialog" role="document">
+    <div class="modal-content pz-modal">
+      <div class="pz-modal-header">
+        <h4 id="exampleModalLongTitle">
+          <mat-icon>edit</mat-icon> Editar sub proyecto
+          <span class="pz-contador" *ngIf="editando && Subproyecto?.idSubProyecto">#{{Subproyecto.idSubProyecto}}</span>
+        </h4>
+        <button type="button" class="pz-modal-cerrar" (click)="OcultarPopUpEditar()" aria-label="Cerrar"><mat-icon>close</mat-icon></button>
+      </div>
+
+      <div class="pz-modal-body" *ngIf="editando">
+        <ng-container *ngTemplateOutlet="tplCampos; context: { modo: 'editar' }"></ng-container>
+
+        <div class="pz-faltan" *ngIf="intentoEditar && faltantes('editar').length">
+          <mat-icon>error_outline</mat-icon>
+          <span class="pz-faltan-titulo">Falta completar:</span>
+          <button type="button" class="pz-chip-falta" *ngFor="let f of faltantes('editar')" (click)="irACampo('editar', f.clave)">{{f.texto}}</button>
+        </div>
+      </div>
+
+      <footer class="pz-acciones pz-modal-footer">
+        <button type="button" class="pz-btn pz-btn-sec" (click)="OcultarPopUpEditar()">Cancelar</button>
+        <button type="button" class="pz-btn pz-btn-ok" (click)="Actualizar()" [disabled]="Loading">
+          <mat-icon>save</mat-icon> Guardar cambios
+        </button>
+      </footer>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ MODAL ELIMINAR ============================ -->
+<div class="modal fade" id="Confirm" tabindex="-1" role="dialog" aria-labelledby="ConfirmLongTitle" aria-hidden="true">
+  <div class="modal-dialog pz-modal-dialog-sm" role="document">
+    <div class="modal-content pz-modal">
+      <div class="pz-modal-header pz-modal-header-del">
+        <h4 id="ConfirmLongTitle"><mat-icon>delete_forever</mat-icon> Eliminar sub proyecto</h4>
+        <button type="button" class="pz-modal-cerrar" (click)="OcultarConfirmacion()" aria-label="Cerrar"><mat-icon>close</mat-icon></button>
+      </div>
+      <div class="pz-modal-body">
+        <p class="pz-confirm-texto">¿Seguro que quieres eliminar <strong>{{nombreAEliminar ? '"' + nombreAEliminar + '"' : 'este sub proyecto'}}</strong>?</p>
+        <p class="pz-confirm-nota">Esta acción no se puede deshacer desde esta pantalla.</p>
+      </div>
+      <footer class="pz-acciones pz-modal-footer">
+        <button type="button" class="pz-btn pz-btn-sec" (click)="OcultarConfirmacion()">Cancelar</button>
+        <button type="button" class="pz-btn pz-btn-del" (click)="Eliminar()" [disabled]="Loading"><mat-icon>delete</mat-icon> Eliminar</button>
+      </footer>
+    </div>
+  </div>
 </div>

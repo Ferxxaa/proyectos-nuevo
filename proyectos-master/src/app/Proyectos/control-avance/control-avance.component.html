@@ -10,7 +10,10 @@
     <div class="header-acciones">
       <!-- Avance total del control: promedio de las láminas, programado vs real -->
       <div class="avance-total-resumen" *ngIf="!LoadingTabla"
-           [title]="'Avance total del control (promedio de ' + totalLaminasAvance + ' lámina(s))'">
+           [title]="hayPonderacion
+             ? 'Avance total del control, ponderado según la columna Pond. %' + (sumaPonderacionRaiz !== null ? ' (los títulos principales suman ' + sumaPonderacionRaiz + '%)' : '')
+             : 'Avance total del control (promedio de ' + totalLaminasAvance + ' lámina(s))'">
+        <span class="avance-total-pond" *ngIf="hayPonderacion"><i class="fa fa-balance-scale"></i> Ponderado</span>
         <span class="avance-total-item avance-total-prog">
           <span class="avance-total-label">Programado</span>
           <strong>{{avanceDocumentosProgramado}}%</strong>
@@ -18,6 +21,12 @@
         <span class="avance-total-item avance-total-real" [ngClass]="claseAvanceTotalReal">
           <span class="avance-total-label">Real</span>
           <strong>{{avanceDocumentosReal}}%</strong>
+        </span>
+        <span class="avance-total-item avance-total-pond-item" *ngIf="hayPonderacion"
+              [class.pond-total-mal]="totalPonderacion !== null && totalPonderacion !== 100"
+              [title]="totalPonderacion === null ? 'Cada título tiene su propia suma de ponderación (ver columna Pond. %)' : (totalPonderacion === 100 ? 'La ponderación suma 100%' : 'La ponderación suma ' + totalPonderacion + '%, debería sumar 100%')">
+          <span class="avance-total-label">Ponderación</span>
+          <strong>{{totalPonderacion !== null ? totalPonderacion + '%' : 'por título'}}</strong>
         </span>
       </div>
 
@@ -316,6 +325,7 @@
         <col class="cg-descripcion">
         <col class="cg-revision">
         <col class="cg-estado">
+        <col class="cg-ponderacion">
         <col class="cg-fecha">
         <col class="cg-plazo">
         <col class="cg-fecha">
@@ -337,6 +347,10 @@
           <th class="col-descripcion" rowspan="2">Descripción / título</th>
           <th class="col-revision" rowspan="2">Rev.</th>
           <th class="col-estado" rowspan="2">Estado</th>
+          <th class="col-ponderacion" rowspan="2"
+              title="Cuánto pesa cada fila en el avance de su título (o del total, si está en la raíz). Si ninguna fila del grupo tiene %, todas pesan lo mismo.">
+            <i class="fa fa-balance-scale"></i><br>Pond. %
+          </th>
           <th class="grupo-programado" colspan="4">Programado</th>
           <th class="grupo-real" colspan="4">Real</th>
           <th class="col-bitacora" rowspan="2"><i class="fa fa-book"></i><br>Bitácora</th>
@@ -357,7 +371,7 @@
       </thead>
       <tbody>
         <tr *ngIf="filasTabla.length === 0 && !LoadingTabla">
-          <td colspan="18" class="tabla-vacia">
+          <td colspan="19" class="tabla-vacia">
             <div class="mensaje-vacio">
               <strong>No hay títulos ni documentos registrados</strong>
               <p>Haga clic en "Agregar título" para comenzar a estructurar la Carta Gantt</p>
@@ -443,6 +457,30 @@
               <option *ngFor="let estado of estadosDisponibles" [value]="estado.value">{{estado.label}}</option>
             </select>
           </td>
+          <td class="celda-ponderacion">
+            <input *ngIf="!modoSoloLectura && filaEnEdicion === fila.indexOriginal" type="number" [(ngModel)]="fila.item.ponderacion"
+                   (change)="onCambioPonderacion(fila.item, fila.indexOriginal)"
+                   min="0" max="100" step="0.5" class="input-ponderacion" placeholder="%"
+                   title="Ponderación de esta fila dentro de su grupo (%)">
+            <!-- Título con hijos ponderados: muestra el TOTAL de ponderación, igual que programado y real -->
+            <ng-container *ngIf="(modoSoloLectura || filaEnEdicion !== fila.indexOriginal) && fila.item.esTitulo && fila.tieneHijos && sumaPonderacionHijos(fila.item) !== null">
+              <span class="pond-total-titulo"
+                    [class.pond-ok]="sumaPonderacionHijos(fila.item) === 100" [class.pond-mal]="sumaPonderacionHijos(fila.item) !== 100"
+                    [title]="'Total de ponderación de los hijos: ' + sumaPonderacionHijos(fila.item) + '% (debe sumar 100%)'">
+                {{sumaPonderacionHijos(fila.item)}}%
+              </span>
+              <small class="pond-peso-propio" *ngIf="fila.item.ponderacion" title="Peso de este título dentro de su grupo / del total">peso {{fila.item.ponderacion}}%</small>
+            </ng-container>
+            <!-- Fila normal (o título sin hijos ponderados): su propia ponderación -->
+            <ng-container *ngIf="(modoSoloLectura || filaEnEdicion !== fila.indexOriginal) && !(fila.item.esTitulo && fila.tieneHijos && sumaPonderacionHijos(fila.item) !== null)">
+              <span class="pond-chip-tabla" *ngIf="fila.item.ponderacion">{{fila.item.ponderacion}}%</span>
+              <span class="pond-vacio-tabla" *ngIf="!fila.item.ponderacion">—</span>
+            </ng-container>
+            <small class="pond-suma" *ngIf="filaEnEdicion === fila.indexOriginal && fila.item.esTitulo && fila.tieneHijos && sumaPonderacionHijos(fila.item) !== null"
+                   [class.pond-ok]="sumaPonderacionHijos(fila.item) === 100" [class.pond-mal]="sumaPonderacionHijos(fila.item) !== 100">
+              Σ hijos {{sumaPonderacionHijos(fila.item)}}%
+            </small>
+          </td>
           <td>
             <div class="celda-fecha">
               <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
@@ -484,12 +522,14 @@
               </span>
             </div>
           </td>
-          <td>
+          <td class="td-formula-pond">
             <div class="celda-porcentaje">
               <input type="number" [(ngModel)]="fila.item.avanceProgramado" [disabled]="true"
                      min="0" max="100" class="input-numero input-small" placeholder="0">
               <span class="simbolo-porcentaje">%</span>
             </div>
+            <i class="fa fa-balance-scale formula-pond-icono" *ngIf="fila.item.esTitulo && fila.tieneHijos && sumaPonderacionHijos(fila.item) !== null"
+               [title]="formulaAvanceTitulo(fila.item, 'prog')"></i>
           </td>
           <td>
             <div class="celda-fecha">
@@ -534,7 +574,7 @@
               </span>
             </div>
           </td>
-          <td>
+          <td class="td-formula-pond">
             <div class="celda-porcentaje">
               <input type="number" [(ngModel)]="fila.item.avanceReal"
                      (ngModelChange)="OnCambio(fila.item, fila.indexOriginal)"
@@ -542,6 +582,8 @@
                      min="0" max="100" class="input-numero input-small" [ngClass]="getClaseAvanceReal(fila.item.avanceReal, fila.item.avanceProgramado)" placeholder="0">
               <span class="simbolo-porcentaje">%</span>
             </div>
+            <i class="fa fa-balance-scale formula-pond-icono" *ngIf="fila.item.esTitulo && fila.tieneHijos && sumaPonderacionHijos(fila.item) !== null"
+               [title]="formulaAvanceTitulo(fila.item, 'real')"></i>
           </td>
           <td style="text-align: center;">
             <button class="btn-bitacora" [class.tiene-notas]="fila.item.bitacora && fila.item.bitacora.length > 0"
@@ -688,6 +730,7 @@
             <span class="gantt-col-item">Lámina</span>
             <span class="gantt-col-desc">Descripción</span>
             <span class="gantt-col-plazo">Plazo</span>
+            <span class="gantt-col-pond" title="Ponderación de cada fila en el avance de su título (o del total)"><i class="fa fa-balance-scale"></i> Pond.</span>
             <span class="gantt-col-avance">% Avance</span>
             <span class="gantt-col-bitacora">Última<br>bitácora</span>
           </div>
@@ -750,6 +793,25 @@
                 <input type="checkbox" [checked]="barra.item.mostrarFranjaCompleta" (change)="toggleFranjaCompleta(barra.item, barra.indexOriginal)">
                 <span>Franja</span>
               </label>
+            </span>
+            <span class="gantt-col-pond" [class.gantt-pond-editable]="!modoSoloLectura"
+                  [title]="tituloPondGantt(barra.item)" (click)="iniciarEdicionPondGantt(barra)">
+              <input *ngIf="editandoPondGanttId === barra.item.id" id="gantt-input-pond" type="text" inputmode="decimal"
+                     class="gantt-input-pond" [value]="barra.item.ponderacion || ''" placeholder="%"
+                     (keydown.enter)="confirmarPondGantt(barra, $event.target.value)"
+                     (keydown.escape)="cancelarPondGantt()"
+                     (blur)="confirmarPondGantt(barra, $event.target.value)"
+                     (click)="$event.stopPropagation()">
+              <ng-container *ngIf="editandoPondGanttId !== barra.item.id">
+                <!-- Título con hijos ponderados: total de ponderación -->
+                <span class="gantt-pond-total" *ngIf="barra.item.esTitulo && sumaPonderacionHijos(barra.item) !== null"
+                      [class.pond-ok]="sumaPonderacionHijos(barra.item) === 100" [class.pond-mal]="sumaPonderacionHijos(barra.item) !== 100">
+                  {{sumaPonderacionHijos(barra.item)}}%</span>
+                <ng-container *ngIf="!(barra.item.esTitulo && sumaPonderacionHijos(barra.item) !== null)">
+                  <span class="gantt-pond-chip" *ngIf="barra.item.ponderacion">{{barra.item.ponderacion}}%</span>
+                  <span class="gantt-pond-vacio" *ngIf="!barra.item.ponderacion">-</span>
+                </ng-container>
+              </ng-container>
             </span>
             <span class="gantt-col-avance">
               <span>{{barra.item.avanceReal}}%</span>

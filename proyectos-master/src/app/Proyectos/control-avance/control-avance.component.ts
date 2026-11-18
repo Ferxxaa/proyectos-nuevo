@@ -57,6 +57,9 @@ interface ControlAvanceItem {
   fechaTermino: string;         // por defecto = fechaInicio + plazoReal (o la que escriba el usuario)
   fechaTerminoManual?: boolean; // true si el usuario escribió a mano la fecha de término real
   avanceReal: number;
+  // Ponderación (%) de este item dentro de su grupo (sus hermanos del mismo título, o la raíz).
+  // Si ningún hermano tiene ponderación, todos pesan lo mismo (promedio simple, como antes).
+  ponderacion?: number;
   observaciones?: string;       // columna de observaciones, igual que en el Excel
   bitacora: NotaBitacora[];     // notas de bitácora con semáforo de prioridad
   validadoresEstado: { [idUsuario: string]: boolean };
@@ -1195,6 +1198,15 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
 
+    // Con ponderación: el total es el promedio ponderado de los items raíz
+    // (cada título ya trae el promedio ponderado de sus hijos).
+    if (this.hayPonderacion) {
+      const raices = this.ControlesAvance.filter(it => it.activo !== false && this.claveJerarquia(it.idPadre) === 'raiz');
+      this.avanceDocumentosProgramado = Math.min(100, this.promedioPonderado(raices, it => Number(it.avanceProgramado) || 0));
+      this.avanceDocumentosReal = Math.min(100, this.promedioPonderado(raices, it => this.avanceRealEfectivo(it)));
+      return;
+    }
+
     const sumaAvanceProgramado = documentosActivos.reduce((sum, doc) => {
       return sum + (doc.avanceProgramado || 0);
     }, 0);
@@ -1207,6 +1219,104 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       return sum + (doc.avanceReal || 0);
     }, 0);
     this.avanceDocumentosReal = Math.min(100, Math.round(sumaAvanceReal / documentosActivos.length));
+  }
+
+  // =========================================================================
+  // PONDERACIÓN DEL AVANCE
+  // =========================================================================
+
+  /** ¿Algún item activo tiene ponderación? (si no, todo funciona con promedios simples, como antes) */
+  get hayPonderacion(): boolean {
+    return (this.ControlesAvance || []).some(it => it.activo !== false && Number(it.ponderacion) > 0);
+  }
+
+  /**
+   * Promedio ponderado de un grupo de hermanos: Σ (valor × ponderación) / Σ ponderaciones.
+   * Si ninguno tiene ponderación, todos pesan 1 (promedio simple). Si algunos sí y otros no,
+   * los que no tienen ponderación no cuentan.
+   */
+  private promedioPonderado(items: ControlAvanceItem[], valor: (it: ControlAvanceItem) => number): number {
+    const activos = (items || []).filter(it => it.activo !== false);
+    if (!activos.length) { return 0; }
+    const conPeso = activos.some(it => Number(it.ponderacion) > 0);
+    let suma = 0;
+    let pesos = 0;
+    activos.forEach(it => {
+      const w = conPeso ? (Number(it.ponderacion) > 0 ? Number(it.ponderacion) : 0) : 1;
+      suma += valor(it) * w;
+      pesos += w;
+    });
+    return pesos > 0 ? Math.round(suma / pesos) : 0;
+  }
+
+  /** % real que cuenta para los cálculos: una lámina VA/VC vale 100% (igual en títulos y en el total). */
+  private avanceRealEfectivo(it: ControlAvanceItem): number {
+    if (!it.esTitulo && (it.estado === 'VA' || it.estado === 'VC')) { return 100; }
+    return Number(it.avanceReal) || 0;
+  }
+
+  /**
+   * Texto con la fórmula usada para el % avance de un título (para el tooltip):
+   * 80% = (100×20 + 0×20 + ...) ÷ 100
+   */
+  formulaAvanceTitulo(titulo: ControlAvanceItem, tipo: 'prog' | 'real'): string {
+    if (!titulo || !titulo.esTitulo || !titulo.id) { return ''; }
+    const clave = this.claveJerarquia(titulo.id);
+    const hijos = this.ControlesAvance.filter(it => it.activo !== false && this.claveJerarquia(it.idPadre) === clave);
+    if (!hijos.length) { return ''; }
+    const conPeso = hijos.some(h => Number(h.ponderacion) > 0);
+    const valor = (h: ControlAvanceItem) => tipo === 'prog' ? (Number(h.avanceProgramado) || 0) : this.avanceRealEfectivo(h);
+    const resultado = tipo === 'prog' ? titulo.avanceProgramado : titulo.avanceReal;
+    const nombre = tipo === 'prog' ? 'Programado' : 'Real';
+    if (!conPeso) {
+      return nombre + ' ' + resultado + '% = promedio simple de ' + hijos.length + ' hijo(s) (sin ponderación): ('
+        + hijos.map(h => valor(h)).join(' + ') + ') ÷ ' + hijos.length;
+    }
+    const pesos = hijos.reduce((t, h) => t + (Number(h.ponderacion) > 0 ? Number(h.ponderacion) : 0), 0);
+    return nombre + ' ' + resultado + '% = Σ(avance × ponderación) ÷ Σ ponderación = ('
+      + hijos.map(h => valor(h) + '×' + (Number(h.ponderacion) || 0)).join(' + ')
+      + ') ÷ ' + (Math.round(pesos * 100) / 100);
+  }
+
+  /** Suma de las ponderaciones de los hijos de un título (null si ninguno tiene). */
+  sumaPonderacionHijos(titulo: ControlAvanceItem): number | null {
+    if (!titulo || !titulo.id) { return null; }
+    const clave = this.claveJerarquia(titulo.id);
+    const hijos = this.ControlesAvance.filter(it => it.activo !== false && this.claveJerarquia(it.idPadre) === clave);
+    if (!hijos.some(h => Number(h.ponderacion) > 0)) { return null; }
+    return Math.round(hijos.reduce((t, h) => t + (Number(h.ponderacion) || 0), 0) * 100) / 100;
+  }
+
+  /** Suma de las ponderaciones de los items raíz (null si ninguno tiene). */
+  get sumaPonderacionRaiz(): number | null {
+    const raices = (this.ControlesAvance || []).filter(it => it.activo !== false && this.claveJerarquia(it.idPadre) === 'raiz');
+    if (!raices.some(r => Number(r.ponderacion) > 0)) { return null; }
+    return Math.round(raices.reduce((t, r) => t + (Number(r.ponderacion) || 0), 0) * 100) / 100;
+  }
+
+  /**
+   * Total de ponderación que se muestra en el encabezado (junto a Programado y Real):
+   * - si los títulos principales tienen ponderación, la suma de ellos;
+   * - si hay un solo título principal, la suma de sus hijos;
+   * - si no, null (cada título muestra su propio Σ en la tabla).
+   */
+  get totalPonderacion(): number | null {
+    const raiz = this.sumaPonderacionRaiz;
+    if (raiz !== null) { return raiz; }
+    const raices = (this.ControlesAvance || []).filter(it => it.activo !== false && this.claveJerarquia(it.idPadre) === 'raiz');
+    if (raices.length === 1 && raices[0].esTitulo) { return this.sumaPonderacionHijos(raices[0]); }
+    return null;
+  }
+
+  /** Normaliza lo escrito en la columna Pond.: vacío o 0 = sin ponderación; máximo 100. */
+  onCambioPonderacion(item: ControlAvanceItem, index: number) {
+    const v = Number(item.ponderacion);
+    if (!isFinite(v) || v <= 0) {
+      item.ponderacion = null;
+    } else {
+      item.ponderacion = Math.min(100, Math.round(v * 100) / 100);
+    }
+    this.OnCambio(item, index);
   }
 
   // =========================================================================
@@ -1344,10 +1454,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           ? this.diasEntreFechasISO(rangoReal.inicio, rangoReal.fin)
           : (item.plazoReal || 0);
 
-        const sumaProg = hijos.reduce((s, h) => s + (Number(h.avanceProgramado) || 0), 0);
-        item.avanceProgramado = Math.round(sumaProg / hijos.length);
-        const sumaReal = hijos.reduce((s, h) => s + (Number(h.avanceReal) || 0), 0);
-        item.avanceReal = Math.round(sumaReal / hijos.length);
+        // Avance del título = promedio PONDERADO de sus hijos (si nadie tiene ponderación, promedio simple)
+        item.avanceProgramado = this.promedioPonderado(hijos, h => Number(h.avanceProgramado) || 0);
+        item.avanceReal = this.promedioPonderado(hijos, h => this.avanceRealEfectivo(h));
         item.esAgregadoAutomatico = true;
       } else {
         this.recalcularFechasDesdePlazo(item);
@@ -2749,6 +2858,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   onCambioPlazoProgramado(item: ControlAvanceItem, index: number) {
     if (!this.puedeEditarAvance) { return; }
     item.fechaTerminoProgramadaManual = false;
+    // El término se recalcula AL TIRO desde inicio + plazo. Si no, el recálculo de jerarquía
+    // (sincronizarPlazoDesdeFechas) volvía a sacar el plazo desde las fechas antiguas y lo pisaba.
+    const plazo = Number(item.plazoProgramado);
+    if (item.fechaInicioProgramada && isFinite(plazo) && plazo > 0) {
+      item.fechaTerminoProgramada = this.calcularFechaTerminoDesdePlazo(item.fechaInicioProgramada, plazo);
+    }
     this.OnCambio(item, index);
   }
 
@@ -2756,6 +2871,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   onCambioPlazoReal(item: ControlAvanceItem, index: number) {
     if (!this.puedeEditarAvance) { return; }
     item.fechaTerminoManual = false;
+    const plazo = Number(item.plazoReal);
+    if (item.fechaInicio && isFinite(plazo) && plazo > 0) {
+      item.fechaTermino = this.calcularFechaTerminoDesdePlazo(item.fechaInicio, plazo);
+    }
     this.OnCambio(item, index);
   }
 
@@ -3719,6 +3838,47 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     this.dragGuiaFinPx = null;
     this.dragGuiaInicioTxt = '';
     this.dragGuiaFinTxt = '';
+  }
+
+  // ---- Ponderación desde la Carta Gantt (clic en la columna Pond.) ----
+  editandoPondGanttId: string = null;
+
+  iniciarEdicionPondGantt(barra: BarraGantt) {
+    if (this.modoSoloLectura || !barra || !barra.item || !barra.item.id) { return; }
+    this.editandoPondGanttId = barra.item.id;
+    setTimeout(() => {
+      const input = document.getElementById('gantt-input-pond') as HTMLInputElement;
+      if (input) { input.focus(); input.select(); }
+    }, 0);
+  }
+
+  confirmarPondGantt(barra: BarraGantt, texto: any) {
+    if (this.editandoPondGanttId !== barra.item.id) { return; }
+    this.editandoPondGanttId = null;
+    const v = Number(String(texto === null || texto === undefined ? '' : texto).replace(',', '.'));
+    const nuevo = isFinite(v) && v > 0 ? Math.min(100, Math.round(v * 100) / 100) : null;
+    if ((Number(barra.item.ponderacion) || null) === nuevo) { return; }
+    barra.item.ponderacion = nuevo;
+    this.refrescarTrasCambioGantt();
+    this.guardarCambioGantt(barra.item);
+  }
+
+  cancelarPondGantt() {
+    this.editandoPondGanttId = null;
+  }
+
+  /** Texto del tooltip de la columna Pond. en la Carta Gantt. */
+  tituloPondGantt(item: ControlAvanceItem): string {
+    const partes: string[] = [];
+    partes.push(Number(item.ponderacion) > 0
+      ? 'Pesa ' + item.ponderacion + '% en el avance de ' + (item.idPadre ? 'su título' : 'el total')
+      : 'Sin ponderación');
+    if (item.esTitulo) {
+      const suma = this.sumaPonderacionHijos(item);
+      if (suma !== null) { partes.push('sus hijos suman ' + suma + '%' + (suma === 100 ? '' : ' (deben sumar 100%)')); }
+    }
+    if (!this.modoSoloLectura) { partes.push('clic para cambiar'); }
+    return partes.join(' · ');
   }
 
   /** Guarda un cambio hecho desde la Carta Gantt (sin exigir Código/Tipo como GuardarFila). */
