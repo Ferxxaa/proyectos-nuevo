@@ -2227,3 +2227,16 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 }
 
 .phd-bloque-off .phh-fila { opacity: .5; }
+/* ===================== Consolidado anual de un solo programa (SSO o MA) ===================== */
+.pan-resumen.pan-resumen-uno { grid-template-columns: 1.6fr .8fr .8fr auto; }
+.pan-tabla.pan-tabla-uno { min-width: 980px; }
+.pan-tabla.pan-tabla-uno .pan-c-mes { width: 56px; }
+/* solo MA: la línea entre meses va en cada columna MA */
+.pan-tabla.pan-tabla-ma th.pan-sub-ma,
+.pan-tabla.pan-tabla-ma tbody td.pan-celda,
+.pan-tabla.pan-tabla-ma td.pan-pie-ma,
+.pan-tabla.pan-tabla-ma td.pan-total-ma { border-left: 1px solid #e3e8ed; }
+
+@media (max-width: 1199px) {
+  .pan-resumen.pan-resumen-uno { grid-template-columns: 1fr 1fr; }
+}

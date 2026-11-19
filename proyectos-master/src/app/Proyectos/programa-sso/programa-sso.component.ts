@@ -247,6 +247,10 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   @Input() puedeValidar: boolean = false;  // Director de Proyecto o Sub-gerente
   @Input() tipoPrograma: string = 'SSO';
   @Input() idProyecto: any = null;          // opcional: se guarda en la tabla de MA si el documento es nuevo
+  /** true = solo el Consolidado anual de todas las obras, sin pestañas (lo usa el Consolidado de la empresa). */
+  @Input() soloAnual: boolean = false;
+  /** Consolidado anual de un solo programa: 'SSO' o 'MA' ('' = los dos juntos). */
+  @Input() tipoAnual: string = '';
 
   meses = MESES;
   /** Botones de cumplimiento: ya no se ofrece 75%. Solo aparece si el registro abierto es antiguo y ya está en 75%. */
@@ -372,6 +376,14 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges) {
+    // Consolidado de la empresa: no hay subproyecto, se cargan todas las obras
+    if (this.soloAnual) {
+      if (changes['soloAnual']) {
+        this.tipoPrograma = 'ANUAL';
+        this.cargarAnual();
+      }
+      return;
+    }
     if (changes['idSubProyecto'] && this.idSubProyecto != null && this.idSubProyecto !== '') {
       this.cargarAnio();
     }
@@ -629,6 +641,52 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       });
   }
 
+  // ----- Consolidado anual de un solo programa (SSO o MA) -----
+
+  private incluyeTipo(tipo: string): boolean {
+    return !this.tipoAnual || this.tipoAnual === tipo;
+  }
+
+  get textoTipoAnual(): string {
+    return this.tipoAnual || 'SSO/MA';
+  }
+
+  /** Columnas de mes que se muestran (las 24, o solo las 12 del programa elegido). */
+  get columnasVista(): { mes: number; tipo: string }[] {
+    return this.tipoAnual ? this.columnasAnual.filter(c => c.tipo === this.tipoAnual) : this.columnasAnual;
+  }
+
+  celdasVista(f: FilaAnual): CeldaAnual[] {
+    return this.tipoAnual ? f.celdas.filter(c => c.tipo === this.tipoAnual) : f.celdas;
+  }
+
+  get totalesMesVista(): CeldaAnual[] {
+    return this.tipoAnual ? this.totalesMesAnual.filter(c => c.tipo === this.tipoAnual) : this.totalesMesAnual;
+  }
+
+  /** Obras que tienen al menos un programa del tipo elegido. */
+  get filasVista(): FilaAnual[] {
+    if (!this.anual) { return []; }
+    return this.tipoAnual
+      ? this.anual.filter(f => f.celdas.some(c => c.tipo === this.tipoAnual && c.existe))
+      : this.anual;
+  }
+
+  get pendientesVista(): number {
+    let n = 0;
+    this.filasVista.forEach(f => f.celdas.forEach(c => {
+      if (c.existe && c.pendiente && this.incluyeTipo(c.tipo)) { n++; }
+    }));
+    return n;
+  }
+
+  /** Mes del gráfico sin barras que mostrar. */
+  grupoVacio(i: number): boolean {
+    const sso = this.totalesMesAnual[i * 2];
+    const ma = this.totalesMesAnual[i * 2 + 1];
+    return !((this.incluyeTipo('SSO') && sso && sso.pct !== null) || (this.incluyeTipo('MA') && ma && ma.pct !== null));
+  }
+
   private filaAnualVacia(id: string, anio: number): FilaAnual {
     return {
       id: id,
@@ -680,7 +738,7 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
       exportarConsolidadoAnualExcel({
         anio: this.todosAnios ? 'TODOS' : this.anio,
         meses: this.mesesCortos,
-        filas: this.todosAnios ? this.anual.map(f => Object.assign({}, f, { nombre: f.nombre + ' · ' + f.anio })) : this.anual,
+        filas: this.todosAnios ? this.filasVista.map(f => Object.assign({}, f, { nombre: f.nombre + ' · ' + f.anio })) : this.filasVista,
         totalesMes: this.totalesMesAnual,
         totalSSO: this.totalSSOAnual,
         totalMA: this.totalMAAnual
