@@ -680,6 +680,28 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     return n;
   }
 
+  /** Texto bajo el promedio: cuánto falta para la meta del 90%. */
+  textoMeta(v: number): string {
+    if (v === null || v === undefined) { return 'Sin datos · meta 90%'; }
+    if (v >= 90) { return 'Meta 90% cumplida'; }
+    return 'Faltan ' + String(Math.round((90 - v) * 10) / 10).replace('.', ',') + ' pts para la meta (90%)';
+  }
+
+  /** ¿Alguna obra tiene programa en esa columna (mes + SSO/MA)? */
+  colConDato(mes: number, tipo: string): boolean {
+    return this.filasVista.some(f => f.celdas.some(c => c.mes === mes && c.tipo === tipo && c.existe));
+  }
+
+  /** Obras ordenadas por su cumplimiento promedio (para las barras por obra). */
+  get rankingObras(): { nombre: string; anio: number; sso: number; ma: number; prom: number }[] {
+    return this.filasVista.map(f => {
+      const sso = this.incluyeTipo('SSO') ? f.totalSSO : null;
+      const ma = this.incluyeTipo('MA') ? f.totalMA : null;
+      return { nombre: f.nombre, anio: f.anio, sso: sso, ma: ma, prom: this.promedio([sso, ma]) };
+    }).filter(o => o.prom !== null)
+      .sort((a, b) => b.prom - a.prom);
+  }
+
   /** Mes del gráfico sin barras que mostrar. */
   grupoVacio(i: number): boolean {
     const sso = this.totalesMesAnual[i * 2];

@@ -2240,3 +2240,109 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 @media (max-width: 1199px) {
   .pan-resumen.pan-resumen-uno { grid-template-columns: 1fr 1fr; }
 }
+
+/* ===================== Consolidado anual: mejoras visuales ===================== */
+/* texto de meta bajo el promedio */
+.pan-meta-txt { color: #b07c0c !important; font-weight: 700; }
+.pan-meta-txt.ok { color: #2d8a44 !important; }
+
+/* filas alternadas y celdas vacías limpias */
+.pan-tabla tbody tr:nth-child(even) td { background: #fbfcfd; }
+.pan-tabla tbody tr:nth-child(even) td.pan-mes-actual { background: #fffaf0; }
+.pan-tabla tbody tr:hover td { background: #fff7d6 !important; }
+.pan-tabla .pan-col-vacia { background-color: #fcfcfd; }
+.pan-tabla th.pan-col-vacia { color: #b7c0c8 !important; box-shadow: inset 0 -3px 0 #e6ebef !important; }
+.pan-tabla tbody td { height: 40px; }
+.pan-tabla tbody td.pan-obra span { font-size: 12px; }
+
+/* fila de totales por mes como chips */
+.pan-tabla tfoot td { height: 40px; }
+.pan-chip-pie { min-width: 40px; padding: 4px 4px; font-size: 11px; }
+
+/* totales de cada obra un poco más grandes */
+.pan-tabla tbody td.pan-total .pan-chip { min-width: 50px; padding: 4px 6px; font-size: 11.5px; }
+
+/* ---------- cumplimiento por obra ---------- */
+.pan-obras { margin-bottom: 14px; }
+.pan-obra-fila {
+  display: grid;
+  grid-template-columns: 26px minmax(160px, 280px) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f0f2f5;
+}
+.pan-obra-fila:last-child { border-bottom: 0; }
+.pan-obra-pos {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #eef1f4;
+  color: #6b7580;
+  font-size: 11px;
+  font-weight: 800;
+}
+.pan-obra-pos.top { background: #24404f; color: #fff; }
+.pan-obra-nom {
+  overflow: hidden;
+  color: #24404f;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pan-obra-barras { display: flex; flex-direction: column; gap: 4px; }
+.pan-obra-barra { display: flex; align-items: center; gap: 10px; }
+.pan-obra-pista {
+  position: relative;
+  flex: 1 1 auto;
+  height: 10px;
+  border-radius: 6px;
+  background: #eef1f4;
+}
+.pan-obra-pista i { display: block; height: 100%; max-width: 100%; border-radius: 6px; transition: width .35s ease; }
+.pan-obra-sso { background: linear-gradient(90deg, #4f93d6, #075f91); }
+.pan-obra-ma  { background: linear-gradient(90deg, #6cc784, #3f9a52); }
+.pan-obra-pista em {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 90%;
+  width: 2px;
+  border-radius: 1px;
+  background: #e0a800;
+}
+.pan-obra-val { flex: 0 0 56px; font-size: 12px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.pan-obra-val-sso { color: #075f91; }
+.pan-obra-val-ma  { color: #2d7a3e; }
+
+/* ---------- gráfico mensual ---------- */
+.pan-barra { width: 42%; max-width: 34px; }
+.pan-linea-meta span {
+  position: absolute;
+  top: -9px;
+  right: 0;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: #fff8e1;
+  color: #b07c0c;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+.pan-grupo-vacio .pan-par { border-bottom-color: #e6ebef; }
+
+@media (max-width: 767px) {
+  .pan-obra-fila { grid-template-columns: 24px minmax(0, 1fr); }
+  .pan-obra-barras { grid-column: 1 / -1; }
+}
+
+/* Excel al lado del año: las tarjetas usan todo el ancho */
+.psso-excel-anio { margin-left: 4px; height: 30px; }
+.pan-resumen { grid-template-columns: 1.2fr 1.2fr .8fr .8fr; }
+.pan-resumen.pan-resumen-uno { grid-template-columns: 1.6fr .8fr .8fr; }
+@media (max-width: 1199px) {
+  .pan-resumen, .pan-resumen.pan-resumen-uno { grid-template-columns: 1fr 1fr; }
+}

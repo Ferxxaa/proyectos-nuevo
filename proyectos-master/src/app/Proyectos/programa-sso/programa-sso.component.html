@@ -23,10 +23,6 @@
               [class.activo]="esConsolidado" (click)="seleccionarTipoPrograma('CONSOLIDADO')">
         <i class="fa fa-pie-chart" aria-hidden="true"></i> Consolidado del mes
       </button>
-      <button type="button" role="tab" [attr.aria-selected]="esAnual"
-              [class.activo]="esAnual" (click)="seleccionarTipoPrograma('ANUAL')">
-        <i class="fa fa-bar-chart" aria-hidden="true"></i> Consolidado anual
-      </button>
     </div>
     <div class="psso-anio">
       <button type="button" class="psso-flecha" (click)="cambiarAnio(-1)" title="Año anterior"><i class="fa fa-chevron-left"></i></button>
@@ -35,6 +31,10 @@
       <button *ngIf="esAnual" type="button" class="psso-todos" [class.activo]="todosAnios" (click)="alternarTodosAnios()"
               title="Ver todas las obras de todos los años">
         <i class="fa fa-calendar" aria-hidden="true"></i> Todos
+      </button>
+      <button *ngIf="esAnual" type="button" class="psso-btn excel psso-excel-anio" (click)="exportarAnualExcel()"
+              [disabled]="cargando || !filasVista.length" title="Descargar el consolidado en Excel">
+        <i class="fa fa-file-excel-o"></i> Descargar Excel
       </button>
     </div>
   </header>
@@ -169,7 +169,7 @@
           <i [style.width.%]="totalSSOAnual || 0"></i>
           <em></em>
         </div>
-        <small>Meta 90%</small>
+        <small class="pan-meta-txt" [class.ok]="totalSSOAnual >= 90">{{ textoMeta(totalSSOAnual) }}</small>
       </div>
       <div class="pan-kpi pan-kpi-ma" *ngIf="tipoAnual !== 'SSO'">
         <span class="pan-kpi-tit"><i class="fa fa-leaf" aria-hidden="true"></i> Promedio MA {{ textoAnioAnual }}</span>
@@ -178,7 +178,7 @@
           <i [style.width.%]="totalMAAnual || 0"></i>
           <em></em>
         </div>
-        <small>Meta 90%</small>
+        <small class="pan-meta-txt" [class.ok]="totalMAAnual >= 90">{{ textoMeta(totalMAAnual) }}</small>
       </div>
       <div class="pan-kpi">
         <span class="pan-kpi-tit"><i class="fa fa-building-o" aria-hidden="true"></i> Obras con programa</span>
@@ -190,9 +190,6 @@
         <strong>{{ pendientesVista }}</strong>
         <small>{{ pendientesVista === 1 ? 'programa sin validar' : 'programas sin validar' }}</small>
       </div>
-      <button type="button" class="psso-btn excel pan-excel" (click)="exportarAnualExcel()" [disabled]="!filasVista.length">
-        <i class="fa fa-file-excel-o"></i> Descargar Excel
-      </button>
     </div>
 
     <div class="psso-vacio" *ngIf="!filasVista.length">
@@ -221,7 +218,7 @@
             </tr>
             <tr>
               <th *ngFor="let col of columnasVista" class="pan-sub" [ngClass]="col.tipo === 'MA' ? 'pan-sub-ma' : 'pan-sub-sso'"
-                  [class.pan-mes-actual]="esMesActual(col.mes)">{{ col.tipo }}</th>
+                  [class.pan-mes-actual]="esMesActual(col.mes)" [class.pan-col-vacia]="!colConDato(col.mes, col.tipo)">{{ col.tipo }}</th>
               <th class="pan-sub pan-sub-sso pan-total-cab" *ngIf="tipoAnual !== 'MA'">SSO</th>
               <th class="pan-sub pan-sub-ma pan-total-cab" *ngIf="tipoAnual !== 'SSO'">MA</th>
             </tr>
@@ -234,13 +231,12 @@
                 <em *ngIf="f.actual">este subproyecto</em>
               </td>
               <td *ngFor="let c of celdasVista(f)" class="pan-celda" [class.pan-col-ma]="c.tipo === 'MA'"
-                  [class.pan-mes-actual]="esMesActualFila(f, c.mes)"
+                  [class.pan-mes-actual]="esMesActualFila(f, c.mes)" [class.pan-col-vacia]="!colConDato(c.mes, c.tipo)"
                   [class.pan-clic]="f.actual && c.existe" [title]="tituloCeldaAnual(f, c)" (click)="abrirDesdeAnual(f, c)">
                 <span class="pan-chip" [ngClass]="claseCeldaAnual(c)" *ngIf="c.existe">
                   {{ c.pct === null ? 's/p' : (c.pct | number:'1.0-0') + '%' }}
                   <i *ngIf="c.pendiente" class="pan-pend" aria-hidden="true"></i>
                 </span>
-                <span class="pan-guion" *ngIf="!c.existe">·</span>
               </td>
               <td class="pan-total pan-total-sso" *ngIf="tipoAnual !== 'MA'">
                 <span class="pan-chip" [ngClass]="claseCeldaAnual({ tipo: 'SSO', existe: true, pct: f.totalSSO })" *ngIf="f.totalSSO !== null">{{ f.totalSSO | number:'1.0-1' }}%</span>
@@ -257,8 +253,8 @@
               <td class="pan-fijo-1"></td>
               <td class="pan-obra pan-fijo-2">Total por mes</td>
               <td *ngFor="let c of totalesMesVista" class="pan-pie" [ngClass]="c.tipo === 'MA' ? 'pan-pie-ma' : 'pan-pie-sso'"
-                  [class.pan-mes-actual]="esMesActual(c.mes)">
-                {{ c.pct === null ? '' : (c.pct | number:'1.0-0') + '%' }}
+                  [class.pan-mes-actual]="esMesActual(c.mes)" [class.pan-col-vacia]="!colConDato(c.mes, c.tipo)">
+                <span class="pan-chip pan-chip-pie" [ngClass]="claseCeldaAnual(c)" *ngIf="c.pct !== null">{{ c.pct | number:'1.0-0' }}%</span>
               </td>
               <td class="pan-pie pan-pie-sso pan-pie-total" *ngIf="tipoAnual !== 'MA'">{{ totalSSOAnual === null ? '-' : (totalSSOAnual | number:'1.0-1') + '%' }}</td>
               <td class="pan-pie pan-pie-ma pan-pie-total" *ngIf="tipoAnual !== 'SSO'">{{ totalMAAnual === null ? '-' : (totalMAAnual | number:'1.0-1') + '%' }}</td>
@@ -275,6 +271,32 @@
       </div>
     </div>
 
+    <!-- Cumplimiento por obra (promedio del año) -->
+    <section class="pan-grafico pan-obras" *ngIf="rankingObras.length">
+      <div class="pan-grafico-cab">
+        <h6>Cumplimiento por obra <small>promedio de sus meses · {{ todosAnios ? 'todos los años' : anio }}</small></h6>
+        <div class="pan-leyenda">
+          <span *ngIf="tipoAnual !== 'MA'"><i class="pan-ley-sso"></i> SSO</span>
+          <span *ngIf="tipoAnual !== 'SSO'"><i class="pan-ley-ma"></i> MA</span>
+          <span class="pan-ley-meta"><i></i> Meta 90%</span>
+        </div>
+      </div>
+      <div class="pan-obra-fila" *ngFor="let o of rankingObras; let n = index">
+        <span class="pan-obra-pos" [class.top]="n === 0">{{ n + 1 }}</span>
+        <span class="pan-obra-nom" [title]="o.nombre"><b class="pan-anio-chip" *ngIf="todosAnios">{{ o.anio }}</b>{{ o.nombre }}</span>
+        <div class="pan-obra-barras">
+          <div class="pan-obra-barra" *ngIf="tipoAnual !== 'MA'">
+            <div class="pan-obra-pista"><i class="pan-obra-sso" [style.width.%]="o.sso || 0"></i><em></em></div>
+            <b class="pan-obra-val pan-obra-val-sso">{{ o.sso === null ? '-' : (o.sso | number:'1.0-1') + '%' }}</b>
+          </div>
+          <div class="pan-obra-barra" *ngIf="tipoAnual !== 'SSO'">
+            <div class="pan-obra-pista"><i class="pan-obra-ma" [style.width.%]="o.ma || 0"></i><em></em></div>
+            <b class="pan-obra-val pan-obra-val-ma">{{ o.ma === null ? '-' : (o.ma | number:'1.0-1') + '%' }}</b>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Gráfico: promedio de todas las obras por mes -->
     <section class="pan-grafico" *ngIf="filasVista.length">
       <div class="pan-grafico-cab">
@@ -290,7 +312,7 @@
           <span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span>
         </div>
         <div class="pan-barras">
-          <div class="pan-linea-meta" title="Meta 90%"></div>
+          <div class="pan-linea-meta" title="Meta 90%"><span>90%</span></div>
           <div class="pan-grupo" *ngFor="let m of mesesCortos; let i = index" [class.pan-mes-actual]="esMesActual(i + 1)"
                [class.pan-grupo-vacio]="grupoVacio(i)">
             <div class="pan-par">

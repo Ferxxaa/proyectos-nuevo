@@ -1251,20 +1251,22 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
     this.aniosMant = anios.sort().reverse();
     this.talleresMant = talleres.sort();
 
-    this.mantFiltradas = this.mantenciones.filter(m => {
+    // Todos los filtros menos el año (para el total de todos los años)
+    const sinAnio = this.mantenciones.filter(m => {
       if (this.filtroPatMant !== 'todas' && this.normPatente(m.patente) !== this.filtroPatMant) { return false; }
-      if (this.filtroAnioMant !== 'todos' && m._anio !== this.filtroAnioMant) { return false; }
       if (this.filtroClasMant !== 'todas' && (m.clasificacion || '') !== this.filtroClasMant) { return false; }
       if (!q) { return true; }
       const txt = this.normalizar([m.numeroDoc, m.patente, m.modelo, m.tipoMantencion, m.factura, m.taller, m.clasificacion].join(' '));
       return txt.indexOf(q) >= 0;
     });
+    // Además, el año elegido
+    this.mantFiltradas = sinAnio.filter(m => this.filtroAnioMant === 'todos' || m._anio === this.filtroAnioMant);
 
     const vehs: any = {};
     this.mantFiltradas.forEach(m => { vehs[this.normPatente(m.patente)] = true; });
     this.kpiMantTotal = this.mantFiltradas.length;
-    this.kpiMantMonto = this.totalMonto(this.mantFiltradas);
-    this.kpiMantMontoAnio = this.totalMonto(this.mantFiltradas.filter(m => m._anio === String(this.anioActual)));
+    this.kpiMantMontoAnio = this.totalMonto(this.mantFiltradas);   // gasto del año del filtro
+    this.kpiMantMonto = this.totalMonto(sinAnio);                  // gasto de todos los años
     this.kpiMantVehiculos = Object.keys(vehs).length;
 
     if (this.vehSel) { this.mantSel = this.mantencionesDe(this.vehSel); }

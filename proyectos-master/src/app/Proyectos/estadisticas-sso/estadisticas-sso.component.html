@@ -9,7 +9,7 @@
       <span class="sso-icono"><i class="fa" [ngClass]="consolidadoHistorico ? 'fa-shield' : iconoVista" aria-hidden="true"></i></span>
       <div>
         <span class="sso-kicker" *ngIf="consolidadoHistorico">ANÁLISIS DE PROYECTOS</span>
-        <h5>{{consolidadoHistorico ? 'Consolidado SSO, MA ,INCS y Programacion SSO/MA' : tituloVista}}</h5>
+        <h5>{{consolidadoHistorico ? 'Consolidado SSO, MA e INCS' : tituloVista}}</h5>
         <p *ngIf="consolidadoHistorico">Estadísticas SSO y MA, incidentes y programación de toda la empresa</p>
         <p *ngIf="!consolidadoHistorico" class="sso-subproyecto">{{nombreSubProyecto}}</p>
       </div>
@@ -605,18 +605,13 @@
         <button type="button" [class.activa]="consolidadoVista === 'incs'" [attr.aria-pressed]="consolidadoVista === 'incs'" (click)="consolidadoVista = 'incs'">
           <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Incidentes (INCS)
         </button>
-        <button type="button" [class.activa]="consolidadoVista === 'progSSO'" [attr.aria-pressed]="consolidadoVista === 'progSSO'" (click)="consolidadoVista = 'progSSO'">
-          <i class="fa fa-calendar-check-o" aria-hidden="true"></i> Consolidado programación SSO
-        </button>
-        <button type="button" [class.activa]="consolidadoVista === 'progMA'" [attr.aria-pressed]="consolidadoVista === 'progMA'" (click)="consolidadoVista = 'progMA'">
-          <i class="fa fa-calendar-check-o" aria-hidden="true"></i> Consolidado programación MA
+        <button type="button" [class.activa]="consolidadoVista === 'prog'" [attr.aria-pressed]="consolidadoVista === 'prog'" (click)="consolidadoVista = 'prog'">
+          <i class="fa fa-calendar-check-o" aria-hidden="true"></i> Consolidado programación SSO/MA
         </button>
       </div>
 
-      <!-- ===== Consolidado programación SSO / MA: cumplimiento de los programas de todas las obras ===== -->
-      <app-programa-sso *ngIf="consolidadoVista === 'progSSO'" tipoPrograma="ANUAL" tipoAnual="SSO" [soloAnual]="true" [editable]="true">
-      </app-programa-sso>
-      <app-programa-sso *ngIf="consolidadoVista === 'progMA'" tipoPrograma="ANUAL" tipoAnual="MA" [soloAnual]="true" [editable]="true">
+      <!-- ===== Consolidado programación SSO/MA: una sola hoja, SSO y MA en paralelo por mes, todas las obras ===== -->
+      <app-programa-sso *ngIf="consolidadoVista === 'prog'" tipoPrograma="ANUAL" [soloAnual]="true" [editable]="true">
       </app-programa-sso>
 
       <!-- ===== SSO: suma de las tablas de Seguridad de cada obra + Programas SSO/MA ===== -->

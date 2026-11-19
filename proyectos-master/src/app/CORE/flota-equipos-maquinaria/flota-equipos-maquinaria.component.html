@@ -45,11 +45,11 @@
           </div>
           <div class="fl-kpi fl-kpi-warn">
             <span class="fl-kpi-num fl-kpi-monto">{{ fmtMonto(kpiMantMontoAnio) }}</span>
-            <span class="fl-kpi-txt">Gasto {{ anioActual }}</span>
+            <span class="fl-kpi-txt">{{ filtroAnioMant === 'todos' ? 'Gasto (todos los años)' : 'Gasto ' + filtroAnioMant }}</span>
           </div>
           <div class="fl-kpi fl-kpi-mal">
             <span class="fl-kpi-num fl-kpi-monto">{{ fmtMonto(kpiMantMonto) }}</span>
-            <span class="fl-kpi-txt">Gasto total (según filtros)</span>
+            <span class="fl-kpi-txt">Gasto total · todos los años</span>
           </div>
         </div>
 
@@ -135,7 +135,7 @@
             <tfoot *ngIf="mantFiltradas.length">
               <tr>
                 <td colspan="8" class="fl-total-lbl">Total ({{ mantFiltradas.length }} registros)</td>
-                <td class="fl-dias fl-nowrap fl-total">{{ fmtMonto(kpiMantMonto) }}</td>
+                <td class="fl-dias fl-nowrap fl-total">{{ fmtMonto(kpiMantMontoAnio) }}</td>
                 <td colspan="3"></td>
               </tr>
             </tfoot>
