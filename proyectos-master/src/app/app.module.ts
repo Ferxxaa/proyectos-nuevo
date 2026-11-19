@@ -53,6 +53,7 @@ import { ConsolidadoHhComponent } from './Proyectos/estadisticas-hh/consolidado-
 import { EstadisticasSsoComponent } from './Proyectos/estadisticas-sso/estadisticas-sso.component';
 // CORE
 import { ControlAsistenciaPageComponent } from './CORE/control-asistencia/control-asistencia-page.component';
+import { FlotaEquiposMaquinariaComponent } from './CORE/flota-equipos-maquinaria/flota-equipos-maquinaria.component';
 
 //Material
 import { MaterialModule } from './material';
@@ -168,6 +169,10 @@ const route = [
   {
     path: 'CORE-ControlAsistencia',
     component: ControlAsistenciaPageComponent
+  },
+  {
+    path: 'CORE-FlotaEquiposMaquinaria',
+    component: FlotaEquiposMaquinariaComponent
   },
   // Ruta antigua (Reportes > Estadísticas HH): sigue funcionando y lleva a lo mismo
   {
@@ -305,6 +310,7 @@ const route = [
     BibliotecaCertificadosComponent,
     EstadisticasHhComponent,
     ControlAsistenciaPageComponent,
+    FlotaEquiposMaquinariaComponent,
     ConsolidadoHhComponent,
     EstadisticasSsoComponent,
     ProgramaSsoComponent

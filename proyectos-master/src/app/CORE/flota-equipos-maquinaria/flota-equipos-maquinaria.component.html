@@ -1,0 +1,1091 @@
+<app-main></app-main>
+
+<div class="content-wrap">
+  <main id="content" role="main" class="content">
+    <section class="widget flota-pagina">
+      <header class="flota-cabecera">
+        <span class="flota-icono"><i class="fa fa-truck" aria-hidden="true"></i></span>
+        <div class="flota-titulo">
+          <span class="flota-kicker">CORE</span>
+          <h2>Flota, Equipos y Maquinaria</h2>
+        </div>
+        <button type="button" class="fl-btn fl-btn-transp" *ngIf="esTabEquipo || esTabMaq || esTabMant" (click)="abrirImport()">
+          <i class="fa fa-file-excel-o"></i> Importar desde Excel
+        </button>
+        <button type="button" class="fl-btn fl-btn-blanco" (click)="esTabMant ? nuevaMant() : nuevo()">
+          <i class="fa fa-plus"></i> {{ esTabMant ? 'Nueva mantención' : 'Nuevo ' + catActual.singular }}
+        </button>
+      </header>
+
+      <!-- Pestañas -->
+      <nav class="fl-tabs">
+        <button type="button" *ngFor="let c of categorias" class="fl-tab"
+                [class.fl-tab-activa]="tabActiva === c.key" (click)="cambiarTab(c.key)">
+          <i class="fa" [ngClass]="c.icono"></i>
+          {{ c.nombre }}
+          <span class="fl-tab-badge">{{ conteo[c.key] || 0 }}</span>
+        </button>
+        <button type="button" class="fl-tab" [class.fl-tab-activa]="esTabMant" (click)="cambiarTab('mantenimiento')">
+          <i class="fa fa-wrench"></i>
+          Mantenimiento
+          <span class="fl-tab-badge">{{ mantenciones.length }}</span>
+        </button>
+      </nav>
+
+      <!-- ═══════════════ Pestaña MANTENIMIENTO ═══════════════ -->
+      <div class="widget-body flota-cuerpo" *ngIf="esTabMant">
+        <div class="fl-kpis">
+          <div class="fl-kpi">
+            <span class="fl-kpi-num">{{ kpiMantTotal }}</span>
+            <span class="fl-kpi-txt">Registros</span>
+          </div>
+          <div class="fl-kpi fl-kpi-ok">
+            <span class="fl-kpi-num">{{ kpiMantVehiculos }}</span>
+            <span class="fl-kpi-txt">Vehículos</span>
+          </div>
+          <div class="fl-kpi fl-kpi-warn">
+            <span class="fl-kpi-num fl-kpi-monto">{{ fmtMonto(kpiMantMontoAnio) }}</span>
+            <span class="fl-kpi-txt">Gasto {{ anioActual }}</span>
+          </div>
+          <div class="fl-kpi fl-kpi-mal">
+            <span class="fl-kpi-num fl-kpi-monto">{{ fmtMonto(kpiMantMonto) }}</span>
+            <span class="fl-kpi-txt">Gasto total (según filtros)</span>
+          </div>
+        </div>
+
+        <div class="fl-toolbar">
+          <div class="fl-buscar">
+            <i class="fa fa-search"></i>
+            <input type="text" [(ngModel)]="busqMant" (ngModelChange)="onBuscarMant()"
+                   placeholder="Buscar patente, modelo, trabajo, factura, taller...">
+          </div>
+          <select [(ngModel)]="filtroPatMant" (ngModelChange)="aplicarFiltroMant()">
+            <option value="todas">Patente: todas</option>
+            <option *ngFor="let p of patentesMant" [value]="p">{{ p }}</option>
+          </select>
+          <select [(ngModel)]="filtroAnioMant" (ngModelChange)="aplicarFiltroMant()">
+            <option value="todos">Año: todos</option>
+            <option *ngFor="let a of aniosMant" [value]="a">{{ a }}</option>
+          </select>
+          <select [(ngModel)]="filtroClasMant" (ngModelChange)="aplicarFiltroMant()">
+            <option value="todas">Tipo: todos</option>
+            <option *ngFor="let c of clasificacionesMant" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+
+        <div class="fl-alerta" *ngIf="errorMant">{{ errorMant }}</div>
+
+        <div class="fl-tabla-wrap">
+          <table class="fl-tabla fl-tabla-eq">
+            <thead>
+              <tr>
+                <th>N° doc.</th>
+                <th>Fecha</th>
+                <th>Patente</th>
+                <th>Modelo</th>
+                <th>Tipo de mantención</th>
+                <th>Clasificación</th>
+                <th>Kilometraje</th>
+                <th>N° factura</th>
+                <th>Monto</th>
+                <th>Nombre mecánico / taller</th>
+                <th>Adj.</th>
+                <th class="fl-acc">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="cargandoMant">
+                <td colspan="12" class="fl-vacio"><i class="fa fa-spinner fa-spin"></i> Cargando...</td>
+              </tr>
+              <tr *ngIf="!cargandoMant && !mantFiltradas.length">
+                <td colspan="12" class="fl-vacio">
+                  No hay mantenciones para mostrar.
+                  <a href="javascript:void(0)" (click)="abrirImport()">Importar desde Excel</a>
+                </td>
+              </tr>
+              <tr *ngFor="let m of mantFiltradas; trackBy: trackById" (dblclick)="editarMant(m)">
+                <td class="fl-num">{{ m.numeroDoc || '—' }}</td>
+                <td class="fl-nowrap">{{ formatoFecha(m.fecha) }}</td>
+                <td><span class="fl-patente">{{ m.patente }}</span></td>
+                <td>{{ m.modelo }}</td>
+                <td class="fl-trabajo" [title]="m.tipoMantencion">{{ m.tipoMantencion }}</td>
+                <td><span class="fl-chip" [ngClass]="claseClasMant(m.clasificacion)">{{ m.clasificacion || '—' }}</span></td>
+                <td class="fl-dias">{{ m.kilometraje === '' || m.kilometraje === null || m.kilometraje === undefined ? '—' : fmtNum(m.kilometraje) }}</td>
+                <td>{{ m.factura || '—' }}</td>
+                <td class="fl-dias fl-nowrap">{{ fmtMonto(m.monto) }}</td>
+                <td>{{ m.taller || '—' }}</td>
+                <td class="fl-adj">
+                  <ng-container *ngIf="m.adjuntos && m.adjuntos.length">
+                    <a *ngIf="m.adjuntos.length === 1" [href]="m.adjuntos[0].url" target="_blank" rel="noopener" [title]="m.adjuntos[0].nombre">
+                      <i class="fa fa-paperclip"></i>
+                    </a>
+                    <a *ngIf="m.adjuntos.length > 1" href="javascript:void(0)" (click)="editarMant(m)" title="Ver adjuntos">
+                      <i class="fa fa-paperclip"></i> {{ m.adjuntos.length }}
+                    </a>
+                  </ng-container>
+                </td>
+                <td class="fl-acc">
+                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" (click)="editarMant(m)">Editar</button>
+                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar" (click)="eliminarMant(m)">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot *ngIf="mantFiltradas.length">
+              <tr>
+                <td colspan="8" class="fl-total-lbl">Total ({{ mantFiltradas.length }} registros)</td>
+                <td class="fl-dias fl-nowrap fl-total">{{ fmtMonto(kpiMantMonto) }}</td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══════════════ Pestañas VEHÍCULOS / MAQUINARIAS / EQUIPOS ═══════════════ -->
+      <div class="widget-body flota-cuerpo" *ngIf="!esTabMant">
+
+        <!-- KPIs -->
+        <div class="fl-kpis">
+          <div class="fl-kpi">
+            <span class="fl-kpi-num">{{ kpiTotal }}</span>
+            <span class="fl-kpi-txt">{{ esTabEquipo ? 'Equipos en uso' : esTabMaq ? 'Unidades activas' : catActual.nombre + ' activos' }}</span>
+          </div>
+          <div class="fl-kpi fl-kpi-ok">
+            <span class="fl-kpi-num">{{ kpiAcreditados }}</span>
+            <span class="fl-kpi-txt">{{ esTabEquipo ? 'Certificación vigente' : esTabMaq ? 'Operativas' : 'Acreditados' }}</span>
+          </div>
+          <div class="fl-kpi fl-kpi-warn">
+            <span class="fl-kpi-num">{{ kpiPorVencer }}</span>
+            <span class="fl-kpi-txt">{{ esTabEquipo ? 'Por vencer (30 días)' : esTabMaq ? 'Revisión próxima (≤ ' + horasAvisoRevision + ')' : 'Con docs por vencer' }}</span>
+          </div>
+          <div class="fl-kpi fl-kpi-mal">
+            <span class="fl-kpi-num">{{ kpiVencidos }}</span>
+            <span class="fl-kpi-txt">{{ esTabEquipo ? 'Vencidos' : esTabMaq ? 'Revisión pasada' : 'Con docs vencidos' }}</span>
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="fl-toolbar">
+          <div class="fl-buscar">
+            <i class="fa fa-search"></i>
+            <input type="text" [(ngModel)]="busqueda" (ngModelChange)="onBuscar()"
+                   [placeholder]="esTabEquipo ? 'Buscar equipo, marca, N° serie, ubicación...' : esTabMaq ? 'Buscar patente, unidad, tipo, contrato...' : 'Buscar ' + catActual.labelIdent.toLowerCase() + ', marca, modelo, gerencia...'">
+          </div>
+          <select [(ngModel)]="filtroEstado" (ngModelChange)="aplicarFiltro()">
+            <option value="activos">{{ esTabEquipo ? 'Sin retirados' : esTabMaq ? 'Sin devueltas' : 'Solo activos' }}</option>
+            <option value="inactivos">{{ esTabEquipo ? 'Solo retirados' : esTabMaq ? 'Solo devueltas' : 'Solo inactivos' }}</option>
+            <option value="todos">Todos</option>
+          </select>
+          <select [(ngModel)]="filtroAcreditado" (ngModelChange)="aplicarFiltro()" *ngIf="esTabMaq">
+            <option value="todos">Estado: todos</option>
+            <option *ngFor="let e of estadosOperativos" [value]="'op:' + e">{{ e }}</option>
+            <option value="porvencer">Revisión próxima</option>
+            <option value="vencido">Revisión pasada</option>
+          </select>
+          <select [(ngModel)]="filtroAcreditado" (ngModelChange)="aplicarFiltro()" *ngIf="!esTabEquipo && !esTabMaq">
+            <option value="todos">Acreditación: todos</option>
+            <option value="si">Acreditados</option>
+            <option value="no">No acreditados</option>
+          </select>
+          <ng-container *ngIf="esTabEquipo">
+            <select [(ngModel)]="filtroAcreditado" (ngModelChange)="aplicarFiltro()">
+              <option value="todos">Estado: todos</option>
+              <option value="vigente">Vigentes</option>
+              <option value="porvencer">Por vencer</option>
+              <option value="vencido">Vencidos</option>
+            </select>
+            <select [(ngModel)]="filtroUbicacion" (ngModelChange)="aplicarFiltro()">
+              <option value="todas">Ubicación: todas</option>
+              <option *ngFor="let u of ubicaciones" [value]="u">{{ u }}</option>
+            </select>
+          </ng-container>
+        </div>
+
+        <div class="fl-alerta" *ngIf="errorCarga">{{ errorCarga }}</div>
+
+        <!-- ═══ Tabla vehículos ═══ -->
+        <div class="fl-tabla-wrap" *ngIf="!esTabEquipo && !esTabMaq">
+          <table class="fl-tabla">
+            <thead>
+              <tr>
+                <th></th>
+                <th>{{ catActual.labelIdent }}</th>
+                <th>Marca</th>
+                <th>Modelo</th>
+                <th>Tipo</th>
+                <th>Año</th>
+                <th>{{ catActual.muestraKm ? 'Kilometraje' : 'Horómetro' }}</th>
+                <th>Estado</th>
+                <th>% Documentos</th>
+                <th>Acreditado</th>
+                <th class="fl-acc">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="cargando">
+                <td colspan="11" class="fl-vacio"><i class="fa fa-spinner fa-spin"></i> Cargando...</td>
+              </tr>
+              <tr *ngIf="!cargando && !filtrados.length">
+                <td colspan="11" class="fl-vacio">No hay {{ catActual.nombre.toLowerCase() }} para mostrar.</td>
+              </tr>
+              <tr *ngFor="let v of filtrados; trackBy: trackById" (dblclick)="verDetalle(v)">
+                <td>
+                  <div class="fl-thumb">
+                    <img *ngIf="v.fotoUrl" [src]="v.fotoUrl" alt="">
+                    <i *ngIf="!v.fotoUrl" class="fa" [ngClass]="catActual.icono"></i>
+                  </div>
+                </td>
+                <td>
+                  <span class="fl-patente" *ngIf="v.patente">{{ v.patente }}</span>
+                  <span class="fl-codigo" *ngIf="v.codigo" [class.fl-codigo-sub]="v.patente">{{ v.codigo }}</span>
+                  <span *ngIf="!v.patente && !v.codigo">—</span>
+                </td>
+                <td>{{ v.marca }}</td>
+                <td>{{ v.modelo }}</td>
+                <td>{{ v.tipo }}</td>
+                <td>{{ v.anio || '—' }}</td>
+                <td>
+                  <ng-container *ngIf="catActual.muestraKm">{{ (v.kilometraje || 0) | number:'1.0-0' }} km</ng-container>
+                  <ng-container *ngIf="!catActual.muestraKm">{{ (v.horometro || 0) | number:'1.0-0' }} h</ng-container>
+                </td>
+                <td>
+                  <span class="fl-chip" [ngClass]="v.activo === false ? 'fl-chip-off' : 'fl-chip-ok'">
+                    {{ v.activo === false ? 'Inactivo' : 'Activo' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="fl-barra">
+                    <div class="fl-barra-fill" [style.width.%]="v._pct" [class.fl-barra-full]="v._pct === 100"></div>
+                    <span>{{ v._pct }}%</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="fl-acred" [ngClass]="v._acreditado ? 'fl-txt-ok' : 'fl-txt-mal'">
+                    {{ v._acreditado ? 'Completado' : 'No completado' }}
+                  </span>
+                  <small *ngIf="v._vencidos" class="fl-sub fl-txt-mal">{{ v._vencidos }} vencido(s)</small>
+                  <small *ngIf="v._porVencer" class="fl-sub fl-txt-warn">{{ v._porVencer }} por vencer</small>
+                </td>
+                <td class="fl-acc">
+                  <button type="button" class="fl-btn fl-btn-gris fl-btn-sm" (click)="verDetalle(v)">Ver</button>
+                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" (click)="editar(v)">Editar</button>
+                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar"
+                          [disabled]="eliminandoId === v.id" (click)="eliminarVehiculo(v)">
+                    <i class="fa" [ngClass]="eliminandoId === v.id ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ═══ Tabla maquinarias (unidades en arriendo) ═══ -->
+        <div class="fl-tabla-wrap" *ngIf="esTabMaq">
+          <table class="fl-tabla fl-tabla-eq">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Patente</th>
+                <th>ID unidad</th>
+                <th>Tipo</th>
+                <th>Km / Horo actual</th>
+                <th>Últ. revisión</th>
+                <th>Próx. revisión</th>
+                <th>Faltan</th>
+                <th>Mes rev. técnica</th>
+                <th>Mes rev. gases</th>
+                <th>Contrato</th>
+                <th>Obs.</th>
+                <th>Estado</th>
+                <th>Docs</th>
+                <th class="fl-acc">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="cargando">
+                <td colspan="15" class="fl-vacio"><i class="fa fa-spinner fa-spin"></i> Cargando...</td>
+              </tr>
+              <tr *ngIf="!cargando && !filtrados.length">
+                <td colspan="15" class="fl-vacio">
+                  No hay maquinarias para mostrar.
+                  <a href="javascript:void(0)" (click)="abrirImport()">Importar desde Excel</a>
+                </td>
+              </tr>
+              <tr *ngFor="let v of filtrados; trackBy: trackById" (dblclick)="verDetalle(v)"
+                  [class.fl-fila-retirado]="v.activo === false">
+                <td>
+                  <div class="fl-thumb">
+                    <img *ngIf="v.fotoUrl" [src]="v.fotoUrl" alt="">
+                    <i *ngIf="!v.fotoUrl" class="fa fa-cogs"></i>
+                  </div>
+                </td>
+                <td>
+                  <span class="fl-patente" *ngIf="v.patente">{{ v.patente }}</span>
+                  <span class="fl-codigo" *ngIf="v.codigo" [class.fl-codigo-sub]="v.patente">{{ v.codigo }}</span>
+                </td>
+                <td><strong>{{ v.marca }}</strong> {{ v.modelo }}</td>
+                <td>{{ v.tipo }}</td>
+                <td class="fl-dias">{{ fmtNum(v.horometro) }}</td>
+                <td class="fl-dias">{{ fmtNum(v.horoUltRevision) }}</td>
+                <td class="fl-dias">{{ fmtNum(v.horoProxRevision) }}</td>
+                <td class="fl-dias" [ngClass]="v._revEstado === 'vencido' ? 'fl-txt-mal' : v._revEstado === 'porvencer' ? 'fl-txt-warn' : 'fl-txt-ok'">
+                  {{ v._horasFalta === null ? '—' : fmtNum(v._horasFalta) }}
+                </td>
+                <td [class.fl-mes-actual]="v.mesRevisionTecnica === mesActual">{{ v.mesRevisionTecnica || 'N/A' }}</td>
+                <td [class.fl-mes-actual]="v.mesRevisionGases === mesActual">{{ v.mesRevisionGases || 'N/A' }}</td>
+                <td>{{ v.contrato || '—' }}</td>
+                <td class="fl-obs" [title]="v.observacion || ''">{{ v.observacion }}</td>
+                <td><span class="fl-chip" [ngClass]="claseEstadoOp(v._estadoOp)">{{ v._estadoOp }}</span></td>
+                <td>
+                  <span class="fl-acred" [ngClass]="v._acreditado ? 'fl-txt-ok' : 'fl-txt-mal'" [title]="v._acreditado ? 'Documentos completos' : 'Faltan documentos'">
+                    {{ v._pct }}%
+                  </span>
+                </td>
+                <td class="fl-acc">
+                  <button type="button" class="fl-btn fl-btn-gris fl-btn-sm" (click)="verDetalle(v)">Ver</button>
+                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" (click)="editar(v)">Editar</button>
+                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar"
+                          [disabled]="eliminandoId === v.id" (click)="eliminarVehiculo(v)">
+                    <i class="fa" [ngClass]="eliminandoId === v.id ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ═══ Tabla equipos / instrumentos ═══ -->
+        <div class="fl-tabla-wrap" *ngIf="esTabEquipo">
+          <table class="fl-tabla fl-tabla-eq">
+            <thead>
+              <tr>
+                <th>N°</th>
+                <th>Instrumento o equipo</th>
+                <th>Marca - Modelo</th>
+                <th>N° serie</th>
+                <th>Fecha calibración</th>
+                <th>Fecha certificación</th>
+                <th>Vencimiento certificación</th>
+                <th>Días disp.</th>
+                <th>Estado</th>
+                <th>Frecuencia renovación</th>
+                <th>Ubicación</th>
+                <th>Observación</th>
+                <th class="fl-acc">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="cargando">
+                <td colspan="13" class="fl-vacio"><i class="fa fa-spinner fa-spin"></i> Cargando...</td>
+              </tr>
+              <tr *ngIf="!cargando && !filtrados.length">
+                <td colspan="13" class="fl-vacio">
+                  No hay equipos para mostrar.
+                  <a href="javascript:void(0)" (click)="abrirImport()">Importar desde Excel</a>
+                </td>
+              </tr>
+              <tr *ngFor="let v of filtrados; trackBy: trackById" (dblclick)="verDetalle(v)"
+                  [class.fl-fila-retirado]="v.activo === false">
+                <td class="fl-num">{{ v.numero || '—' }}</td>
+                <td><strong>{{ v.nombre }}</strong></td>
+                <td>{{ v.marcaModelo || '—' }}</td>
+                <td><span class="fl-codigo">{{ v.codigo || '—' }}</span></td>
+                <td>{{ formatoFecha(v.fechaCalibracion, 'N/A') }}</td>
+                <td>{{ formatoFecha(v.fechaCertificacion) }}</td>
+                <td>{{ formatoFecha(v.vencimientoCertificacion) }}</td>
+                <td class="fl-dias" [ngClass]="v._dias === null ? '' : v._dias < 0 ? 'fl-txt-mal' : v._dias <= 30 ? 'fl-txt-warn' : 'fl-txt-ok'">
+                  {{ v._dias === null ? '—' : v._dias }}
+                </td>
+                <td>
+                  <span class="fl-chip" [ngClass]="'fl-chip-' + v._estadoEq.codigo">{{ v._estadoEq.texto }}</span>
+                </td>
+                <td>{{ v.frecuencia || '—' }}</td>
+                <td>{{ v.ubicacion || '—' }}</td>
+                <td class="fl-obs" [title]="v.observacion || ''">{{ v.observacion }}</td>
+                <td class="fl-acc">
+                  <button type="button" class="fl-btn fl-btn-gris fl-btn-sm" (click)="verDetalle(v)">Ver</button>
+                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" (click)="editar(v)">Editar</button>
+                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar"
+                          [disabled]="eliminandoId === v.id" (click)="eliminarVehiculo(v)">
+                    <i class="fa" [ngClass]="eliminandoId === v.id ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="fl-pie" *ngIf="!cargando">
+          Mostrando {{ filtrados.length }} {{ catActual.nombre.toLowerCase() }}
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ═════════════ Modal crear / editar ═════════════ -->
+<div class="fl-modal-fondo" *ngIf="formAbierto">
+  <div class="fl-modal">
+    <div class="fl-modal-head">
+      <h3>
+        <i class="fa" [ngClass]="catForm.icono"></i>
+        {{ modoForm === 'nuevo' ? 'Crear' : 'Editar' }} {{ catForm.singular }}
+      </h3>
+      <button type="button" class="fl-cerrar" (click)="cerrarForm()" [disabled]="guardando">&times;</button>
+    </div>
+
+    <div class="fl-modal-body">
+      <p class="fl-nota">(*) Campos requeridos</p>
+
+      <div class="fl-form-top">
+        <div class="fl-foto-box">
+          <div class="fl-foto-prev">
+            <img *ngIf="fotoPreview" [src]="fotoPreview" alt="">
+            <i *ngIf="!fotoPreview" class="fa fa-camera"></i>
+          </div>
+          <label class="fl-btn fl-btn-borde fl-btn-sm fl-subir">
+            <input type="file" accept="image/*" (change)="onFoto($event)">
+            <i class="fa fa-upload"></i> {{ fotoPreview ? 'Cambiar foto' : 'Subir foto' }}
+          </label>
+        </div>
+
+        <!-- ── Campos vehículo / maquinaria ── -->
+        <div class="fl-grid3" *ngIf="!esFormEquipo">
+          <label class="fl-campo">
+            <span>Categoría *</span>
+            <select [(ngModel)]="form.categoria" (ngModelChange)="onCategoriaForm()">
+              <option *ngFor="let c of categorias" [value]="c.key">{{ c.nombre }}</option>
+            </select>
+          </label>
+          <label class="fl-campo">
+            <span>Tipo *</span>
+            <select [(ngModel)]="form.tipo">
+              <option *ngFor="let t of tiposParaForm()" [value]="t">{{ t }}</option>
+            </select>
+          </label>
+          <label class="fl-campo" *ngIf="catForm.muestraPatente">
+            <span>{{ catForm.labelPatente }}{{ esReq('patente') ? ' *' : '' }}</span>
+            <input type="text" [(ngModel)]="form.patente" maxlength="12" placeholder="ABCD12" class="fl-mayus">
+          </label>
+
+          <label class="fl-campo">
+            <span>{{ catForm.labelCodigo }}{{ esReq('codigo') ? ' *' : '' }}</span>
+            <input type="text" [(ngModel)]="form.codigo" maxlength="40" class="fl-mayus">
+          </label>
+          <label class="fl-campo">
+            <span>Marca{{ esReq('marca') ? ' *' : '' }}</span>
+            <input type="text" [(ngModel)]="form.marca" list="fl-marcas" class="fl-mayus">
+            <datalist id="fl-marcas">
+              <option *ngFor="let m of marcas" [value]="m"></option>
+            </datalist>
+          </label>
+          <label class="fl-campo">
+            <span>Modelo{{ esReq('modelo') ? ' *' : '' }}</span>
+            <input type="text" [(ngModel)]="form.modelo" class="fl-mayus">
+          </label>
+
+          <label class="fl-campo">
+            <span>Año{{ esReq('anio') ? ' *' : '' }}</span>
+            <input type="number" [(ngModel)]="form.anio" min="1950">
+          </label>
+          <label class="fl-campo">
+            <span>Color{{ esReq('color') ? ' *' : '' }}</span>
+            <input type="text" [(ngModel)]="form.color" class="fl-mayus">
+          </label>
+          <label class="fl-campo">
+            <span>Tipo de combustible{{ esReq('combustible') ? ' *' : '' }}</span>
+            <select [(ngModel)]="form.combustible">
+              <option value="">Seleccionar...</option>
+              <option *ngFor="let c of combustibles" [value]="c">{{ c }}</option>
+            </select>
+          </label>
+
+          <label class="fl-campo">
+            <span>Fecha de inicio{{ esReq('fechaInicio') ? ' *' : '' }}</span>
+            <input type="date" [(ngModel)]="form.fechaInicio">
+          </label>
+          <label class="fl-campo">
+            <span>Fecha de término</span>
+            <input type="date" [(ngModel)]="form.fechaTermino">
+          </label>
+          <label class="fl-campo" *ngIf="catForm.muestraKm">
+            <span>Kilometraje{{ esReq('kilometraje') ? ' *' : '' }}</span>
+            <input type="number" [(ngModel)]="form.kilometraje" min="0">
+          </label>
+          <label class="fl-campo" *ngIf="catForm.muestraHoro">
+            <span>{{ esFormMaq ? 'Km / Horo actual' : 'Horómetro (horas)' }}{{ esReq('horometro') ? ' *' : '' }}</span>
+            <input type="number" [(ngModel)]="form.horometro" min="0" step="0.01">
+          </label>
+
+          <label class="fl-campo">
+            <span>Gerencia</span>
+            <input type="text" [(ngModel)]="form.gerencia" class="fl-mayus">
+          </label>
+          <label class="fl-campo">
+            <span>Nombre servicio</span>
+            <input type="text" [(ngModel)]="form.nombreServicio">
+          </label>
+
+          <!-- Solo maquinaria: control de arriendo y revisiones -->
+          <ng-container *ngIf="esFormMaq">
+            <div class="fl-separador">Arriendo y revisiones</div>
+            <label class="fl-campo">
+              <span>Propiedad</span>
+              <select [(ngModel)]="form.propiedad">
+                <option *ngFor="let p of propiedades" [value]="p">{{ p }}</option>
+              </select>
+            </label>
+            <label class="fl-campo">
+              <span>Contrato</span>
+              <input type="text" [(ngModel)]="form.contrato" placeholder="Ej: N° 8656">
+            </label>
+            <label class="fl-campo">
+              <span>Estado</span>
+              <select [(ngModel)]="form.estadoOperativo">
+                <option *ngFor="let e of estadosOperativos" [value]="e">{{ e }}</option>
+              </select>
+            </label>
+
+            <label class="fl-campo">
+              <span>Km / Horo última revisión</span>
+              <input type="number" [(ngModel)]="form.horoUltRevision" min="0" step="0.01">
+            </label>
+            <label class="fl-campo">
+              <span>Km / Horo próxima revisión</span>
+              <input type="number" [(ngModel)]="form.horoProxRevision" min="0" step="0.01">
+            </label>
+            <label class="fl-campo">
+              <span>Mes revisión técnica</span>
+              <select [(ngModel)]="form.mesRevisionTecnica">
+                <option *ngFor="let m of meses" [value]="m">{{ m }}</option>
+              </select>
+            </label>
+
+            <label class="fl-campo">
+              <span>Mes revisión gases</span>
+              <select [(ngModel)]="form.mesRevisionGases">
+                <option *ngFor="let m of meses" [value]="m">{{ m }}</option>
+              </select>
+            </label>
+            <label class="fl-campo fl-col2">
+              <span>Obs.</span>
+              <input type="text" [(ngModel)]="form.observacion" placeholder="Ej: PlanVE SPA">
+            </label>
+          </ng-container>
+        </div>
+
+        <!-- ── Campos equipo / instrumento ── -->
+        <div class="fl-grid3" *ngIf="esFormEquipo">
+          <label class="fl-campo">
+            <span>Categoría *</span>
+            <select [(ngModel)]="form.categoria" (ngModelChange)="onCategoriaForm()">
+              <option *ngFor="let c of categorias" [value]="c.key">{{ c.nombre }}</option>
+            </select>
+          </label>
+          <label class="fl-campo">
+            <span>N°</span>
+            <input type="text" [(ngModel)]="form.numero" maxlength="10">
+          </label>
+          <label class="fl-campo">
+            <span>Instrumento o equipo *</span>
+            <input type="text" [(ngModel)]="form.nombre" placeholder="Ej: Balanza de piso N°1">
+          </label>
+
+          <label class="fl-campo">
+            <span>Marca - Modelo</span>
+            <input type="text" [(ngModel)]="form.marcaModelo">
+          </label>
+          <label class="fl-campo">
+            <span>N° serie *</span>
+            <input type="text" [(ngModel)]="form.codigo">
+          </label>
+          <label class="fl-campo">
+            <span>Fecha calibración <small>(vacío = N/A)</small></span>
+            <input type="date" [(ngModel)]="form.fechaCalibracion">
+          </label>
+
+          <label class="fl-campo">
+            <span>Fecha certificación *</span>
+            <input type="date" [(ngModel)]="form.fechaCertificacion">
+          </label>
+          <label class="fl-campo">
+            <span>Vencimiento certificación *</span>
+            <input type="date" [(ngModel)]="form.vencimientoCertificacion">
+          </label>
+          <label class="fl-campo">
+            <span>Frecuencia de renovación</span>
+            <input type="text" [(ngModel)]="form.frecuencia" list="fl-frecuencias">
+            <datalist id="fl-frecuencias">
+              <option *ngFor="let f of frecuencias" [value]="f"></option>
+            </datalist>
+          </label>
+
+          <label class="fl-campo">
+            <span>Ubicación</span>
+            <input type="text" [(ngModel)]="form.ubicacion" list="fl-ubicaciones" class="fl-mayus">
+            <datalist id="fl-ubicaciones">
+              <option *ngFor="let u of ubicaciones" [value]="u"></option>
+            </datalist>
+          </label>
+          <label class="fl-campo fl-col2">
+            <span>Observación</span>
+            <input type="text" [(ngModel)]="form.observacion" placeholder="Ej: Informe de Calibración N°1570">
+          </label>
+        </div>
+      </div>
+
+      <label class="fl-check" *ngIf="!esFormEquipo && !esFormMaq && modoForm === 'editar'">
+        <input type="checkbox" [(ngModel)]="form.activo"> Activo
+      </label>
+      <label class="fl-check" *ngIf="esFormEquipo">
+        <input type="checkbox" [ngModel]="form.activo === false" (ngModelChange)="form.activo = !$event"> Retirado (fuera de uso)
+      </label>
+
+      <div class="fl-alerta" *ngIf="errorForm">{{ errorForm }}</div>
+    </div>
+
+    <div class="fl-modal-foot">
+      <button type="button" class="fl-btn fl-btn-rojo fl-foot-izq" *ngIf="modoForm === 'editar'"
+              (click)="eliminarDesdeForm()" [disabled]="guardando || eliminandoId">
+        <i class="fa" [ngClass]="eliminandoId ? 'fa-spinner fa-spin' : 'fa-trash'"></i> Eliminar
+      </button>
+      <button type="button" class="fl-btn fl-btn-gris" (click)="cerrarForm()" [disabled]="guardando">Cancelar</button>
+      <button type="button" class="fl-btn fl-btn-azul" (click)="guardar()" [disabled]="guardando">
+        <i class="fa" [ngClass]="guardando ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+        {{ guardando ? 'Guardando...' : 'Guardar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════ Modal importar desde Excel (equipos) ═════════════ -->
+<div class="fl-modal-fondo" *ngIf="importAbierto">
+  <div class="fl-modal fl-modal-xl">
+    <div class="fl-modal-head">
+      <h3><i class="fa fa-file-excel-o"></i> Importar {{ importCat === 'maquinaria' ? 'maquinarias' : importCat === 'mantenimiento' ? 'mantenciones' : 'equipos' }} desde Excel</h3>
+      <button type="button" class="fl-cerrar" (click)="cerrarImport()" [disabled]="importando">&times;</button>
+    </div>
+
+    <div class="fl-modal-body">
+      <p class="fl-nota" *ngIf="importCat === 'mantenimiento'">
+        Selecciona en Excel la planilla <strong>incluyendo la fila de encabezado</strong> (Patente, Nº DOC., Modelo, Tipo de Mantención,
+        Kilometraje, Nº Factura, Monto, Nombre Mecánico, Fecha), cópiala (Ctrl+C) y pégala aquí (Ctrl+V).
+        Las columnas vacías entre medio no importan. Si el kilometraje viene vacío se saca del texto (ej: "MANTENCION 110.000 KLMS").
+        Los registros que ya existen (mismo N° doc. y patente) se omiten.
+      </p>
+      <p class="fl-nota" *ngIf="importCat !== 'maquinaria' && importCat !== 'mantenimiento'">
+        Selecciona en Excel las columnas desde <strong>N°</strong> hasta <strong>OBSERVACIÓN</strong> (puede ir con encabezado),
+        cópialas (Ctrl+C) y pégalas aquí (Ctrl+V). Las filas sin N° toman el N° de la fila de arriba.
+        "Días disponibles" y "Estado" se calculan solos (salvo "Retirado"). Los equipos que ya existen (mismo nombre y N° serie) se omiten.
+      </p>
+      <p class="fl-nota" *ngIf="importCat === 'maquinaria'">
+        Selecciona en Excel las columnas desde <strong>PATENTE</strong> hasta <strong>ESTADO</strong> (puede ir con el título y encabezado),
+        cópialas (Ctrl+C) y pégalas aquí (Ctrl+V). El "ID UNIDAD" se separa en marca (primera palabra) y modelo.
+        Las patentes que ya existen se omiten.
+      </p>
+      <textarea class="fl-import-txt" [(ngModel)]="textoImport" (ngModelChange)="parsearImport()"
+                placeholder="Pega aquí las filas copiadas desde Excel..."></textarea>
+
+      <div class="fl-alerta" *ngIf="msgImport">{{ msgImport }}</div>
+
+      <ng-container *ngIf="filasImport.length">
+        <div class="fl-import-resumen">
+          <strong>{{ filasImport.length }}</strong> filas leídas ·
+          <strong class="fl-txt-ok">{{ filasNuevasImport.length }}</strong> nuevas ·
+          <strong class="fl-txt-warn">{{ filasImport.length - filasNuevasImport.length }}</strong> ya existen (se omiten)
+        </div>
+        <div class="fl-tabla-wrap fl-import-prev" *ngIf="importCat === 'maquinaria'">
+          <table class="fl-tabla fl-tabla-eq">
+            <thead>
+              <tr>
+                <th>Patente</th><th>Marca</th><th>Modelo</th><th>Tipo</th><th>Km / Horo actual</th>
+                <th>Últ. revisión</th><th>Próx. revisión</th><th>Mes rev. técnica</th><th>Mes rev. gases</th>
+                <th>Contrato</th><th>Obs.</th><th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let f of filasImport" [class.fl-fila-dup]="f._dup">
+                <td>{{ f.patente }} <small *ngIf="f._dup" class="fl-txt-warn">(ya existe)</small></td>
+                <td>{{ f.marca }}</td>
+                <td>{{ f.modelo }}</td>
+                <td>{{ f.tipo }}</td>
+                <td class="fl-dias">{{ fmtNum(f.horometro) }}</td>
+                <td class="fl-dias">{{ fmtNum(f.horoUltRevision) }}</td>
+                <td class="fl-dias">{{ fmtNum(f.horoProxRevision) }}</td>
+                <td>{{ f.mesRevisionTecnica }}</td>
+                <td>{{ f.mesRevisionGases }}</td>
+                <td>{{ f.contrato }}</td>
+                <td>{{ f.observacion }}</td>
+                <td><span class="fl-chip" [ngClass]="claseEstadoOp(f.estadoOperativo)">{{ f.estadoOperativo }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fl-tabla-wrap fl-import-prev" *ngIf="importCat === 'mantenimiento'">
+          <table class="fl-tabla fl-tabla-eq">
+            <thead>
+              <tr>
+                <th>N° doc.</th><th>Fecha</th><th>Patente</th><th>Modelo</th><th>Tipo de mantención</th><th>Clasificación</th>
+                <th>Km</th><th>N° factura</th><th>Monto</th><th>Mecánico / taller</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let f of filasImport" [class.fl-fila-dup]="f._dup">
+                <td class="fl-num">{{ f.numeroDoc }}</td>
+                <td class="fl-nowrap">{{ formatoFecha(f.fecha) }}</td>
+                <td>{{ f.patente }} <small *ngIf="f._dup" class="fl-txt-warn">(ya existe)</small></td>
+                <td>{{ f.modelo }}</td>
+                <td class="fl-trabajo" [title]="f.tipoMantencion">{{ f.tipoMantencion }}</td>
+                <td><span class="fl-chip" [ngClass]="claseClasMant(f.clasificacion)">{{ f.clasificacion }}</span></td>
+                <td class="fl-dias">{{ f.kilometraje === '' ? '—' : fmtNum(f.kilometraje) }}</td>
+                <td>{{ f.factura }}</td>
+                <td class="fl-dias fl-nowrap">{{ fmtMonto(f.monto) }}</td>
+                <td>{{ f.taller }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fl-tabla-wrap fl-import-prev" *ngIf="importCat !== 'maquinaria' && importCat !== 'mantenimiento'">
+          <table class="fl-tabla fl-tabla-eq">
+            <thead>
+              <tr>
+                <th>N°</th><th>Instrumento o equipo</th><th>Marca - Modelo</th><th>N° serie</th>
+                <th>Calibración</th><th>Certificación</th><th>Vencimiento</th><th>Estado</th>
+                <th>Frecuencia</th><th>Ubicación</th><th>Observación</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let f of filasImport" [class.fl-fila-dup]="f._dup">
+                <td class="fl-num">{{ f.numero }}</td>
+                <td>{{ f.nombre }} <small *ngIf="f._dup" class="fl-txt-warn">(ya existe)</small></td>
+                <td>{{ f.marcaModelo }}</td>
+                <td>{{ f.codigo }}</td>
+                <td>{{ formatoFecha(f.fechaCalibracion, 'N/A') }}</td>
+                <td>{{ formatoFecha(f.fechaCertificacion) }}</td>
+                <td>{{ formatoFecha(f.vencimientoCertificacion) }}</td>
+                <td><span class="fl-chip" [ngClass]="'fl-chip-' + f._estado.codigo">{{ f._estado.texto }}</span></td>
+                <td>{{ f.frecuencia }}</td>
+                <td>{{ f.ubicacion }}</td>
+                <td>{{ f.observacion }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+    </div>
+
+    <div class="fl-modal-foot">
+      <button type="button" class="fl-btn fl-btn-gris" (click)="cerrarImport()" [disabled]="importando">Cancelar</button>
+      <button type="button" class="fl-btn fl-btn-azul" (click)="importar()" [disabled]="importando || !filasNuevasImport.length">
+        <i class="fa" [ngClass]="importando ? 'fa-spinner fa-spin' : 'fa-upload'"></i>
+        {{ importando ? 'Importando...' : 'Importar ' + filasNuevasImport.length + (importCat === 'maquinaria' ? ' maquinaria(s)' : importCat === 'mantenimiento' ? ' registro(s)' : ' equipo(s)') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════ Modal detalle ═════════════ -->
+<div class="fl-modal-fondo" *ngIf="detalleAbierto && vehSel">
+  <div class="fl-modal fl-modal-xl">
+    <div class="fl-modal-head">
+      <div>
+        <h3>{{ titulo(vehSel) }}</h3>
+        <small>Detalle de {{ cat(vehSel.categoria).singular }} · {{ ident(vehSel) || 'sin identificador' }}</small>
+      </div>
+      <div class="fl-head-acc">
+        <button type="button" class="fl-btn fl-btn-blanco fl-btn-sm" (click)="editarDesdeDetalle()">
+          <i class="fa fa-pencil"></i> Editar
+        </button>
+        <button type="button" class="fl-cerrar" (click)="cerrarDetalle()">&times;</button>
+      </div>
+    </div>
+
+    <div class="fl-modal-body fl-detalle">
+      <!-- Ficha -->
+      <aside class="fl-ficha">
+        <div class="fl-ficha-foto">
+          <img *ngIf="vehSel.fotoUrl" [src]="vehSel.fotoUrl" alt="">
+          <i *ngIf="!vehSel.fotoUrl" class="fa" [ngClass]="cat(vehSel.categoria).icono"></i>
+        </div>
+
+        <!-- Ficha vehículo / maquinaria -->
+        <ng-container *ngIf="vehSel.categoria !== 'equipo'">
+          <div class="fl-ficha-acred" [ngClass]="vehSel._acreditado ? 'fl-ficha-ok' : 'fl-ficha-mal'">
+            <strong>{{ vehSel._pct }}%</strong>
+            <span>{{ vehSel._acreditado ? 'Acreditado' : 'No acreditado' }}</span>
+          </div>
+          <dl>
+            <dt>Categoría</dt><dd>{{ cat(vehSel.categoria).nombre }}</dd>
+            <dt>Tipo</dt><dd>{{ vehSel.tipo || '—' }}</dd>
+            <ng-container *ngIf="cat(vehSel.categoria).muestraPatente">
+              <dt>Patente</dt><dd>{{ vehSel.patente || '—' }}</dd>
+            </ng-container>
+            <dt>{{ cat(vehSel.categoria).labelCodigo }}</dt><dd>{{ vehSel.codigo || '—' }}</dd>
+            <dt>Marca / Modelo</dt><dd>{{ vehSel.marca }} {{ vehSel.modelo }}</dd>
+            <dt>Año</dt><dd>{{ vehSel.anio || '—' }}</dd>
+            <dt>Color</dt><dd>{{ vehSel.color || '—' }}</dd>
+            <dt>Combustible</dt><dd>{{ vehSel.combustible || '—' }}</dd>
+            <ng-container *ngIf="cat(vehSel.categoria).muestraKm">
+              <dt>Kilometraje</dt><dd>{{ (vehSel.kilometraje || 0) | number:'1.0-0' }} km</dd>
+            </ng-container>
+            <ng-container *ngIf="cat(vehSel.categoria).muestraHoro">
+              <dt>{{ vehSel.categoria === 'maquinaria' ? 'Km / Horo actual' : 'Horómetro' }}</dt><dd>{{ fmtNum(vehSel.horometro) }}</dd>
+            </ng-container>
+            <dt>Gerencia</dt><dd>{{ vehSel.gerencia || '—' }}</dd>
+            <dt>Nombre servicio</dt><dd>{{ vehSel.nombreServicio || '—' }}</dd>
+            <dt>Fecha de inicio</dt><dd>{{ formatoFecha(vehSel.fechaInicio) }}</dd>
+            <dt>Fecha de término</dt><dd>{{ formatoFecha(vehSel.fechaTermino) }}</dd>
+            <ng-container *ngIf="vehSel.categoria !== 'maquinaria'">
+              <dt>Estado</dt><dd>{{ vehSel.activo === false ? 'Inactivo' : 'Activo' }}</dd>
+            </ng-container>
+            <ng-container *ngIf="vehSel.categoria === 'maquinaria'">
+              <dt>Estado</dt><dd><span class="fl-chip" [ngClass]="claseEstadoOp(vehSel._estadoOp)">{{ vehSel._estadoOp }}</span></dd>
+              <dt>Propiedad</dt><dd>{{ vehSel.propiedad || '—' }}</dd>
+              <dt>Contrato</dt><dd>{{ vehSel.contrato || '—' }}</dd>
+              <dt>Km / Horo última revisión</dt><dd>{{ fmtNum(vehSel.horoUltRevision) }}</dd>
+              <dt>Km / Horo próxima revisión</dt>
+              <dd>
+                {{ fmtNum(vehSel.horoProxRevision) }}
+                <small *ngIf="vehSel._horasFalta !== null"
+                       [ngClass]="vehSel._revEstado === 'vencido' ? 'fl-txt-mal' : vehSel._revEstado === 'porvencer' ? 'fl-txt-warn' : 'fl-txt-ok'">
+                  ({{ vehSel._horasFalta <= 0 ? 'pasada por ' + fmtNum(-vehSel._horasFalta) : 'faltan ' + fmtNum(vehSel._horasFalta) }})
+                </small>
+              </dd>
+              <dt>Mes revisión técnica</dt><dd>{{ vehSel.mesRevisionTecnica || 'N/A' }}</dd>
+              <dt>Mes revisión gases</dt><dd>{{ vehSel.mesRevisionGases || 'N/A' }}</dd>
+              <dt>Obs.</dt><dd>{{ vehSel.observacion || '—' }}</dd>
+            </ng-container>
+          </dl>
+        </ng-container>
+
+        <!-- Ficha equipo -->
+        <ng-container *ngIf="vehSel.categoria === 'equipo'">
+          <div class="fl-ficha-acred" [ngClass]="'fl-ficha-' + vehSel._estadoEq.codigo">
+            <strong>{{ vehSel._dias === null ? '—' : vehSel._dias }}</strong>
+            <span>{{ vehSel._estadoEq.texto }} · días disp.</span>
+          </div>
+          <dl>
+            <dt>N°</dt><dd>{{ vehSel.numero || '—' }}</dd>
+            <dt>Instrumento o equipo</dt><dd>{{ vehSel.nombre }}</dd>
+            <dt>Marca - Modelo</dt><dd>{{ vehSel.marcaModelo || '—' }}</dd>
+            <dt>N° serie</dt><dd>{{ vehSel.codigo || '—' }}</dd>
+            <dt>Fecha calibración</dt><dd>{{ formatoFecha(vehSel.fechaCalibracion, 'N/A') }}</dd>
+            <dt>Fecha certificación</dt><dd>{{ formatoFecha(vehSel.fechaCertificacion) }}</dd>
+            <dt>Vencimiento certificación</dt><dd>{{ formatoFecha(vehSel.vencimientoCertificacion) }}</dd>
+            <dt>Frecuencia de renovación</dt><dd>{{ vehSel.frecuencia || '—' }}</dd>
+            <dt>Ubicación</dt><dd>{{ vehSel.ubicacion || '—' }}</dd>
+            <dt>Observación</dt><dd>{{ vehSel.observacion || '—' }}</dd>
+          </dl>
+        </ng-container>
+      </aside>
+
+      <!-- Documentos -->
+      <div class="fl-docs">
+        <h4 class="fl-docs-tit"><i class="fa fa-folder-open"></i> Documentos</h4>
+        <div class="fl-alerta" *ngIf="msgDetalle">{{ msgDetalle }}</div>
+
+        <div class="fl-docs-grid">
+          <div class="fl-doc" *ngFor="let t of docsSel">
+            <ng-container *ngIf="estadoDoc(vehSel, t) as st">
+              <div class="fl-doc-head" [ngClass]="'fl-borde-' + st.codigo">
+                <span class="fl-doc-ico"><i class="fa" [ngClass]="t.icono"></i></span>
+                <div class="fl-doc-tit">
+                  <strong>{{ t.nombre }}</strong>
+                  <span class="fl-estado" [ngClass]="'fl-estado-' + st.codigo">{{ st.texto }}</span>
+                </div>
+                <label class="fl-na" *ngIf="t.requerido" title="Marcar si este documento no aplica">
+                  <input type="checkbox" [checked]="docDe(vehSel, t.key).noAplica" (change)="toggleNoAplica(t, $event.target.checked)">
+                  No aplica
+                </label>
+              </div>
+
+              <div class="fl-doc-body" *ngIf="!docDe(vehSel, t.key).noAplica">
+                <div class="fl-doc-fechas" *ngIf="t.vence">
+                  <label>
+                    <span>Emisión</span>
+                    <input type="date" [(ngModel)]="fechasEdit[t.key].fechaEmision">
+                  </label>
+                  <label>
+                    <span>Vencimiento</span>
+                    <input type="date" [(ngModel)]="fechasEdit[t.key].fechaVencimiento">
+                  </label>
+                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" title="Guardar fechas"
+                          [disabled]="!fechasCambiadas(t)" (click)="guardarFechas(t)">
+                    <i class="fa fa-save"></i>
+                  </button>
+                </div>
+
+                <input *ngIf="t.key === 'otros'" type="text" class="fl-otro-desc" [(ngModel)]="descOtro"
+                       placeholder="Descripción (ej: Certificación SEC N° 29261)">
+
+                <ul class="fl-archivos">
+                  <li *ngFor="let a of archivosOrdenados(vehSel, t.key); let i = index; trackBy: trackByPath">
+                    <i class="fa fa-file-o"></i>
+                    <a [href]="a.url" target="_blank" rel="noopener" [title]="a.nombre">{{ a.descripcion || a.nombre }}</a>
+                    <span class="fl-tag" *ngIf="i === 0 && t.key !== 'otros'">Actual</span>
+                    <small>{{ a.subido | date:'dd/MM/yyyy' }}</small>
+                    <button type="button" class="fl-icono-btn" title="Eliminar" (click)="eliminarArchivo(t, a)">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </li>
+                  <li class="fl-sin" *ngIf="!archivosDe(vehSel, t.key).length">Sin archivos</li>
+                </ul>
+
+                <label class="fl-btn fl-btn-borde fl-btn-sm fl-subir" [class.fl-disabled]="subiendo[t.key]">
+                  <input type="file" (change)="subirDoc(t, $event)" [disabled]="subiendo[t.key]">
+                  <i class="fa" [ngClass]="subiendo[t.key] ? 'fa-spinner fa-spin' : 'fa-upload'"></i>
+                  {{ subiendo[t.key] ? 'Subiendo...' : 'Subir archivo' }}
+                </label>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+
+        <!-- Historial de mantenciones (vehículos y maquinarias con patente) -->
+        <ng-container *ngIf="vehSel.categoria !== 'equipo'">
+          <div class="fl-mant-head">
+            <h4 class="fl-docs-tit"><i class="fa fa-wrench"></i> Mantenciones</h4>
+            <span class="fl-mant-total" *ngIf="mantSel.length">
+              {{ mantSel.length }} registro(s) · {{ fmtMonto(totalMonto(mantSel)) }}
+            </span>
+            <button type="button" class="fl-btn fl-btn-borde fl-btn-sm" (click)="nuevaMant(vehSel)" [disabled]="!vehSel.patente"
+                    [title]="vehSel.patente ? '' : 'Este registro no tiene patente'">
+              <i class="fa fa-plus"></i> Registrar mantención
+            </button>
+          </div>
+          <div class="fl-tabla-wrap" *ngIf="mantSel.length">
+            <table class="fl-tabla fl-tabla-eq">
+              <thead>
+                <tr><th>N° doc.</th><th>Fecha</th><th>Trabajo</th><th>Km</th><th>Monto</th><th>Taller</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let m of mantSel; trackBy: trackById">
+                  <td class="fl-num">{{ m.numeroDoc || '—' }}</td>
+                  <td class="fl-nowrap">{{ formatoFecha(m.fecha) }}</td>
+                  <td class="fl-trabajo" [title]="m.tipoMantencion">{{ m.tipoMantencion }}</td>
+                  <td class="fl-dias">{{ m.kilometraje === '' || m.kilometraje === null || m.kilometraje === undefined ? '—' : fmtNum(m.kilometraje) }}</td>
+                  <td class="fl-dias fl-nowrap">{{ fmtMonto(m.monto) }}</td>
+                  <td>{{ m.taller || '—' }}</td>
+                  <td class="fl-acc">
+                    <button type="button" class="fl-icono-btn fl-icono-azul" title="Editar" (click)="editarMant(m)"><i class="fa fa-pencil"></i></button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="fl-sin-mant" *ngIf="!mantSel.length">Sin mantenciones registradas para esta patente.</p>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════ Modal mantención ═════════════ -->
+<div class="fl-modal-fondo" *ngIf="formMantAbierto">
+  <div class="fl-modal">
+    <div class="fl-modal-head">
+      <h3><i class="fa fa-wrench"></i> {{ formMant.id ? 'Editar' : 'Registrar' }} mantención</h3>
+      <button type="button" class="fl-cerrar" (click)="cerrarFormMant()" [disabled]="guardandoMant">&times;</button>
+    </div>
+
+    <div class="fl-modal-body">
+      <p class="fl-nota">(*) Campos requeridos</p>
+      <div class="fl-grid3">
+        <label class="fl-campo">
+          <span>N° doc.</span>
+          <input type="text" [(ngModel)]="formMant.numeroDoc" maxlength="10">
+        </label>
+        <label class="fl-campo">
+          <span>Fecha *</span>
+          <input type="date" [(ngModel)]="formMant.fecha">
+        </label>
+        <label class="fl-campo">
+          <span>Patente *</span>
+          <input type="text" [ngModel]="formMant.patente" (ngModelChange)="formMant.patente = $event; onPatenteMant()"
+                 list="fl-pat-mant" class="fl-mayus">
+          <datalist id="fl-pat-mant">
+            <option *ngFor="let p of patentesMant" [value]="p"></option>
+          </datalist>
+        </label>
+
+        <label class="fl-campo">
+          <span>Modelo <small *ngIf="formMant.modeloAuto && formMant.modelo" class="fl-auto">(automático)</small></span>
+          <input type="text" [ngModel]="formMant.modelo" (ngModelChange)="onModeloMant($event)"
+                 [class.fl-input-auto]="formMant.modeloAuto && formMant.modelo">
+        </label>
+        <label class="fl-campo">
+          <span>Clasificación</span>
+          <select [(ngModel)]="formMant.clasificacion" (ngModelChange)="formMant.clasManual = true">
+            <option *ngFor="let c of clasificacionesMant" [value]="c">{{ c }}</option>
+          </select>
+        </label>
+        <label class="fl-campo">
+          <span>Kilometraje</span>
+          <input type="number" [(ngModel)]="formMant.kilometraje" min="0">
+        </label>
+
+        <label class="fl-campo fl-col3">
+          <span>Tipo de mantención *</span>
+          <textarea rows="2" [(ngModel)]="formMant.tipoMantencion" (ngModelChange)="onTipoMant()"
+                    placeholder="Ej: MANTENCIÓN 110.000 KMS, cambio pastillas y discos de freno"></textarea>
+        </label>
+
+        <label class="fl-campo">
+          <span>N° factura</span>
+          <input type="text" [(ngModel)]="formMant.factura" placeholder="Ej: 739, boleta, PEND.">
+        </label>
+        <label class="fl-campo">
+          <span>Monto ($)</span>
+          <input type="number" [(ngModel)]="formMant.monto" min="0">
+        </label>
+        <label class="fl-campo">
+          <span>Nombre mecánico / taller</span>
+          <input type="text" [(ngModel)]="formMant.taller" list="fl-talleres">
+          <datalist id="fl-talleres">
+            <option *ngFor="let t of talleresMant" [value]="t"></option>
+          </datalist>
+        </label>
+      </div>
+
+      <!-- Adjuntos -->
+      <div class="fl-mant-adj">
+        <span class="fl-mant-adj-tit"><i class="fa fa-paperclip"></i> Adjuntos (factura, boleta, informe...)</span>
+        <ul class="fl-archivos">
+          <li *ngFor="let a of formMant.adjuntos; trackBy: trackByPath">
+            <i class="fa fa-file-o"></i>
+            <a [href]="a.url" target="_blank" rel="noopener">{{ a.nombre }}</a>
+            <small>{{ a.subido | date:'dd/MM/yyyy' }}</small>
+            <button type="button" class="fl-icono-btn" title="Quitar" (click)="quitarAdjuntoMant(a)"><i class="fa fa-trash"></i></button>
+          </li>
+          <li *ngFor="let f of archivosMantNuevos; let i = index">
+            <i class="fa fa-file-o"></i>
+            <span class="fl-nuevo-arch">{{ f.name }}</span>
+            <span class="fl-tag">Nuevo</span>
+            <button type="button" class="fl-icono-btn" title="Quitar" (click)="quitarArchivoNuevoMant(i)"><i class="fa fa-times"></i></button>
+          </li>
+          <li class="fl-sin" *ngIf="!formMant.adjuntos.length && !archivosMantNuevos.length">Sin adjuntos</li>
+        </ul>
+        <label class="fl-btn fl-btn-borde fl-btn-sm fl-subir">
+          <input type="file" multiple (change)="onArchivosMant($event)">
+          <i class="fa fa-upload"></i> Agregar archivos
+        </label>
+      </div>
+
+      <div class="fl-alerta" *ngIf="errorFormMant">{{ errorFormMant }}</div>
+    </div>
+
+    <div class="fl-modal-foot">
+      <button type="button" class="fl-btn fl-btn-rojo fl-foot-izq" *ngIf="formMant.id"
+              (click)="eliminarMantDesdeForm()" [disabled]="guardandoMant">
+        <i class="fa fa-trash"></i> Eliminar
+      </button>
+      <button type="button" class="fl-btn fl-btn-gris" (click)="cerrarFormMant()" [disabled]="guardandoMant">Cancelar</button>
+      <button type="button" class="fl-btn fl-btn-azul" (click)="guardarMant()" [disabled]="guardandoMant">
+        <i class="fa" [ngClass]="guardandoMant ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+        {{ guardandoMant ? 'Guardando...' : 'Guardar' }}
+      </button>
+    </div>
+  </div>
+</div>
