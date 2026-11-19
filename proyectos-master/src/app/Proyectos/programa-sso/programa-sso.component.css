@@ -2346,3 +2346,25 @@ thead .pan-fijo-1, thead .pan-fijo-2 { z-index: 3; }
 @media (max-width: 1199px) {
   .pan-resumen, .pan-resumen.pan-resumen-uno { grid-template-columns: 1fr 1fr; }
 }
+
+/* ===================== Relojes "HH del día" en la franja del ítem de capacitación ===================== */
+.psso-tabla tbody tr.fila-grupo-hh td.celda-hh {
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+/* la barrita azul del ítem solo en la primera celda, no en cada día */
+.psso-tabla tbody tr.fila-grupo-hh td.celda-hh:not(.dia-rojo):not(.dia-hoy),
+.psso-tabla tbody tr.fila-grupo-hh td.celda-hh-pie { box-shadow: none; }
+.psso-tabla tbody tr.fila-grupo-hh td.celda-hh-pie { padding: 0 10px; text-align: right; }
+.fila-grupo-hh .dia-hh { display: inline-flex; margin: 0; vertical-align: middle; background: #fff; }
+.fila-grupo-hh .dia-hh.con-hh { background: #075f91; }
+.fila-grupo-hh .hh-seccion-total { background: #fff; }
+
+/* Relojes de la franja de capacitación en naranjo */
+.fila-grupo-hh .dia-hh { border-color: #f5c9a6; color: #e07b24; }
+.fila-grupo-hh .dia-hh:hover { border-color: #e07b24; background: #fff3e8; color: #c9651a; }
+.fila-grupo-hh .dia-hh.con-hh { border-color: #e07b24; background: #f58941; color: #fff; }
+.fila-grupo-hh .dia-hh:focus { box-shadow: 0 0 0 2px rgba(245, 137, 65, .3); }
+.fila-grupo-hh .hh-seccion-total { background: #fff3e8; color: #c9651a; }
+.psso-leyenda .dia-hh.con-hh { border-color: #e07b24; background: #f58941; color: #fff; }

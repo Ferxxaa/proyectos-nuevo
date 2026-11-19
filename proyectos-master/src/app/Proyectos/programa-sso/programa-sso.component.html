@@ -483,7 +483,7 @@
             <ng-container *ngFor="let g of grupos; trackBy: trackGrupo">
 
               <!-- Ítem -->
-              <tr class="fila-grupo">
+              <tr class="fila-grupo" *ngIf="!grupoConRelojes(g)">
                 <td [attr.colspan]="totalColumnas">
                   <div class="grupo-cabecera">
                     <span class="grupo-nombre">{{ g.nombre }}</span>
@@ -496,26 +496,27 @@
                 </td>
               </tr>
 
-              <!-- Programa MA: una fila de relojes "HH del día" (trabajadas + operacionales + específicas) -->
-              <tr *ngIf="mostrarHHDia && filaHHGeneral && g.nombre === grupoHHGeneral" class="fila-seccion fila-seccion-hh">
+              <!-- Ítem de capacitación: en la misma franja va un reloj por día con las HH del día
+                   (trabajadas + operacionales + específicas, todo en un solo popup) -->
+              <tr class="fila-grupo fila-seccion-hh fila-grupo-hh" *ngIf="grupoConRelojes(g)">
                 <td colspan="2">
-                  <div class="seccion-cabecera">
-                    <span class="seccion-nombre">HH del día</span>
-                    <span class="grupo-cantidad">trabajadas y capacitación</span>
+                  <div class="grupo-cabecera">
+                    <span class="grupo-nombre">{{ g.nombre }}</span>
+                    <span class="grupo-cantidad">{{ g.filas.length }} {{ g.filas.length === 1 ? 'actividad' : 'actividades' }}</span>
+                    <span class="pct" [ngClass]="claseSemaforo(g.pct)">{{ g.pct === null ? 'Sin programar' : g.pct + '%' }}</span>
                   </div>
                 </td>
                 <td *ngFor="let d of dias; trackBy: trackDia" class="col-dia celda celda-hh"
-                    style="padding: 0; text-align: center; vertical-align: middle;"
                     [class.dia-rojo]="d.rojo" [class.dia-hoy]="d.hoy">
-                  <button type="button" class="dia-hh" style="display: inline-flex; margin: 0; vertical-align: middle;"
+                  <button type="button" class="dia-hh"
                           [class.con-hh]="tieneHHDiaGeneral(d.dia)"
-                          [title]="(tieneHHDiaGeneral(d.dia) ? 'Ver / editar' : 'Registrar') + ' HH del día ' + d.dia"
+                          [title]="(tieneHHDiaGeneral(d.dia) ? 'Ver / editar' : 'Registrar') + ' HH del día ' + d.dia + ' (trabajadas, operacionales y específicas)'"
                           (click)="abrirHHDia(d.dia, false, true)">
                     <i class="fa fa-clock-o" aria-hidden="true"></i>
                   </button>
                 </td>
                 <td class="col-avance celda-hh-pie">
-                  <span class="hh-seccion-total" *ngIf="totalHHGeneral()">
+                  <span class="hh-seccion-total" *ngIf="totalHHGeneral()" title="HH de capacitación del mes (operacionales + específicas)">
                     <i class="fa fa-clock-o" aria-hidden="true"></i> {{ totalHHGeneral() }}
                   </span>
                 </td>
@@ -523,8 +524,8 @@
 
               <!-- Secciones del ítem (subtítulos) y sus actividades -->
               <ng-container *ngFor="let s of g.secciones; trackBy: trackSeccion">
-                <!-- Sección normal -->
-                <tr *ngIf="s.nombre && !seccionConHH(s)" class="fila-seccion">
+                <!-- Sección (subtítulo) -->
+                <tr *ngIf="s.nombre" class="fila-seccion">
                   <td [attr.colspan]="totalColumnas">
                     <div class="seccion-cabecera">
                       <span class="seccion-nombre">{{ s.nombre }}</span>
@@ -533,31 +534,6 @@
                     </div>
                   </td>
                 </tr>
-                <!-- Capacitación Operacional / Específicas: un reloj por día para las HH del día -->
-                <tr *ngIf="s.nombre && seccionConHH(s)" class="fila-seccion fila-seccion-hh">
-                  <td colspan="2">
-                    <div class="seccion-cabecera">
-                      <span class="seccion-nombre">{{ s.nombre }}</span>
-                      <span class="grupo-cantidad">{{ s.filas.length }} {{ s.filas.length === 1 ? 'actividad' : 'actividades' }}</span>
-                      <span class="pct" [ngClass]="claseSemaforo(s.pct)">{{ s.pct === null ? 'Sin programar' : s.pct + '%' }}</span>
-                    </div>
-                  </td>
-                  <td *ngFor="let d of dias; trackBy: trackDia" class="col-dia celda celda-hh"
-                      style="padding: 0; text-align: center; vertical-align: middle;"
-                      [class.dia-rojo]="d.rojo" [class.dia-hoy]="d.hoy">
-                    <button type="button" class="dia-hh" style="display: inline-flex; margin: 0; vertical-align: middle;" [class.con-hh]="tieneHHDia(d.dia, esSeccionEspecifica(s))"
-                            [title]="textoBotonHH(d.dia, esSeccionEspecifica(s))"
-                            (click)="abrirHHDia(d.dia, esSeccionEspecifica(s))">
-                      <i class="fa fa-clock-o" aria-hidden="true"></i>
-                    </button>
-                  </td>
-                  <td class="col-avance celda-hh-pie">
-                    <span class="hh-seccion-total" *ngIf="totalHHSeccion(esSeccionEspecifica(s))">
-                      <i class="fa fa-clock-o" aria-hidden="true"></i> {{ totalHHSeccion(esSeccionEspecifica(s)) }}
-                    </span>
-                  </td>
-                </tr>
-
                 <tr *ngFor="let f of s.filas; trackBy: trackFila" class="fila-act">
                   <td class="col-act sticky-1">
                     <span *ngIf="!enEdicion" class="act-nombre" [title]="f.act.nombre">{{ f.act.nombre }}</span>
@@ -646,7 +622,7 @@
         <span><i class="marca m-azul"><em class="marca-clip"></em></i> Con adjuntos</span>
         <span><i class="ley-rojo"></i> Fin de semana o feriado</span>
         <span><i class="ley-hoy"></i> Hoy</span>
-        <span *ngIf="mostrarHHDia"><i class="dia-hh dia-hh-ley con-hh"><b class="fa fa-clock-o"></b></i> HH del día registradas (fila de la sección)</span>
+        <span *ngIf="mostrarHHDia"><i class="dia-hh dia-hh-ley con-hh"><b class="fa fa-clock-o"></b></i> HH del día registradas (franja del ítem de capacitación)</span>
       </div>
     </div>
 
@@ -658,7 +634,7 @@
       <header class="psso-modal-cab">
         <div class="psso-modal-cab-texto">
           <span class="psso-modal-kicker">{{ hhDia.soloLectura ? 'Detalle' : 'Registrar' }} · HH del día</span>
-          <h6 id="phd-titulo">{{ hhDia.ambas ? 'HH del día · Programa MA' : (hhDia.especifica ? 'Capacitaciones Específicas' : 'Capacitación Operacional') }}</h6>
+          <h6 id="phd-titulo">{{ hhDia.ambas ? (esMA ? 'HH del día · Programa MA' : 'HH del día · Capacitación y charlas') : (hhDia.especifica ? 'Capacitaciones Específicas' : 'Capacitación Operacional') }}</h6>
           <p><i class="fa fa-calendar" aria-hidden="true"></i> {{ hhDia.fechaTexto }}</p>
         </div>
         <button type="button" class="psso-modal-cerrar" (click)="cerrarHHDia()" title="Cerrar" aria-label="Cerrar">
@@ -669,15 +645,15 @@
       <div class="psso-modal-cuerpo">
         <p class="preg-ayuda">
           <i class="fa fa-info-circle" aria-hidden="true"></i>
-          <span *ngIf="!hhDia.ambas">Se anota <b>una sola vez por día</b>, no en cada actividad. El N° de trabajadores y las HH trabajadas son las mismas para operacionales y específicas.</span>
-          <span *ngIf="hhDia.ambas">Anota aquí las <b>HH de capacitación</b> de Medio Ambiente de este día (se suman a las del SSO). Las HH trabajadas van abajo y solo cuentan si el Programa SSO no las tiene ese día.</span>
+          <span *ngIf="!hhDia.ambas || !esMA">Se anota <b>una sola vez por día</b>, no en cada actividad. El N° de trabajadores y las HH trabajadas son las mismas para operacionales y específicas.</span>
+          <span *ngIf="hhDia.ambas && esMA">Anota aquí las <b>HH de capacitación</b> de Medio Ambiente de este día (se suman a las del SSO). Las HH trabajadas van abajo y solo cuentan si el Programa SSO no las tiene ese día.</span>
         </p>
         <p class="preg-ayuda phd-aviso-ma" *ngIf="esMA && !hhDia.ambas">
           <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
           <span>Si ese día el <b>Programa SSO</b> ya tiene HH trabajadas, en los consolidados <b>mandan las del SSO</b> (las de MA no se suman dos veces). La capacitación de MA sí se suma.</span>
         </p>
 
-        <div class="phd-bloque" *ngIf="!hhDia.ambas">
+        <div class="phd-bloque" *ngIf="!hhDia.ambas || !esMA">
           <span class="phd-bloque-titulo"><i class="fa fa-users" aria-hidden="true"></i> Trabajo del día</span>
           <div class="phh-fila">
             <label class="phh-etiqueta" for="phd-ntrab">N° de trabajadores</label>
@@ -688,7 +664,7 @@
             </div>
           </div>
           <div class="phh-fila">
-            <label class="phh-etiqueta" for="phd-hhtrab">HH trabajadas</label>
+            <label class="phh-etiqueta" for="phd-hhtrab">HH totales día</label>
             <div class="phh-campos">
               <input id="phd-hhtrab" type="text" inputmode="decimal" placeholder="0" name="phdHHTrab" autocomplete="off"
                      [(ngModel)]="hhDia.hhTrabajadas" [disabled]="hhDia.soloLectura" (keydown.enter)="guardarHHDia()">
@@ -697,7 +673,7 @@
           </div>
         </div>
 
-        <div class="phd-bloque" *ngIf="hhDia.ambas || !hhDia.especifica">
+        <div class="phd-bloque" *ngIf="hhDia.ambas ? hhDia.hayOperacional : !hhDia.especifica">
           <span class="phd-bloque-titulo"><i class="fa fa-cogs" aria-hidden="true"></i> HH operacionales <small>(capacitación operacional)</small></span>
           <div class="phh-fila">
             <label class="phh-etiqueta" for="phd-op">Tiempo de capacitación</label>
@@ -712,7 +688,7 @@
           </div>
         </div>
 
-        <div class="phd-bloque" *ngIf="hhDia.ambas || hhDia.especifica">
+        <div class="phd-bloque" *ngIf="hhDia.ambas ? hhDia.hayEspecifica : hhDia.especifica">
           <span class="phd-bloque-titulo"><i class="fa fa-graduation-cap" aria-hidden="true"></i> HH específicas <small>(capacitaciones específicas)</small></span>
           <div class="phh-fila">
             <label class="phh-etiqueta" for="phd-esp">Tiempo de capacitación</label>
@@ -735,7 +711,7 @@
           </div>
         </div>
 
-        <div class="phd-bloque phd-bloque-ma" *ngIf="hhDia.ambas" [class.phd-bloque-off]="ssoMandaHHDia">
+        <div class="phd-bloque phd-bloque-ma" *ngIf="hhDia.ambas && esMA" [class.phd-bloque-off]="ssoMandaHHDia">
           <span class="phd-bloque-titulo"><i class="fa fa-users" aria-hidden="true"></i> Trabajo del día <small>(solo si el Programa SSO no lo tiene)</small></span>
           <p class="phd-sso-estado" *ngIf="hhDia.cargandoSSO"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Revisando el Programa SSO de este día...</p>
           <p class="phd-sso-estado phd-sso-manda" *ngIf="!hhDia.cargandoSSO && ssoMandaHHDia">

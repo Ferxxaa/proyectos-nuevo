@@ -1899,6 +1899,17 @@ export class ProgramaSsoComponent implements OnChanges, OnDestroy {
     return !!this.programa && !this.enEdicion && !!(this.actividadHH(false) || this.actividadHH(true));
   }
 
+  /**
+   * ¿Este ítem lleva la fila de relojes "HH del día"? Va en la franja del ítem de capacitación:
+   * SSO = el ítem que tiene Capacitación Operacional / Específicas; MA = el ítem de capacitación.
+   * Un solo reloj por día con trabajadas + operacionales + específicas.
+   */
+  grupoConRelojes(g: GrupoVista): boolean {
+    if (!this.mostrarHHDia || !g) { return false; }
+    if (this.filaHHGeneral) { return g.nombre === this.grupoHHGeneral; }
+    return g.secciones.some(s => this.seccionConHH(s));
+  }
+
   /** Reloj de la fila general (MA): se marca si el día tiene cualquier HH. */
   tieneHHDiaGeneral(dia: number): boolean {
     return this.tieneHHDia(dia, false) || this.tieneHHDia(dia, true);
