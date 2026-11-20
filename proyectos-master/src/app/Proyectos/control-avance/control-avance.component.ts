@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, ViewEncapsulation, OnChanges, SimpleChanges, NgZone, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, ViewEncapsulation, OnChanges, SimpleChanges, NgZone, ElementRef, HostListener } from '@angular/core';
 import { sUsuario } from '../../services/sUsuario.service';
 import { sVis_UsuarioPersona } from '../../services/sVis_UsuarioPersona.service';
 import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
@@ -160,6 +160,84 @@ interface EstadoFechasProgramadasGantt {
   };
 }
 
+/** Un punto de la Curva S: fecha de corte con su % programado, % real y % de cada forecast visible. */
+interface PuntoCurvaS {
+  fecha: Date;
+  etiqueta: string;     // '10-nov'
+  x: number;            // px dentro del SVG
+  prog: number;         // % programado acumulado (línea base)
+  real: number | null;  // % real acumulado (null después de hoy)
+  yProg: number;
+  yReal: number | null;
+  mostrarEtiqueta: boolean;
+  esHoy: boolean;
+  fc: number[];         // % de cada forecast visible, en el mismo orden que CurvaS.forecasts
+}
+
+/** Curva de un forecast ya calculada para dibujar. */
+interface SerieForecastCurvaS {
+  id: string;
+  nombre: string;
+  color: string;
+  path: string;
+  puntos: Array<{ x: number; y: number; valor: number; etiqueta: string }>;
+  valorHoy: number;
+  finX: number;
+  finY: number;
+  finValor: number;
+}
+
+interface CurvaS {
+  ancho: number;
+  alto: number;
+  margenIzq: number;
+  margenDer: number;
+  margenSup: number;
+  margenInf: number;
+  puntos: PuntoCurvaS[];
+  pathProg: string;
+  pathReal: string;
+  areaReal: string;
+  forecasts: SerieForecastCurvaS[];
+  ticksY: Array<{ valor: number; y: number }>;
+  hoyX: number | null;
+  hoyTexto: string;
+  progHoy: number;
+  realHoy: number;
+  desviacion: number;
+  fechaInicioTxt: string;
+  fechaFinTxt: string;
+  sinDatosReales: boolean;
+  mostrarMarcadores: boolean;
+  escalaTxt: string;
+}
+
+/** Valores de una lámina dentro de un forecast (reprogramación): sus propias fechas y ponderación. */
+interface ForecastItemCurva {
+  ini: string;
+  fin: string;
+  pond: number | null;
+}
+
+/** Forecast: reprogramación guardada aparte de la línea base, con su propio avance y ponderación. */
+interface ForecastCurva {
+  id: string;
+  nombre: string;
+  color: string;
+  fechaCreacion: string;
+  nombreCreador: string;
+  items: { [idItem: string]: ForecastItemCurva };
+}
+
+interface FilaEditorForecast {
+  item: ControlAvanceItem;
+  nivel: number;
+  esGrupo: boolean;     // título con hijos: sus fechas salen de los hijos, solo se edita la ponderación
+  ini: string;
+  fin: string;
+  pond: number | null;
+}
+
 /** Plantilla creada por el propio usuario desde el modal de Plantillas, con ícono a elección y guardada en Firestore. */
 interface GrupoPlantillaPersonalizada extends GrupoPlantillas {
   id?: string;
@@ -187,7 +265,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   @Input() ocultarTitulo: boolean = false;
   @Input() ocultarFiltros: boolean = false;
   @Input() ocultarExportacion: boolean = false;
-  @Input() vistaInicial: 'tabla' | 'gantt' = 'tabla';
+  @Input() vistaInicial: 'tabla' | 'gantt' | 'curva' = 'tabla';
   /** Bloqueo con clave puesto por un Sub-gerente / Director (null = libre para todos). */
   bloqueoControl: { bloqueado: boolean; hash: string; salt: string; nombre?: string; fecha?: string; idUsuario?: number } | null = null;
   /** Hash de la clave que este usuario ingresó en esta sesión (sirve mientras no cambie la clave). */
@@ -250,7 +328,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   private tiempoRecalculo: any = null;
 
   // Vista activa: tabla jerárquica o carta gantt visual
-  vistaActiva: 'tabla' | 'gantt' = 'tabla';
+  vistaActiva: 'tabla' | 'gantt' | 'curva' = 'tabla';
+
+  // ---- Datos para la vista Curva S (programada vs real) ----
+  curvaS: CurvaS | null = null;
 
   mostrarFormulario: boolean = false;
   nuevoDoc: any = {};
@@ -657,6 +738,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   ngOnInit() {
     this.vistaActiva = this.vistaInicial;
     this.suscribirBloqueo();
+    this.suscribirForecasts();
     this.cargarUsuariosValidadores();
     this.cargarValidadoresSeleccionados();
     this.suscribirControlesAvance();
@@ -1000,6 +1082,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.suscribirPlantillasPersonalizadas();
       this.cargarValidadoresSeleccionados();
       this.suscribirBloqueo();
+      this.suscribirForecasts();
       this.historialCambiosFechasGantt = [];
     }
   }
@@ -1013,6 +1096,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     }
     if (this.unsubscribeBloqueo) {
       this.unsubscribeBloqueo();
+    }
+    if (this.unsubscribeForecasts) {
+      this.unsubscribeForecasts();
+    }
+    if (this.timerResizeCurvaS) {
+      clearTimeout(this.timerResizeCurvaS);
     }
     if (this.unsubscribePlantillasPersonalizadas) {
       this.unsubscribePlantillasPersonalizadas();
@@ -3461,11 +3550,704 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // VISTA CARTA GANTT (barras semanales calculadas desde las fechas)
   // =========================================================================
 
-  cambiarVista(vista: 'tabla' | 'gantt') {
+  cambiarVista(vista: 'tabla' | 'gantt' | 'curva') {
     this.vistaActiva = vista;
     if (vista === 'gantt') {
       this.actualizarDatosGantt();
     }
+    if (vista === 'curva') {
+      this.calcularCurvaS();
+      // Se vuelve a medir cuando el contenedor ya está dibujado, para usar su ancho exacto
+      setTimeout(() => this.calcularCurvaS(), 0);
+    }
+  }
+  // =========================================================================
+  // VISTA CURVA S (línea base programada, real y forecasts, acumuladas en el tiempo)
+  // =========================================================================
+
+  /** Cada cuánto se toma un punto de la curva. 'auto' = máximo ~16 cortes. */
+  curvaSEscala: 'auto' | 'dia' | 'semana' | 'mes' = 'auto';
+
+  /** Forecasts (reprogramaciones) guardados para este proyecto/subproyecto. */
+  forecastsCurva: ForecastCurva[] = [];
+  /** Forecasts ocultos en el gráfico (solo en esta pantalla). */
+  forecastOculto: { [id: string]: boolean } = {};
+  /** Forecast abierto en el editor (copia; no se guarda hasta apretar Guardar). */
+  forecastEditando: ForecastCurva | null = null;
+  filasEditorForecast: FilaEditorForecast[] = [];
+  esForecastNuevo: boolean = false;
+  guardandoForecast: boolean = false;
+  diasDesplazarForecast: number = 0;
+  private unsubscribeForecasts: (() => void) | null = null;
+  readonly COLORES_FORECAST: string[] = ['#2e9e5b', '#8e44ad', '#F59325', '#17a2b8', '#795548', '#e83e8c'];
+
+  cambiarEscalaCurvaS(escala: 'auto' | 'dia' | 'semana' | 'mes') {
+    this.curvaSEscala = escala;
+    this.calcularCurvaS();
+  }
+
+  // ---------------- Forecasts: lectura / guardado en Firestore ----------------
+
+  private getIdDocForecast(): string {
+    return 'forecast_' + (Number(this.idProyecto) || 0) + '_' + (Number(this.getIdSubProyectoActual()) || 0);
+  }
+
+  private suscribirForecasts() {
+    if (this.unsubscribeForecasts) {
+      this.unsubscribeForecasts();
+      this.unsubscribeForecasts = null;
+    }
+    this.forecastsCurva = [];
+    if (!Number(this.idProyecto)) { return; }
+
+    this.unsubscribeForecasts = firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocForecast())
+      .onSnapshot((doc: any) => {
+        this._ngZone.run(() => {
+          const data = doc.exists ? doc.data() : null;
+          this.forecastsCurva = data && Array.isArray(data.forecasts) ? data.forecasts : [];
+          if (this.vistaActiva === 'curva') { this.calcularCurvaS(); }
+        });
+      }, (error: any) => {
+        console.error('No se pudieron leer los forecasts de la Curva S:', error);
+      });
+  }
+
+  private guardarListaForecasts(lista: ForecastCurva[]): Promise<void> {
+    return firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocForecast()).set({
+      forecasts: lista,
+      idProyecto: Number(this.idProyecto) || 0,
+      idSubProyecto: Number(this.getIdSubProyectoActual()) || 0,
+      fechaActualizacion: new Date().toISOString()
+    });
+  }
+
+  /** Valores de la línea base (lo que está hoy en la tabla) para una lámina. */
+  private valoresBaseForecast(it: ControlAvanceItem): ForecastItemCurva {
+    return {
+      ini: it.fechaInicioProgramada || '',
+      fin: it.fechaTerminoProgramada || '',
+      pond: Number(it.ponderacion) > 0 ? Number(it.ponderacion) : null
+    };
+  }
+
+  /** Valores de una lámina en un forecast (si la lámina se creó después del forecast, usa la línea base). */
+  private valoresEnForecast(fc: ForecastCurva, it: ControlAvanceItem): ForecastItemCurva {
+    const v = it.id && fc.items ? fc.items[it.id] : null;
+    return v || this.valoresBaseForecast(it);
+  }
+
+  /** Todos los items activos en orden jerárquico (sin importar si están plegados en la tabla). */
+  private ordenJerarquicoCompleto(): Array<{ item: ControlAvanceItem; nivel: number; tieneHijos: boolean }> {
+    const hijosPorPadre = this.agruparPorPadre();
+    const resultado: Array<{ item: ControlAvanceItem; nivel: number; tieneHijos: boolean }> = [];
+    const recorrer = (items: ControlAvanceItem[], nivel: number) => {
+      items.filter(it => it.activo !== false).forEach(it => {
+        const hijos = (hijosPorPadre[this.claveJerarquia(it.id)] || []).filter(h => h.activo !== false);
+        resultado.push({ item: it, nivel: nivel, tieneHijos: hijos.length > 0 });
+        recorrer(hijos, nivel + 1);
+      });
+    };
+    recorrer(hijosPorPadre['raiz'] || [], 0);
+    return resultado;
+  }
+
+  // ---------------- Forecasts: editor ----------------
+
+  /** Crea un forecast nuevo partiendo del último forecast (o de la línea base si no hay ninguno). */
+  nuevoForecast() {
+    if (!this.puedeEditarAvance) { return; }
+    const nombres = this.forecastsCurva.map(f => (f.nombre || '').toUpperCase());
+    let n = this.forecastsCurva.length + 1;
+    while (nombres.indexOf(('Forecast ' + n).toUpperCase()) >= 0) { n++; }
+
+    const anterior = this.forecastsCurva.length ? this.forecastsCurva[this.forecastsCurva.length - 1] : null;
+    const items: { [idItem: string]: ForecastItemCurva } = {};
+    this.ControlesAvance.forEach(it => {
+      if (!it.id) { return; }
+      const v = anterior ? this.valoresEnForecast(anterior, it) : this.valoresBaseForecast(it);
+      items[it.id] = { ini: v.ini, fin: v.fin, pond: v.pond };
+    });
+
+    const fc: ForecastCurva = {
+      id: 'fc_' + Date.now(),
+      nombre: 'Forecast ' + n,
+      color: this.COLORES_FORECAST[(n - 1) % this.COLORES_FORECAST.length],
+      fechaCreacion: new Date().toISOString(),
+      nombreCreador: this.getNombreUsuarioActual() || 'Usuario',
+      items: items
+    };
+    this.esForecastNuevo = true;
+    this.abrirEditorForecast(fc);
+  }
+
+  editarForecast(fc: ForecastCurva) {
+    if (!this.puedeEditarAvance) { return; }
+    this.esForecastNuevo = false;
+    this.abrirEditorForecast(fc);
+  }
+
+  private abrirEditorForecast(fc: ForecastCurva) {
+    this.forecastEditando = JSON.parse(JSON.stringify(fc));
+    this.diasDesplazarForecast = 0;
+    this.filasEditorForecast = this.ordenJerarquicoCompleto().map(o => {
+      const v = this.valoresEnForecast(this.forecastEditando as ForecastCurva, o.item);
+      const esGrupo = o.item.esTitulo && o.tieneHijos;
+      return {
+        item: o.item,
+        nivel: o.nivel,
+        esGrupo: esGrupo,
+        ini: esGrupo ? '' : v.ini,
+        fin: esGrupo ? '' : v.fin,
+        pond: v.pond
+      };
+    });
+  }
+
+  cerrarEditorForecast() {
+    this.forecastEditando = null;
+    this.filasEditorForecast = [];
+    this.esForecastNuevo = false;
+  }
+
+  /** Vuelve todas las filas del editor a la línea base (fechas y ponderación de la tabla). */
+  copiarLineaBaseEnEditor() {
+    this.filasEditorForecast.forEach(f => {
+      const v = this.valoresBaseForecast(f.item);
+      f.ini = f.esGrupo ? '' : v.ini;
+      f.fin = f.esGrupo ? '' : v.fin;
+      f.pond = v.pond;
+    });
+  }
+
+  /** Corre todas las fechas del forecast N días (positivo = atraso, negativo = adelanto). */
+  desplazarFechasEditor() {
+    const dias = Math.round(Number(this.diasDesplazarForecast) || 0);
+    if (!dias) { return; }
+    const correr = (valor: string): string => {
+      const f = this.parsearFechaLocal(valor);
+      if (!f) { return valor; }
+      f.setDate(f.getDate() + dias);
+      return this.formatearFechaISO(f);
+    };
+    this.filasEditorForecast.forEach(f => {
+      if (f.esGrupo) { return; }
+      f.ini = correr(f.ini);
+      f.fin = correr(f.fin);
+    });
+    this.diasDesplazarForecast = 0;
+  }
+
+  plazoFilaEditor(f: FilaEditorForecast): number | null {
+    if (!f.ini || !f.fin) { return null; }
+    const d = this.diasEntreFechasISO(f.ini, f.fin);
+    return d > 0 ? d : null;
+  }
+
+  /** Al cambiar el inicio se mantiene el plazo (se corre el término). */
+  onCambioInicioEditor(f: FilaEditorForecast, nuevo: string) {
+    const plazo = this.plazoFilaEditor(f);
+    f.ini = nuevo || '';
+    if (f.ini && plazo) {
+      f.fin = this.calcularFechaTerminoDesdePlazo(f.ini, plazo);
+    }
+  }
+
+  /** Al cambiar el plazo se recalcula el término. */
+  onCambioPlazoEditor(f: FilaEditorForecast, valor: any) {
+    const plazo = Math.round(Number(valor) || 0);
+    if (f.ini && plazo > 0) {
+      f.fin = this.calcularFechaTerminoDesdePlazo(f.ini, plazo);
+    }
+  }
+
+  /** true si la fila tiene algo distinto a la línea base (para resaltarla en el editor). */
+  filaEditorCambiada(f: FilaEditorForecast): boolean {
+    const b = this.valoresBaseForecast(f.item);
+    const pondF = Number(f.pond) > 0 ? Number(f.pond) : null;
+    if (pondF !== b.pond) { return true; }
+    if (f.esGrupo) { return false; }
+    return (f.ini || '') !== b.ini || (f.fin || '') !== b.fin;
+  }
+
+  /** Suma de ponderaciones de los hermanos de una fila dentro del editor (para el control de 100%). */
+  sumaPondHermanosEditor(f: FilaEditorForecast): number | null {
+    const clave = this.claveJerarquia(f.item.idPadre);
+    const hermanos = this.filasEditorForecast.filter(x => this.claveJerarquia(x.item.idPadre) === clave);
+    if (!hermanos.some(x => Number(x.pond) > 0)) { return null; }
+    return Math.round(hermanos.reduce((t, x) => t + (Number(x.pond) || 0), 0) * 100) / 100;
+  }
+
+  /** Muestra el Σ solo en la primera fila de cada grupo de hermanos. */
+  esPrimeraHermanaEditor(f: FilaEditorForecast): boolean {
+    const clave = this.claveJerarquia(f.item.idPadre);
+    const primera = this.filasEditorForecast.find(x => this.claveJerarquia(x.item.idPadre) === clave);
+    return primera === f;
+  }
+
+  get cantidadCambiosEditor(): number {
+    return this.filasEditorForecast.filter(f => this.filaEditorCambiada(f)).length;
+  }
+
+  /** 'YYYY-MM-DD' → 'dd-mm-aa' (sin pasar por Date UTC, para que no se corra un día). */
+  fechaCortaCurva(valor: string): string {
+    const f = this.parsearFechaLocal(valor);
+    if (!f) { return '—'; }
+    return ('0' + f.getDate()).slice(-2) + '-' + ('0' + (f.getMonth() + 1)).slice(-2) + '-' + String(f.getFullYear()).slice(-2);
+  }
+
+  trackByFilaEditor(index: number, f: FilaEditorForecast): any {
+    return f.item.id || index;
+  }
+
+  guardarForecast() {
+    if (!this.puedeEditarAvance || !this.forecastEditando || this.guardandoForecast) { return; }
+    const nombre = (this.forecastEditando.nombre || '').trim();
+    if (!nombre) {
+      Swal.fire('Falta el nombre', 'Ponle un nombre al forecast (ej: Forecast 1).', 'info');
+      return;
+    }
+
+    const items: { [idItem: string]: ForecastItemCurva } = {};
+    this.filasEditorForecast.forEach(f => {
+      if (!f.item.id) { return; }
+      const pond = Number(f.pond);
+      items[f.item.id] = {
+        ini: f.esGrupo ? '' : (f.ini || ''),
+        fin: f.esGrupo ? '' : (f.fin || ''),
+        pond: isFinite(pond) && pond > 0 ? Math.min(100, Math.round(pond * 100) / 100) : null
+      };
+    });
+
+    const fc: ForecastCurva = {
+      id: this.forecastEditando.id,
+      nombre: nombre,
+      color: this.forecastEditando.color || this.COLORES_FORECAST[0],
+      fechaCreacion: this.forecastEditando.fechaCreacion || new Date().toISOString(),
+      nombreCreador: this.forecastEditando.nombreCreador || this.getNombreUsuarioActual() || 'Usuario',
+      items: items
+    };
+
+    const lista = this.forecastsCurva.slice();
+    const idx = lista.findIndex(x => x.id === fc.id);
+    if (idx >= 0) { lista[idx] = fc; } else { lista.push(fc); }
+
+    this.guardandoForecast = true;
+    this.guardarListaForecasts(lista).then(() => {
+      this._ngZone.run(() => {
+        this.guardandoForecast = false;
+        this.forecastOculto[fc.id] = false;
+        this.cerrarEditorForecast();
+        Swal.fire({ icon: 'success', title: 'Forecast guardado', timer: 1300, showConfirmButton: false });
+      });
+    }).catch((error: any) => {
+      this._ngZone.run(() => {
+        this.guardandoForecast = false;
+        Swal.fire('Error', 'No se pudo guardar el forecast: ' + this.getMensajeError(error), 'error');
+      });
+    });
+  }
+
+  eliminarForecast(fc: ForecastCurva) {
+    if (!this.puedeEditarAvance || !fc) { return; }
+    Swal.fire({
+      title: 'Eliminar forecast',
+      text: '¿Eliminar "' + fc.nombre + '"? La línea base y el avance real no se tocan.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((r: any) => {
+      if (!r || !(r.value || r.isConfirmed)) { return; }
+      const lista = this.forecastsCurva.filter(x => x.id !== fc.id);
+      this.guardarListaForecasts(lista).then(() => {
+        this._ngZone.run(() => {
+          if (this.forecastEditando && this.forecastEditando.id === fc.id) { this.cerrarEditorForecast(); }
+        });
+      }).catch((error: any) => {
+        Swal.fire('Error', 'No se pudo eliminar el forecast: ' + this.getMensajeError(error), 'error');
+      });
+    });
+  }
+
+  toggleForecastVisible(fc: ForecastCurva) {
+    this.forecastOculto[fc.id] = !this.forecastOculto[fc.id];
+    this.calcularCurvaS();
+  }
+
+  // ---------------- Cálculo de las curvas ----------------
+
+  /**
+   * Peso de cada lámina dentro del avance total, con la misma lógica que el total del encabezado:
+   * - sin ponderación: todas las láminas pesan lo mismo (promedio simple);
+   * - con ponderación: el peso se reparte de la raíz hacia abajo, título por título.
+   * `pondDe` permite usar otra ponderación (la de un forecast).
+   */
+  private pesosHojasCurvaS(pondDe?: (it: ControlAvanceItem) => number): Array<{ item: ControlAvanceItem; peso: number }> {
+    const pond = pondDe || ((it: ControlAvanceItem) => Number(it.ponderacion) || 0);
+    const activos = (this.ControlesAvance || []).filter(it => it.activo !== false);
+    const hayPond = activos.some(it => pond(it) > 0);
+
+    if (!hayPond) {
+      const docs = activos.filter(it => !it.esTitulo);
+      return docs.map(it => ({ item: it, peso: docs.length ? 1 / docs.length : 0 }));
+    }
+
+    const hijosPorPadre: { [clave: string]: ControlAvanceItem[] } = {};
+    activos.forEach(it => {
+      const clave = this.claveJerarquia(it.idPadre);
+      if (!hijosPorPadre[clave]) { hijosPorPadre[clave] = []; }
+      hijosPorPadre[clave].push(it);
+    });
+
+    const resultado: Array<{ item: ControlAvanceItem; peso: number }> = [];
+    const repartir = (items: ControlAvanceItem[], pesoPadre: number) => {
+      if (!items || !items.length) { return; }
+      const conPeso = items.some(it => pond(it) > 0);
+      let total = 0;
+      const pesos = items.map(it => {
+        const w = conPeso ? (pond(it) > 0 ? pond(it) : 0) : 1;
+        total += w;
+        return w;
+      });
+      if (total <= 0) { return; }
+      items.forEach((it, i) => {
+        const peso = pesoPadre * pesos[i] / total;
+        if (peso <= 0) { return; }
+        const hijos = hijosPorPadre[this.claveJerarquia(it.id)] || [];
+        if (it.esTitulo && hijos.length) {
+          repartir(hijos, peso);
+        } else {
+          resultado.push({ item: it, peso: peso });
+        }
+      });
+    };
+    repartir(hijosPorPadre['raiz'] || [], 1);
+    return resultado;
+  }
+
+  /** Fracción (0..1) programada entre dos fechas 'YYYY-MM-DD' a una fecha dada (lineal, igual que la tabla). */
+  private fraccionEntreFechasCurva(iniStr: string, finStr: string, fecha: Date): number {
+    const ini = this.parsearFechaLocal(iniStr);
+    const fin = this.parsearFechaLocal(finStr);
+    if (!ini || !fin) { return 0; }
+    if (fecha < ini) { return 0; }
+    if (fecha >= fin) { return 1; }
+    const total = this.diasEntreFechas(ini, fin);
+    if (total <= 0) { return 0; }
+    return this.diasEntreFechas(ini, fecha) / total;
+  }
+
+  /**
+   * Fracción (0..1) real de una lámina a una fecha. Como el avance real se guarda solo como "% actual",
+   * se reparte en forma lineal desde el inicio real hasta su término real (si ya terminó) o hasta hoy.
+   */
+  private fraccionRealCurva(it: ControlAvanceItem, fecha: Date, hoy: Date): number {
+    const avance = Math.min(100, Math.max(0, this.avanceRealEfectivo(it))) / 100;
+    if (avance <= 0) { return 0; }
+
+    const termino = this.parsearFechaLocal(it.fechaTermino);
+    const fin = (avance >= 1 && termino && termino <= hoy) ? termino : hoy;
+    let ini = this.parsearFechaLocal(it.fechaInicio) || this.parsearFechaLocal(it.fechaInicioProgramada);
+    if (!ini || ini > fin) { ini = fin; }
+
+    if (fecha < ini) { return 0; }
+    if (fecha >= fin) { return avance; }
+    const total = this.diasEntreFechas(ini, fin);
+    if (total <= 0) { return avance; }
+    return avance * this.diasEntreFechas(ini, fecha) / total;
+  }
+
+  private etiquetaFechaCurva(fecha: Date): string {
+    return ('0' + fecha.getDate()).slice(-2) + '-' + this.nombreMes(fecha.getMonth()).toLowerCase();
+  }
+
+  private sumarDiasCurva(fecha: Date, dias: number): Date {
+    const f = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+    f.setDate(f.getDate() + dias);
+    return f;
+  }
+
+  /** Arma los puntos, trazos y ejes de la Curva S (línea base, real y forecasts visibles). */
+  calcularCurvaS() {
+    const hojas = this.pesosHojasCurvaS();
+    const ahora = new Date();
+    const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+
+    // Forecasts visibles, cada uno con sus propios pesos (su ponderación)
+    const forecastsVisibles = (this.forecastsCurva || []).filter(fc => !this.forecastOculto[fc.id]);
+    const datosForecast = forecastsVisibles.map(fc => ({
+      fc: fc,
+      hojas: this.pesosHojasCurvaS(it => Number(this.valoresEnForecast(fc, it).pond) || 0)
+    }));
+
+    let fechaMin: Date | null = null;
+    let fechaMax: Date | null = null;
+    const considerar = (valor: string) => {
+      const f = this.parsearFechaLocal(valor);
+      if (!f) { return; }
+      if (!fechaMin || f < fechaMin) { fechaMin = f; }
+      if (!fechaMax || f > fechaMax) { fechaMax = f; }
+    };
+    hojas.forEach(h => {
+      considerar(h.item.fechaInicioProgramada);
+      considerar(h.item.fechaTerminoProgramada);
+      considerar(h.item.fechaInicio);
+      considerar(h.item.fechaTermino);
+    });
+    datosForecast.forEach(d => d.hojas.forEach(h => {
+      const v = this.valoresEnForecast(d.fc, h.item);
+      considerar(v.ini);
+      considerar(v.fin);
+    }));
+
+    if (!fechaMin || !fechaMax) {
+      this.curvaS = null;
+      return;
+    }
+
+    const realTotalActual = hojas.reduce((t, h) => t + h.peso * Math.min(100, Math.max(0, this.avanceRealEfectivo(h.item))), 0);
+    // Si el proyecto sigue en curso y hoy ya pasó la última fecha, se estira el eje hasta hoy.
+    if (hoy > fechaMax && fechaMin <= hoy && realTotalActual < 99.5) {
+      fechaMax = hoy;
+    }
+
+    const inicio = fechaMin as Date;
+    const fin = fechaMax as Date;
+    const totalDias = Math.max(0, this.diasEntreFechas(inicio, fin));
+
+    // ---- Cortes en el tiempo según la escala elegida ----
+    let fechas: Date[] = [];
+    let paso = 1;
+    let escalaTxt = '';
+    if (this.curvaSEscala === 'mes') {
+      paso = 30;
+      escalaTxt = 'un punto por mes';
+      fechas.push(new Date(inicio.getTime()));
+      let f = new Date(inicio.getFullYear(), inicio.getMonth() + 1, 1);
+      while (f < fin) {
+        fechas.push(f);
+        f = new Date(f.getFullYear(), f.getMonth() + 1, 1);
+      }
+    } else {
+      if (this.curvaSEscala === 'dia') {
+        paso = 1;
+        escalaTxt = 'un punto por día';
+      } else if (this.curvaSEscala === 'semana') {
+        paso = 7;
+        escalaTxt = 'un punto por semana';
+      } else {
+        const pasos = [1, 2, 3, 5, 7, 14, 30, 61, 91];
+        paso = pasos[pasos.length - 1];
+        for (let i = 0; i < pasos.length; i++) {
+          if (totalDias / pasos[i] <= 16) { paso = pasos[i]; break; }
+        }
+        escalaTxt = paso === 1 ? 'un punto por día' : 'un punto cada ' + paso + ' días';
+      }
+      for (let d = 0; d < totalDias; d += paso) {
+        fechas.push(this.sumarDiasCurva(inicio, d));
+      }
+    }
+    // El último corte siempre es la fecha final (en automático, si quedó pegado al anterior se saca el anterior)
+    if (this.curvaSEscala === 'auto' && fechas.length > 1 && this.diasEntreFechas(fechas[fechas.length - 1], fin) < paso / 2) {
+      fechas.pop();
+    }
+    if (!fechas.length || fechas[fechas.length - 1].getTime() !== fin.getTime()) {
+      fechas.push(new Date(fin.getTime()));
+    }
+
+    // Se agrega "hoy" como corte para que la curva real termine justo en el avance actual
+    const hoyEnRango = hoy >= inicio && hoy <= fin;
+    if (hoyEnRango) {
+      if (this.curvaSEscala === 'auto') {
+        const margen = Math.max(1, paso / 2);
+        fechas = fechas.filter((f, i) => {
+          if (i === 0 || i === fechas.length - 1) { return true; }
+          return Math.abs(this.diasEntreFechas(f, hoy)) >= margen;
+        });
+      }
+      if (!fechas.some(f => f.getTime() === hoy.getTime())) {
+        fechas.push(new Date(hoy.getTime()));
+        fechas.sort((a, b) => a.getTime() - b.getTime());
+      }
+    }
+
+    // Dimensiones del gráfico: el ancho es el real del contenedor (1px del SVG = 1px de pantalla),
+    // así las letras no se agrandan al estirarse en pantallas anchas.
+    const ancho = this.anchoDisponibleCurvaS();
+    const alto = 400;
+    const margenIzq = 56;
+    const margenDer = 36;
+    const margenSup = 44;
+    const margenInf = 64;
+    const anchoUtil = ancho - margenIzq - margenDer;
+    const altoUtil = alto - margenSup - margenInf;
+    const xDe = (f: Date) => totalDias > 0
+      ? margenIzq + (this.diasEntreFechas(inicio, f) / totalDias) * anchoUtil
+      : margenIzq + anchoUtil / 2;
+    const yDe = (v: number) => margenSup + (1 - Math.min(100, Math.max(0, v)) / 100) * altoUtil;
+    const r1 = (v: number) => Math.round(v * 10) / 10;
+
+    const valorForecast = (d: { fc: ForecastCurva; hojas: Array<{ item: ControlAvanceItem; peso: number }> }, f: Date) =>
+      Math.min(100, Math.round(d.hojas.reduce((t, h) => {
+        const v = this.valoresEnForecast(d.fc, h.item);
+        return t + h.peso * this.fraccionEntreFechasCurva(v.ini, v.fin, f);
+      }, 0) * 100));
+
+    const puntos: PuntoCurvaS[] = fechas.map(f => {
+      const prog = hojas.reduce((t, h) => t + h.peso * this.fraccionEntreFechasCurva(h.item.fechaInicioProgramada, h.item.fechaTerminoProgramada, f), 0) * 100;
+      const real = f <= hoy
+        ? hojas.reduce((t, h) => t + h.peso * this.fraccionRealCurva(h.item, f, hoy), 0) * 100
+        : null;
+      return {
+        fecha: f,
+        etiqueta: this.etiquetaFechaCurva(f),
+        x: r1(xDe(f)),
+        prog: Math.min(100, Math.round(prog)),
+        real: real === null ? null : Math.min(100, Math.round(real)),
+        yProg: r1(yDe(prog)),
+        yReal: real === null ? null : r1(yDe(real)),
+        mostrarEtiqueta: true,
+        esHoy: f.getTime() === hoy.getTime(),
+        fc: datosForecast.map(d => valorForecast(d, f))
+      };
+    });
+
+    // Etiquetas sin pisarse (mínimo ~38px entre una y otra)
+    let ultimaX = -1000;
+    puntos.forEach((p, i) => {
+      if (p.x - ultimaX >= 38 || p.esHoy || i === puntos.length - 1) {
+        p.mostrarEtiqueta = true;
+        ultimaX = p.x;
+      } else {
+        p.mostrarEtiqueta = false;
+      }
+    });
+    // Si "hoy" quedó pegado al punto anterior, se oculta la etiqueta del anterior
+    puntos.forEach((p, i) => {
+      if (p.esHoy && i > 0 && puntos[i - 1].mostrarEtiqueta && p.x - puntos[i - 1].x < 38) {
+        puntos[i - 1].mostrarEtiqueta = false;
+      }
+    });
+
+    const trazo = (lista: Array<{ x: number; y: number }>) =>
+      lista.map((p, i) => (i === 0 ? 'M' : 'L') + p.x + ' ' + p.y).join(' ');
+
+    const ptsReal = puntos.filter(p => p.yReal !== null).map(p => ({ x: p.x, y: p.yReal as number }));
+    const base = r1(yDe(0));
+    const areaReal = ptsReal.length > 1
+      ? trazo(ptsReal) + ' L' + ptsReal[ptsReal.length - 1].x + ' ' + base + ' L' + ptsReal[0].x + ' ' + base + ' Z'
+      : '';
+
+    const series: SerieForecastCurvaS[] = datosForecast.map((d, k) => {
+      const pts = puntos.map(p => ({ x: p.x, y: r1(yDe(p.fc[k])), valor: p.fc[k], etiqueta: p.etiqueta }));
+      const ultimo = pts[pts.length - 1];
+      return {
+        id: d.fc.id,
+        nombre: d.fc.nombre,
+        color: d.fc.color || this.COLORES_FORECAST[k % this.COLORES_FORECAST.length],
+        path: trazo(pts),
+        puntos: pts,
+        valorHoy: valorForecast(d, hoy),
+        finX: ultimo.x,
+        finY: ultimo.y,
+        finValor: ultimo.valor
+      };
+    });
+
+    const ticksY: Array<{ valor: number; y: number }> = [];
+    for (let v = 0; v <= 100; v += 10) {
+      ticksY.push({ valor: v, y: r1(yDe(v)) });
+    }
+
+    this.curvaS = {
+      ancho, alto, margenIzq, margenDer, margenSup, margenInf,
+      puntos,
+      pathProg: trazo(puntos.map(p => ({ x: p.x, y: p.yProg }))),
+      pathReal: ptsReal.length ? trazo(ptsReal) : '',
+      areaReal,
+      forecasts: series,
+      ticksY,
+      hoyX: hoyEnRango ? r1(xDe(hoy)) : null,
+      hoyTexto: this.etiquetaFechaCurva(hoy),
+      progHoy: this.avanceDocumentosProgramado,
+      realHoy: this.avanceDocumentosReal,
+      desviacion: this.avanceDocumentosReal - this.avanceDocumentosProgramado,
+      fechaInicioTxt: this.etiquetaFechaCurva(inicio) + '-' + inicio.getFullYear(),
+      fechaFinTxt: this.etiquetaFechaCurva(fin) + '-' + fin.getFullYear(),
+      sinDatosReales: ptsReal.length === 0 || realTotalActual <= 0,
+      mostrarMarcadores: puntos.length <= 1 || anchoUtil / (puntos.length - 1) >= 9,
+      escalaTxt: escalaTxt
+    };
+  }
+
+  /** Ancho real disponible para el gráfico (se mide el componente; mínimo 640px). */
+  private anchoDisponibleCurvaS(): number {
+    let ancho = 0;
+    try {
+      const host: HTMLElement = this._elementRef.nativeElement;
+      const cont = host.querySelector('.curva-s-container') as HTMLElement;
+      ancho = cont ? cont.clientWidth - 42 : host.clientWidth - 44;
+    } catch (e) { ancho = 0; }
+    if (!ancho || ancho < 640) { ancho = Math.max(640, ancho || 980); }
+    return Math.round(ancho);
+  }
+
+  private timerResizeCurvaS: any = null;
+
+  /** Al cambiar el tamaño de la ventana, se vuelve a dibujar la Curva S con el nuevo ancho. */
+  @HostListener('window:resize')
+  onResizeCurvaS() {
+    if (this.vistaActiva !== 'curva') { return; }
+    clearTimeout(this.timerResizeCurvaS);
+    this.timerResizeCurvaS = setTimeout(() => this.calcularCurvaS(), 150);
+  }
+
+  /** true si la programada y la real tienen el mismo % en ese punto (se muestra una sola etiqueta). */
+  mismoValorCurva(p: PuntoCurvaS): boolean {
+    return p.real !== null && p.real === p.prog;
+  }
+
+  /**
+   * Posición vertical de la etiqueta % de la programada y la real, para que no se pisen:
+   * la curva de más arriba lleva su % arriba y la de más abajo debajo. Si la de abajo queda pegada
+   * al eje (0%), las dos etiquetas se apilan arriba.
+   */
+  yEtiquetaCurvaAjustada(p: PuntoCurvaS, tipo: 'prog' | 'real'): number {
+    if (!this.curvaS) { return 0; }
+    const yP = p.yProg;
+    if (p.real === null || p.yReal === null) { return yP - 10; }
+    const yR = p.yReal as number;
+    if (this.mismoValorCurva(p)) { return Math.min(yP, yR) - 10; }
+
+    const realArriba = p.real > p.prog;
+    const yArriba = realArriba ? yR : yP;
+    const yAbajo = realArriba ? yP : yR;
+    const limiteInf = this.curvaS.alto - this.curvaS.margenInf - 4;
+
+    let posArriba = yArriba - 10;
+    let posAbajo = yAbajo + 17;
+    if (posAbajo > limiteInf) {
+      posAbajo = yAbajo - 10;
+      posArriba = Math.min(yArriba - 10, posAbajo - 14);
+    }
+    const esArriba = (tipo === 'real') === realArriba;
+    return esArriba ? posArriba : posAbajo;
+  }
+
+  claseDesviacionCurva(desv: number): string {
+    return desv < -5 ? 'cs-desv-mal' : (desv < 0 ? 'cs-desv-ojo' : 'cs-desv-bien');
+  }
+
+  trackByPuntoCurva(index: number, p: PuntoCurvaS): any {
+    return p.fecha.getTime();
+  }
+
+  trackBySerieForecast(index: number, s: SerieForecastCurvaS): any {
+    return s.id;
+  }
+
+  trackByForecast(index: number, fc: ForecastCurva): any {
+    return fc.id;
   }
 
   private parsearFechaLocal(valor: string): Date | null {
@@ -3495,6 +4277,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Recalcula el rango de fechas, las cabeceras semanales y las barras a partir de filasTabla. */
   actualizarDatosGantt() {
+    // La Curva S se recalcula con los mismos datos (solo si está a la vista)
+    if (this.vistaActiva === 'curva') {
+      this.calcularCurvaS();
+    }
     const filasConFechaPropia = this.filasTabla.filter(f =>
       f.item.fechaInicioProgramada || f.item.fechaTerminoProgramada || f.item.fechaInicio || f.item.fechaTermino
     );

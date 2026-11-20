@@ -72,6 +72,9 @@
         <button type="button" class="btn-vista" [class.activo]="vistaActiva === 'gantt'" (click)="cambiarVista('gantt')">
           <i class="fa fa-bar-chart"></i> Carta Gantt
         </button>
+        <button type="button" class="btn-vista" [class.activo]="vistaActiva === 'curva'" (click)="cambiarVista('curva')">
+          <i class="fa fa-line-chart"></i> Curva S
+        </button>
       </div>
 
       <div class="plantillas-toggle" *ngIf="!LoadingTabla && !modoSoloLectura">
@@ -665,6 +668,286 @@
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <!-- ================= VISTA CURVA S (línea base, real y forecasts) ================= -->
+  <div class="curva-s-container" *ngIf="vistaActiva === 'curva'">
+    <div *ngIf="LoadingTabla" class="loading-overlay">
+      <div class="spinner"></div>
+    </div>
+
+    <div class="curva-s-vacia" *ngIf="!LoadingTabla && !curvaS">
+      <i class="fa fa-line-chart"></i>
+      <p>Para ver la Curva S, las láminas necesitan <strong>fecha de inicio y plazo programado</strong>.</p>
+    </div>
+
+    <ng-container *ngIf="curvaS">
+      <div class="curva-s-encabezado">
+        <div class="curva-s-titulo">
+          <h3>Curva S · Avance programado vs real</h3>
+          <span>{{ curvaS.fechaInicioTxt }} → {{ curvaS.fechaFinTxt }} · {{ curvaS.escalaTxt }}</span>
+        </div>
+        <div class="curva-s-kpis">
+          <div class="curva-s-kpi kpi-prog">
+            <span class="kpi-label">Programado hoy</span>
+            <strong>{{ curvaS.progHoy }}%</strong>
+          </div>
+          <div class="curva-s-kpi kpi-fc" *ngFor="let s of curvaS.forecasts; trackBy: trackBySerieForecast" [style.border-left-color]="s.color">
+            <span class="kpi-label">{{ s.nombre }} hoy</span>
+            <strong [style.color]="s.color">{{ s.valorHoy }}%</strong>
+          </div>
+          <div class="curva-s-kpi kpi-real">
+            <span class="kpi-label">Real hoy</span>
+            <strong>{{ curvaS.realHoy }}%</strong>
+          </div>
+          <div class="curva-s-kpi" [ngClass]="curvaS.desviacion < -5 ? 'kpi-mal' : (curvaS.desviacion < 0 ? 'kpi-ojo' : 'kpi-bien')">
+            <span class="kpi-label">Desviación vs base</span>
+            <strong>{{ curvaS.desviacion > 0 ? '+' : '' }}{{ curvaS.desviacion }}%</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de controles: escala de puntos + forecasts -->
+      <div class="curva-s-controles">
+        <div class="cs-escala">
+          <span class="cs-control-label">Puntos:</span>
+          <button type="button" [class.activo]="curvaSEscala === 'auto'" (click)="cambiarEscalaCurvaS('auto')">Auto</button>
+          <button type="button" [class.activo]="curvaSEscala === 'dia'" (click)="cambiarEscalaCurvaS('dia')">Por día</button>
+          <button type="button" [class.activo]="curvaSEscala === 'semana'" (click)="cambiarEscalaCurvaS('semana')">Por semana</button>
+          <button type="button" [class.activo]="curvaSEscala === 'mes'" (click)="cambiarEscalaCurvaS('mes')">Por mes</button>
+        </div>
+
+        <div class="cs-forecasts">
+          <span class="cs-control-label">Forecast:</span>
+          <span class="cs-sin-fc" *ngIf="!forecastsCurva.length">Sin reprogramaciones</span>
+          <span class="cs-fc-chip" *ngFor="let fc of forecastsCurva; trackBy: trackByForecast"
+                [class.oculto]="forecastOculto[fc.id]" [style.border-color]="fc.color">
+            <label [title]="forecastOculto[fc.id] ? 'Mostrar en el gráfico' : 'Ocultar del gráfico'">
+              <input type="checkbox" [checked]="!forecastOculto[fc.id]" (change)="toggleForecastVisible(fc)">
+              <i class="cs-fc-color" [style.background]="fc.color"></i>{{ fc.nombre }}
+            </label>
+            <button type="button" *ngIf="!modoSoloLectura" (click)="editarForecast(fc)" title="Editar fechas y ponderación"><i class="fa fa-pencil"></i></button>
+            <button type="button" *ngIf="!modoSoloLectura" (click)="eliminarForecast(fc)" title="Eliminar forecast"><i class="fa fa-trash"></i></button>
+          </span>
+          <button type="button" class="cs-btn-nuevo-fc" *ngIf="!modoSoloLectura" (click)="nuevoForecast()">
+            <i class="fa fa-plus"></i> Nuevo forecast
+          </button>
+        </div>
+      </div>
+
+      <div class="curva-s-leyenda">
+        <span class="ley-item"><i class="ley-linea ley-prog"></i> Programada (línea base)</span>
+        <span class="ley-item" *ngFor="let s of curvaS.forecasts; trackBy: trackBySerieForecast">
+          <i class="ley-linea ley-fc" [style.border-color]="s.color"></i> {{ s.nombre }}
+        </span>
+        <span class="ley-item"><i class="ley-linea ley-real"></i> Real</span>
+        <span class="ley-item" *ngIf="curvaS.hoyX !== null"><i class="ley-linea ley-hoy"></i> Hoy ({{ curvaS.hoyTexto }})</span>
+      </div>
+
+      <div class="curva-s-grafico">
+        <svg [attr.viewBox]="'0 0 ' + curvaS.ancho + ' ' + curvaS.alto" [attr.width]="curvaS.ancho" [attr.height]="curvaS.alto" class="curva-s-svg">
+          <!-- Grilla y eje Y (avance %) -->
+          <g class="cs-grilla">
+            <g *ngFor="let t of curvaS.ticksY">
+              <line [attr.x1]="curvaS.margenIzq" [attr.x2]="curvaS.ancho - curvaS.margenDer" [attr.y1]="t.y" [attr.y2]="t.y"
+                    [class.cs-linea-base]="t.valor === 0"></line>
+              <text class="cs-eje-y" [attr.x]="curvaS.margenIzq - 8" [attr.y]="t.y + 4">{{ t.valor }}%</text>
+            </g>
+          </g>
+
+          <!-- Eje X (tiempo) -->
+          <g class="cs-eje-x">
+            <g *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva">
+              <line class="cs-tick-x" [attr.x1]="p.x" [attr.x2]="p.x"
+                    [attr.y1]="curvaS.alto - curvaS.margenInf" [attr.y2]="curvaS.alto - curvaS.margenInf + (p.mostrarEtiqueta ? 5 : 3)"></line>
+              <text *ngIf="p.mostrarEtiqueta" class="cs-fecha"
+                    [attr.transform]="'translate(' + p.x + ',' + (curvaS.alto - curvaS.margenInf + 16) + ') rotate(-40)'">{{ p.etiqueta }}</text>
+            </g>
+          </g>
+          <text class="cs-titulo-eje" [attr.x]="14" [attr.y]="curvaS.margenSup + (curvaS.alto - curvaS.margenSup - curvaS.margenInf) / 2"
+                [attr.transform]="'rotate(-90 14 ' + (curvaS.margenSup + (curvaS.alto - curvaS.margenSup - curvaS.margenInf) / 2) + ')'">Avance %</text>
+
+          <!-- Línea de hoy -->
+          <g *ngIf="curvaS.hoyX !== null" class="cs-hoy">
+            <line [attr.x1]="curvaS.hoyX" [attr.x2]="curvaS.hoyX" [attr.y1]="curvaS.margenSup - 20" [attr.y2]="curvaS.alto - curvaS.margenInf"></line>
+            <rect class="cs-hoy-chip" [attr.x]="curvaS.hoyX - 20" y="4" width="40" height="17" rx="8"></rect>
+            <text [attr.x]="curvaS.hoyX" y="16">Hoy</text>
+          </g>
+
+          <!-- Curvas -->
+          <path *ngIf="curvaS.areaReal" class="cs-area-real" [attr.d]="curvaS.areaReal"></path>
+          <path class="cs-curva cs-curva-prog" [attr.d]="curvaS.pathProg"></path>
+
+          <!-- Forecasts (línea punteada, cada uno con su color) -->
+          <g *ngFor="let s of curvaS.forecasts; trackBy: trackBySerieForecast">
+            <path class="cs-curva cs-curva-fc" [attr.d]="s.path" [attr.stroke]="s.color"></path>
+            <ng-container *ngIf="curvaS.mostrarMarcadores">
+              <circle *ngFor="let fp of s.puntos" class="cs-punto" [attr.cx]="fp.x" [attr.cy]="fp.y" r="3" [attr.fill]="s.color">
+                <title>{{ fp.etiqueta }} · {{ s.nombre }} {{ fp.valor }}%</title>
+              </circle>
+            </ng-container>
+            <text class="cs-valor cs-valor-fc" [attr.x]="s.finX - 8" [attr.y]="s.finY + 16" [attr.fill]="s.color">{{ s.nombre }} {{ s.finValor }}%</text>
+          </g>
+
+          <path *ngIf="curvaS.pathReal" class="cs-curva cs-curva-real" [attr.d]="curvaS.pathReal"></path>
+
+          <!-- Puntos y % de la línea base y la real -->
+          <g *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva">
+            <circle *ngIf="curvaS.mostrarMarcadores || p.mostrarEtiqueta" class="cs-punto cs-punto-prog" [attr.cx]="p.x" [attr.cy]="p.yProg" r="3.5">
+              <title>{{ p.etiqueta }} · Programado {{ p.prog }}%</title>
+            </circle>
+            <text *ngIf="p.mostrarEtiqueta && !mismoValorCurva(p)" class="cs-valor cs-valor-prog" [attr.x]="p.x" [attr.y]="yEtiquetaCurvaAjustada(p, 'prog')">{{ p.prog }}%</text>
+            <text *ngIf="p.mostrarEtiqueta && mismoValorCurva(p)" class="cs-valor cs-valor-igual" [attr.x]="p.x" [attr.y]="yEtiquetaCurvaAjustada(p, 'prog')">{{ p.prog }}%</text>
+
+            <ng-container *ngIf="p.real !== null">
+              <circle *ngIf="curvaS.mostrarMarcadores || p.mostrarEtiqueta" class="cs-punto cs-punto-real" [attr.cx]="p.x" [attr.cy]="p.yReal" r="3.5">
+                <title>{{ p.etiqueta }} · Real {{ p.real }}%</title>
+              </circle>
+              <text *ngIf="p.mostrarEtiqueta && !mismoValorCurva(p)" class="cs-valor cs-valor-real" [attr.x]="p.x" [attr.y]="yEtiquetaCurvaAjustada(p, 'real')">{{ p.real }}%</text>
+            </ng-container>
+          </g>
+        </svg>
+      </div>
+
+      <div class="curva-s-tabla-wrap">
+        <table class="curva-s-tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva" [class.cs-col-hoy]="p.esHoy">{{ p.etiqueta }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="cs-fila-prog">Programado</td>
+              <td *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva" [class.cs-col-hoy]="p.esHoy">{{ p.prog }}%</td>
+            </tr>
+            <tr *ngFor="let s of curvaS.forecasts; let k = index; trackBy: trackBySerieForecast">
+              <td [style.color]="s.color">{{ s.nombre }}</td>
+              <td *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva" [class.cs-col-hoy]="p.esHoy">{{ p.fc[k] }}%</td>
+            </tr>
+            <tr>
+              <td class="cs-fila-real">Real</td>
+              <td *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva" [class.cs-col-hoy]="p.esHoy">{{ p.real !== null ? p.real + '%' : '—' }}</td>
+            </tr>
+            <tr>
+              <td>Desv. vs base</td>
+              <td *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva"
+                  [class.cs-col-hoy]="p.esHoy"
+                  [ngClass]="p.real === null ? '' : claseDesviacionCurva(p.real - p.prog)">
+                {{ p.real !== null ? ((p.real - p.prog > 0 ? '+' : '') + (p.real - p.prog) + '%') : '—' }}
+              </td>
+            </tr>
+            <tr *ngFor="let s of curvaS.forecasts; let k = index; trackBy: trackBySerieForecast">
+              <td>Desv. vs {{ s.nombre }}</td>
+              <td *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva"
+                  [class.cs-col-hoy]="p.esHoy"
+                  [ngClass]="p.real === null ? '' : claseDesviacionCurva(p.real - p.fc[k])">
+                {{ p.real !== null ? ((p.real - p.fc[k] > 0 ? '+' : '') + (p.real - p.fc[k]) + '%') : '—' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="curva-s-nota">
+        <i class="fa fa-info-circle"></i>
+        La línea base sale de las fechas programadas de la tabla{{ hayPonderacion ? ', con su ponderación' : '' }}.
+        Cada forecast es una reprogramación guardada aparte, con sus propias fechas y ponderación.
+        La curva real reparte el % real de cada lámina entre su inicio real y su término real (o hoy, si sigue en curso).
+        <span *ngIf="curvaS.sinDatosReales"> Todavía no hay avance real registrado.</span>
+      </p>
+    </ng-container>
+  </div>
+
+  <!-- ================= EDITOR DE FORECAST (reprogramación) ================= -->
+  <div class="cs-modal-fondo" *ngIf="forecastEditando" (click)="cerrarEditorForecast()">
+    <div class="cs-modal" (click)="$event.stopPropagation()">
+      <div class="cs-modal-header">
+        <div>
+          <h4>{{ esForecastNuevo ? 'Nuevo forecast' : 'Editar forecast' }}</h4>
+          <span>Fechas y ponderación propias de esta reprogramación. La tabla (línea base) no se modifica.</span>
+        </div>
+        <button type="button" class="cs-modal-cerrar" (click)="cerrarEditorForecast()"><i class="fa fa-times"></i></button>
+      </div>
+
+      <div class="cs-modal-opciones">
+        <label class="cs-campo">
+          <span>Nombre</span>
+          <input type="text" [(ngModel)]="forecastEditando.nombre" maxlength="40">
+        </label>
+        <label class="cs-campo cs-campo-color">
+          <span>Color</span>
+          <span class="cs-colores">
+            <i *ngFor="let c of COLORES_FORECAST" [style.background]="c" [class.activo]="forecastEditando.color === c"
+               (click)="forecastEditando.color = c"></i>
+          </span>
+        </label>
+        <div class="cs-campo cs-campo-desplazar">
+          <span>Correr todas las fechas</span>
+          <div>
+            <input type="number" [(ngModel)]="diasDesplazarForecast" step="1"> días
+            <button type="button" (click)="desplazarFechasEditor()" [disabled]="!diasDesplazarForecast">Aplicar</button>
+          </div>
+        </div>
+        <button type="button" class="cs-btn-sec" (click)="copiarLineaBaseEnEditor()" title="Volver todas las filas a las fechas y ponderación de la tabla">
+          <i class="fa fa-undo"></i> Copiar línea base
+        </button>
+      </div>
+
+      <div class="cs-modal-cuerpo">
+        <table class="cs-tabla-editor">
+          <thead>
+            <tr>
+              <th class="col-desc">Ítem</th>
+              <th>Base inicio</th>
+              <th>Base término</th>
+              <th>Inicio forecast</th>
+              <th>Plazo (días)</th>
+              <th>Término forecast</th>
+              <th>Pond. base</th>
+              <th>Pond. forecast</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of filasEditorForecast; trackBy: trackByFilaEditor"
+                [class.fila-grupo]="f.item.esTitulo" [class.fila-cambiada]="filaEditorCambiada(f)">
+              <td class="col-desc" [style.padding-left.px]="8 + f.nivel * 16">
+                <i *ngIf="f.item.esTitulo" class="fa fa-folder-open-o"></i>
+                <span class="cs-codigo" *ngIf="f.item.codigo">{{ f.item.codigo }}</span>
+                {{ f.item.descripcion }}
+              </td>
+              <td class="col-base">{{ fechaCortaCurva(f.item.fechaInicioProgramada) }}</td>
+              <td class="col-base">{{ fechaCortaCurva(f.item.fechaTerminoProgramada) }}</td>
+              <ng-container *ngIf="!f.esGrupo">
+                <td><input type="date" [ngModel]="f.ini" (ngModelChange)="onCambioInicioEditor(f, $event)"></td>
+                <td><input type="number" class="inp-corto" min="1" [ngModel]="plazoFilaEditor(f)" (ngModelChange)="onCambioPlazoEditor(f, $event)"></td>
+                <td><input type="date" [(ngModel)]="f.fin" [min]="f.ini"></td>
+              </ng-container>
+              <ng-container *ngIf="f.esGrupo">
+                <td colspan="3" class="col-base cs-sale-de-hijos">Sale de sus ítems</td>
+              </ng-container>
+              <td class="col-base">{{ f.item.ponderacion ? f.item.ponderacion + '%' : '—' }}</td>
+              <td>
+                <input type="number" class="inp-corto" min="0" max="100" step="0.01" [(ngModel)]="f.pond" placeholder="—">
+                <small class="cs-suma-pond" *ngIf="esPrimeraHermanaEditor(f) && sumaPondHermanosEditor(f) !== null"
+                       [class.ok]="sumaPondHermanosEditor(f) === 100">Σ {{ sumaPondHermanosEditor(f) }}%</small>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cs-modal-footer">
+        <span class="cs-cambios">{{ cantidadCambiosEditor }} fila(s) distinta(s) a la línea base</span>
+        <div>
+          <button type="button" class="cs-btn-sec" (click)="cerrarEditorForecast()">Cancelar</button>
+          <button type="button" class="cs-btn-prim" (click)="guardarForecast()" [disabled]="guardandoForecast">
+            <i class="fa" [ngClass]="guardandoForecast ? 'fa-spinner fa-spin' : 'fa-save'"></i> Guardar forecast
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ================= VISTA CARTA GANTT (barras semanales) ================= -->
