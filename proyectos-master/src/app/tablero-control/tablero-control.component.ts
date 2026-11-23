@@ -176,7 +176,7 @@ export class TableroControlComponent implements OnInit {
     }
     obs.subscribe(result => {
       this.perfilesUsuario = result || [];
-      this.esCliente = this.perfilesUsuario.some(p => p.idPerfil === 5);
+      this.esCliente = this.perfilesUsuario.some(p => p.idPerfil == 5 || p.idPerfil === 'Clientes');
       this.cargarPermisoValidarPrograma();
       console.log('Perfiles del usuario:', this.perfilesUsuario, '| esCliente:', this.esCliente);
     }, error => {

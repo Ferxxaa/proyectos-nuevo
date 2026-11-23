@@ -178,6 +178,9 @@ export class TablaHeaderComponent implements OnInit {
   }
 
   viewEtapa(idEtapa) {
+    if (this.soloLectura) {
+      return;
+    }
     this.etapaSeleccionada = Number(idEtapa);
     this.result = this.result.map(el => ({ ...el, vigente: el.idEtapa == idEtapa }));
     this.AsignaValorEtapas()
