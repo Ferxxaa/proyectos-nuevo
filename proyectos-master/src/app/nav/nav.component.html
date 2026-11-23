@@ -352,11 +352,17 @@
             </li>
         </ul>
 
-        <div class="collapse" id="sidebar-group-core" [class.in]="isCoreRoute">
+        <div class="collapse" id="sidebar-group-core" [class.menu-bloqueado]="Cliente">
             <div id="sidebar-core-accordion">
                 <ul class="sidebar-nav">
                     <li>
-                        <a [routerLink]="['/CORE-ControlAsistencia']" routerLinkActive="router-link-active">
+                        <a *ngIf="Cliente" href="javascript:void(0)" (click)="bloquearAcceso($event)">
+                            Control Asistencia
+                            <span class="icon">
+                                <i class="fa fa-calendar-check-o" aria-hidden="true"></i>
+                            </span>
+                        </a>
+                        <a *ngIf="!Cliente" [routerLink]="['/CORE-ControlAsistencia']" routerLinkActive="router-link-active">
                             Control Asistencia
                             <span class="icon">
                                 <i class="fa fa-calendar-check-o" aria-hidden="true"></i>
@@ -364,8 +370,13 @@
                         </a>
                     </li>
                     <li>
-                        <a [routerLink]="['/CORE-FlotaEquiposMaquinaria']" routerLinkActive="router-link-active"
-                           title="Flota, Equipos y Maquinaria">
+                        <a *ngIf="Cliente" href="javascript:void(0)" (click)="bloquearAcceso($event)" title="Flota, Equipos y Maquinaria">
+                            Flota y Equipos
+                            <span class="icon">
+                                <i class="fa fa-truck" aria-hidden="true"></i>
+                            </span>
+                        </a>
+                        <a *ngIf="!Cliente" [routerLink]="['/CORE-FlotaEquiposMaquinaria']" routerLinkActive="router-link-active" title="Flota, Equipos y Maquinaria">
                             Flota y Equipos
                             <span class="icon">
                                 <i class="fa fa-truck" aria-hidden="true"></i>

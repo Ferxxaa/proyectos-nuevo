@@ -107,6 +107,7 @@ export class NavComponent implements OnInit {
   bloquearAcceso(event: Event) {
     if (this.Cliente) {
       event.preventDefault();
+      event.stopPropagation();
       this.mostrarModalPermiso = true;
     }
   }
