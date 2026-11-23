@@ -172,6 +172,46 @@ interface PuntoCurvaS {
   mostrarEtiqueta: boolean;
   esHoy: boolean;
   fc: number[];         // % de cada forecast visible, en el mismo orden que CurvaS.forecasts
+  lbAnt: number[];      // % de cada línea base anterior (cortes previos), en el mismo orden que CurvaS.lineasBaseAnteriores
+}
+
+/** Fechas de una lámina en una línea base reprogramada después de un corte. */
+interface ItemCorteCurva {
+  ini: string;
+  fin: string;
+}
+
+/**
+ * Corte de la Curva S: a la fecha `fechaCorte` se congela la línea base anterior y se abre una nueva
+ * (Curva S 2, 3...). Antes del corte nada cambia; desde el corte en adelante se reprograma.
+ * La línea base del ÚLTIMO corte es la vigente para todo el control: al guardar el corte sus fechas
+ * pasan a la tabla, la Carta Gantt, el avance programado y el Excel.
+ * `items` guarda la línea base NUEVA (la que nace con este corte).
+ * `baseAnterior` guarda la foto de la línea base que había justo antes del corte (lo que tenía la tabla),
+ * para poder dibujarla como línea base anterior y restaurarla si se elimina el corte.
+ * Los cortes antiguos (sin `baseAnterior`) se migran una vez: ver asegurarCortesMigrados().
+ */
+interface CorteCurva {
+  id: string;
+  numero: number;
+  fechaCorte: string;      // 'YYYY-MM-DD'
+  fechaCreacion: string;
+  nombreCreador: string;
+  motivo?: string;
+  items: { [idItem: string]: ItemCorteCurva };
+  baseAnterior?: { [idItem: string]: ItemCorteCurva };
+}
+
+/** Fila del editor de la reprogramación de un corte. */
+interface FilaEditorCorte {
+  item: ControlAvanceItem;
+  nivel: number;
+  /** grupo = título con hijos (sale de sus ítems) · cerrada = terminó antes del corte · cruza = empezó antes y sigue · libre = parte después del corte */
+  estado: 'grupo' | 'cerrada' | 'cruza' | 'libre';
+  baseIni: string;
+  baseFin: string;
+  ini: string;
+  fin: string;
 }
 
 /** Curva de un forecast ya calculada para dibujar. */
@@ -199,6 +239,12 @@ interface CurvaS {
   pathReal: string;
   areaReal: string;
   forecasts: SerieForecastCurvaS[];
+  /** Líneas base de los cortes anteriores (gris punteado), para comparar contra la vigente de la pestaña. */
+  lineasBaseAnteriores: Array<{ id: string; nombre: string; path: string; valorHoy: number }>;
+  /** Línea vertical del corte de esta pestaña (null en la Curva S original). */
+  corteX: number | null;
+  corteTexto: string;
+  nombreLineaBase: string;
   ticksY: Array<{ valor: number; y: number }>;
   hoyX: number | null;
   hoyTexto: string;
@@ -739,6 +785,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     this.vistaActiva = this.vistaInicial;
     this.suscribirBloqueo();
     this.suscribirForecasts();
+    this.suscribirCortesCurva();
     this.cargarUsuariosValidadores();
     this.cargarValidadoresSeleccionados();
     this.suscribirControlesAvance();
@@ -1083,6 +1130,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.cargarValidadoresSeleccionados();
       this.suscribirBloqueo();
       this.suscribirForecasts();
+      this.curvaPestana = 0;
+      this.pestanaCurvaInicializada = false;
+      this.migracionCortesOfrecida = false;
+      this.suscribirCortesCurva();
       this.historialCambiosFechasGantt = [];
     }
   }
@@ -1099,6 +1150,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     }
     if (this.unsubscribeForecasts) {
       this.unsubscribeForecasts();
+    }
+    if (this.unsubscribeCortesCurva) {
+      this.unsubscribeCortesCurva();
     }
     if (this.timerResizeCurvaS) {
       clearTimeout(this.timerResizeCurvaS);
@@ -1215,6 +1269,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
             this.recalcularJerarquiaYAgregados();
             this.calcularTotalesDocumentos();
             this.actualizarDatosGantt();
+            this.ofrecerMigracionCortesSiCorresponde();
           } catch (error) {
             // Evita que un dato mal formado deje el spinner "LoadingTabla" pegado para siempre.
             console.error('Error al procesar controles de avance:', error);
@@ -3474,6 +3529,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       if (tieneHijos) { return; }
     }
 
+    // Con cortes, el programado sale de la línea base vigente igual que en la Curva S:
+    // hasta la fecha del corte se respeta lo programado antes; desde ahí, la reprogramación.
+    if (this.cortesCurva && this.cortesCurva.length > 0) {
+      const ahora = new Date();
+      const hoyLocal = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+      const fraccion = this.fraccionLineaBase(this.cortesCurva.length, item, hoyLocal);
+      item.avanceProgramado = Math.min(100, Math.max(0, Math.round(fraccion * 100)));
+      return;
+    }
+
     if (!item.fechaInicioProgramada || !item.fechaTerminoProgramada) {
       item.avanceProgramado = 0;
       return;
@@ -3580,6 +3645,30 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   diasDesplazarForecast: number = 0;
   private unsubscribeForecasts: (() => void) | null = null;
   readonly COLORES_FORECAST: string[] = ['#2e9e5b', '#8e44ad', '#F59325', '#17a2b8', '#795548', '#e83e8c'];
+
+  // ---- Cortes de la Curva S (reprogramar la línea base desde una fecha) ----
+  /** Cortes guardados, del más antiguo al más reciente. Curva S 1 = original, Curva S 2 = después del corte 1, etc. */
+  cortesCurva: CorteCurva[] = [];
+  /** La primera vez que llegan los cortes se abre la pestaña vigente (la del último corte). */
+  private pestanaCurvaInicializada: boolean = false;
+  /** Para preguntar una sola vez por proyecto si se migran los cortes antiguos. */
+  private migracionCortesOfrecida: boolean = false;
+  private migrandoCortes: boolean = false;
+  /** 2 = cortes que aplican la línea base vigente a la tabla sin pisar fechas al migrar. */
+  private readonly VERSION_CORTES: number = 2;
+  /** versionCortes guardado en el doc de cortes (0 si no tiene). */
+  private versionCortesDoc: number = 0;
+  /** Pestaña de la Curva S a la vista: 0 = línea base original; k = línea base del corte k. */
+  curvaPestana: number = 0;
+  /** Corte abierto en el editor (copia; no se guarda hasta apretar Guardar). */
+  corteEditando: CorteCurva | null = null;
+  filasEditorCorte: FilaEditorCorte[] = [];
+  esCorteNuevo: boolean = false;
+  guardandoCorte: boolean = false;
+  diasDesplazarCorte: number = 0;
+  /** Línea base que se reprograma en el editor (la anterior al corte). */
+  private indiceBaseEditorCorte: number = 0;
+  private unsubscribeCortesCurva: (() => void) | null = null;
 
   cambiarEscalaCurvaS(escala: 'auto' | 'dia' | 'semana' | 'mes') {
     this.curvaSEscala = escala;
@@ -3874,6 +3963,732 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     this.calcularCurvaS();
   }
 
+  // ---------------- Cortes de la Curva S: reprogramar la línea base desde una fecha ----------------
+  // "Hacer corte" congela la línea base vigente a una fecha y abre una nueva pestaña (Curva S 2, 3...).
+  // En el editor, lo que terminó antes del corte queda fijo, lo que lo cruza solo cambia su término
+  // y lo que parte después se reprograma libre (nunca antes del corte).
+  // Al guardar, la línea base reprogramada pasa a ser la VIGENTE para todo el control: sus fechas se
+  // escriben en la tabla (y con eso en la Carta Gantt, el avance programado, el header y el Excel).
+  // La línea base que había antes queda guardada en el corte (baseAnterior) para comparar o restaurar.
+  // Se guarda en controlAvanceConfig/cortesCurva_<proyecto>_<subproyecto>.
+
+  private getIdDocCortesCurva(): string {
+    return 'cortesCurva_' + (Number(this.idProyecto) || 0) + '_' + (Number(this.getIdSubProyectoActual()) || 0);
+  }
+
+  private suscribirCortesCurva() {
+    if (this.unsubscribeCortesCurva) {
+      this.unsubscribeCortesCurva();
+      this.unsubscribeCortesCurva = null;
+    }
+    this.cortesCurva = [];
+    if (!Number(this.idProyecto)) { return; }
+
+    this.unsubscribeCortesCurva = firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocCortesCurva())
+      .onSnapshot((doc: any) => {
+        this._ngZone.run(() => {
+          const data = doc.exists ? doc.data() : null;
+          const lista: CorteCurva[] = data && Array.isArray(data.cortes) ? data.cortes.slice() : [];
+          this.versionCortesDoc = data ? (Number(data.versionCortes) || 0) : 0;
+          lista.sort((a, b) => (a.fechaCorte || '').localeCompare(b.fechaCorte || '') || (a.numero || 0) - (b.numero || 0));
+          this.cortesCurva = lista;
+          if (!this.pestanaCurvaInicializada) {
+            // Al entrar se muestra la Curva S vigente (la del último corte)
+            this.curvaPestana = this.cortesCurva.length;
+            this.pestanaCurvaInicializada = true;
+          }
+          if (this.curvaPestana > this.cortesCurva.length) { this.curvaPestana = this.cortesCurva.length; }
+          // El avance programado de la tabla y del header depende de los cortes
+          if (this.ControlesAvance && this.ControlesAvance.length) {
+            this.recalcularJerarquiaYAgregados();
+            this.calcularTotalesDocumentos();
+            this.actualizarDatosGantt();
+          }
+          if (this.vistaActiva === 'curva') { this.calcularCurvaS(); }
+          this.ofrecerMigracionCortesSiCorresponde();
+        });
+      }, (error: any) => {
+        console.error('No se pudieron leer los cortes de la Curva S:', error);
+      });
+  }
+
+  private datosListaCortesCurva(lista: CorteCurva[]): any {
+    return {
+      cortes: lista,
+      idProyecto: Number(this.idProyecto) || 0,
+      idSubProyecto: Number(this.getIdSubProyectoActual()) || 0,
+      fechaActualizacion: new Date().toISOString(),
+      versionCortes: this.VERSION_CORTES
+    };
+  }
+
+  /**
+   * Guarda en un solo batch la lista de cortes y las fechas programadas que cambiaron en la tabla,
+   * así nunca queda un corte guardado con la tabla a medio actualizar (o al revés).
+   */
+  private guardarCortesYTabla(
+    lista: CorteCurva[],
+    estadoDespues: EstadoFechasProgramadasGantt,
+    estadoAntes: EstadoFechasProgramadasGantt
+  ): Promise<any> {
+    if (!this.puedeEditarAvance) {
+      return Promise.reject(new Error('La edición del Control de Avance está bloqueada.'));
+    }
+    const batch = firestoreDB.batch();
+    this.agregarFechasTablaAlBatch(batch, estadoDespues, estadoAntes);
+    batch.set(firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocCortesCurva()), this.datosListaCortesCurva(lista));
+    return batch.commit();
+  }
+
+  /** Cortes de la versión anterior: guardaban solo la línea base nueva y la tabla quedaba con la original. */
+  private get cortesSonLegacy(): boolean {
+    return (this.cortesCurva || []).some(c => !c.baseAnterior);
+  }
+
+  /** Fechas programadas que tiene hoy la tabla para una lámina. */
+  private valoresTablaCorte(it: ControlAvanceItem): ItemCorteCurva {
+    return { ini: it.fechaInicioProgramada || '', fin: it.fechaTerminoProgramada || '' };
+  }
+
+  /** Foto de las fechas programadas actuales de la tabla (todas las filas activas). */
+  private fotoLineaBaseTabla(): { [idItem: string]: ItemCorteCurva } {
+    const foto: { [idItem: string]: ItemCorteCurva } = {};
+    (this.ControlesAvance || []).forEach(it => {
+      if (!it.id || it.activo === false) { return; }
+      foto[it.id] = this.valoresTablaCorte(it);
+    });
+    return foto;
+  }
+
+  /**
+   * Fechas de una lámina en la línea base `n` (0 = la original; k = la del corte k).
+   * La línea base vigente (n = cantidad de cortes) es la tabla.
+   * Las anteriores salen de la foto `baseAnterior` guardada en el corte siguiente.
+   * Si la lámina no estaba en esa foto (se creó después), se toma la de la línea base siguiente.
+   * Cortes antiguos sin migrar: 0 = tabla, k = items del corte k (comportamiento anterior).
+   */
+  private valoresLineaBase(n: number, it: ControlAvanceItem): ItemCorteCurva {
+    const total = this.cortesCurva.length;
+    if (this.cortesSonLegacy) {
+      if (n <= 0 || !this.cortesCurva[n - 1]) { return this.valoresTablaCorte(it); }
+      const corteLegacy = this.cortesCurva[n - 1];
+      const vLegacy = it.id && corteLegacy.items ? corteLegacy.items[it.id] : null;
+      return vLegacy ? { ini: vLegacy.ini || '', fin: vLegacy.fin || '' } : this.valoresLineaBase(n - 1, it);
+    }
+    if (n >= total) { return this.valoresTablaCorte(it); }
+    const corte = this.cortesCurva[Math.max(0, n)];
+    const v = it.id && corte.baseAnterior ? corte.baseAnterior[it.id] : null;
+    return v ? { ini: v.ini || '', fin: v.fin || '' } : this.valoresLineaBase(Math.max(0, n) + 1, it);
+  }
+
+  /**
+   * Escribe una línea base en la tabla (solo láminas y títulos sin hijos; los títulos con hijos salen de ellos).
+   * Se repite hasta que la jerarquía recalculada respete exactamente las fechas pedidas.
+   * Al final, el inicio solo queda "manual" en las láminas donde el encadenamiento (empezar cuando termina
+   * la anterior) lo movería; si coincide con el término de la anterior, sigue encadenada como antes.
+   */
+  private aplicarLineaBaseEnTabla(valores: { [idItem: string]: ItemCorteCurva }) {
+    const hojas = (this.ControlesAvance || []).filter(it => it.id && valores[it.id] && !this.esFilaConHijos(it.id));
+    const tocados: { [id: string]: boolean } = {};
+
+    const aplicar = (forzarTermino: boolean): boolean => {
+      let cambio = false;
+      hojas.forEach(it => {
+        const v = valores[it.id];
+        const ini = v.ini || '';
+        const fin = v.fin || '';
+        if ((it.fechaInicioProgramada || '') !== ini) {
+          it.fechaInicioProgramada = ini;
+          it.fechaInicioProgramadaManual = !!ini;
+          tocados[it.id] = true;
+          cambio = true;
+        }
+        if ((it.fechaTerminoProgramada || '') !== fin) {
+          it.fechaTerminoProgramada = fin;
+          if (forzarTermino) { it.fechaTerminoProgramadaManual = !!fin; }
+          cambio = true;
+        }
+        const plazo = ini && fin ? this.diasEntreFechasISO(ini, fin) : 0;
+        if (plazo > 0 && Number(it.plazoProgramado) !== plazo) {
+          it.plazoProgramado = plazo;
+          cambio = true;
+        }
+      });
+      return cambio;
+    };
+
+    const ajustar = () => {
+      for (let i = 0; i < 3; i++) {
+        if (!aplicar(true)) { break; }
+        this.refrescarTrasCambioGantt();
+      }
+    };
+
+    aplicar(false);
+    this.refrescarTrasCambioGantt();
+    ajustar();
+
+    // Devuelve el encadenamiento donde no hace falta el inicio manual (mismo recorrido que recalcularJerarquiaYAgregados)
+    if (Object.keys(tocados).length) {
+      const hijosPorPadre = this.agruparPorPadre();
+      const normalizar = (items: ControlAvanceItem[]) => {
+        let finAnterior = '';
+        items.forEach(it => {
+          if (it.esTitulo) {
+            normalizar(hijosPorPadre[this.claveJerarquia(it.id)] || []);
+            return;
+          }
+          if (it.id && tocados[it.id]) {
+            const ini = it.fechaInicioProgramada || '';
+            it.fechaInicioProgramadaManual = !!ini && !!finAnterior && ini !== finAnterior;
+          }
+          finAnterior = it.fechaTerminoProgramada || '';
+        });
+      };
+      normalizar(hijosPorPadre[this.claveJerarquia(null)] || []);
+      this.refrescarTrasCambioGantt();
+      ajustar();
+    }
+  }
+
+  /**
+   * Al cargar (solo quien puede editar y con la tabla cargada):
+   * - cortes de la versión antigua (sin foto): se migran sin tocar la tabla;
+   * - cortes migrados con la versión que pisaba la tabla (sin versionCortes 2): se ofrece restaurar la tabla una vez.
+   */
+  private ofrecerMigracionCortesSiCorresponde() {
+    if (this.migracionCortesOfrecida || this.migrandoCortes) { return; }
+    if (!this.puedeEditarAvance || this.LoadingTabla) { return; }
+    if (!this.ControlesAvance || !this.ControlesAvance.length || !this.cortesCurva.length) { return; }
+    if (this.cortesSonLegacy) {
+      this.migracionCortesOfrecida = true;
+      this.asegurarCortesMigrados();
+    } else if (this.versionCortesDoc < this.VERSION_CORTES) {
+      this.migracionCortesOfrecida = true;
+      this.ofrecerRestaurarTablaCortes();
+    }
+  }
+
+  /**
+   * Migra los cortes de la versión antigua SIN mover la tabla: en esa versión la tabla se siguió editando
+   * después de cada corte, así que lo que tiene hoy la tabla es lo vigente (la copia del corte quedó desfasada).
+   * Cada corte guarda como foto la línea base que había antes (la del corte anterior; la del primero, la tabla).
+   * Devuelve true si quedó migrado.
+   */
+  private async asegurarCortesMigrados(): Promise<boolean> {
+    if (!this.cortesSonLegacy) { return true; }
+    if (!this.puedeEditarAvance || this.migrandoCortes || !this.ControlesAvance || !this.ControlesAvance.length) { return false; }
+
+    const anteriores = this.cortesCurva;
+    const activos = (this.ControlesAvance || []).filter(it => it.id && it.activo !== false);
+
+    // Se calcula con la lógica antigua ANTES de reemplazar la lista
+    const migrados: CorteCurva[] = anteriores.map((c, k) => {
+      const baseAnterior: { [idItem: string]: ItemCorteCurva } = {};
+      activos.forEach(it => { baseAnterior[it.id] = this.valoresLineaBase(k, it); });
+      return { ...c, baseAnterior: c.baseAnterior || baseAnterior };
+    });
+
+    this.migrandoCortes = true;
+    this.cortesCurva = migrados;
+    this.refrescarTrasCambioGantt();
+
+    try {
+      await firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocCortesCurva()).set(this.datosListaCortesCurva(migrados));
+      this._ngZone.run(() => {
+        this.migrandoCortes = false;
+        this.versionCortesDoc = this.VERSION_CORTES;
+        if (this.vistaActiva === 'curva') { this.calcularCurvaS(); }
+      });
+      return true;
+    } catch (error) {
+      this._ngZone.run(() => {
+        this.cortesCurva = anteriores;
+        this.refrescarTrasCambioGantt();
+        this.migrandoCortes = false;
+        Swal.fire('Error', 'No se pudieron actualizar los cortes: ' + this.getMensajeError(error), 'error');
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Arreglo de una sola vez: la versión anterior, al migrar los cortes, reemplazó las fechas de la tabla por la
+   * copia del último corte y movió láminas. La tabla que había justo antes quedó en la foto del primer corte.
+   */
+  private async ofrecerRestaurarTablaCortes() {
+    const foto = this.cortesCurva[0] ? this.cortesCurva[0].baseAnterior : null;
+    if (!foto || !this.puedeEditarAvance || this.migrandoCortes) { return; }
+
+    const r: any = await Swal.fire({
+      title: '¿Se movieron las fechas de la tabla?',
+      html: '<p style="font-size:14px;text-align:left">Al aplicar los cortes de la Curva S, la versión anterior de esta pantalla '
+        + 'reemplazó las fechas de la tabla por una copia guardada en el corte, y pudo mover láminas que habías cambiado después.</p>'
+        + '<p style="font-size:14px;text-align:left">Puedes devolver la tabla y la Carta Gantt a las fechas que tenían justo antes. '
+        + 'Los cortes y el avance real no se tocan.</p>'
+        + '<p style="font-size:12.5px;text-align:left;color:#888">Si después de eso hiciste un corte nuevo, su reprogramación también se deshace en la tabla '
+        + '(la puedes volver a aplicar con "Editar reprogramación").</p>',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Restaurar tabla',
+      cancelButtonText: 'Dejar como está'
+    });
+    const restaurar = !!(r && (r.value || r.isConfirmed));
+    // Cerrar el aviso sin elegir: se vuelve a preguntar la próxima vez
+    if (!restaurar && !(r && r.dismiss === 'cancel')) { this.migracionCortesOfrecida = false; return; }
+    if (!this.puedeEditarAvance) { return; }
+
+    const lista = this.cortesCurva;
+    this.migrandoCortes = true;
+    const estadoAntes = this.capturarEstadoFechasGantt();
+    if (restaurar) { this.aplicarLineaBaseEnTabla(foto); }
+    const estadoDespues = this.capturarEstadoFechasGantt();
+
+    try {
+      await this.guardarCortesYTabla(lista, estadoDespues, estadoAntes);
+      this._ngZone.run(() => {
+        this.migrandoCortes = false;
+        this.versionCortesDoc = this.VERSION_CORTES;
+        this.historialCambiosFechasGantt = [];
+        if (this.vistaActiva === 'curva') { this.calcularCurvaS(); }
+        if (restaurar) {
+          Swal.fire({ icon: 'success', title: 'Tabla restaurada', timer: 2000, showConfirmButton: false });
+        }
+      });
+    } catch (error) {
+      this._ngZone.run(() => {
+        this.restaurarEstadoFechasGantt(estadoAntes);
+        this.refrescarTrasCambioGantt();
+        this.migrandoCortes = false;
+        this.migracionCortesOfrecida = false;
+        Swal.fire('Error', 'No se pudo restaurar la tabla: ' + this.getMensajeError(error), 'error');
+      });
+    }
+  }
+
+  /**
+   * Fracción (0..1) programada de una lámina a una fecha según la línea base `n`.
+   * Antes del corte es exactamente la de la línea base anterior (no se reescribe el pasado);
+   * desde el corte, lo que le faltaba se reparte entre max(corte, nuevo inicio) y el nuevo término.
+   * Así la curva no salta en el corte.
+   */
+  private fraccionLineaBase(n: number, it: ControlAvanceItem, fecha: Date): number {
+    const corte = n > 0 ? this.cortesCurva[n - 1] : null;
+    if (!corte) {
+      // Línea base original: con cortes es la foto guardada, sin cortes es la tabla
+      const v0 = this.valoresLineaBase(0, it);
+      return this.fraccionEntreFechasCurva(v0.ini, v0.fin, fecha);
+    }
+    const fechaCorte = this.parsearFechaLocal(corte.fechaCorte);
+    if (!fechaCorte || fecha < fechaCorte) { return this.fraccionLineaBase(n - 1, it, fecha); }
+
+    const enCorte = fechaCorte ? this.fraccionLineaBase(n - 1, it, fechaCorte) : 0;
+    if (enCorte >= 1) { return 1; }
+    const v = this.valoresLineaBase(n, it);
+    if (!v.fin) { return enCorte; }
+    const ini = v.ini && v.ini > corte.fechaCorte ? v.ini : corte.fechaCorte;
+    return enCorte + (1 - enCorte) * this.fraccionEntreFechasCurva(ini, v.fin, fecha);
+  }
+
+  get pestanasCurva(): Array<{ indice: number; titulo: string; detalle: string }> {
+    const total = this.cortesCurva.length;
+    const pestanas = [{ indice: 0, titulo: 'Curva S 1', detalle: 'Línea base original' + (total === 0 ? ' · vigente' : '') }];
+    this.cortesCurva.forEach((c, i) => {
+      pestanas.push({
+        indice: i + 1,
+        titulo: 'Curva S ' + (i + 2),
+        detalle: (i + 1 === total ? 'Vigente · ' : '') + 'Corte ' + this.isoADdmmaaaa(c.fechaCorte) + (c.motivo ? ' · ' + c.motivo : '')
+      });
+    });
+    return pestanas;
+  }
+
+  /** Texto de la nota bajo la Curva S según la pestaña a la vista. */
+  get notaLineaBaseCurva(): string {
+    const total = this.cortesCurva.length;
+    const corte = this.corteCurvaEnVista;
+    if (!total) { return 'La línea base sale de las fechas programadas de la tabla'; }
+    if (!corte) { return 'Esta es la línea base original, congelada en el primer corte (la tabla ya tiene la línea base vigente)'; }
+    if (this.curvaPestana === total) {
+      return 'Esta es la línea base vigente, reprogramada en el corte del ' + this.isoADdmmaaaa(corte.fechaCorte)
+        + ': es la misma que tienen la tabla, la Carta Gantt y el avance programado';
+    }
+    return 'Esta línea base es la reprogramada en el corte del ' + this.isoADdmmaaaa(corte.fechaCorte)
+      + ', congelada con un corte posterior';
+  }
+
+  /** Corte de la pestaña a la vista (null en la Curva S original). */
+  get corteCurvaEnVista(): CorteCurva | null {
+    return this.curvaPestana > 0 ? (this.cortesCurva[this.curvaPestana - 1] || null) : null;
+  }
+
+  /** Solo el último corte se puede editar o eliminar (los anteriores ya tienen otro corte encima). */
+  get esUltimoCorteEnVista(): boolean {
+    return this.curvaPestana > 0 && this.curvaPestana === this.cortesCurva.length;
+  }
+
+  seleccionarPestanaCurva(indice: number) {
+    if (this.curvaPestana === indice) { return; }
+    this.curvaPestana = indice;
+    this.calcularCurvaS();
+  }
+
+  private sumarDiasIso(iso: string, dias: number): string {
+    const f = this.parsearFechaISO(iso);
+    if (!f) { return ''; }
+    f.setDate(f.getDate() + dias);
+    return this.formatearFechaISO(f);
+  }
+
+  /** "Hacer corte": elige la fecha y abre el editor para reprogramar desde ahí. Se guarda al apretar Guardar. */
+  async hacerCorteCurva() {
+    if (!this.puedeEditarAvance || this.guardandoCorte) { return; }
+    if (!(await this.asegurarCortesMigrados())) { return; }
+    const ultimo = this.cortesCurva.length ? this.cortesCurva[this.cortesCurva.length - 1] : null;
+    const numero = this.cortesCurva.length + 1;
+    const hoyIso = this.formatearFechaISO(new Date());
+    const minimoIso = ultimo ? this.sumarDiasIso(ultimo.fechaCorte, 1) : '';
+    const sugerida = minimoIso && hoyIso < minimoIso ? minimoIso : hoyIso;
+
+    const r = await Swal.fire({
+      title: 'Hacer corte en la Curva S',
+      html:
+        '<p style="font-size:14px;text-align:left">La línea base actual queda congelada en la <strong>Curva S ' + numero + '</strong>. '
+        + 'Se abre la <strong>Curva S ' + (numero + 1) + '</strong>, donde desde la fecha del corte en adelante puedes volver a programar la línea base.</p>'
+        + '<p style="font-size:13px;text-align:left;color:#888">Al guardar, la reprogramación pasa a ser la línea base vigente: '
+        + 'se aplica a la tabla, la Carta Gantt, el avance programado y el Excel.</p>'
+        + '<label style="display:block;text-align:left;font-size:13px;font-weight:600;margin-top:10px">Fecha del corte</label>'
+        + '<input id="swal-corte-curva-fecha" type="date" class="swal2-input" style="margin-top:4px" value="' + sugerida + '"'
+        + (minimoIso ? ' min="' + minimoIso + '"' : '') + '>'
+        + '<label style="display:block;text-align:left;font-size:13px;font-weight:600;margin-top:10px">Motivo (opcional)</label>'
+        + '<input id="swal-corte-curva-motivo" type="text" class="swal2-input" style="margin-top:4px" maxlength="80" placeholder="Ej: atraso por aprobación del mandante">'
+        + (ultimo ? '<p style="font-size:12px;color:#888;margin-top:8px">Debe ser posterior al corte anterior (' + this.isoADdmmaaaa(ultimo.fechaCorte) + ').</p>' : ''),
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Continuar',
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const fecha = ((document.getElementById('swal-corte-curva-fecha') as HTMLInputElement).value || '').trim();
+        const motivo = ((document.getElementById('swal-corte-curva-motivo') as HTMLInputElement).value || '').trim();
+        if (!this.parsearFechaISO(fecha)) {
+          Swal.showValidationMessage('Elige la fecha del corte');
+          return false;
+        }
+        if (minimoIso && fecha < minimoIso) {
+          Swal.showValidationMessage('Debe ser posterior al corte anterior (' + this.isoADdmmaaaa(ultimo.fechaCorte) + ')');
+          return false;
+        }
+        return { fecha: fecha, motivo: motivo };
+      }
+    });
+    if (!r || !r.value || !r.value.fecha || !this.puedeEditarAvance) { return; }
+
+    // La nueva línea base parte como copia de la vigente (la del último corte, o la tabla)
+    const items: { [idItem: string]: ItemCorteCurva } = {};
+    this.ControlesAvance.forEach(it => {
+      if (!it.id || it.activo === false) { return; }
+      items[it.id] = this.valoresLineaBase(this.cortesCurva.length, it);
+    });
+
+    const corte: CorteCurva = {
+      id: 'corte_' + Date.now(),
+      numero: numero,
+      fechaCorte: r.value.fecha,
+      fechaCreacion: new Date().toISOString(),
+      nombreCreador: this.getNombreUsuarioActual() || 'Usuario',
+      motivo: r.value.motivo || '',
+      items: items
+    };
+    this.esCorteNuevo = true;
+    this.abrirEditorCorte(corte, this.cortesCurva.length);
+  }
+
+  /** Editar la reprogramación del último corte (el que se está viendo). */
+  async editarCorteCurva() {
+    if (!this.puedeEditarAvance || !this.corteCurvaEnVista || !this.esUltimoCorteEnVista) { return; }
+    if (!(await this.asegurarCortesMigrados())) { return; }
+    const corte = this.corteCurvaEnVista;
+    if (!corte || !this.esUltimoCorteEnVista) { return; }
+    this.esCorteNuevo = false;
+    this.abrirEditorCorte(corte, this.curvaPestana - 1);
+  }
+
+  private abrirEditorCorte(corte: CorteCurva, indiceBase: number) {
+    this.corteEditando = JSON.parse(JSON.stringify(corte));
+    this.indiceBaseEditorCorte = indiceBase;
+    this.diasDesplazarCorte = 0;
+    const fc = corte.fechaCorte;
+    this.filasEditorCorte = this.ordenJerarquicoCompleto().map(o => {
+      const base = this.valoresLineaBase(indiceBase, o.item);
+      // Corte nuevo: parte de la copia de la vigente. Editando: parte de lo que tiene hoy la tabla
+      // (es la vigente y pudo cambiar después del corte, desde la tabla o la Carta Gantt).
+      const actual = this.esCorteNuevo
+        ? ((o.item.id && corte.items[o.item.id]) || base)
+        : this.valoresTablaCorte(o.item);
+      let estado: FilaEditorCorte['estado'] = 'libre';
+      if (o.item.esTitulo && o.tieneHijos) {
+        estado = 'grupo';
+      } else if (base.fin && base.fin < fc) {
+        estado = 'cerrada';
+      } else if (base.ini && base.ini < fc) {
+        estado = 'cruza';
+      }
+      return {
+        item: o.item,
+        nivel: o.nivel,
+        estado: estado,
+        baseIni: base.ini,
+        baseFin: base.fin,
+        // Lo que no se puede mover queda con las fechas de la línea base anterior
+        ini: estado === 'cerrada' || estado === 'cruza' ? base.ini : (actual.ini || ''),
+        fin: estado === 'cerrada' ? base.fin : (actual.fin || '')
+      };
+    });
+  }
+
+  cerrarEditorCorte() {
+    this.corteEditando = null;
+    this.filasEditorCorte = [];
+    this.esCorteNuevo = false;
+  }
+
+  plazoFilaCorte(f: FilaEditorCorte): number | null {
+    if (!f.ini || !f.fin) { return null; }
+    const d = this.diasEntreFechasISO(f.ini, f.fin);
+    return d > 0 ? d : null;
+  }
+
+  /** Inicio nuevo (solo filas libres): nunca antes del corte; se mantiene el plazo. */
+  onCambioInicioEditorCorte(f: FilaEditorCorte, nuevo: string) {
+    if (!this.corteEditando || f.estado !== 'libre') { return; }
+    const plazo = this.plazoFilaCorte(f);
+    let ini = nuevo || '';
+    if (ini && ini < this.corteEditando.fechaCorte) { ini = this.corteEditando.fechaCorte; }
+    f.ini = ini;
+    if (f.ini && plazo) { f.fin = this.calcularFechaTerminoDesdePlazo(f.ini, plazo); }
+  }
+
+  onCambioPlazoEditorCorte(f: FilaEditorCorte, valor: any) {
+    if (!this.corteEditando || (f.estado !== 'libre' && f.estado !== 'cruza')) { return; }
+    const plazo = Math.round(Number(valor) || 0);
+    if (!f.ini || plazo <= 0) { return; }
+    f.fin = this.calcularFechaTerminoDesdePlazo(f.ini, plazo);
+    this.ajustarTerminoMinimoCorte(f);
+  }
+
+  onCambioTerminoEditorCorte(f: FilaEditorCorte, nuevo: string) {
+    if (!this.corteEditando || (f.estado !== 'libre' && f.estado !== 'cruza')) { return; }
+    f.fin = nuevo || '';
+    this.ajustarTerminoMinimoCorte(f);
+  }
+
+  /** Mientras se escribe una fecha del editor del corte: dd/mm/aaaa con las "/" solas (igual que en la tabla). */
+  onInputFechaCorte(input: HTMLInputElement, f: FilaEditorCorte, campo: 'ini' | 'fin') {
+    if (!input || !f) { return; }
+    const digitos = (input.value || '').replace(/\D/g, '').substring(0, 8);
+    let texto = digitos;
+    if (digitos.length > 4) {
+      texto = `${digitos.substring(0, 2)}/${digitos.substring(2, 4)}/${digitos.substring(4)}`;
+    } else if (digitos.length > 2) {
+      texto = `${digitos.substring(0, 2)}/${digitos.substring(2)}`;
+    }
+    input.value = texto;
+    const iso = this.ddmmaaaaAIso(texto);
+    if (iso && iso !== f[campo]) {
+      this.aplicarFechaCorte(f, campo, iso);
+    }
+  }
+
+  /** Al salir del campo: muestra la fecha que quedó (por si estaba a medio escribir o se ajustó al corte). */
+  restaurarFechaCorte(input: HTMLInputElement, f: FilaEditorCorte, campo: 'ini' | 'fin') {
+    if (input && f) { input.value = this.isoADdmmaaaa(f[campo]); }
+  }
+
+  /** Fecha elegida con el botón de calendario (llega como 'YYYY-MM-DD'). */
+  onPickerFechaCorte(valorIso: string, f: FilaEditorCorte, campo: 'ini' | 'fin') {
+    if (!valorIso || !f) { return; }
+    this.aplicarFechaCorte(f, campo, valorIso);
+  }
+
+  private aplicarFechaCorte(f: FilaEditorCorte, campo: 'ini' | 'fin', iso: string) {
+    if (campo === 'ini') {
+      this.onCambioInicioEditorCorte(f, iso);
+    } else {
+      this.onCambioTerminoEditorCorte(f, iso);
+    }
+  }
+
+  /** El término no puede quedar antes del corte ni antes del inicio. */
+  private ajustarTerminoMinimoCorte(f: FilaEditorCorte) {
+    if (!f.fin || !this.corteEditando) { return; }
+    const minimo = f.ini && f.ini > this.corteEditando.fechaCorte ? f.ini : this.corteEditando.fechaCorte;
+    if (f.fin < minimo) { f.fin = minimo; }
+  }
+
+  /** Corre N días todo lo que se puede reprogramar (las que cruzan el corte solo corren su término). */
+  desplazarFechasEditorCorte() {
+    const dias = Math.round(Number(this.diasDesplazarCorte) || 0);
+    if (!dias || !this.corteEditando) { return; }
+    this.filasEditorCorte.forEach(f => {
+      if (f.estado === 'libre') {
+        if (f.ini) { f.ini = this.sumarDiasIso(f.ini, dias); }
+        if (f.fin) { f.fin = this.sumarDiasIso(f.fin, dias); }
+        if (f.ini && f.ini < this.corteEditando.fechaCorte) {
+          const plazo = this.plazoFilaCorte(f);
+          f.ini = this.corteEditando.fechaCorte;
+          if (plazo) { f.fin = this.calcularFechaTerminoDesdePlazo(f.ini, plazo); }
+        }
+        this.ajustarTerminoMinimoCorte(f);
+      } else if (f.estado === 'cruza' && f.fin) {
+        f.fin = this.sumarDiasIso(f.fin, dias);
+        this.ajustarTerminoMinimoCorte(f);
+      }
+    });
+    this.diasDesplazarCorte = 0;
+  }
+
+  /** Vuelve todas las filas a la línea base anterior (sin reprogramar). */
+  copiarBaseEnEditorCorte() {
+    this.filasEditorCorte.forEach(f => {
+      f.ini = f.baseIni;
+      f.fin = f.baseFin;
+    });
+  }
+
+  filaCorteCambiada(f: FilaEditorCorte): boolean {
+    if (f.estado === 'grupo' || f.estado === 'cerrada') { return false; }
+    return (f.ini || '') !== (f.baseIni || '') || (f.fin || '') !== (f.baseFin || '');
+  }
+
+  get cantidadCambiosEditorCorte(): number {
+    return this.filasEditorCorte.filter(f => this.filaCorteCambiada(f)).length;
+  }
+
+  trackByFilaCorte(index: number, f: FilaEditorCorte): any {
+    return f.item.id || index;
+  }
+
+  /** Nombre de la línea base que se está reprogramando en el editor. */
+  get nombreBaseEditorCorte(): string {
+    return 'Curva S ' + (this.indiceBaseEditorCorte + 1);
+  }
+
+  guardarCorteCurva() {
+    if (!this.puedeEditarAvance || !this.corteEditando || this.guardandoCorte) { return; }
+    const corte = this.corteEditando;
+
+    const items: { [idItem: string]: ItemCorteCurva } = {};
+    this.filasEditorCorte.forEach(f => {
+      if (!f.item.id || f.estado === 'grupo') { return; }
+      items[f.item.id] = { ini: f.ini || '', fin: f.fin || '' };
+    });
+
+    const anteriores = this.cortesCurva;
+    const idx = anteriores.findIndex(c => c.id === corte.id);
+    const existente = idx >= 0 ? anteriores[idx] : null;
+
+    const guardado: CorteCurva = {
+      id: corte.id,
+      numero: corte.numero,
+      fechaCorte: corte.fechaCorte,
+      fechaCreacion: corte.fechaCreacion || new Date().toISOString(),
+      nombreCreador: corte.nombreCreador || this.getNombreUsuarioActual() || 'Usuario',
+      motivo: corte.motivo || '',
+      items: items,
+      // Corte nuevo: la foto es lo que tiene hoy la tabla (la vigente hasta ahora).
+      // Editando: se conserva la foto que se tomó cuando se hizo el corte.
+      baseAnterior: (existente && existente.baseAnterior) || corte.baseAnterior || this.fotoLineaBaseTabla()
+    };
+
+    const lista = anteriores.slice();
+    if (idx >= 0) { lista[idx] = guardado; } else { lista.push(guardado); }
+    const pestanaDestino = idx >= 0 ? idx + 1 : lista.length;
+    const eraNuevo = this.esCorteNuevo;
+
+    // La reprogramación pasa a la tabla: con la lista nueva ya puesta, el avance programado
+    // de cada fila se calcula con la línea base vigente antes de guardarlo.
+    const estadoAntes = this.capturarEstadoFechasGantt();
+    this.cortesCurva = lista;
+    this.aplicarLineaBaseEnTabla(items);
+    const estadoDespues = this.capturarEstadoFechasGantt();
+
+    this.guardandoCorte = true;
+    this.guardarCortesYTabla(lista, estadoDespues, estadoAntes).then(() => {
+      this._ngZone.run(() => {
+        this.guardandoCorte = false;
+        // El deshacer de la Carta Gantt no debe cruzar un corte
+        this.historialCambiosFechasGantt = [];
+        this.cerrarEditorCorte();
+        this.curvaPestana = pestanaDestino;
+        this.calcularCurvaS();
+        Swal.fire({
+          icon: 'success',
+          title: eraNuevo ? 'Corte hecho' : 'Reprogramación guardada',
+          text: (eraNuevo ? 'Estás en la Curva S ' + (pestanaDestino + 1) + ', con la línea base reprogramada desde el ' + this.isoADdmmaaaa(guardado.fechaCorte) + '. ' : '')
+            + 'La tabla, la Carta Gantt y el avance programado ya usan esta línea base.',
+          timer: 3000,
+          showConfirmButton: false
+        });
+      });
+    }).catch((error: any) => {
+      this._ngZone.run(() => {
+        this.cortesCurva = anteriores;
+        this.restaurarEstadoFechasGantt(estadoAntes);
+        this.refrescarTrasCambioGantt();
+        this.guardandoCorte = false;
+        Swal.fire('Error', 'No se pudo guardar el corte: ' + this.getMensajeError(error), 'error');
+      });
+    });
+  }
+
+  /**
+   * Elimina el último corte: su Curva S desaparece y la tabla vuelve a la línea base que tenía antes del corte
+   * (la foto guardada en el corte). Las filas creadas después del corte conservan sus fechas.
+   */
+  async eliminarUltimoCorteCurva() {
+    if (!this.puedeEditarAvance || !this.corteCurvaEnVista || !this.esUltimoCorteEnVista) { return; }
+    if (!(await this.asegurarCortesMigrados())) { return; }
+    const corte = this.corteCurvaEnVista;
+    if (!corte || !this.esUltimoCorteEnVista || this.guardandoCorte) { return; }
+
+    const r: any = await Swal.fire({
+      title: 'Eliminar corte',
+      text: 'Se eliminará la Curva S ' + (this.curvaPestana + 1) + ' (corte del ' + this.isoADdmmaaaa(corte.fechaCorte) + ') y su reprogramación. '
+        + 'La tabla y la Carta Gantt vuelven a las fechas programadas que tenían antes del corte (se pierden los cambios de fechas hechos después). '
+        + 'El avance real no se toca.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!r || !(r.value || r.isConfirmed) || !this.puedeEditarAvance) { return; }
+
+    const anteriores = this.cortesCurva;
+    const lista = anteriores.filter(c => c.id !== corte.id);
+    const estadoAntes = this.capturarEstadoFechasGantt();
+    this.cortesCurva = lista;
+    if (corte.baseAnterior) { this.aplicarLineaBaseEnTabla(corte.baseAnterior); } else { this.refrescarTrasCambioGantt(); }
+    const estadoDespues = this.capturarEstadoFechasGantt();
+
+    this.guardandoCorte = true;
+    this.guardarCortesYTabla(lista, estadoDespues, estadoAntes).then(() => {
+      this._ngZone.run(() => {
+        this.guardandoCorte = false;
+        this.historialCambiosFechasGantt = [];
+        this.curvaPestana = lista.length;
+        this.calcularCurvaS();
+      });
+    }).catch((error: any) => {
+      this._ngZone.run(() => {
+        this.cortesCurva = anteriores;
+        this.restaurarEstadoFechasGantt(estadoAntes);
+        this.refrescarTrasCambioGantt();
+        this.guardandoCorte = false;
+        Swal.fire('Error', 'No se pudo eliminar el corte: ' + this.getMensajeError(error), 'error');
+      });
+    });
+  }
+
   // ---------------- Cálculo de las curvas ----------------
 
   /**
@@ -3973,6 +4788,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const ahora = new Date();
     const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
 
+    // Línea base de la pestaña (0 = tabla; k = la del corte k) y las anteriores, para comparar
+    if (this.curvaPestana > this.cortesCurva.length) { this.curvaPestana = this.cortesCurva.length; }
+    const nLB = this.curvaPestana;
+    const lb = (it: ControlAvanceItem) => this.valoresLineaBase(nLB, it);
+    const corteVista = nLB > 0 ? this.cortesCurva[nLB - 1] : null;
+    const indicesAnteriores: number[] = [];
+    for (let k = 0; k < nLB; k++) { indicesAnteriores.push(k); }
+
     // Forecasts visibles, cada uno con sus propios pesos (su ponderación)
     const forecastsVisibles = (this.forecastsCurva || []).filter(fc => !this.forecastOculto[fc.id]);
     const datosForecast = forecastsVisibles.map(fc => ({
@@ -3989,11 +4812,18 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       if (!fechaMax || f > fechaMax) { fechaMax = f; }
     };
     hojas.forEach(h => {
-      considerar(h.item.fechaInicioProgramada);
-      considerar(h.item.fechaTerminoProgramada);
+      const v = lb(h.item);
+      considerar(v.ini);
+      considerar(v.fin);
       considerar(h.item.fechaInicio);
       considerar(h.item.fechaTermino);
+      indicesAnteriores.forEach(k => {
+        const a = this.valoresLineaBase(k, h.item);
+        considerar(a.ini);
+        considerar(a.fin);
+      });
     });
+    if (corteVista) { considerar(corteVista.fechaCorte); }
     datosForecast.forEach(d => d.hojas.forEach(h => {
       const v = this.valoresEnForecast(d.fc, h.item);
       considerar(v.ini);
@@ -4055,6 +4885,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       fechas.push(new Date(fin.getTime()));
     }
 
+    // La fecha del corte siempre es un punto de la curva (ahí se separa lo congelado de lo reprogramado)
+    const fechaCorteVista = corteVista ? this.parsearFechaLocal(corteVista.fechaCorte) : null;
+    if (fechaCorteVista && fechaCorteVista >= inicio && fechaCorteVista <= fin
+        && !fechas.some(f => f.getTime() === fechaCorteVista.getTime())) {
+      fechas.push(new Date(fechaCorteVista.getTime()));
+      fechas.sort((a, b) => a.getTime() - b.getTime());
+    }
+
     // Se agrega "hoy" como corte para que la curva real termine justo en el avance actual
     const hoyEnRango = hoy >= inicio && hoy <= fin;
     if (hoyEnRango) {
@@ -4093,8 +4931,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         return t + h.peso * this.fraccionEntreFechasCurva(v.ini, v.fin, f);
       }, 0) * 100));
 
+    // % de una línea base a una fecha (n = índice de la línea base)
+    const valorLineaBase = (n: number, f: Date) =>
+      Math.min(100, Math.round(hojas.reduce((t, h) => t + h.peso * this.fraccionLineaBase(n, h.item, f), 0) * 100));
+
     const puntos: PuntoCurvaS[] = fechas.map(f => {
-      const prog = hojas.reduce((t, h) => t + h.peso * this.fraccionEntreFechasCurva(h.item.fechaInicioProgramada, h.item.fechaTerminoProgramada, f), 0) * 100;
+      const prog = hojas.reduce((t, h) => t + h.peso * this.fraccionLineaBase(nLB, h.item, f), 0) * 100;
       const real = f <= hoy
         ? hojas.reduce((t, h) => t + h.peso * this.fraccionRealCurva(h.item, f, hoy), 0) * 100
         : null;
@@ -4108,7 +4950,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         yReal: real === null ? null : r1(yDe(real)),
         mostrarEtiqueta: true,
         esHoy: f.getTime() === hoy.getTime(),
-        fc: datosForecast.map(d => valorForecast(d, f))
+        fc: datosForecast.map(d => valorForecast(d, f)),
+        lbAnt: indicesAnteriores.map(k => valorLineaBase(k, f))
       };
     });
 
@@ -4154,6 +4997,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       };
     });
 
+    const lineasBaseAnteriores = indicesAnteriores.map((k, i) => ({
+      id: 'lb_' + k,
+      nombre: 'Línea base ' + (k + 1),
+      path: trazo(puntos.map(p => ({ x: p.x, y: r1(yDe(p.lbAnt[i])) }))),
+      valorHoy: valorLineaBase(k, hoy)
+    }));
+
+    // La pestaña vigente muestra el mismo programado que el header; las anteriores, el de su propia línea base
+    const progHoy = nLB === this.cortesCurva.length ? this.avanceDocumentosProgramado : valorLineaBase(nLB, hoy);
+
     const ticksY: Array<{ valor: number; y: number }> = [];
     for (let v = 0; v <= 100; v += 10) {
       ticksY.push({ valor: v, y: r1(yDe(v)) });
@@ -4166,12 +5019,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       pathReal: ptsReal.length ? trazo(ptsReal) : '',
       areaReal,
       forecasts: series,
+      lineasBaseAnteriores,
+      corteX: fechaCorteVista && fechaCorteVista >= inicio && fechaCorteVista <= fin ? r1(xDe(fechaCorteVista)) : null,
+      corteTexto: corteVista ? 'Corte ' + this.isoADdmmaaaa(corteVista.fechaCorte) : '',
+      nombreLineaBase: 'Línea base ' + (nLB + 1),
       ticksY,
       hoyX: hoyEnRango ? r1(xDe(hoy)) : null,
       hoyTexto: this.etiquetaFechaCurva(hoy),
-      progHoy: this.avanceDocumentosProgramado,
+      progHoy: progHoy,
       realHoy: this.avanceDocumentosReal,
-      desviacion: this.avanceDocumentosReal - this.avanceDocumentosProgramado,
+      desviacion: this.avanceDocumentosReal - progHoy,
       fechaInicioTxt: this.etiquetaFechaCurva(inicio) + '-' + inicio.getFullYear(),
       fechaFinTxt: this.etiquetaFechaCurva(fin) + '-' + fin.getFullYear(),
       sinDatosReales: ptsReal.length === 0 || realTotalActual <= 0,
@@ -4276,6 +5133,58 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /** Recalcula el rango de fechas, las cabeceras semanales y las barras a partir de filasTabla. */
+  /** Fechas muy alejadas del resto (ej. un año mal escrito) que estiran la Carta Gantt hacia atrás o adelante. */
+  fechasFueraDeRango: Array<{ codigo: string; descripcion: string; campo: string; fecha: string }> = [];
+
+  /**
+   * Busca fechas sueltas en los extremos: si entre una fecha y la siguiente hay más de 180 días
+   * y del otro lado queda la gran mayoría, esas fechas sueltas se avisan para corregirlas.
+   * Los títulos con hijos no se revisan (sus fechas salen de las láminas).
+   */
+  private detectarFechasFueraDeRango(filas: FilaTabla[]) {
+    const campos: Array<[string, string]> = [
+      ['fechaInicioProgramada', 'Inicio programado'],
+      ['fechaTerminoProgramada', 'Término programado'],
+      ['fechaInicio', 'Inicio real'],
+      ['fechaTermino', 'Término real']
+    ];
+    const lista: Array<{ item: ControlAvanceItem; campo: string; fecha: Date; iso: string }> = [];
+    filas.forEach(f => {
+      if (f.item.esTitulo && f.tieneHijos) { return; }
+      campos.forEach(([campo, etiqueta]) => {
+        const iso = (f.item as any)[campo];
+        const fecha = this.parsearFechaLocal(iso);
+        if (fecha) { lista.push({ item: f.item, campo: etiqueta, fecha, iso }); }
+      });
+    });
+    lista.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+
+    const UMBRAL_DIAS = 180;
+    const maxSueltas = Math.floor(lista.length / 4);
+    const sueltas: typeof lista = [];
+    if (lista.length >= 4) {
+      // Al principio
+      let corteInicio = -1;
+      for (let i = 0; i < maxSueltas && i < lista.length - 1; i++) {
+        if (this.diasEntreFechas(lista[i].fecha, lista[i + 1].fecha) > UMBRAL_DIAS) { corteInicio = i; }
+      }
+      for (let i = 0; i <= corteInicio; i++) { sueltas.push(lista[i]); }
+      // Al final
+      let corteFin = lista.length;
+      for (let i = lista.length - 1; i > lista.length - 1 - maxSueltas && i > 0; i--) {
+        if (this.diasEntreFechas(lista[i - 1].fecha, lista[i].fecha) > UMBRAL_DIAS) { corteFin = i; }
+      }
+      for (let i = corteFin; i < lista.length; i++) { sueltas.push(lista[i]); }
+    }
+
+    this.fechasFueraDeRango = sueltas.map(x => ({
+      codigo: x.item.codigo || 'Sin código',
+      descripcion: x.item.descripcion || '',
+      campo: x.campo,
+      fecha: this.isoADdmmaaaa(x.iso)
+    }));
+  }
+
   actualizarDatosGantt() {
     // La Curva S se recalcula con los mismos datos (solo si está a la vista)
     if (this.vistaActiva === 'curva') {
@@ -4286,6 +5195,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     );
 
     if (filasConFechaPropia.length === 0) {
+      this.fechasFueraDeRango = [];
       this.ganttSemanas = [];
       this.ganttPeriodos = [];
       this.ganttFinesDeSemanaOffsets = [];
@@ -4312,6 +5222,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       considerar(f.item.fechaInicio);
       considerar(f.item.fechaTermino);
     });
+    this.detectarFechasFueraDeRango(filasConFechaPropia);
 
     if (!fechaMin || !fechaMax) {
       this.ganttSemanas = [];
@@ -4753,6 +5664,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       return Promise.reject(new Error('La edición del Control de Avance está bloqueada.'));
     }
     const batch = firestoreDB.batch();
+    const hayCambios = this.agregarFechasTablaAlBatch(batch, objetivo, estadoActual);
+    return hayCambios ? batch.commit() : Promise.resolve();
+  }
+
+  /** Agrega al batch las filas cuyas fechas/plazo/avance programado cambiaron. Devuelve true si agregó alguna. */
+  private agregarFechasTablaAlBatch(
+    batch: any,
+    objetivo: EstadoFechasProgramadasGantt,
+    estadoActual: EstadoFechasProgramadasGantt
+  ): boolean {
     let hayCambios = false;
 
     (this.ControlesAvance || []).forEach(item => {
@@ -4771,7 +5692,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       hayCambios = true;
     });
 
-    return hayCambios ? batch.commit() : Promise.resolve();
+    return hayCambios;
   }
 
   /**
@@ -5224,9 +6145,125 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
     const iso = this.ddmmaaaaAIso(texto);
     if (iso && iso !== (item as any)[campo]) {
-      (item as any)[campo] = iso;
-      this.notificarCambioFechaTabla(item, campo, index);
+      this.asignarFechaTablaRevisada(input, item, campo, index, iso);
     }
+  }
+
+  /** Revisa la fecha antes de guardarla; si no pasa, el campo vuelve a mostrar la fecha que tenía. */
+  private async asignarFechaTablaRevisada(input: HTMLInputElement | null, item: ControlAvanceItem, campo: string, index: number, iso: string) {
+    if (this.revisandoFechaTabla) { return; }
+    this.revisandoFechaTabla = true;
+    let ok = false;
+    try {
+      ok = await this.revisarFechaTabla(iso, item, campo);
+    } finally {
+      this.revisandoFechaTabla = false;
+    }
+    this._ngZone.run(() => {
+      if (!ok) {
+        if (input) { this.restaurarFechaTabla(input, item, campo); }
+        return;
+      }
+      if (iso === (item as any)[campo]) { return; }
+      (item as any)[campo] = iso;
+      if (input) { input.value = this.isoADdmmaaaa(iso); }
+      this.notificarCambioFechaTabla(item, campo, index);
+    });
+  }
+
+  // ---------------- Límites para las fechas de la tabla ----------------
+  // Evitan fechas absurdas (ej. 2022 en vez de 2026) que estiran la Carta Gantt y la Curva S:
+  // - año fuera de [año actual - 5, año actual + 10]: no se acepta;
+  // - término antes del inicio (programado o real): no se acepta;
+  // - más de MARGEN_DIAS_FECHA días antes/después del resto del proyecto: se pide confirmar.
+
+  private readonly MARGEN_DIAS_FECHA = 180;
+  private revisandoFechaTabla: boolean = false;
+
+  private readonly PARES_FECHAS: { [campo: string]: { otro: string; esInicio: boolean; manualTermino: string; nombre: string } } = {
+    fechaInicioProgramada: { otro: 'fechaTerminoProgramada', esInicio: true, manualTermino: 'fechaTerminoProgramadaManual', nombre: 'programado' },
+    fechaTerminoProgramada: { otro: 'fechaInicioProgramada', esInicio: false, manualTermino: 'fechaTerminoProgramadaManual', nombre: 'programado' },
+    fechaInicio: { otro: 'fechaTermino', esInicio: true, manualTermino: 'fechaTerminoManual', nombre: 'real' },
+    fechaTermino: { otro: 'fechaInicio', esInicio: false, manualTermino: 'fechaTerminoManual', nombre: 'real' }
+  };
+
+  /** Fecha más antigua y más nueva de las demás filas (sin la fila que se edita ni títulos con hijos). */
+  private rangoFechasOtrasFilas(excluir: ControlAvanceItem): { min: Date; max: Date } | null {
+    let min: Date | null = null;
+    let max: Date | null = null;
+    (this.ControlesAvance || []).forEach(it => {
+      if (it === excluir || (excluir.id && it.id === excluir.id) || it.activo === false) { return; }
+      if (it.esTitulo && this.esFilaConHijos(it.id)) { return; }
+      ['fechaInicioProgramada', 'fechaTerminoProgramada', 'fechaInicio', 'fechaTermino'].forEach(c => {
+        const f = this.parsearFechaLocal((it as any)[c]);
+        if (!f) { return; }
+        if (!min || f < min) { min = f; }
+        if (!max || f > max) { max = f; }
+      });
+    });
+    return min && max ? { min: min as Date, max: max as Date } : null;
+  }
+
+  /** true si la fecha se puede usar en ese campo (pregunta cuando está muy lejos del resto). */
+  private async revisarFechaTabla(iso: string, item: ControlAvanceItem, campo: string, revisarPar: boolean = true): Promise<boolean> {
+    const fecha = this.parsearFechaLocal(iso);
+    if (!fecha) { return true; }
+    const hoy = new Date();
+    const anio = fecha.getFullYear();
+    const anioMin = hoy.getFullYear() - 5;
+    const anioMax = hoy.getFullYear() + 10;
+
+    if (anio < anioMin || anio > anioMax) {
+      await Swal.fire('Fecha fuera de rango',
+        'El año ' + anio + ' no parece correcto (se aceptan fechas entre ' + anioMin + ' y ' + anioMax + '). Revisa la fecha, ej: 28/09/' + hoy.getFullYear() + '.',
+        'warning');
+      return false;
+    }
+
+    // Término antes del inicio
+    const par = revisarPar ? this.PARES_FECHAS[campo] : null;
+    if (par) {
+      const otra = this.parsearFechaLocal((item as any)[par.otro]);
+      if (otra) {
+        if (!par.esInicio && fecha < otra) {
+          await Swal.fire('Fecha no válida',
+            'El término ' + par.nombre + ' no puede quedar antes del inicio ' + par.nombre + ' (' + this.isoADdmmaaaa((item as any)[par.otro]) + ').',
+            'warning');
+          return false;
+        }
+        // El término solo frena al inicio si se escribió a mano (si no, se recalcula con el plazo)
+        if (par.esInicio && (item as any)[par.manualTermino] && fecha > otra) {
+          await Swal.fire('Fecha no válida',
+            'El inicio ' + par.nombre + ' no puede quedar después del término ' + par.nombre + ' (' + this.isoADdmmaaaa((item as any)[par.otro]) + ').',
+            'warning');
+          return false;
+        }
+      }
+    }
+
+    // Muy lejos del resto del proyecto: se confirma
+    const rango = this.rangoFechasOtrasFilas(item);
+    if (rango) {
+      const diasAntes = this.diasEntreFechas(fecha, rango.min);
+      const diasDespues = this.diasEntreFechas(rango.max, fecha);
+      if (diasAntes > this.MARGEN_DIAS_FECHA || diasDespues > this.MARGEN_DIAS_FECHA) {
+        const lejos = diasAntes > this.MARGEN_DIAS_FECHA
+          ? diasAntes + ' días ANTES de la fecha más antigua del proyecto'
+          : diasDespues + ' días DESPUÉS de la fecha más nueva del proyecto';
+        const r: any = await Swal.fire({
+          title: '¿Está bien esta fecha?',
+          html: '<p style="font-size:14px">La fecha <strong>' + this.isoADdmmaaaa(iso) + '</strong> queda ' + lejos + '.</p>'
+            + '<p style="font-size:13px;color:#888">El resto de las fechas va del ' + this.isoADdmmaaaa(this.formatearFechaISO(rango.min))
+            + ' al ' + this.isoADdmmaaaa(this.formatearFechaISO(rango.max)) + '. Si el año está mal escrito, la Carta Gantt se estira.</p>',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, usarla',
+          cancelButtonText: 'No, corregir'
+        });
+        return !!(r && (r.value || r.isConfirmed));
+      }
+    }
+    return true;
   }
 
   /** Al salir del campo: si quedó una fecha a medio escribir o inválida, vuelve a mostrar la guardada. */
@@ -5239,8 +6276,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   onPickerFechaTabla(valorIso: string, item: ControlAvanceItem, campo: string, index: number) {
     if (!this.puedeEditarAvance) { return; }
     if (!item || !valorIso || valorIso === (item as any)[campo]) { return; }
-    (item as any)[campo] = valorIso;
-    this.notificarCambioFechaTabla(item, campo, index);
+    this.asignarFechaTablaRevisada(null, item, campo, index, valorIso);
   }
 
   /** 'YYYY-MM-DD' -> 'DD/MM/YYYY' (formato chileno que se muestra en el editor). */
@@ -5301,8 +6337,19 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const plazo = Math.max(0, Math.round(Number(editor.plazo) || 0));
     const item = editor.barra.item;
     const inicio = editor.inicio;
-    this.editorFechasGantt = null;
 
+    // El término se recalcula con el plazo del editor, por eso no se compara con el término actual
+    this.revisarFechaTabla(inicio, item, 'fechaInicioProgramada', false).then(ok => {
+      if (!ok) { return; }
+      this._ngZone.run(() => {
+        if (this.editorFechasGantt !== editor) { return; }
+        this.editorFechasGantt = null;
+        this.aplicarFechasEditorGantt(item, inicio, plazo);
+      });
+    });
+  }
+
+  private aplicarFechasEditorGantt(item: ControlAvanceItem, inicio: string, plazo: number) {
     this.aplicarCambioFechasGantt(item, () => {
       item.fechaInicioProgramada = inicio;
       item.fechaInicioProgramadaManual = true;

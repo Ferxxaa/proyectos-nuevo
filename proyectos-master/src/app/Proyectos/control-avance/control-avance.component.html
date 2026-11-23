@@ -676,6 +676,20 @@
       <div class="spinner"></div>
     </div>
 
+    <!-- Pestañas: Curva S original + una por cada corte (línea base reprogramada) -->
+    <div class="cs-cortes-tabs" *ngIf="cortesCurva.length > 0">
+      <button type="button" class="cs-corte-tab" *ngFor="let p of pestanasCurva"
+              [class.activo]="curvaPestana === p.indice"
+              [title]="p.titulo + ' · ' + p.detalle"
+              (click)="seleccionarPestanaCurva(p.indice)">
+        <i class="fa" [ngClass]="p.indice === 0 ? 'fa-line-chart' : 'fa-scissors'"></i>
+        <span class="cs-corte-tab-textos">
+          <strong>{{p.titulo}}</strong>
+          <small>{{p.detalle}}</small>
+        </span>
+      </button>
+    </div>
+
     <div class="curva-s-vacia" *ngIf="!LoadingTabla && !curvaS">
       <i class="fa fa-line-chart"></i>
       <p>Para ver la Curva S, las láminas necesitan <strong>fecha de inicio y plazo programado</strong>.</p>
@@ -684,13 +698,17 @@
     <ng-container *ngIf="curvaS">
       <div class="curva-s-encabezado">
         <div class="curva-s-titulo">
-          <h3>Curva S · Avance programado vs real</h3>
+          <h3>Curva S{{ cortesCurva.length ? ' ' + (curvaPestana + 1) : '' }} · Avance programado vs real</h3>
           <span>{{ curvaS.fechaInicioTxt }} → {{ curvaS.fechaFinTxt }} · {{ curvaS.escalaTxt }}</span>
         </div>
         <div class="curva-s-kpis">
           <div class="curva-s-kpi kpi-prog">
-            <span class="kpi-label">Programado hoy</span>
+            <span class="kpi-label">Programado hoy{{ cortesCurva.length ? ' (LB ' + (curvaPestana + 1) + ')' : '' }}</span>
             <strong>{{ curvaS.progHoy }}%</strong>
+          </div>
+          <div class="curva-s-kpi kpi-lb-ant" *ngFor="let lbA of curvaS.lineasBaseAnteriores">
+            <span class="kpi-label">{{ lbA.nombre }} hoy</span>
+            <strong>{{ lbA.valorHoy }}%</strong>
           </div>
           <div class="curva-s-kpi kpi-fc" *ngFor="let s of curvaS.forecasts; trackBy: trackBySerieForecast" [style.border-left-color]="s.color">
             <span class="kpi-label">{{ s.nombre }} hoy</span>
@@ -701,7 +719,7 @@
             <strong>{{ curvaS.realHoy }}%</strong>
           </div>
           <div class="curva-s-kpi" [ngClass]="curvaS.desviacion < -5 ? 'kpi-mal' : (curvaS.desviacion < 0 ? 'kpi-ojo' : 'kpi-bien')">
-            <span class="kpi-label">Desviación vs base</span>
+            <span class="kpi-label">Desviación vs {{ cortesCurva.length ? 'LB ' + (curvaPestana + 1) : 'base' }}</span>
             <strong>{{ curvaS.desviacion > 0 ? '+' : '' }}{{ curvaS.desviacion }}%</strong>
           </div>
         </div>
@@ -733,15 +751,40 @@
             <i class="fa fa-plus"></i> Nuevo forecast
           </button>
         </div>
+
+        <!-- Corte: congela la línea base y abre otra Curva S para reprogramar desde esa fecha -->
+        <div class="cs-cortes" *ngIf="!modoSoloLectura">
+          <span class="cs-control-label">Línea base:</span>
+          <button type="button" class="cs-btn-corte" (click)="hacerCorteCurva()" [disabled]="guardandoCorte"
+                  title="Congela la línea base actual y abre una nueva Curva S para reprogramar desde la fecha que elijas">
+            <i class="fa fa-scissors"></i> Hacer corte
+          </button>
+          <ng-container *ngIf="esUltimoCorteEnVista">
+            <button type="button" class="cs-btn-corte-sec" (click)="editarCorteCurva()" title="Cambiar las fechas reprogramadas de este corte">
+              <i class="fa fa-pencil"></i> Editar reprogramación
+            </button>
+            <button type="button" class="cs-btn-corte-sec cs-btn-corte-eliminar" (click)="eliminarUltimoCorteCurva()" title="Eliminar este corte">
+              <i class="fa fa-trash"></i>
+            </button>
+          </ng-container>
+        </div>
+      </div>
+
+      <div class="cs-aviso-corte" *ngIf="corteCurvaEnVista">
+        <i class="fa fa-scissors"></i>
+        Línea base reprogramada desde el corte del <strong>{{ fechaVista(corteCurvaEnVista.fechaCorte) }}</strong>{{ corteCurvaEnVista.motivo ? ' · ' + corteCurvaEnVista.motivo : '' }}.
+        Antes del corte se mantiene lo programado; las líneas grises son las líneas base anteriores.
       </div>
 
       <div class="curva-s-leyenda">
-        <span class="ley-item"><i class="ley-linea ley-prog"></i> Programada (línea base)</span>
+        <span class="ley-item" *ngFor="let lbA of curvaS.lineasBaseAnteriores"><i class="ley-linea ley-lb-ant"></i> {{ lbA.nombre }} (anterior)</span>
+        <span class="ley-item"><i class="ley-linea ley-prog"></i> Programada ({{ cortesCurva.length ? curvaS.nombreLineaBase : 'línea base' }})</span>
         <span class="ley-item" *ngFor="let s of curvaS.forecasts; trackBy: trackBySerieForecast">
           <i class="ley-linea ley-fc" [style.border-color]="s.color"></i> {{ s.nombre }}
         </span>
         <span class="ley-item"><i class="ley-linea ley-real"></i> Real</span>
         <span class="ley-item" *ngIf="curvaS.hoyX !== null"><i class="ley-linea ley-hoy"></i> Hoy ({{ curvaS.hoyTexto }})</span>
+        <span class="ley-item" *ngIf="curvaS.corteX !== null"><i class="ley-linea ley-corte"></i> {{ curvaS.corteTexto }}</span>
       </div>
 
       <div class="curva-s-grafico">
@@ -773,6 +816,21 @@
             <rect class="cs-hoy-chip" [attr.x]="curvaS.hoyX - 20" y="4" width="40" height="17" rx="8"></rect>
             <text [attr.x]="curvaS.hoyX" y="16">Hoy</text>
           </g>
+
+          <!-- Línea del corte de esta Curva S: a la izquierda queda lo congelado -->
+          <g *ngIf="curvaS.corteX !== null" class="cs-corte">
+            <rect class="cs-zona-congelada" [attr.x]="curvaS.margenIzq" [attr.y]="curvaS.margenSup"
+                  [attr.width]="curvaS.corteX - curvaS.margenIzq > 0 ? curvaS.corteX - curvaS.margenIzq : 0"
+                  [attr.height]="curvaS.alto - curvaS.margenSup - curvaS.margenInf"></rect>
+            <line [attr.x1]="curvaS.corteX" [attr.x2]="curvaS.corteX" [attr.y1]="curvaS.margenSup - 20" [attr.y2]="curvaS.alto - curvaS.margenInf"></line>
+            <rect class="cs-corte-chip" [attr.x]="curvaS.corteX - 46" y="24" width="92" height="17" rx="8"></rect>
+            <text [attr.x]="curvaS.corteX" y="36">{{ curvaS.corteTexto }}</text>
+          </g>
+
+          <!-- Líneas base anteriores (cortes previos) -->
+          <path *ngFor="let lbA of curvaS.lineasBaseAnteriores" class="cs-curva cs-curva-lb-ant" [attr.d]="lbA.path">
+            <title>{{ lbA.nombre }}</title>
+          </path>
 
           <!-- Curvas -->
           <path *ngIf="curvaS.areaReal" class="cs-area-real" [attr.d]="curvaS.areaReal"></path>
@@ -822,6 +880,10 @@
               <td class="cs-fila-prog">Programado</td>
               <td *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva" [class.cs-col-hoy]="p.esHoy">{{ p.prog }}%</td>
             </tr>
+            <tr *ngFor="let lbA of curvaS.lineasBaseAnteriores; let k = index">
+              <td class="cs-fila-lb-ant">{{ lbA.nombre }}</td>
+              <td *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva" [class.cs-col-hoy]="p.esHoy">{{ p.lbAnt[k] }}%</td>
+            </tr>
             <tr *ngFor="let s of curvaS.forecasts; let k = index; trackBy: trackBySerieForecast">
               <td [style.color]="s.color">{{ s.nombre }}</td>
               <td *ngFor="let p of curvaS.puntos; trackBy: trackByPuntoCurva" [class.cs-col-hoy]="p.esHoy">{{ p.fc[k] }}%</td>
@@ -852,7 +914,7 @@
 
       <p class="curva-s-nota">
         <i class="fa fa-info-circle"></i>
-        La línea base sale de las fechas programadas de la tabla{{ hayPonderacion ? ', con su ponderación' : '' }}.
+        {{ notaLineaBaseCurva }}{{ hayPonderacion ? ', con su ponderación' : '' }}.
         Cada forecast es una reprogramación guardada aparte, con sus propias fechas y ponderación.
         La curva real reparte el % real de cada lámina entre su inicio real y su término real (o hoy, si sigue en curso).
         <span *ngIf="curvaS.sinDatosReales"> Todavía no hay avance real registrado.</span>
@@ -866,7 +928,7 @@
       <div class="cs-modal-header">
         <div>
           <h4>{{ esForecastNuevo ? 'Nuevo forecast' : 'Editar forecast' }}</h4>
-          <span>Fechas y ponderación propias de esta reprogramación. La tabla (línea base) no se modifica.</span>
+          <span>Fechas y ponderación propias de esta reprogramación. La tabla (línea base vigente) no se modifica.</span>
         </div>
         <button type="button" class="cs-modal-cerrar" (click)="cerrarEditorForecast()"><i class="fa fa-times"></i></button>
       </div>
@@ -950,6 +1012,125 @@
     </div>
   </div>
 
+  <!-- ================= EDITOR DEL CORTE (reprogramación de la línea base desde la fecha del corte) ================= -->
+  <div class="cs-modal-fondo" *ngIf="corteEditando" (click)="cerrarEditorCorte()">
+    <div class="cs-modal" (click)="$event.stopPropagation()">
+      <div class="cs-modal-header cs-modal-header-corte">
+        <div>
+          <h4>{{ esCorteNuevo ? 'Nuevo corte' : 'Editar reprogramación' }} · Curva S {{ corteEditando.numero + 1 }}</h4>
+          <span>Corte del {{ fechaVista(corteEditando.fechaCorte) }}: desde esa fecha reprogramas la {{ nombreBaseEditorCorte }}. Lo anterior queda igual. Al guardar, estas fechas pasan a ser la línea base vigente (tabla, Carta Gantt y avance programado).</span>
+        </div>
+        <button type="button" class="cs-modal-cerrar" (click)="cerrarEditorCorte()"><i class="fa fa-times"></i></button>
+      </div>
+
+      <div class="cs-modal-opciones">
+        <label class="cs-campo">
+          <span>Motivo</span>
+          <input type="text" [(ngModel)]="corteEditando.motivo" maxlength="80" placeholder="Opcional">
+        </label>
+        <div class="cs-campo cs-campo-desplazar">
+          <span>Correr lo reprogramable</span>
+          <div>
+            <input type="number" [(ngModel)]="diasDesplazarCorte" step="1"> días
+            <button type="button" (click)="desplazarFechasEditorCorte()" [disabled]="!diasDesplazarCorte">Aplicar</button>
+          </div>
+        </div>
+        <button type="button" class="cs-btn-sec" (click)="copiarBaseEnEditorCorte()" title="Volver todas las filas a la línea base anterior">
+          <i class="fa fa-undo"></i> Copiar línea base anterior
+        </button>
+        <span class="cs-leyenda-estados">
+          <span class="cs-estado cs-estado-cerrada">Cerrada</span> terminó antes del corte ·
+          <span class="cs-estado cs-estado-cruza">Cruza</span> solo cambia el término ·
+          <span class="cs-estado cs-estado-libre">Libre</span> se reprograma
+        </span>
+      </div>
+
+      <div class="cs-modal-cuerpo">
+        <table class="cs-tabla-editor">
+          <thead>
+            <tr>
+              <th class="col-desc">Ítem</th>
+              <th>Estado</th>
+              <th>Base inicio</th>
+              <th>Base término</th>
+              <th>Nuevo inicio</th>
+              <th>Plazo (días)</th>
+              <th>Nuevo término</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of filasEditorCorte; trackBy: trackByFilaCorte"
+                [class.fila-grupo]="f.estado === 'grupo'"
+                [class.fila-cerrada]="f.estado === 'cerrada'"
+                [class.fila-cambiada]="filaCorteCambiada(f)">
+              <td class="col-desc" [style.padding-left.px]="8 + f.nivel * 16">
+                <i *ngIf="f.item.esTitulo" class="fa fa-folder-open-o"></i>
+                <span class="cs-codigo" *ngIf="f.item.codigo">{{ f.item.codigo }}</span>
+                {{ f.item.descripcion }}
+              </td>
+              <td>
+                <span class="cs-estado" *ngIf="f.estado !== 'grupo'" [ngClass]="'cs-estado-' + f.estado">
+                  {{ f.estado === 'cerrada' ? 'Cerrada' : (f.estado === 'cruza' ? 'Cruza' : 'Libre') }}
+                </span>
+              </td>
+              <td class="col-base">{{ fechaCortaCurva(f.baseIni) }}</td>
+              <td class="col-base">{{ fechaCortaCurva(f.baseFin) }}</td>
+              <ng-container [ngSwitch]="f.estado">
+                <td *ngSwitchCase="'grupo'" colspan="3" class="col-base cs-sale-de-hijos">Sale de sus ítems</td>
+                <td *ngSwitchCase="'cerrada'" colspan="3" class="col-base cs-sale-de-hijos">Queda igual (terminó antes del corte)</td>
+                <ng-container *ngSwitchDefault>
+                  <td>
+                    <div class="celda-fecha cs-fecha-corte">
+                      <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
+                             class="cs-input-fecha"
+                             [value]="fechaVista(f.ini)"
+                             [disabled]="f.estado === 'cruza'"
+                             [title]="f.estado === 'cruza' ? 'Empezó antes del corte: el inicio no cambia' : ''"
+                             (input)="onInputFechaCorte($event.target, f, 'ini')"
+                             (blur)="restaurarFechaCorte($event.target, f, 'ini')">
+                      <span class="btn-calendario-tabla" *ngIf="f.estado !== 'cruza'" title="Elegir en el calendario">
+                        <i class="fa fa-calendar"></i>
+                        <input type="date" class="picker-fecha-oculto" tabindex="-1"
+                               [value]="f.ini || ''" [min]="corteEditando.fechaCorte"
+                               (change)="onPickerFechaCorte($event.target.value, f, 'ini')">
+                      </span>
+                    </div>
+                  </td>
+                  <td><input type="number" class="inp-corto" min="1" [ngModel]="plazoFilaCorte(f)" (ngModelChange)="onCambioPlazoEditorCorte(f, $event)"></td>
+                  <td>
+                    <div class="celda-fecha cs-fecha-corte">
+                      <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off"
+                             class="cs-input-fecha"
+                             [value]="fechaVista(f.fin)"
+                             (input)="onInputFechaCorte($event.target, f, 'fin')"
+                             (blur)="restaurarFechaCorte($event.target, f, 'fin')">
+                      <span class="btn-calendario-tabla" title="Elegir en el calendario">
+                        <i class="fa fa-calendar"></i>
+                        <input type="date" class="picker-fecha-oculto" tabindex="-1"
+                               [value]="f.fin || ''" [min]="f.ini && f.ini > corteEditando.fechaCorte ? f.ini : corteEditando.fechaCorte"
+                               (change)="onPickerFechaCorte($event.target.value, f, 'fin')">
+                      </span>
+                    </div>
+                  </td>
+                </ng-container>
+              </ng-container>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cs-modal-footer">
+        <span class="cs-cambios">{{ cantidadCambiosEditorCorte }} fila(s) reprogramada(s) respecto a la {{ nombreBaseEditorCorte }}</span>
+        <div>
+          <button type="button" class="cs-btn-sec" (click)="cerrarEditorCorte()">Cancelar</button>
+          <button type="button" class="cs-btn-prim" (click)="guardarCorteCurva()" [disabled]="guardandoCorte">
+            <i class="fa" [ngClass]="guardandoCorte ? 'fa-spinner fa-spin' : 'fa-save'"></i> {{ esCorteNuevo ? 'Hacer corte' : 'Guardar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= VISTA CARTA GANTT (barras semanales) ================= -->
   <div class="gantt-visual-container" *ngIf="vistaActiva === 'gantt'">
     <div *ngIf="LoadingTabla" class="loading-overlay">
@@ -1003,6 +1184,15 @@
               (click)="abrirFormularioAgregar(null, 'Raíz', true)">
         <i class="fa fa-plus"></i> Agregar título
       </button>
+    </div>
+
+    <!-- Fechas sueltas muy lejos del resto (ej. año mal escrito): estiran la Carta Gantt -->
+    <div class="cs-aviso-corte" *ngIf="fechasFueraDeRango.length > 0">
+      <i class="fa fa-exclamation-triangle"></i>
+      Estas fechas están muy lejos del resto y estiran la Carta Gantt. Revísalas en la tabla:
+      <span *ngFor="let f of fechasFueraDeRango; let ultimo = last">
+        <strong>{{ f.codigo }}</strong> {{ f.descripcion }} · {{ f.campo }} <strong>{{ f.fecha }}</strong>{{ ultimo ? '' : ' — ' }}
+      </span>
     </div>
 
     <div class="gantt-scroll" *ngIf="ganttBarras.length > 0">
