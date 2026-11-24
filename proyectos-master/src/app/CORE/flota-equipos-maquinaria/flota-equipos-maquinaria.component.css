@@ -776,4 +776,11 @@
 .fl-mant-adj-tit { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 700; color: #064f78; }
 .fl-nuevo-arch { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fl-auto { color: #1e8a50 !important; font-weight: 600 !important; }
+
+/* Encabezados ordenables (N° doc. / Fecha) */
+.fl-tabla thead th.fl-th-orden { cursor: pointer; user-select: none; }
+.fl-tabla thead th.fl-th-orden:hover { background: #e8f1f7; color: #075f91; }
+.fl-tabla thead th.fl-th-orden .fa { margin-left: 3px; color: #b0bec8; font-size: 11px; }
+.fl-tabla thead th.fl-th-activo { color: #075f91; }
+.fl-tabla thead th.fl-th-activo .fa { color: #075f91; }
 .fl-campo input.fl-input-auto { background: #f0f9f4; border-color: #9fd6b6; }

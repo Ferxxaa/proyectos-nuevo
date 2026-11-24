@@ -176,6 +176,9 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   kpiMantVehiculos = 0;
   anioActual = new Date().getFullYear();
   mantSel: any[] = [];
+  // Orden de la tabla de mantenciones: por N° doc. (por defecto) o por fecha
+  ordenMant: string = 'doc';     // 'doc' | 'fecha'
+  dirMant: number = -1;          // -1 = mayor primero, 1 = menor primero
 
   formMantAbierto = false;
   formMant: any = {};
@@ -233,12 +236,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
           m._anio = m.fecha ? m.fecha.substr(0, 4) : '';
           lista.push(m);
         });
-        lista.sort((a, b) => {
-          const f = (b.fecha || '').localeCompare(a.fecha || '');
-          if (f !== 0) { return f; }
-          return (parseInt(b.numeroDoc, 10) || 0) - (parseInt(a.numeroDoc, 10) || 0);
-        });
-        this.mantenciones = lista;
+        this.mantenciones = this.ordenarMant(lista);
         this.cargandoMant = false;
         this.errorMant = '';
         this.aplicarFiltroMant();
@@ -1259,8 +1257,8 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
       const txt = this.normalizar([m.numeroDoc, m.patente, m.modelo, m.tipoMantencion, m.factura, m.taller, m.clasificacion].join(' '));
       return txt.indexOf(q) >= 0;
     });
-    // Además, el año elegido
-    this.mantFiltradas = sinAnio.filter(m => this.filtroAnioMant === 'todos' || m._anio === this.filtroAnioMant);
+    // Además, el año elegido (y siempre en el orden elegido)
+    this.mantFiltradas = this.ordenarMant(sinAnio.filter(m => this.filtroAnioMant === 'todos' || m._anio === this.filtroAnioMant));
 
     const vehs: any = {};
     this.mantFiltradas.forEach(m => { vehs[this.normPatente(m.patente)] = true; });
@@ -1272,10 +1270,66 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
     if (this.vehSel) { this.mantSel = this.mantencionesDe(this.vehSel); }
   }
 
+  /**
+   * Compara N° doc. como número ("2" < "10" < "100"), no como texto.
+   * Los que traen letras ("A12", "12-B") se ordenan por su número y luego por el texto. Sin N° van al final.
+   */
+  private compararDoc(a: any, b: any): number {
+    const sa = (a === null || a === undefined ? '' : String(a)).trim();
+    const sb = (b === null || b === undefined ? '' : String(b)).trim();
+    if (!sa && !sb) { return 0; }
+    if (!sa) { return 1; }
+    if (!sb) { return -1; }
+    const na = parseInt(sa.replace(/[^0-9]/g, ''), 10);
+    const nb = parseInt(sb.replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(na) && !isNaN(nb) && na !== nb) { return na - nb; }
+    if (isNaN(na) !== isNaN(nb)) { return isNaN(na) ? 1 : -1; }
+    return sa.localeCompare(sb, 'es', { numeric: true, sensitivity: 'base' });
+  }
+
+  /** Ordena por N° doc. o por fecha (con el otro como desempate). Los vacíos siempre quedan al final. */
+  ordenarMant(lista: any[]): any[] {
+    const dir = this.dirMant;
+    const porFecha = (a: any, b: any) => {
+      const fa = a.fecha || '', fb = b.fecha || '';
+      if (!fa && !fb) { return 0; }
+      if (!fa) { return 1; }
+      if (!fb) { return -1; }
+      return fa.localeCompare(fb) * dir;
+    };
+    const porDoc = (a: any, b: any) => {
+      const vacioA = this.vacio(a.numeroDoc), vacioB = this.vacio(b.numeroDoc);
+      if (vacioA || vacioB) { return vacioA === vacioB ? 0 : (vacioA ? 1 : -1); }
+      return this.compararDoc(a.numeroDoc, b.numeroDoc) * dir;
+    };
+    return lista.slice().sort((a, b) => {
+      const r = this.ordenMant === 'fecha' ? porFecha(a, b) : porDoc(a, b);
+      if (r !== 0) { return r; }
+      return this.ordenMant === 'fecha' ? porDoc(a, b) : porFecha(a, b);
+    });
+  }
+
+  /** Clic en el encabezado "N° doc." o "Fecha": mismo campo invierte el orden; otro campo parte de mayor a menor. */
+  cambiarOrdenMant(campo: string) {
+    if (this.ordenMant === campo) {
+      this.dirMant = -this.dirMant;
+    } else {
+      this.ordenMant = campo;
+      this.dirMant = -1;
+    }
+    this.mantenciones = this.ordenarMant(this.mantenciones);
+    this.aplicarFiltroMant();
+  }
+
+  iconoOrdenMant(campo: string): string {
+    if (this.ordenMant !== campo) { return 'fa-sort'; }
+    return this.dirMant < 0 ? 'fa-sort-desc' : 'fa-sort-asc';
+  }
+
   siguienteNumeroDoc(): number {
     let max = 0;
     this.mantenciones.forEach(m => {
-      const n = parseInt(m.numeroDoc, 10);
+      const n = parseInt(String(m.numeroDoc || '').replace(/[^0-9]/g, ''), 10);
       if (!isNaN(n) && n > max) { max = n; }
     });
     return max + 1;

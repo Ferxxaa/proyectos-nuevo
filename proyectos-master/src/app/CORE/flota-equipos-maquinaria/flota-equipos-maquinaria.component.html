@@ -79,8 +79,12 @@
           <table class="fl-tabla fl-tabla-eq">
             <thead>
               <tr>
-                <th>N° doc.</th>
-                <th>Fecha</th>
+                <th class="fl-th-orden" [class.fl-th-activo]="ordenMant === 'doc'" (click)="cambiarOrdenMant('doc')" title="Ordenar por N° doc.">
+                  N° doc. <i class="fa" [ngClass]="iconoOrdenMant('doc')"></i>
+                </th>
+                <th class="fl-th-orden" [class.fl-th-activo]="ordenMant === 'fecha'" (click)="cambiarOrdenMant('fecha')" title="Ordenar por fecha">
+                  Fecha <i class="fa" [ngClass]="iconoOrdenMant('fecha')"></i>
+                </th>
                 <th>Patente</th>
                 <th>Modelo</th>
                 <th>Tipo de mantención</th>
