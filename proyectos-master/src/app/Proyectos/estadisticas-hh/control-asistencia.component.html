@@ -13,6 +13,9 @@
       <div><dt>HH</dt><dd>{{formatear(resumen.hh)}}</dd></div>
       <div><dt>Días</dt><dd>{{formatear(resumen.jornadas)}}</dd></div>
       <div><dt>H.E.</dt><dd>{{formatear(resumen.extra)}}</dd></div>
+      <div class="ca-chip-tt" *ngIf="resumen.teletrabajo" title="Días en teletrabajo (cuentan como trabajados)">
+        <dt>Teletrabajo</dt><dd>{{resumen.teletrabajo}}</dd>
+      </div>
       <div class="ca-chip-aus" *ngIf="resumen.ausencias" [title]="textoAusencias">
         <dt>Ausencias</dt><dd>{{resumen.ausencias}}</dd>
       </div>
@@ -77,6 +80,7 @@
         <div><dt>Trabajadores</dt><dd>{{resumen.trabajadores}}</dd></div>
         <div><dt>Días</dt><dd>{{formatear(resumen.jornadas)}}</dd></div>
         <div><dt>H. extra</dt><dd>{{formatear(resumen.extra)}}</dd></div>
+        <div *ngIf="resumen.teletrabajo"><dt>Teletrabajo</dt><dd>{{resumen.teletrabajo}}</dd></div>
       </dl>
     </div>
 
@@ -181,8 +185,8 @@
       </table>
     </div>
     <!-- Leyenda de ausencias -->
-    <div class="ca-ley-aus" *ngIf="!soloLectura || resumen.ausencias">
-      <b>Justificar día:</b>
+    <div class="ca-ley-aus" *ngIf="!soloLectura || resumen.ausencias || resumen.teletrabajo">
+      <b>Letras del día:</b>
       <span *ngFor="let m of motivosAusencia" [title]="m.d"><i class="ca-aus-chip" [ngClass]="'ca-aus-' + m.v">{{m.letra}}</i> {{m.t}}</span>
       <small *ngIf="!soloLectura">Clic en el día para llenarlo completo · doble clic en "Día" o la letra para justificar.</small>
     </div>
@@ -193,7 +197,7 @@
     </datalist>
 
     <p class="ca-nota" *ngIf="!embebido">
-      Día: 1 es jornada completa ({{formatear(horasJornada)}} h), 0,5 media jornada y 0 si no trabajó. H.E. va en horas.
+      Día: 1 es jornada completa ({{formatear(horasJornada)}} h), 0,5 media jornada, 0 si no trabajó y T si fue teletrabajo (cuenta como 1). H.E. va en horas.
       HH = días × {{formatear(horasJornada)}} + horas extra. La capacitación se registra en el Programa SSO/MA (HH Capacitación).
       Se llena día a día: hasta completar el primer día pendiente de un trabajador no se pueden llenar los siguientes, ni los días que aún no llegan.
       Para agregar un trabajador, escríbelo en la última fila. En rojo, los feriados; en azul, hoy; con punto rojo, los días hábiles pasados sin marcar.
@@ -210,7 +214,7 @@
           <p>
             <span class="ca-modal-tag ca-tag-rojo" *ngIf="modalDia.feriado">{{modalDia.feriado}}</span>
             <span class="ca-modal-tag ca-tag-rojo" *ngIf="!modalDia.feriado && modalDia.finDeSemana">Fin de semana</span>
-            Marca a cada trabajador: presente, media jornada, no trabajó o el motivo de su ausencia.
+            Marca a cada trabajador: presente, teletrabajo, media jornada, no trabajó o el motivo de su ausencia.
           </p>
         </div>
         <button type="button" class="ca-modal-cerrar" (click)="cerrarDia()" aria-label="Cerrar"><i class="fa fa-times"></i></button>
@@ -236,6 +240,7 @@
           <div class="ca-dia-controles">
             <div class="ca-dia-estados" role="radiogroup" [attr.aria-label]="'Asistencia de ' + f.trabajador.nombre">
               <button type="button" class="ca-est ca-est-1" [class.activo]="f.estado === '1'" [disabled]="!!f.bloqueo" (click)="elegirEstado(f, '1')" title="Jornada completa (8,5 h)">Presente</button>
+              <button type="button" class="ca-est ca-est-tt" [class.activo]="f.estado === 'TT'" [disabled]="!!f.bloqueo" (click)="elegirEstado(f, 'TT')" title="Teletrabajo (jornada completa, 8,5 h)">Teletrabajo</button>
               <button type="button" class="ca-est ca-est-m" [class.activo]="f.estado === '0.5'" [disabled]="!!f.bloqueo" (click)="elegirEstado(f, '0.5')" title="Media jornada">½ día</button>
               <button type="button" class="ca-est ca-est-0" [class.activo]="f.estado === '0'" [disabled]="!!f.bloqueo" (click)="elegirEstado(f, '0')" title="No trabajó (sin motivo)">No trabajó</button>
               <button type="button" class="ca-est ca-est-aus" [class.activo]="f.estado === 'AUS'" [disabled]="!!f.bloqueo" (click)="elegirEstado(f, 'AUS')" title="Ausencia con motivo">Ausente…</button>
@@ -258,7 +263,7 @@
       <div class="ca-modal-error ca-modal-error-pie" *ngIf="errorModalDia" role="alert"><i class="fa fa-exclamation-triangle"></i> {{errorModalDia}}</div>
 
       <footer class="ca-modal-pie">
-        <small class="ca-modal-nota">Las ausencias quedan con jornada 0 (no suman HH) y el día deja de estar pendiente.</small>
+        <small class="ca-modal-nota">Las ausencias quedan con jornada 0 (no suman HH); el teletrabajo cuenta como jornada completa.</small>
         <span class="ca-modal-espacio"></span>
         <button type="button" class="ca-modal-btn" (click)="cerrarDia()">Cancelar</button>
         <button type="button" class="ca-modal-btn ca-modal-btn-principal" (click)="guardarModalDia()">
@@ -274,7 +279,7 @@
          (keydown)="$event.stopPropagation()" (keypress)="$event.stopPropagation()" (keyup)="$event.stopPropagation()">
       <header class="ca-modal-cab">
         <div>
-          <span class="ca-modal-kicker">Justificar día</span>
+          <span class="ca-modal-kicker">{{modalEsTeletrabajo ? 'Teletrabajo' : 'Justificar día'}}</span>
           <h6 id="ca-modal-aus-titulo">{{modalAusencia.trabajador.nombre}} {{modalAusencia.trabajador.apellido}}</h6>
           <p><i class="fa fa-calendar" aria-hidden="true"></i> {{modalAusencia.fecha}}<ng-container *ngIf="embebido"> · {{nombreSubProyecto}}</ng-container></p>
         </div>
@@ -317,7 +322,8 @@
         </div>
 
         <div class="ca-modal-error" *ngIf="errorAusencia" role="alert"><i class="fa fa-exclamation-triangle"></i> {{errorAusencia}}</div>
-        <p class="ca-modal-nota">El día queda con jornada 0 (no suma HH) y deja de aparecer como pendiente.</p>
+        <p class="ca-modal-nota" *ngIf="!modalEsTeletrabajo">El día queda con jornada 0 (no suma HH) y deja de aparecer como pendiente.</p>
+        <p class="ca-modal-nota" *ngIf="modalEsTeletrabajo">El día queda con jornada completa (1 = {{formatear(horasJornada)}} h, suma HH) marcado como teletrabajo.</p>
       </div>
 
       <footer class="ca-modal-pie">

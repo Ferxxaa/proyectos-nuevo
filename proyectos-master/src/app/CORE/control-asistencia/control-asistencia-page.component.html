@@ -139,7 +139,7 @@
                 </ng-container>
 
                 <p class="core-nota">
-                  Día: 1 es jornada completa (8,5 h), 0,5 media jornada y 0 si no trabajó. H.E. va en horas. HH = días × 8,5 + horas extra
+                  Día: 1 es jornada completa (8,5 h), 0,5 media jornada, 0 si no trabajó y T si fue teletrabajo (cuenta como 1). H.E. va en horas. HH = días × 8,5 + horas extra
                   (la capacitación se registra en el Programa SSO/MA). En azul, hoy; con punto rojo, días hábiles pasados sin marcar.
                   Si un trabajador está en dos subproyectos, aparece en los dos: marca cada día en el subproyecto donde trabajó.
                   <span class="core-ley core-ley-claro"></span> ya tiene horas ese día en otro subproyecto ·
@@ -203,7 +203,8 @@
                     </div>
                     <div class="cons-kpi cons-kpi-verde">
                       <span class="cons-kpi-ico"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
-                      <div><span>Días trabajados</span><strong>{{formatear(consTotMes.dias)}}</strong></div>
+                      <div><span>Días trabajados</span><strong>{{formatear(consTotMes.dias)}}</strong>
+                        <small class="cons-kpi-sub" *ngIf="consTotMes.tele">{{consTotMes.tele}} en teletrabajo</small></div>
                     </div>
                     <div class="cons-kpi cons-kpi-morado">
                       <span class="cons-kpi-ico"><i class="fa fa-bolt" aria-hidden="true"></i></span>
@@ -309,7 +310,10 @@
                                 <span class="cons-sp" *ngFor="let sp of f.sps" [title]="sp.nombre + ': ' + formatear(sp.hh) + ' HH'">{{sp.nombre}}</span>
                                 <i class="fa cons-flecha" *ngIf="f.sps.length > 1" [ngClass]="f.abierta ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
                               </td>
-                              <td>{{formatear(f.dias)}}</td>
+                              <td>
+                                {{formatear(f.dias)}}
+                                <span class="cons-tt" *ngIf="f.tele" [title]="f.tele + (f.tele === 1 ? ' día' : ' días') + ' en teletrabajo (incluidos en Días)'">T {{f.tele}}</span>
+                              </td>
                               <td>{{formatear(f.extra)}}</td>
                               <td class="cons-col-hh">
                                 <div class="cons-celda-barra">
@@ -370,7 +374,7 @@
                     <div class="cons-kpi cons-kpi-verde">
                       <span class="cons-kpi-ico"><i class="fa fa-calendar-check-o" aria-hidden="true"></i></span>
                       <div><span>Días trabajados</span><strong>{{formatear(consTotAnio.dias)}}</strong>
-                        <small class="cons-kpi-sub">{{consResAnio.mesesConDatos}} mes{{consResAnio.mesesConDatos === 1 ? '' : 'es'}} con registros</small></div>
+                        <small class="cons-kpi-sub">{{consResAnio.mesesConDatos}} mes{{consResAnio.mesesConDatos === 1 ? '' : 'es'}} con registros<ng-container *ngIf="consTotAnio.tele"> · {{consTotAnio.tele}} en teletrabajo</ng-container></small></div>
                     </div>
                     <div class="cons-kpi cons-kpi-morado">
                       <span class="cons-kpi-ico"><i class="fa fa-star" aria-hidden="true"></i></span>
@@ -530,6 +534,7 @@
                 <p class="core-nota">
                   HH = días × 8,5 + horas extra (la capacitación va en el Programa SSO/MA). Una persona se junta por su ficha de la agenda, su RUT o su nombre,
                   aunque haya trabajado en varios subproyectos. Las ausencias son los días justificados con motivo (L, V, P, S, O) y las faltas injustificadas (F).
+                  El teletrabajo (T) no es ausencia: cuenta como día trabajado y suma HH.
                 </p>
               </div>
 

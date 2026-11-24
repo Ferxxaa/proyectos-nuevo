@@ -741,6 +741,7 @@
 .ca-aus-PSG { background: #fdf0d5; color: #8a6514; }
 .ca-aus-OTR { background: #eceff2; color: #4a525a; }
 .ca-aus-FI  { background: #fbe1e0; color: #b03a36; }
+.ca-aus-TT  { background: #ece6fa; color: #5b3fa8; }
 
 /* celda "Día" justificada: fondo del motivo y letra en negrita */
 .ca-tabla tbody tr td.ca-aus.ca-aus-LM  { background: #eef4fc; }
@@ -757,6 +758,13 @@
 .ca-tabla tbody tr td.ca-aus.ca-aus-PSG input { color: #8a6514; }
 .ca-tabla tbody tr td.ca-aus.ca-aus-OTR input { color: #4a525a; }
 .ca-tabla tbody tr td.ca-aus.ca-aus-FI input  { color: #b03a36; }
+.ca-tabla tbody tr td.ca-aus.ca-aus-TT  { background: #f4f0fd; }
+.ca-tabla tbody tr td.ca-aus.ca-aus-TT input  { color: #5b3fa8; }
+
+/* chip de teletrabajo en el resumen del subproyecto */
+.ca-grupo-resumen div.ca-chip-tt { background: #f4f0fd; }
+.ca-grupo-resumen div.ca-chip-tt dt,
+.ca-grupo-resumen div.ca-chip-tt dd { color: #5b3fa8; }
 
 /* chips del resumen del subproyecto */
 .ca-grupo-resumen div.ca-chip-aus { background: #eef4fc; }
@@ -888,6 +896,7 @@
 .ca-motivo small { display: block; color: #8f979f; font-size: 10.5px; }
 .ca-motivo.activo { border-color: #075f91; background: #f2f8fd; box-shadow: 0 0 0 3px rgba(7, 95, 145, .12); }
 .ca-motivo.activo.ca-aus-borde-FI { border-color: #e2706b; background: #fef4f3; box-shadow: 0 0 0 3px rgba(226, 112, 107, .15); }
+.ca-motivo.activo.ca-aus-borde-TT { border-color: #7353c4; background: #f7f4fe; box-shadow: 0 0 0 3px rgba(115, 83, 196, .15); }
 
 .ca-modal-campo { display: block; margin: 0 0 12px; font-weight: 400; }
 .ca-modal-campo textarea {
@@ -1040,6 +1049,7 @@
 .ca-est:hover:not(:disabled) { background: #f4f6f8; }
 .ca-est:disabled { cursor: not-allowed; opacity: .5; }
 .ca-est.activo.ca-est-1   { background: #075f91; color: #fff; }
+.ca-est.activo.ca-est-tt  { background: #7353c4; color: #fff; }
 .ca-est.activo.ca-est-m   { background: #5b8db3; color: #fff; }
 .ca-est.activo.ca-est-0   { background: #6b7580; color: #fff; }
 .ca-est.activo.ca-est-aus { background: #d9692a; color: #fff; }

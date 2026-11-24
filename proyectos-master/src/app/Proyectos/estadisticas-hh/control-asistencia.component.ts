@@ -103,17 +103,29 @@ const LETRAS_DIA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 /**
  * Motivos para justificar un día no trabajado. Se guardan en dias.{dia}.ausencia = { motivo, obs, por, fecha }.
- * La letra se puede escribir directo en la celda "Día" (L, V, P, S, F, O).
+ * La letra se puede escribir directo en la celda "Día" (L, V, P, S, F, O, T).
+ *
+ * Teletrabajo (T) se guarda igual (ausencia.motivo = 'TT') pero NO es ausencia: tiene trabajo = true,
+ * el día queda con jornada 1 (suma HH) y no cuenta en ausencias ni faltas.
  */
-export interface MotivoAusencia { v: string; letra: string; t: string; d: string; justificada: boolean; }
+export interface MotivoAusencia { v: string; letra: string; t: string; d: string; justificada: boolean; trabajo?: boolean; }
 export const MOTIVOS_AUSENCIA: MotivoAusencia[] = [
   { v: 'LM',  letra: 'L', t: 'Licencia médica',     d: 'Con licencia médica',                 justificada: true },
   { v: 'VAC', letra: 'V', t: 'Vacaciones',          d: 'Feriado legal / vacaciones',          justificada: true },
   { v: 'PCG', letra: 'P', t: 'Permiso con goce',    d: 'Permiso con goce de sueldo',          justificada: true },
   { v: 'PSG', letra: 'S', t: 'Permiso sin goce',    d: 'Permiso sin goce de sueldo',          justificada: true },
   { v: 'OTR', letra: 'O', t: 'Otro justificado',    d: 'Otro motivo justificado (detállalo)', justificada: true },
-  { v: 'FI',  letra: 'F', t: 'Falta injustificada', d: 'No se presentó sin justificación',    justificada: false }
+  { v: 'FI',  letra: 'F', t: 'Falta injustificada', d: 'No se presentó sin justificación',    justificada: false },
+  { v: 'TT',  letra: 'T', t: 'Teletrabajo',         d: 'Trabajó a distancia (jornada completa)', justificada: true, trabajo: true }
 ];
+
+/** Teletrabajo: el día cuenta como trabajado (jornada 1). */
+export const MOTIVO_TELETRABAJO = 'TT';
+
+export function esTeletrabajo(v: string): boolean {
+  const m = motivoAusencia(v);
+  return !!m && !!m.trabajo;
+}
 
 export function motivoAusencia(v: string): MotivoAusencia {
   return MOTIVOS_AUSENCIA.filter(m => m.v === v)[0] || null;
@@ -134,7 +146,7 @@ interface ModalAusencia {
 /** Una fila del popup del día: lo que se marca para cada trabajador. */
 interface FilaDia {
   trabajador: TrabajadorAsistencia;
-  estado: string;          // '1' | '0.5' | '0' | 'AUS' | '' (sin marcar)
+  estado: string;          // '1' | '0.5' | '0' | 'TT' (teletrabajo) | 'AUS' | '' (sin marcar)
   extra: any;              // horas extra (texto del input)
   motivo: string;          // motivo de ausencia si estado = 'AUS'
   obs: string;
@@ -279,7 +291,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
   trabajadoresAnteriores: TrabajadorAsistencia[] = [];
   totalesFila: { [id: string]: any } = {};
   totalesDia: { [dia: number]: any } = {};
-  resumen: any = { hh: 0, trabajadores: 0, jornadas: 0, extra: 0, capacitacion: 0 };
+  resumen: any = { hh: 0, trabajadores: 0, jornadas: 0, extra: 0, capacitacion: 0, ausencias: 0, injustificadas: 0, teletrabajo: 0, porMotivo: {} };
 
   cargando: boolean = true;
   errorCarga: boolean = false;
@@ -547,7 +559,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
   }
 
   private recalcular() {
-    const resumen: any = { hh: 0, trabajadores: 0, jornadas: 0, extra: 0, capacitacion: 0, ausencias: 0, injustificadas: 0, porMotivo: {} };
+    const resumen: any = { hh: 0, trabajadores: 0, jornadas: 0, extra: 0, capacitacion: 0, ausencias: 0, injustificadas: 0, teletrabajo: 0, porMotivo: {} };
     const totalesFila: { [id: string]: any } = {};
     const totalesDia: { [dia: number]: any } = {};
 
@@ -558,7 +570,9 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
       this.dias.forEach(dia => {
         const delDia = trabajador.dias[dia.numero] || {};
         const aus = delDia.ausencia && motivoAusencia(delDia.ausencia.motivo);
-        if (aus) {
+        if (aus && aus.trabajo) {
+          resumen.teletrabajo++;               // trabajó: no es ausencia
+        } else if (aus) {
           resumen.ausencias++;
           if (!aus.justificada) { resumen.injustificadas++; }
           resumen.porMotivo[aus.v] = (resumen.porMotivo[aus.v] || 0) + 1;
@@ -703,8 +717,10 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
     const delDia = trabajador.dias[dia] || (trabajador.dias[dia] = {});
     const anterior = delDia[campo] === undefined ? null : delDia[campo];
     const ausenciaAnterior = delDia.ausencia || null;
-    // si escribe una jornada mayor a 0, el día deja de estar justificado como ausencia
-    const quitaAusencia = campo === 'jornada' && valor !== null && valor > 0 && !!ausenciaAnterior;
+    // si escribe una jornada mayor a 0, el día deja de estar justificado como ausencia;
+    // en teletrabajo, cualquier valor escrito (o borrarlo) quita la T
+    const quitaAusencia = campo === 'jornada' && !!ausenciaAnterior &&
+      ((valor !== null && valor > 0) || esTeletrabajo(ausenciaAnterior.motivo));
     delDia[campo] = valor;
     if (quitaAusencia) { delDia.ausencia = null; }
     input.value = this.getTextoCelda(trabajador, dia, campo);
@@ -754,7 +770,8 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
       if (primero && dia > primero) { bloqueo = 'Falta completar el ' + primero; }
       else if (otro && otro.lleno && !delDia.jornada && !aus) { bloqueo = 'Jornada completa en otro subproyecto'; }
       let estado = '';
-      if (aus && aus.motivo) { estado = 'AUS'; }
+      if (aus && esTeletrabajo(aus.motivo)) { estado = 'TT'; }
+      else if (aus && aus.motivo) { estado = 'AUS'; }
       else if (delDia.jornada === 1) { estado = '1'; }
       else if (delDia.jornada === 0.5) { estado = '0.5'; }
       else if (delDia.jornada === 0) { estado = '0'; }
@@ -886,7 +903,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
     if (!m.motivo) { this.errorAusencia = 'Elige el motivo.'; return; }
     if (m.motivo === 'OTR' && !(m.obs || '').trim()) { this.errorAusencia = 'Para "Otro justificado" escribe el detalle.'; return; }
     if (m.fila) {
-      m.fila.estado = 'AUS';
+      m.fila.estado = esTeletrabajo(m.motivo) ? 'TT' : 'AUS';
       m.fila.motivo = m.motivo;
       m.fila.obs = (m.obs || '').trim();
       this.errorModalDia = '';
@@ -927,9 +944,20 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
   elegirEstado(f: FilaDia, estado: string) {
     if (f.bloqueo) { return; }
     if (estado === 'AUS') { this.abrirAusenciaDesdeDia(f); return; }
+    const antes = f.estado;
     f.estado = f.estado === estado ? '' : estado;
-    if (f.estado !== 'AUS') { f.motivo = ''; f.obs = ''; }
+    if (f.estado === 'TT') {
+      f.motivo = MOTIVO_TELETRABAJO;
+      if (antes !== 'TT') { f.obs = ''; }
+    } else if (f.estado !== 'AUS') {
+      f.motivo = ''; f.obs = '';
+    }
     this.errorModalDia = '';
+  }
+
+  /** La ausencia del popup de justificación es teletrabajo (cuenta como día trabajado). */
+  get modalEsTeletrabajo(): boolean {
+    return !!this.modalAusencia && esTeletrabajo(this.modalAusencia.motivo);
   }
 
   elegirMotivo(f: FilaDia, motivo: string) {
@@ -970,7 +998,10 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
 
       let jornada: number = null;
       let ausencia: any = null;
-      if (f.estado === 'AUS') {
+      if (f.estado === 'TT') {
+        jornada = 1;                            // teletrabajo = jornada completa
+        ausencia = { motivo: MOTIVO_TELETRABAJO, obs: (f.obs || '').trim(), por: this.idUsuario || null, fecha: new Date().toISOString() };
+      } else if (f.estado === 'AUS') {
         jornada = 0;
         ausencia = { motivo: f.motivo, obs: (f.obs || '').trim(), por: this.idUsuario || null, fecha: new Date().toISOString() };
       } else if (f.estado) {
@@ -999,7 +1030,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
     });
   }
 
-  /** Guarda (o quita, con motivo null) la justificación del día. La jornada queda en 0. */
+  /** Guarda (o quita, con motivo null) la justificación del día. La jornada queda en 0 (en teletrabajo, en 1). */
   private guardarAusencia(trabajador: TrabajadorAsistencia, dia: number, motivo: string, obs: string) {
     const delDia = trabajador.dias[dia] || (trabajador.dias[dia] = {});
     const antes = { jornada: delDia.jornada === undefined ? null : delDia.jornada, ausencia: delDia.ausencia || null };
@@ -1010,7 +1041,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
       fecha: new Date().toISOString()
     } : null;
     delDia.ausencia = ausencia;
-    delDia.jornada = motivo ? 0 : (antes.ausencia ? null : delDia.jornada);
+    delDia.jornada = motivo ? (esTeletrabajo(motivo) ? 1 : 0) : (antes.ausencia ? null : delDia.jornada);
     this.persistir(
       { trabajadores: { [trabajador.id]: { dias: { [dia]: { jornada: delDia.jornada, ausencia: ausencia } } } } },
       () => {
@@ -1028,7 +1059,7 @@ export class ControlAsistenciaComponent implements OnInit, OnChanges {
   /** Texto del resumen de ausencias para el tooltip del chip. */
   get textoAusencias(): string {
     const pm = this.resumen && this.resumen.porMotivo ? this.resumen.porMotivo : {};
-    return MOTIVOS_AUSENCIA.filter(m => pm[m.v]).map(m => m.t + ': ' + pm[m.v]).join(' · ');
+    return MOTIVOS_AUSENCIA.filter(m => !m.trabajo && pm[m.v]).map(m => m.t + ': ' + pm[m.v]).join(' · ');
   }
 
   /** Jornada: de 0 a 1 (1 es día completo). Horas extra y capacitación: horas del día. */

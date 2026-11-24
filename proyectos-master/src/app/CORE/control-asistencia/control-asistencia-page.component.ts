@@ -126,12 +126,13 @@ interface ConsPersona {
   nombre: string;
   rut: string;
   cargo: string;
-  porMes: { [mes: number]: { dias: number; extra: number; hh: number; aus: { [motivo: string]: number }; sps: { [id: string]: ConsSp } } };
+  porMes: { [mes: number]: { dias: number; extra: number; hh: number; tele: number; aus: { [motivo: string]: number }; sps: { [id: string]: ConsSp } } };
 }
 
 interface ConsFilaMes {
   persona: ConsPersona;
   dias: number; extra: number; hh: number;
+  tele: number;            // días en teletrabajo (ya van sumados en "dias")
   aus: { [motivo: string]: number };
   ausTotal: number;
   sps: ConsSp[];
@@ -158,7 +159,7 @@ const PALETA_CONS = ['#075f91', '#f58941', '#2bb3a3', '#8e6bd1', '#e2615b', '#4c
 
 /** Color de cada motivo de ausencia en los gráficos (mismo tono que sus chips). */
 const COLOR_MOTIVO: { [v: string]: string } = {
-  LM: '#5b8def', VAC: '#4caf7a', PCG: '#2bb3a3', PSG: '#e0a43a', OTR: '#8f9aa5', FI: '#e2615b'
+  LM: '#5b8def', VAC: '#4caf7a', PCG: '#2bb3a3', PSG: '#e0a43a', OTR: '#8f9aa5', FI: '#e2615b', TT: '#7353c4'
 };
 
 interface GrupoSubProyecto {
@@ -193,7 +194,8 @@ export class ControlAsistenciaPageComponent implements OnInit {
 
   // ===== Consolidado (mensual / anual) =====
   readonly mesesCortos = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-  readonly motivosAusencia = MOTIVOS_AUSENCIA;
+  /** Solo las ausencias de verdad (el teletrabajo va aparte, como día trabajado). */
+  readonly motivosAusencia = MOTIVOS_AUSENCIA.filter(m => !m.trabajo);
   vistaConsolidado: string = 'mensual';     // 'mensual' | 'anual'
   consAnio: number = new Date().getFullYear();
   consMes: number = new Date().getMonth() + 1;
@@ -206,8 +208,8 @@ export class ControlAsistenciaPageComponent implements OnInit {
   consMensual: ConsFilaMes[] = [];
   consAnual: ConsFilaAnio[] = [];
   consPorSp: ConsFilaSp[] = [];
-  consTotMes = { personas: 0, sps: 0, dias: 0, extra: 0, hh: 0, aus: 0, faltas: 0 };
-  consTotAnio = { personas: 0, sps: 0, hh: 0, dias: 0, meses: [] as number[] };
+  consTotMes = { personas: 0, sps: 0, dias: 0, extra: 0, hh: 0, aus: 0, faltas: 0, tele: 0 };
+  consTotAnio = { personas: 0, sps: 0, hh: 0, dias: 0, tele: 0, meses: [] as number[] };
   // gráficos del mes
   consGrafSpMes: ConsBarra[] = [];
   consTopMes: ConsBarra[] = [];
@@ -522,7 +524,7 @@ export class ControlAsistenciaPageComponent implements OnInit {
         const t = mapa[k];
         if (!t || t.eliminado) { return; }
         // suma del mes de esta persona en este subproyecto
-        let dias = 0, extra = 0;
+        let dias = 0, extra = 0, tele = 0;
         const aus: { [m: string]: number } = {};
         const diasMapa = t.dias || {};
         Object.keys(diasMapa).forEach(dia => {
@@ -530,7 +532,8 @@ export class ControlAsistenciaPageComponent implements OnInit {
           dias += Number(v.jornada) || 0;
           extra += Number(v.extra) || 0;
           const m = v.ausencia && motivoAusencia(v.ausencia.motivo);
-          if (m) { aus[m.v] = (aus[m.v] || 0) + 1; }
+          if (m && m.trabajo) { tele++; }                       // teletrabajo: trabajó, no es ausencia
+          else if (m) { aus[m.v] = (aus[m.v] || 0) + 1; }
         });
         const hh = this.redondear(dias * HORAS_JORNADA + extra);
         if (!hh && !Object.keys(aus).length) { return; }   // inscrito pero sin nada marcado
@@ -547,8 +550,8 @@ export class ControlAsistenciaPageComponent implements OnInit {
         if (!persona.cargo && t.cargo) { persona.cargo = t.cargo; }
         claves.forEach(c => porClave[c] = persona);
 
-        const pm = persona.porMes[mes] || (persona.porMes[mes] = { dias: 0, extra: 0, hh: 0, aus: {}, sps: {} });
-        pm.dias += dias; pm.extra += extra; pm.hh = this.redondear(pm.hh + hh);
+        const pm = persona.porMes[mes] || (persona.porMes[mes] = { dias: 0, extra: 0, hh: 0, tele: 0, aus: {}, sps: {} });
+        pm.dias += dias; pm.extra += extra; pm.hh = this.redondear(pm.hh + hh); pm.tele += tele;
         Object.keys(aus).forEach(m => pm.aus[m] = (pm.aus[m] || 0) + aus[m]);
         const s = pm.sps[id] || (pm.sps[id] = { id: id, nombre: nombreSp, dias: 0, extra: 0, hh: 0 });
         s.dias += dias; s.extra += extra; s.hh = this.redondear(s.hh + hh);
@@ -582,7 +585,7 @@ export class ControlAsistenciaPageComponent implements OnInit {
   armarMensual() {
     const mes = Number(this.consMes);
     const filas: ConsFilaMes[] = [];
-    const tot = { personas: 0, sps: 0, dias: 0, extra: 0, hh: 0, aus: 0, faltas: 0 };
+    const tot = { personas: 0, sps: 0, dias: 0, extra: 0, hh: 0, aus: 0, faltas: 0, tele: 0 };
     const spsMes: { [id: string]: boolean } = {};
     this.consPersonas.forEach(p => {
       const pm = p.porMes[mes];
@@ -590,8 +593,8 @@ export class ControlAsistenciaPageComponent implements OnInit {
       const lista = Object.keys(pm.sps).map(k => pm.sps[k]).sort((a, b) => b.hh - a.hh);
       if (!this.coincideBusqueda(p, lista.map(x => x.nombre))) { return; }
       const ausTotal = Object.keys(pm.aus).reduce((s, k) => s + pm.aus[k], 0);
-      filas.push({ persona: p, dias: this.redondear(pm.dias), extra: this.redondear(pm.extra), hh: pm.hh, aus: pm.aus, ausTotal: ausTotal, sps: lista, abierta: lista.length > 1 });
-      tot.personas++; tot.dias += pm.dias; tot.extra += pm.extra; tot.hh += pm.hh; tot.aus += ausTotal;
+      filas.push({ persona: p, dias: this.redondear(pm.dias), extra: this.redondear(pm.extra), hh: pm.hh, tele: pm.tele || 0, aus: pm.aus, ausTotal: ausTotal, sps: lista, abierta: lista.length > 1 });
+      tot.personas++; tot.dias += pm.dias; tot.extra += pm.extra; tot.hh += pm.hh; tot.aus += ausTotal; tot.tele += pm.tele || 0;
       tot.faltas += pm.aus['FI'] || 0;
       lista.forEach(x => spsMes[x.id] = true);
     });
@@ -679,7 +682,7 @@ export class ControlAsistenciaPageComponent implements OnInit {
   armarAnual() {
     const filas: ConsFilaAnio[] = [];
     const totMeses = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    let hhTot = 0, diasTot = 0;
+    let hhTot = 0, diasTot = 0, teleTot = 0;
     this.consPersonas.forEach(p => {
       const spsNombres: { [n: string]: boolean } = {};
       const meses = this.mesesCortos.map((x, i) => {
@@ -691,6 +694,7 @@ export class ControlAsistenciaPageComponent implements OnInit {
           hh: pm.hh,
           dias: this.redondear(pm.dias),
           texto: lista.map(s => s.nombre + ': ' + this.formatear(s.hh) + ' HH (' + this.formatear(s.dias) + ' días)').join('\n')
+            + (pm.tele ? '\nTeletrabajo: ' + pm.tele + (pm.tele === 1 ? ' día' : ' días') : '')
         };
       });
       const sps = Object.keys(spsNombres).sort();
@@ -698,7 +702,7 @@ export class ControlAsistenciaPageComponent implements OnInit {
       let hh = 0, dias = 0, extra = 0, ausTotal = 0;
       Object.keys(p.porMes).forEach(m => {
         const pm = p.porMes[Number(m)];
-        hh += pm.hh; dias += pm.dias; extra += pm.extra;
+        hh += pm.hh; dias += pm.dias; extra += pm.extra; teleTot += pm.tele || 0;
         ausTotal += Object.keys(pm.aus).reduce((s, k) => s + pm.aus[k], 0);
       });
       meses.forEach((m, i) => totMeses[i] = this.redondear(totMeses[i] + m.hh));
@@ -707,7 +711,7 @@ export class ControlAsistenciaPageComponent implements OnInit {
     });
     this.consAnual = filas;
     this.consPorSp = Object.keys(this.consSpsAnio).map(k => this.consSpsAnio[k]).sort((a, b) => b.total - a.total);
-    this.consTotAnio = { personas: filas.length, sps: this.consPorSp.length, hh: this.redondear(hhTot), dias: this.redondear(diasTot), meses: totMeses };
+    this.consTotAnio = { personas: filas.length, sps: this.consPorSp.length, hh: this.redondear(hhTot), dias: this.redondear(diasTot), tele: teleTot, meses: totMeses };
 
     // ---- gráficos del año ----
     const mayorMes = Math.max.apply(null, totMeses.concat([0]));
@@ -746,7 +750,7 @@ export class ControlAsistenciaPageComponent implements OnInit {
   }
 
   textoAusenciasCons(aus: { [m: string]: number }): string {
-    return MOTIVOS_AUSENCIA.filter(m => aus && aus[m.v]).map(m => m.t + ': ' + aus[m.v]).join(' · ');
+    return MOTIVOS_AUSENCIA.filter(m => !m.trabajo && aus && aus[m.v]).map(m => m.t + ': ' + aus[m.v]).join(' · ');
   }
 
   esMesActualCons(mes: number): boolean {
