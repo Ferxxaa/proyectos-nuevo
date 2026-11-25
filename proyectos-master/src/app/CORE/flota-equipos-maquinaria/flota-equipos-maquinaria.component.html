@@ -23,17 +23,24 @@
       <!-- Pestañas -->
       <nav class="fl-tabs">
         <button type="button" *ngFor="let c of categorias" class="fl-tab"
-                [class.fl-tab-activa]="tabActiva === c.key" (click)="cambiarTab(c.key)">
+                [class.fl-tab-activa]="tabActiva === c.key || (c.key === 'vehiculo' && esTabMant)" (click)="cambiarTab(c.key)">
           <i class="fa" [ngClass]="c.icono"></i>
           {{ c.nombre }}
           <span class="fl-tab-badge">{{ conteo[c.key] || 0 }}</span>
         </button>
-        <button type="button" class="fl-tab" [class.fl-tab-activa]="esTabMant" (click)="cambiarTab('mantenimiento')">
-          <i class="fa fa-wrench"></i>
-          Mantenimiento
-          <span class="fl-tab-badge">{{ mantenciones.length }}</span>
-        </button>
       </nav>
+
+      <!-- Sub-pestañas de Vehículos: la flota y sus mantenciones -->
+      <div class="fl-subtabs" *ngIf="tabActiva === 'vehiculo' || esTabMant">
+        <button type="button" class="fl-subtab" [class.activa]="tabActiva === 'vehiculo'" (click)="cambiarTab('vehiculo')">
+          <i class="fa fa-truck"></i> Vehículos
+          <span class="fl-subtab-badge">{{ conteo.vehiculo || 0 }}</span>
+        </button>
+        <button type="button" class="fl-subtab" [class.activa]="esTabMant" (click)="cambiarTab('mantenimiento')">
+          <i class="fa fa-wrench"></i> Mantención
+          <span class="fl-subtab-badge">{{ mantenciones.length }}</span>
+        </button>
+      </div>
 
       <!-- ═══════════════ Pestaña MANTENIMIENTO ═══════════════ -->
       <div class="widget-body flota-cuerpo" *ngIf="esTabMant">

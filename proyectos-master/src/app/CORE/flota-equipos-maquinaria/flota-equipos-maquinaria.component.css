@@ -799,3 +799,46 @@
   white-space: nowrap;
 }
 .fl-na input:disabled { cursor: not-allowed; }
+/* ═════════════ Sub-pestañas de Vehículos (Vehículos / Mantención) ═════════════ */
+.fl-subtabs {
+  display: inline-flex;
+  gap: 4px;
+  margin: 16px 20px 0;
+  padding: 3px;
+  border: 1px solid #dfe7ed;
+  border-radius: 8px;
+  background: #edf2f6;
+}
+.fl-subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #5d6d79;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.fl-subtab:hover { background: rgba(255, 255, 255, .7); color: #075f91; }
+.fl-subtab.activa {
+  background: #fff;
+  color: #075f91;
+  box-shadow: 0 2px 6px rgba(31, 45, 61, .12);
+}
+.fl-subtab-badge {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: #e1e9ef;
+  color: #5d6d79;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+.fl-subtab.activa .fl-subtab-badge { background: #075f91; color: #fff; }

@@ -1345,10 +1345,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     // Con ponderación: el total es el promedio ponderado de los items raíz
     // (cada título ya trae el promedio ponderado de sus hijos).
     if (this.hayPonderacion) {
-      const raices = this.ControlesAvance.filter(it => it.activo !== false && this.claveJerarquia(it.idPadre) === 'raiz');
-      this.avanceDocumentosProgramado = Math.min(100, this.promedioPonderado(raices, it => Number(it.avanceProgramado) || 0));
-      this.avanceDocumentosReal = Math.min(100, this.promedioPonderado(raices, it => this.avanceRealEfectivo(it)));
-      return;
+      // Igual que la planilla: Σ (avance de cada partida × su peso en el total), sin redondear por el camino
+      const hojas = this.pesosHojasCurvaS();
+      const sumaPesos = hojas.reduce((t, h) => t + h.peso, 0);
+      if (sumaPesos > 0) {
+        const prog = hojas.reduce((t, h) => t + h.peso * (Number(h.item.avanceProgramado) || 0), 0) / sumaPesos;
+        const real = hojas.reduce((t, h) => t + h.peso * this.avanceRealEfectivo(h.item), 0) / sumaPesos;
+        this.avanceDocumentosProgramado = Math.min(100, Math.round(prog * 10) / 10);
+        this.avanceDocumentosReal = Math.min(100, Math.round(real * 10) / 10);
+        return;
+      }
     }
 
     const sumaAvanceProgramado = documentosActivos.reduce((sum, doc) => {
@@ -1375,6 +1381,22 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
+   * Peso de una fila para los promedios ponderados:
+   * - si tiene ponderación propia, esa;
+   * - si es un título sin ponderación propia, la suma de las ponderaciones de sus hijos
+   *   (como en la planilla: "Construcción Malla Tierra" pesa 20% porque sus partidas suman 20%).
+   */
+  pesoPonderacion(it: ControlAvanceItem): number {
+    if (!it) { return 0; }
+    const propio = Number(it.ponderacion);
+    if (propio > 0) { return propio; }
+    if (!it.esTitulo || !it.id) { return 0; }
+    const clave = this.claveJerarquia(it.id);
+    const hijos = (this.ControlesAvance || []).filter(h => h.activo !== false && h !== it && this.claveJerarquia(h.idPadre) === clave);
+    return hijos.reduce((t, h) => t + this.pesoPonderacion(h), 0);
+  }
+
+  /**
    * Promedio ponderado de un grupo de hermanos: Σ (valor × ponderación) / Σ ponderaciones.
    * Si ninguno tiene ponderación, todos pesan 1 (promedio simple). Si algunos sí y otros no,
    * los que no tienen ponderación no cuentan.
@@ -1382,11 +1404,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   private promedioPonderado(items: ControlAvanceItem[], valor: (it: ControlAvanceItem) => number): number {
     const activos = (items || []).filter(it => it.activo !== false);
     if (!activos.length) { return 0; }
-    const conPeso = activos.some(it => Number(it.ponderacion) > 0);
+    const conPeso = activos.some(it => this.pesoPonderacion(it) > 0);
     let suma = 0;
     let pesos = 0;
     activos.forEach(it => {
-      const w = conPeso ? (Number(it.ponderacion) > 0 ? Number(it.ponderacion) : 0) : 1;
+      const w = conPeso ? this.pesoPonderacion(it) : 1;
       suma += valor(it) * w;
       pesos += w;
     });
@@ -1408,7 +1430,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const clave = this.claveJerarquia(titulo.id);
     const hijos = this.ControlesAvance.filter(it => it.activo !== false && this.claveJerarquia(it.idPadre) === clave);
     if (!hijos.length) { return ''; }
-    const conPeso = hijos.some(h => Number(h.ponderacion) > 0);
+    const conPeso = hijos.some(h => this.pesoPonderacion(h) > 0);
     const valor = (h: ControlAvanceItem) => tipo === 'prog' ? (Number(h.avanceProgramado) || 0) : this.avanceRealEfectivo(h);
     const resultado = tipo === 'prog' ? titulo.avanceProgramado : titulo.avanceReal;
     const nombre = tipo === 'prog' ? 'Programado' : 'Real';
@@ -1416,9 +1438,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       return nombre + ' ' + resultado + '% = promedio simple de ' + hijos.length + ' hijo(s) (sin ponderación): ('
         + hijos.map(h => valor(h)).join(' + ') + ') ÷ ' + hijos.length;
     }
-    const pesos = hijos.reduce((t, h) => t + (Number(h.ponderacion) > 0 ? Number(h.ponderacion) : 0), 0);
+    const pesos = hijos.reduce((t, h) => t + this.pesoPonderacion(h), 0);
     return nombre + ' ' + resultado + '% = Σ(avance × ponderación) ÷ Σ ponderación = ('
-      + hijos.map(h => valor(h) + '×' + (Number(h.ponderacion) || 0)).join(' + ')
+      + hijos.map(h => valor(h) + '×' + (Math.round(this.pesoPonderacion(h) * 100) / 100)).join(' + ')
       + ') ÷ ' + (Math.round(pesos * 100) / 100);
   }
 
@@ -4698,7 +4720,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
    * `pondDe` permite usar otra ponderación (la de un forecast).
    */
   private pesosHojasCurvaS(pondDe?: (it: ControlAvanceItem) => number): Array<{ item: ControlAvanceItem; peso: number }> {
-    const pond = pondDe || ((it: ControlAvanceItem) => Number(it.ponderacion) || 0);
+    const pond = pondDe || ((it: ControlAvanceItem) => this.pesoPonderacion(it));
     const activos = (this.ControlesAvance || []).filter(it => it.activo !== false);
     const hayPond = activos.some(it => pond(it) > 0);
 
