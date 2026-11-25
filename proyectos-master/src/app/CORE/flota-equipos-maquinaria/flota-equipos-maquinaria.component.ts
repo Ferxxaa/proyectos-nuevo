@@ -3,6 +3,11 @@ import * as firebase from 'firebase/app';
 import 'firebase/firestore';
 import 'firebase/storage';
 import { esUsuarioAdministracion } from '../perfil-administracion';
+import { sPerfil } from '../../services/sPerfil.service';
+import { sUsuario } from '../../services/sUsuario.service';
+import { sUsuariosPerfiles } from '../../services/sUsuariosPerfiles.service';
+import { sVis_UsuarioPersona } from '../../services/sVis_UsuarioPersona.service';
+import { sMail } from '../../services/sMail.service';
 
 export interface TipoDocFlota {
   key: string;
@@ -81,10 +86,34 @@ const DIAS_AVISO = 30;
 const MAX_DOC_MB = 20;
 const MAX_FOTO_MB = 5;
 
+// ── Kilometraje mensual y recordatorios por correo ──
+// Colecciones Firestore: flotaKilometraje (lecturas mensuales), flotaConfig (Sub-Gerentes que reciben avisos y parámetros) y mail (cola de correos).
+const COL_KM = 'flotaKilometraje';
+const COL_CONFIG = 'flotaConfig';
+const DOC_CONFIG_KM = 'kilometraje';
+const KM_INTERVALO_DEF = 10000;   // cada cuántos km se avisa
+const KM_AVISO_ANTES_DEF = 1000;  // se avisa cuando faltan estos km o menos
+
+/**
+ * Cómo se mandan los correos (solo Firebase, sin backend):
+ *  - 'extension': la extensión oficial de Firebase "Trigger Email from Firestore" configurada con tu Gmail.
+ *                 La app solo escribe un documento en la colección `mail` y la extensión lo envía.
+ *  - 'emailjs':   EmailJS (emailjs.com) conectado a tu Gmail. Se envía directo desde el navegador.
+ *                 Completa serviceId, templateId y publicKey. En la plantilla usa {{asunto}} como asunto,
+ *                 {{{html}}} como contenido (tres llaves) y {{to_email}} en "To Email".
+ */
+export const CORREO_FLOTA = {
+  modo: 'emailjs',
+  coleccionMail: 'mail',
+  // Misma cuenta/servicio de EmailJS que Control de Hallazgos; la plantilla es una nueva, propia de Flota
+  emailjs: { serviceId: 'service_s0l9tnp', templateId: 'template_09jiopc', publicKey: 'eU69rwXxt1sceIIXr' }
+};
+
 @Component({
   selector: 'app-flota-equipos-maquinaria',
   templateUrl: './flota-equipos-maquinaria.component.html',
-  styleUrls: ['./flota-equipos-maquinaria.component.css']
+  styleUrls: ['./flota-equipos-maquinaria.component.css'],
+  providers: [sPerfil, sUsuario, sUsuariosPerfiles, sVis_UsuarioPersona, sMail]
 })
 export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
 
@@ -192,6 +221,44 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   guardandoMant = false;
   errorFormMant = '';
 
+  // ── Kilometraje mensual (colección flotaKilometraje) ──
+  lecturasKm: any[] = [];
+  cargandoKm = true;
+  errorKm = '';
+  msgKm = '';
+  filasKm: any[] = [];
+  filasKmFiltradas: any[] = [];
+  anioKm = new Date().getFullYear();
+  aniosKm: number[] = [];
+  busqKm = '';
+  filtroEstadoKm = 'todos';
+  kpiKmVehiculos = 0;
+  kpiKmProximos = 0;
+  kpiKmSuperados = 0;
+  kpiKmAnio = 0;
+  mesesCortos = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  configKm: any = { subGerentes: {}, correos: [], intervalo: KM_INTERVALO_DEF, avisoAntes: KM_AVISO_ANTES_DEF };
+  /** Usuarios activos con perfil SUB-GERENTE: son los que reciben los recordatorios. */
+  subGerentesKm: any[] = [];
+  cargandoSubGer = true;
+  errorSubGer = '';
+  private subGerBase: any[] = [];
+
+  formKmAbierto = false;
+  formKm: any = {};
+  guardandoKm = false;
+  errorFormKm = '';
+
+  configKmAbierto = false;
+  formConfigKm: any = { subGer: [] };
+  guardandoConfigKm = false;
+  errorConfigKm = '';
+  okConfigKm = '';
+
+  enviandoAviso: any = {};
+  private unsubKm: any = null;
+  private unsubConfigKm: any = null;
+
   private db: any;
   private storage: any;
   private unsub: any = null;
@@ -199,7 +266,12 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   private timerBusqMant: any = null;
   private timerBusqueda: any = null;
 
-  constructor(private zone: NgZone) { }
+  constructor(private zone: NgZone,
+              private _sPerfil: sPerfil,
+              private _sUsuario: sUsuario,
+              private _sUsuariosPerfiles: sUsuariosPerfiles,
+              private _sVisUsuarioPersona: sVis_UsuarioPersona,
+              private _sMail: sMail) { }
 
   ngOnInit() {
     this.db = firebase.firestore();
@@ -224,6 +296,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
         this.vehiculos = lista;
         this.cargando = false;
         this.aplicarFiltro();
+        this.armarKm();
 
         if (this.vehSel) {
           const actual = lista.find(x => x.id === this.vehSel.id);
@@ -250,6 +323,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
         this.cargandoMant = false;
         this.errorMant = '';
         this.aplicarFiltroMant();
+        this.armarKm();
       });
     }, (err: any) => {
       this.zone.run(() => {
@@ -258,11 +332,50 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
           ' (¿agregaste la colección flotaMantenciones a las reglas de Firestore?)';
       });
     });
+
+    this.unsubKm = this.db.collection(COL_KM).onSnapshot((snap: any) => {
+      this.zone.run(() => {
+        const lista: any[] = [];
+        snap.forEach((d: any) => {
+          const l = d.data();
+          l.id = d.id;
+          lista.push(l);
+        });
+        this.lecturasKm = lista;
+        this.cargandoKm = false;
+        this.errorKm = '';
+        this.armarKm();
+      });
+    }, (err: any) => {
+      this.zone.run(() => {
+        this.cargandoKm = false;
+        this.errorKm = 'No se pudo cargar el kilometraje: ' + this.msgError(err) +
+          ' (¿agregaste la colección ' + COL_KM + ' a las reglas de Firestore?)';
+      });
+    });
+
+    this.unsubConfigKm = this.db.collection(COL_CONFIG).doc(DOC_CONFIG_KM).onSnapshot((d: any) => {
+      this.zone.run(() => {
+        const c = d && d.exists ? d.data() : {};
+        this.configKm = {
+          subGerentes: c.subGerentes && typeof c.subGerentes === 'object' ? c.subGerentes : {},
+          correos: [],
+          intervalo: +c.intervalo > 0 ? +c.intervalo : KM_INTERVALO_DEF,
+          avisoAntes: +c.avisoAntes >= 0 && c.avisoAntes !== undefined && c.avisoAntes !== null && c.avisoAntes !== '' ? +c.avisoAntes : KM_AVISO_ANTES_DEF
+        };
+        this.armarSubGerentes();
+        this.armarKm();
+      });
+    }, () => { /* sin permisos para flotaConfig: se usan los valores por defecto */ });
+
+    this.cargarSubGerentes();
   }
 
   ngOnDestroy() {
     if (this.unsub) { this.unsub(); }
     if (this.unsubMant) { this.unsubMant(); }
+    if (this.unsubKm) { this.unsubKm(); }
+    if (this.unsubConfigKm) { this.unsubConfigKm(); }
     clearTimeout(this.timerBusqueda);
     clearTimeout(this.timerBusqMant);
   }
@@ -312,6 +425,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   cambiarTab(key: string) {
     this.tabActiva = key;
     if (key === 'mantenimiento') { this.aplicarFiltroMant(); }
+    if (key === 'kilometraje') { this.msgKm = ''; this.armarKm(); }
     this.filtroAcreditado = 'todos';
     this.filtroUbicacion = 'todas';
     this.aplicarFiltro();
@@ -1698,5 +1812,737 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
     this.db.collection('flota').doc(veh.id).update(upd)
       .then(() => { this.storage.ref().child(a.path).delete().catch(() => { }); })
       .catch((e: any) => this.zone.run(() => { this.msgDetalle = 'Error al eliminar: ' + this.msgError(e); }));
+  }
+
+  // ───────────────────────── Kilometraje mensual ─────────────────────────
+  // El administrador registra cada mes la lectura del odómetro (o los km recorridos en el mes).
+  // Los km se van sumando desde la última mantención (o desde que se reinició el ciclo) y cuando
+  // faltan pocos km para cumplir el intervalo (10.000 km) se manda un recordatorio por correo.
+
+  get esTabKm(): boolean {
+    return this.tabActiva === 'kilometraje';
+  }
+
+  periodoKm(anio: any, mes: any): string {
+    return anio + '-' + this.dos(mes);
+  }
+
+  periodoActual(): string {
+    const d = new Date();
+    return this.periodoKm(d.getFullYear(), d.getMonth() + 1);
+  }
+
+  nombrePeriodo(p: string): string {
+    if (!p || p.length < 7) { return '—'; }
+    const m = +p.substr(5, 2);
+    return (this.meses[m] || '').charAt(0) + (this.meses[m] || '').substr(1).toLowerCase() + ' ' + p.substr(0, 4);
+  }
+
+  vehiculosKm(): any[] {
+    return this.vehiculos
+      .filter(v => v.categoria === 'vehiculo' && v.activo !== false)
+      .slice()
+      .sort((a, b) => (this.normPatente(a.patente) || '').localeCompare(this.normPatente(b.patente) || ''));
+  }
+
+  /** Lecturas de un vehículo ordenadas de la más antigua a la más reciente, con los km del mes calculados. */
+  lecturasDe(idVeh: string): any[] {
+    const lista = this.lecturasKm
+      .filter(l => l.idVehiculo === idVeh && +l.odometro >= 0 && l.periodo)
+      .slice()
+      .sort((a, b) => a.periodo < b.periodo ? -1 : a.periodo > b.periodo ? 1 : 0);
+    let anterior: number = null;
+    return lista.map((l, i) => {
+      const odo = +l.odometro;
+      let kmMes: number = null;
+      if (anterior !== null) {
+        kmMes = odo - anterior;
+      } else if (l.odometroBase !== undefined && l.odometroBase !== null && l.odometroBase !== '' && +l.odometroBase <= odo) {
+        kmMes = odo - (+l.odometroBase);
+      }
+      anterior = odo;
+      return { ref: l, periodo: l.periodo, odometro: odo, kmMes: kmMes, observacion: l.observacion || '' };
+    });
+  }
+
+  /** Odómetro desde donde se empezó a registrar (el de la ficha al primer registro, o la primera lectura). */
+  primeraLecturaKm(lect: any[]): number {
+    if (!lect || !lect.length) { return null; }
+    const b = lect[0].ref.odometroBase;
+    return b !== undefined && b !== null && b !== '' ? +b : lect[0].odometro;
+  }
+
+  /** Calcula el ciclo de 10.000 km de un vehículo a partir de su odómetro actual. */
+  cicloKm(v: any, odoActual: number, primeraLectura: number): any {
+    const intervalo = +this.configKm.intervalo || KM_INTERVALO_DEF;
+    const avisoAntes = +this.configKm.avisoAntes >= 0 ? +this.configKm.avisoAntes : KM_AVISO_ANTES_DEF;
+    const candidatos: Array<{ km: number; origen: string; fecha?: string }> = [];
+
+    // 1) Reinicio manual del ciclo
+    if (v.kmCicloBase !== undefined && v.kmCicloBase !== null && v.kmCicloBase !== '' && +v.kmCicloBase <= odoActual) {
+      candidatos.push({ km: +v.kmCicloBase, origen: 'Ciclo reiniciado', fecha: v.kmCicloFecha || '' });
+    }
+    // 2) Última mantención registrada (clasificación Mantención) con kilometraje
+    this.mantencionesDe(v).forEach(m => {
+      const km = +m.kilometraje;
+      if (m.clasificacion === 'Mantención' && km > 0 && km <= odoActual) {
+        candidatos.push({ km: km, origen: 'Última mantención', fecha: m.fecha || '' });
+      }
+    });
+    // 3) Si no hay mantención ni reinicio, se cuenta desde el primer registro
+    let base: any = null;
+    candidatos.forEach(c => { if (!base || c.km > base.km) { base = c; } });
+    if (!base) {
+      const km = primeraLectura !== null && primeraLectura !== undefined && primeraLectura <= odoActual ? primeraLectura : odoActual;
+      base = { km: km, origen: 'Primer registro' };
+    }
+
+    const recorrido = Math.max(0, odoActual - base.km);
+    const hito = base.km + intervalo;
+    const faltan = hito - odoActual;
+    let estado = 'ok';
+    if (faltan <= 0) { estado = 'superado'; } else if (faltan <= avisoAntes) { estado = 'proximo'; }
+    return {
+      base: base.km,
+      origenBase: base.origen,
+      fechaBase: base.fecha || '',
+      recorrido: recorrido,
+      hito: hito,
+      faltan: faltan,
+      pct: Math.min(100, Math.round(recorrido / intervalo * 100)),
+      estado: estado,
+      intervalo: intervalo
+    };
+  }
+
+  armarKm() {
+    if (!this.vehiculos) { return; }
+    const anio = +this.anioKm;
+    const anios: any = {};
+    anios[new Date().getFullYear()] = true;
+    this.lecturasKm.forEach(l => { if (l.periodo) { anios[+l.periodo.substr(0, 4)] = true; } });
+    this.aniosKm = Object.keys(anios).map(a => +a).sort((a, b) => b - a);
+
+    this.filasKm = this.vehiculosKm().map(v => {
+      const lect = this.lecturasDe(v.id);
+      const meses: any[] = [];
+      for (let m = 1; m <= 12; m++) { meses.push(null); }
+      let totalAnio = 0;
+      lect.forEach(l => {
+        if (+l.periodo.substr(0, 4) === anio) {
+          meses[+l.periodo.substr(5, 2) - 1] = l;
+          if (l.kmMes !== null && l.kmMes > 0) { totalAnio += l.kmMes; }
+        }
+      });
+      const ultima = lect.length ? lect[lect.length - 1] : null;
+      const primera = this.primeraLecturaKm(lect);
+      const odo = ultima ? ultima.odometro : (+v.kilometraje || 0);
+      const ciclo = ultima ? this.cicloKm(v, odo, primera) : null;
+      const avisos = v.avisosKm || {};
+      const avisoHito = ciclo ? avisos[String(ciclo.hito)] || null : null;
+      return {
+        v: v,
+        meses: meses,
+        totalAnio: totalAnio,
+        ultima: ultima,
+        odometro: odo,
+        ciclo: ciclo,
+        estado: ciclo ? ciclo.estado : 'sin',
+        avisado: avisoHito ? (ciclo.estado === 'superado' ? !!avisoHito.superado : !!avisoHito.proximo) : false,
+        avisoInfo: avisoHito
+      };
+    });
+    this.aplicarFiltroKm();
+  }
+
+  aplicarFiltroKm() {
+    const q = this.normalizar(this.busqKm || '');
+    this.filasKmFiltradas = this.filasKm.filter(f => {
+      if (this.filtroEstadoKm !== 'todos' && f.estado !== this.filtroEstadoKm) { return false; }
+      if (!q) { return true; }
+      const v = f.v;
+      return this.normalizar([v.patente, v.marca, v.modelo, v.tipo, v.color, v.ubicacion].join(' ')).indexOf(q) >= 0;
+    });
+    this.kpiKmVehiculos = this.filasKm.filter(f => !!f.ultima).length;
+    this.kpiKmProximos = this.filasKm.filter(f => f.estado === 'proximo').length;
+    this.kpiKmSuperados = this.filasKm.filter(f => f.estado === 'superado').length;
+    this.kpiKmAnio = this.filasKm.reduce((t, f) => t + f.totalAnio, 0);
+  }
+
+  cambiarAnioKm(a: any) {
+    this.anioKm = +a;
+    this.armarKm();
+  }
+
+  esMesActualKm(i: number): boolean {
+    const d = new Date();
+    return +this.anioKm === d.getFullYear() && i === d.getMonth();
+  }
+
+  claseEstadoKm(e: string): string {
+    switch (e) {
+      case 'ok': return 'fl-chip-vigente';
+      case 'proximo': return 'fl-chip-porvencer';
+      case 'superado': return 'fl-chip-vencido';
+      default: return 'fl-chip-retirado';
+    }
+  }
+
+  textoEstadoKm(f: any): string {
+    if (!f.ciclo) { return 'Sin registros'; }
+    if (f.estado === 'superado') { return 'Superó ' + this.fmtNum(f.ciclo.intervalo) + ' km'; }
+    if (f.estado === 'proximo') { return 'Faltan ' + this.fmtNum(f.ciclo.faltan) + ' km'; }
+    return 'Al día';
+  }
+
+  colorBarraKm(e: string): string {
+    if (e === 'superado') { return '#d9534f'; }
+    if (e === 'proximo') { return '#e6a100'; }
+    return '#2fae69';
+  }
+
+  tituloMesKm(l: any): string {
+    if (!l) { return ''; }
+    return 'Odómetro: ' + this.fmtNum(l.odometro) + ' km' + (l.observacion ? '\n' + l.observacion : '');
+  }
+
+  // ── Formulario de registro mensual ──
+
+  nuevoKm(f?: any, mesIdx?: number) {
+    if (!this.puedeEditar) { return; }
+    const veh = f ? f.v : null;
+    let periodo = this.periodoActual();
+    if (mesIdx !== undefined && mesIdx !== null) { periodo = this.periodoKm(this.anioKm, mesIdx + 1); }
+    this.formKm = { idVehiculo: veh ? veh.id : '', periodo: periodo, modo: 'odometro', valor: '', observacion: '' };
+    this.cargarExistenteKm();
+    this.errorFormKm = '';
+    this.formKmAbierto = true;
+  }
+
+  /** Si ya hay registro para ese vehículo y mes, se carga para editarlo. */
+  cargarExistenteKm() {
+    const f = this.formKm;
+    const ex = this.lecturasKm.find(l => l.idVehiculo === f.idVehiculo && l.periodo === f.periodo);
+    f.existente = ex || null;
+    if (ex) {
+      f.modo = 'odometro';
+      f.valor = ex.odometro;
+      f.observacion = ex.observacion || '';
+    } else if (f.existenteCargado) {
+      f.valor = '';
+      f.observacion = '';
+    }
+    f.existenteCargado = !!ex;
+  }
+
+  onCambioFormKm() {
+    this.cargarExistenteKm();
+    this.errorFormKm = '';
+  }
+
+  cerrarFormKm() {
+    if (this.guardandoKm) { return; }
+    this.formKmAbierto = false;
+  }
+
+  /** Lectura anterior al mes del formulario (para calcular los km del mes). */
+  lecturaAnteriorForm(): any {
+    const f = this.formKm;
+    if (!f.idVehiculo || !f.periodo) { return null; }
+    const previas = this.lecturasDe(f.idVehiculo).filter(l => l.periodo < f.periodo);
+    return previas.length ? previas[previas.length - 1] : null;
+  }
+
+  lecturaSiguienteForm(): any {
+    const f = this.formKm;
+    if (!f.idVehiculo || !f.periodo) { return null; }
+    const sig = this.lecturasDe(f.idVehiculo).filter(l => l.periodo > f.periodo);
+    return sig.length ? sig[0] : null;
+  }
+
+  /** Odómetro base cuando no hay lecturas anteriores: el kilometraje de la ficha. */
+  baseFichaForm(): number {
+    const v = this.vehiculos.find(x => x.id === this.formKm.idVehiculo);
+    return v && +v.kilometraje > 0 ? +v.kilometraje : null;
+  }
+
+  get previewKm(): any {
+    const f = this.formKm;
+    const val = this.soloDigitos(f.valor);
+    if (val === '' || !f.idVehiculo) { return null; }
+    const ant = this.lecturaAnteriorForm();
+    const refAnterior = ant ? ant.odometro : this.baseFichaForm();
+    let odometro: number;
+    let kmMes: number = null;
+    if (f.modo === 'km') {
+      if (refAnterior === null) { return { error: 'No hay lectura anterior ni kilometraje en la ficha: registra la lectura del odómetro.' }; }
+      odometro = refAnterior + val;
+      kmMes = val;
+    } else {
+      odometro = val;
+      if (refAnterior !== null) { kmMes = odometro - refAnterior; }
+    }
+    const sig = this.lecturaSiguienteForm();
+    let error = '';
+    if (refAnterior !== null && odometro < refAnterior) {
+      error = 'La lectura (' + this.fmtNum(odometro) + ' km) es menor que la anterior (' + this.fmtNum(refAnterior) + ' km).';
+    } else if (sig && odometro > sig.odometro) {
+      error = 'La lectura es mayor que la de ' + this.nombrePeriodo(sig.periodo) + ' (' + this.fmtNum(sig.odometro) + ' km).';
+    }
+    const v = this.vehiculos.find(x => x.id === f.idVehiculo);
+    const lect = this.lecturasDe(f.idVehiculo).filter(l => l.periodo !== f.periodo);
+    const esUltima = !lect.length || lect[lect.length - 1].periodo < f.periodo;
+    const odoFinal = esUltima ? odometro : lect[lect.length - 1].odometro;
+    const primera = lect.length && lect[0].periodo < f.periodo ? this.primeraLecturaKm(lect) : (refAnterior !== null ? refAnterior : odometro);
+    const ciclo = v ? this.cicloKm(v, odoFinal, primera) : null;
+    return { odometro: odometro, kmMes: kmMes, refAnterior: refAnterior, anterior: ant, error: error, ciclo: ciclo };
+  }
+
+  guardarKm() {
+    if (!this.puedeEditar || this.guardandoKm) { return; }
+    const f = this.formKm;
+    this.errorFormKm = '';
+    if (!f.idVehiculo) { this.errorFormKm = 'Elige el vehículo.'; return; }
+    if (!f.periodo || !/^\d{4}-\d{2}$/.test(f.periodo)) { this.errorFormKm = 'Elige el mes.'; return; }
+    const p = this.previewKm;
+    if (!p) { this.errorFormKm = f.modo === 'km' ? 'Ingresa los km recorridos en el mes.' : 'Ingresa la lectura del odómetro.'; return; }
+    if (p.error) { this.errorFormKm = p.error; return; }
+
+    const v = this.vehiculos.find(x => x.id === f.idVehiculo);
+    if (!v) { this.errorFormKm = 'No se encontró el vehículo.'; return; }
+
+    this.guardandoKm = true;
+    const id = v.id + '_' + f.periodo;
+    const datos: any = {
+      idVehiculo: v.id,
+      patente: this.normPatente(v.patente),
+      periodo: f.periodo,
+      anio: +f.periodo.substr(0, 4),
+      mes: +f.periodo.substr(5, 2),
+      odometro: p.odometro,
+      modoIngreso: f.modo,
+      valorIngresado: this.soloDigitos(f.valor),
+      observacion: (f.observacion || '').trim(),
+      registradoPor: this.nombreUsuarioActual(),
+      actualizado: Date.now()
+    };
+    // Primer registro del vehículo: se guarda el odómetro de la ficha para poder calcular los km de ese mes
+    if (!p.anterior && p.refAnterior !== null) { datos.odometroBase = p.refAnterior; }
+    if (!f.existente) { datos.creado = Date.now(); }
+
+    const otras = this.lecturasKm.filter(l => l.idVehiculo === v.id && l.periodo !== f.periodo);
+    const esUltima = !otras.some(l => l.periodo > f.periodo);
+
+    this.db.collection(COL_KM).doc(id).set(datos, { merge: true })
+      .then(() => {
+        // La ficha del vehículo queda con el último kilometraje
+        if (esUltima) {
+          return this.db.collection('flota').doc(v.id).update({ kilometraje: p.odometro, kmActualizado: f.periodo, actualizado: Date.now() });
+        }
+      })
+      .then(() => {
+        // Se recalcula con el registro nuevo (sin esperar al onSnapshot) y se revisa si hay que avisar
+        const local = this.lecturasKm.filter(l => !(l.idVehiculo === v.id && l.periodo === f.periodo));
+        const nuevo = Object.assign({}, datos, { id: id });
+        local.push(nuevo);
+        this.lecturasKm = local;
+        if (esUltima) { v.kilometraje = p.odometro; }
+        this.armarKm();
+        const fila = this.filasKm.find(x => x.v.id === v.id);
+        return this.revisarAvisoKm(fila);
+      })
+      .then((msg: string) => this.zone.run(() => {
+        this.guardandoKm = false;
+        this.formKmAbierto = false;
+        this.msgKm = 'Kilometraje de ' + this.normPatente(v.patente) + ' (' + this.nombrePeriodo(f.periodo) + ') guardado.' + (msg ? ' ' + msg : '');
+      }))
+      .catch((e: any) => this.zone.run(() => {
+        this.guardandoKm = false;
+        this.errorFormKm = 'Error al guardar: ' + this.msgError(e);
+      }));
+  }
+
+  eliminarKm() {
+    if (!this.puedeEditar) { return; }
+    const ex = this.formKm.existente;
+    if (!ex) { return; }
+    if (!confirm('¿Eliminar el registro de ' + ex.patente + ' de ' + this.nombrePeriodo(ex.periodo) + '?')) { return; }
+    this.guardandoKm = true;
+    this.db.collection(COL_KM).doc(ex.id).delete()
+      .then(() => this.zone.run(() => {
+        this.guardandoKm = false;
+        this.formKmAbierto = false;
+      }))
+      .catch((e: any) => this.zone.run(() => {
+        this.guardandoKm = false;
+        this.errorFormKm = 'Error al eliminar: ' + this.msgError(e);
+      }));
+  }
+
+  /** Reinicia el ciclo desde el odómetro actual (por ejemplo, cuando se hizo la mantención y no se registró). */
+  reiniciarCicloKm(f: any) {
+    if (!this.puedeEditar || !f || !f.ultima) { return; }
+    if (!confirm('¿Reiniciar el conteo de ' + this.normPatente(f.v.patente) + ' desde ' + this.fmtNum(f.odometro) + ' km?\n\n' +
+                 'Úsalo cuando ya se hizo la mantención. El próximo aviso será a los ' + this.fmtNum(f.odometro + (+this.configKm.intervalo || KM_INTERVALO_DEF)) + ' km.')) { return; }
+    this.db.collection('flota').doc(f.v.id).update({ kmCicloBase: f.odometro, kmCicloFecha: this.hoyISO(), actualizado: Date.now() })
+      .then(() => this.zone.run(() => { this.msgKm = 'Ciclo de ' + this.normPatente(f.v.patente) + ' reiniciado.'; }))
+      .catch((e: any) => this.zone.run(() => { this.msgKm = 'Error al reiniciar: ' + this.msgError(e); }));
+  }
+
+  // ── Recordatorios por correo ──
+
+  /** Si el vehículo está próximo o pasado de los 10.000 km y no se ha avisado en este ciclo, manda el correo. */
+  revisarAvisoKm(fila: any, forzar?: boolean): Promise<string> {
+    if (!fila || !fila.ciclo) { return Promise.resolve(''); }
+    const estado = fila.ciclo.estado;
+    if (estado === 'ok') { return Promise.resolve(forzar ? 'El vehículo está al día, no hay aviso que enviar.' : ''); }
+    if (fila.avisado && !forzar) { return Promise.resolve(''); }
+    const correos = this.destinatariosKm();
+    if (!correos.length) {
+      return Promise.resolve('No se envió el recordatorio: no hay Sub-Gerentes con correo (botón "Correos de aviso").');
+    }
+    const v = fila.v;
+    return this.enviarCorreo(correos, this.asuntoAvisoKm(fila), this.htmlAvisoKm(fila))
+      .then(() => {
+        const upd: any = { actualizado: Date.now() };
+        upd['avisosKm.' + fila.ciclo.hito + '.' + estado] = Date.now();
+        upd['avisosKm.' + fila.ciclo.hito + '.correos'] = correos;
+        return this.db.collection('flota').doc(v.id).update(upd);
+      })
+      .then(() => 'Recordatorio enviado a ' + correos.join(', ') + '.')
+      .catch((e: any) => 'No se pudo enviar el recordatorio: ' + this.msgError(e));
+  }
+
+  enviarAvisoManual(f: any) {
+    if (!this.puedeEditar || !f) { return; }
+    this.enviandoAviso[f.v.id] = true;
+    this.revisarAvisoKm(f, true).then(msg => this.zone.run(() => {
+      this.enviandoAviso[f.v.id] = false;
+      this.msgKm = msg;
+    }));
+  }
+
+  asuntoAvisoKm(f: any): string {
+    const v = f.v;
+    const pat = this.normPatente(v.patente);
+    const nombre = this.titulo(v);
+    if (f.ciclo.estado === 'superado') {
+      return 'Mantención vencida: ' + pat + ' (' + nombre + ') superó los ' + this.fmtNum(f.ciclo.intervalo) + ' km';
+    }
+    return 'Recordatorio mantención: ' + pat + ' (' + nombre + ') está a ' + this.fmtNum(f.ciclo.faltan) + ' km de los ' + this.fmtNum(f.ciclo.intervalo) + ' km';
+  }
+
+  htmlAvisoKm(f: any): string {
+    const v = f.v;
+    const c = f.ciclo;
+    const esc = (s: any) => String(s === null || s === undefined || s === '' ? '—' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const fila = (k: string, val: any) =>
+      '<tr><td style="padding:6px 10px;border-bottom:1px solid #e6eaee;color:#61707b;width:45%">' + k + '</td>' +
+      '<td style="padding:6px 10px;border-bottom:1px solid #e6eaee;font-weight:600;color:#1f2d3a">' + esc(val) + '</td></tr>';
+    const superado = c.estado === 'superado';
+    const color = superado ? '#d9534f' : '#e6a100';
+    const titulo = superado
+      ? 'El vehículo superó los ' + this.fmtNum(c.intervalo) + ' km desde su última mantención'
+      : 'El vehículo está a ' + this.fmtNum(c.faltan) + ' km de cumplir ' + this.fmtNum(c.intervalo) + ' km';
+    const ult = f.ultima;
+    return '' +
+      '<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;border:1px solid #dde3e8;border-radius:8px;overflow:hidden">' +
+      '<div style="background:#075f91;color:#fff;padding:16px 20px">' +
+      '<div style="font-size:12px;letter-spacing:1px;opacity:.85">FLOTA · RECORDATORIO DE KILOMETRAJE</div>' +
+      '<div style="font-size:20px;font-weight:700;margin-top:4px">' + esc(this.normPatente(v.patente)) + ' · ' + esc(this.titulo(v)) + '</div></div>' +
+      '<div style="padding:16px 20px">' +
+      '<div style="border-left:4px solid ' + color + ';background:' + (superado ? '#fdf1f1' : '#fdf8ec') + ';padding:10px 14px;margin-bottom:14px;font-weight:700;color:#1f2d3a">' +
+      titulo + '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:14px">' +
+      fila('Patente', this.normPatente(v.patente)) +
+      fila('Marca', v.marca) +
+      fila('Modelo', v.modelo) +
+      fila('Año', v.anio) +
+      fila('Tipo', v.tipo) +
+      fila('Color', v.color) +
+      fila('Combustible', v.combustible) +
+      fila('Ubicación', v.ubicacion) +
+      fila('Gerencia / servicio', [v.gerencia, v.nombreServicio].filter(x => !!x).join(' · ')) +
+      fila('Odómetro actual', this.fmtNum(f.odometro) + ' km' + (ult ? ' (' + this.nombrePeriodo(ult.periodo) + ')' : '')) +
+      fila(c.origenBase, this.fmtNum(c.base) + ' km' + (c.fechaBase ? ' (' + this.formatoFecha(c.fechaBase) + ')' : '')) +
+      fila('Km recorridos desde entonces', this.fmtNum(c.recorrido) + ' km') +
+      fila('Próxima mantención a los', this.fmtNum(c.hito) + ' km') +
+      fila(superado ? 'Km pasados' : 'Km que faltan', this.fmtNum(Math.abs(c.faltan)) + ' km') +
+      '</table>' +
+      '<p style="font-size:12px;color:#8a96a0;margin-top:16px">Correo automático del módulo Flota, Equipos y Maquinaria (SCOREH). ' +
+      'Se envía cuando el administrador registra el kilometraje mensual.</p>' +
+      '</div></div>';
+  }
+
+  /** Envía el correo según CORREO_FLOTA.modo (extensión Trigger Email de Firebase o EmailJS). */
+  enviarCorreo(destinos: string[], asunto: string, html: string): Promise<any> {
+    if (CORREO_FLOTA.modo === 'emailjs') {
+      const cfg = CORREO_FLOTA.emailjs;
+      if (!cfg.serviceId || !cfg.publicKey || !cfg.templateId || cfg.templateId.indexOf('TU_') === 0) {
+        return Promise.reject(new Error('Falta el Template ID de EmailJS para Flota (CORREO_FLOTA.emailjs.templateId en el .ts).'));
+      }
+      // Uno por destinatario, con la misma llamada REST que usa Control de Hallazgos
+      const envios = destinos.map(to => new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://api.emailjs.com/api/v1.0/email/send', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error('EmailJS respondió ' + xhr.status + ': ' + (xhr.responseText || 'error desconocido')));
+          }
+        };
+        xhr.onerror = () => reject(new Error('No se pudo conectar con EmailJS.'));
+        xhr.send(JSON.stringify({
+          service_id: cfg.serviceId,
+          template_id: cfg.templateId,
+          user_id: cfg.publicKey,
+          template_params: { to_email: to, asunto: asunto, html: html }
+        }));
+      }));
+      return Promise.all(envios);
+    }
+    // Extensión "Trigger Email from Firestore": basta con crear el documento en la colección mail
+    return this.db.collection(CORREO_FLOTA.coleccionMail).add({
+      to: destinos,
+      message: { subject: asunto, html: html },
+      origen: 'flota-kilometraje',
+      creado: Date.now()
+    });
+  }
+
+  // ── Destinatarios: usuarios con perfil SUB-GERENTE ──
+
+  private esNombrePerfilSubGerente(nombre: string): boolean {
+    // "SUB-GERENTE", "Sub Gerente", "Subgerente", "SUB_GERENTE"...
+    const limpio = this.normalizar(nombre || '').toUpperCase().replace(/[^A-Z]/g, '');
+    return limpio === 'SUBGERENTE' || limpio.indexOf('SUBGERENTE') === 0;
+  }
+
+  /** Busca un correo válido en los campos típicos del usuario o la persona. */
+  private correoDe(...objs: any[]): string {
+    const campos = ['direccionMail', 'email', 'correo', 'correoElectronico', 'mail', 'emailCorporativo', 'correoCorporativo', 'emailPersonal', 'nombreUsuario', 'usuario'];
+    for (let i = 0; i < objs.length; i++) {
+      const o = objs[i];
+      if (!o) { continue; }
+      for (let j = 0; j < campos.length; j++) {
+        const v = String(o[campos[j]] || '').trim();
+        if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { return v.toLowerCase(); }
+      }
+    }
+    return '';
+  }
+
+  /** Usuarios activos con perfil SUB-GERENTE, con su nombre y correo del sistema. */
+  cargarSubGerentes() {
+    this.cargandoSubGer = true;
+    this.errorSubGer = '';
+    const err = (que: string) => (e: any) => this.zone.run(() => {
+      console.error('Flota: no se pudo cargar ' + que, e);
+      this.cargandoSubGer = false;
+      this.errorSubGer = 'No se pudieron cargar los Sub-Gerentes (' + que + ').';
+    });
+    this._sPerfil.getPerfil().subscribe((perfiles: any) => {
+      const idsSub = (Array.isArray(perfiles) ? perfiles : [])
+        .filter((p: any) => this.esNombrePerfilSubGerente(p.nombrePerfil))
+        .map((p: any) => Number(p.idPerfil));
+      if (!idsSub.length) {
+        this.zone.run(() => {
+          this.subGerBase = [];
+          this.cargandoSubGer = false;
+          this.errorSubGer = 'No existe un perfil llamado SUB-GERENTE en el maestro de perfiles.';
+          this.armarSubGerentes();
+        });
+        return;
+      }
+      this._sUsuariosPerfiles.getUsuariosPerfiles().subscribe((ups: any) => {
+        const idsUsuarios: number[] = [];
+        (Array.isArray(ups) ? ups : []).forEach((up: any) => {
+          if (up.activo !== false && !up.fechaRemocion && idsSub.indexOf(Number(up.idPerfil)) >= 0
+              && idsUsuarios.indexOf(Number(up.idUsuario)) < 0) {
+            idsUsuarios.push(Number(up.idUsuario));
+          }
+        });
+        this._sUsuario.getUsuariobyactivo(true).subscribe((usuarios: any) => {
+          const activos = (Array.isArray(usuarios) ? usuarios : []).filter((u: any) => idsUsuarios.indexOf(Number(u.idUsuario)) >= 0);
+          this._sVisUsuarioPersona.getVis_UsuarioPersona().subscribe((personas: any) => {
+            const lp = Array.isArray(personas) ? personas : [];
+            // Correos del módulo Usuarios (sMail: direccionMail por idPersona), igual que Control de Hallazgos
+            this.cargarMailsPorPersona().then((mails: any) => this.zone.run(() => {
+              this.subGerBase = activos.map((u: any) => {
+                const per = lp.find((x: any) => Number(x.idUsuario) === Number(u.idUsuario));
+                const nombre = per ? ((per.nombre || '') + ' ' + (per.paterno || '') + ' ' + (per.materno || '')).trim() : '';
+                const idPersona = Number(u.idPersona || (per && per.idPersona));
+                return {
+                  idUsuario: String(u.idUsuario),
+                  nombre: nombre || u.nombreUsuario || ('Usuario ' + u.idUsuario),
+                  emailSistema: (idPersona && mails[idPersona]) || this.correoDe(per, u)
+                };
+              }).sort((a: any, b: any) => a.nombre.localeCompare(b.nombre));
+              this.cargandoSubGer = false;
+              this.armarSubGerentes();
+            }));
+          }, err('personas'));
+        }, err('usuarios'));
+      }, err('usuarios por perfil'));
+    }, err('perfiles'));
+  }
+
+  /** Mapa idPersona → correo (último activo) desde el servicio sMail. */
+  private cargarMailsPorPersona(): Promise<any> {
+    const servicio: any = this._sMail;
+    const llamada = servicio && typeof servicio.getMail === 'function' ? servicio.getMail() : null;
+    if (!llamada) { return Promise.resolve({}); }
+    return new Promise((resolve) => {
+      const listo = (res: any) => {
+        const mapa: any = {};
+        (Array.isArray(res) ? res : (res ? [res] : [])).forEach((m: any) => {
+          const dir = String((m && m.direccionMail) || '').trim();
+          if (m && m.idPersona && dir && m.activo !== false && !m.fechaRemocion) { mapa[Number(m.idPersona)] = dir.toLowerCase(); }
+        });
+        resolve(mapa);
+      };
+      if (typeof llamada.subscribe === 'function') {
+        llamada.subscribe(listo, () => resolve({}));
+      } else if (typeof llamada.then === 'function') {
+        llamada.then(listo, () => resolve({}));
+      } else {
+        listo(llamada);
+      }
+    });
+  }
+
+  /** Junta los Sub-Gerentes del sistema con lo guardado en flotaConfig (correo corregido o excluido). */
+  armarSubGerentes() {
+    const cfg = this.configKm.subGerentes || {};
+    this.subGerentesKm = (this.subGerBase || []).map(b => {
+      const c = cfg[b.idUsuario] || {};
+      return {
+        idUsuario: b.idUsuario,
+        nombre: b.nombre,
+        emailSistema: b.emailSistema,
+        email: (c.email || b.emailSistema || '').trim().toLowerCase(),
+        incluido: c.excluido !== true
+      };
+    });
+  }
+
+  destinatariosKm(): string[] {
+    const lista: string[] = [];
+    (this.subGerentesKm || []).forEach(s => {
+      if (s.incluido && s.email && lista.indexOf(s.email) < 0) { lista.push(s.email); }
+    });
+    return lista;
+  }
+
+  get nombresDestinatariosKm(): string {
+    return this.subGerentesKm.filter(s => s.incluido && s.email).map(s => s.nombre).join(', ');
+  }
+
+  get subGerSinCorreo(): number {
+    return this.subGerentesKm.filter(s => s.incluido && !s.email).length;
+  }
+
+  // ── Configuración de avisos ──
+
+  abrirConfigKm() {
+    if (!this.puedeEditar) { return; }
+    this.formConfigKm = {
+      subGer: this.subGerentesKm.map(s => ({
+        idUsuario: s.idUsuario, nombre: s.nombre, emailSistema: s.emailSistema, email: s.email, incluido: s.incluido
+      })),
+      intervalo: this.configKm.intervalo,
+      avisoAntes: this.configKm.avisoAntes
+    };
+    this.errorConfigKm = '';
+    this.okConfigKm = '';
+    this.configKmAbierto = true;
+  }
+
+  cerrarConfigKm() {
+    if (this.guardandoConfigKm) { return; }
+    this.configKmAbierto = false;
+  }
+
+  private validarSubGerForm(): string {
+    const malos = (this.formConfigKm.subGer || [])
+      .filter((s: any) => s.incluido && s.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(s.email).trim()))
+      .map((s: any) => s.nombre);
+    return malos.length ? 'Correo no válido para: ' + malos.join(', ') : '';
+  }
+
+  guardarConfigKm() {
+    if (!this.puedeEditar || this.guardandoConfigKm) { return; }
+    const f = this.formConfigKm;
+    const malo = this.validarSubGerForm();
+    if (malo) { this.errorConfigKm = malo; return; }
+    const intervalo = this.soloDigitos(f.intervalo);
+    const aviso = this.soloDigitos(f.avisoAntes);
+    if (!intervalo || intervalo < 100) { this.errorConfigKm = 'El intervalo debe ser de al menos 100 km.'; return; }
+    if (aviso === '' || aviso >= intervalo) { this.errorConfigKm = 'El aviso debe ser menor que el intervalo.'; return; }
+
+    // Se guarda solo lo que difiere del sistema: correo corregido y si está excluido
+    const mapa: any = {};
+    (f.subGer || []).forEach((s: any) => {
+      const email = String(s.email || '').trim().toLowerCase();
+      const d: any = { nombre: s.nombre, excluido: !s.incluido };
+      if (email && email !== s.emailSistema) { d.email = email; }
+      mapa[s.idUsuario] = d;
+    });
+
+    this.guardandoConfigKm = true;
+    this.db.collection(COL_CONFIG).doc(DOC_CONFIG_KM).set({
+      subGerentes: mapa, intervalo: intervalo, avisoAntes: aviso,
+      actualizado: Date.now(), actualizadoPor: this.nombreUsuarioActual()
+    }, { merge: true })
+      .then(() => this.zone.run(() => {
+        this.guardandoConfigKm = false;
+        this.configKmAbierto = false;
+        this.msgKm = 'Configuración de avisos guardada.';
+      }))
+      .catch((e: any) => this.zone.run(() => {
+        this.guardandoConfigKm = false;
+        this.errorConfigKm = 'Error al guardar: ' + this.msgError(e) + ' (¿agregaste ' + COL_CONFIG + ' a las reglas?)';
+      }));
+  }
+
+  /** Envía un correo de prueba a los Sub-Gerentes marcados en el formulario. */
+  probarCorreoKm() {
+    const malo = this.validarSubGerForm();
+    if (malo) { this.errorConfigKm = malo; return; }
+    const correos: string[] = [];
+    (this.formConfigKm.subGer || []).forEach((s: any) => {
+      const e = String(s.email || '').trim().toLowerCase();
+      if (s.incluido && e && correos.indexOf(e) < 0) { correos.push(e); }
+    });
+    if (!correos.length) { this.errorConfigKm = 'Marca al menos un Sub-Gerente con correo.'; return; }
+    this.errorConfigKm = '';
+    this.okConfigKm = '';
+    this.guardandoConfigKm = true;
+    this.enviarCorreo(correos, 'Prueba de recordatorios de kilometraje (Flota)',
+      '<div style="font-family:Arial,sans-serif">Si te llegó este correo, los recordatorios de kilometraje de la flota están funcionando.</div>')
+      .then(() => this.zone.run(() => {
+        this.guardandoConfigKm = false;
+        this.errorConfigKm = '';
+        this.okConfigKm = CORREO_FLOTA.modo === 'emailjs'
+          ? 'Correo de prueba enviado a ' + correos.join(', ') + '. Revisa la bandeja de entrada y el spam.'
+          : 'Correo de prueba dejado en la cola (colección "' + CORREO_FLOTA.coleccionMail + '") para ' + correos.join(', ') +
+            '. La extensión lo envía en segundos; si no llega, revisa en Firestore el campo "delivery" de ese documento.';
+      }))
+      .catch((e: any) => this.zone.run(() => {
+        this.guardandoConfigKm = false;
+        this.errorConfigKm = 'No se pudo enviar: ' + this.msgError(e);
+      }));
+  }
+
+  nombreUsuarioActual(): string {
+    try {
+      const u = JSON.parse(localStorage.getItem('usuario') || '{}') || {};
+      return String(u.nombreUsuario || u.nombre || u.idUsuario || '');
+    } catch (e) {
+      return '';
+    }
   }
 }

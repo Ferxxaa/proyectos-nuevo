@@ -3652,6 +3652,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   // VISTA CURVA S (línea base programada, real y forecasts, acumuladas en el tiempo)
   // =========================================================================
 
+  /** Días de desfase de la Curva S: 1 = la curva llega hasta ayer (último día terminado). */
+  readonly DIAS_DESFASE_CURVA_S: number = 1;
+
   /** Cada cuánto se toma un punto de la curva. 'auto' = máximo ~16 cortes. */
   curvaSEscala: 'auto' | 'dia' | 'semana' | 'mes' = 'auto';
 
@@ -4808,7 +4811,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   calcularCurvaS() {
     const hojas = this.pesosHojasCurvaS();
     const ahora = new Date();
-    const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+    // La Curva S se corta con desfase: muestra hasta el último día terminado (ayer), no el día en curso.
+    const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - this.DIAS_DESFASE_CURVA_S);
 
     // Línea base de la pestaña (0 = tabla; k = la del corte k) y las anteriores, para comparar
     if (this.curvaPestana > this.cortesCurva.length) { this.curvaPestana = this.cortesCurva.length; }
@@ -5027,7 +5031,8 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     }));
 
     // La pestaña vigente muestra el mismo programado que el header; las anteriores, el de su propia línea base
-    const progHoy = nLB === this.cortesCurva.length ? this.avanceDocumentosProgramado : valorLineaBase(nLB, hoy);
+    // Con el desfase, el programado de la curva se mide al cierre del último día terminado
+    const progHoy = valorLineaBase(nLB, hoy);
 
     const ticksY: Array<{ valor: number; y: number }> = [];
     for (let v = 0; v <= 100; v += 10) {

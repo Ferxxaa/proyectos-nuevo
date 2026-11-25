@@ -15,32 +15,44 @@
         <button type="button" class="fl-btn fl-btn-transp" *ngIf="puedeEditar && (esTabEquipo || esTabMaq || esTabMant)" (click)="abrirImport()">
           <i class="fa fa-file-excel-o"></i> Importar desde Excel
         </button>
-        <button type="button" class="fl-btn fl-btn-blanco" *ngIf="puedeEditar" (click)="esTabMant ? nuevaMant() : nuevo()">
-          <i class="fa fa-plus"></i> {{ esTabMant ? 'Nueva mantención' : 'Nuevo ' + catActual.singular }}
+        <button type="button" class="fl-btn fl-btn-transp" *ngIf="puedeEditar && esTabKm" (click)="abrirConfigKm()">
+          <i class="fa fa-envelope"></i> Correos de aviso
+        </button>
+        <button type="button" class="fl-btn fl-btn-blanco" *ngIf="puedeEditar" (click)="esTabKm ? nuevoKm() : esTabMant ? nuevaMant() : nuevo()">
+          <i class="fa" [ngClass]="esTabKm ? 'fa-tachometer' : 'fa-plus'"></i>
+          {{ esTabKm ? 'Registrar kilometraje' : esTabMant ? 'Nueva mantención' : 'Nuevo ' + catActual.singular }}
         </button>
       </header>
 
       <!-- Pestañas -->
       <nav class="fl-tabs">
         <button type="button" *ngFor="let c of categorias" class="fl-tab"
-                [class.fl-tab-activa]="tabActiva === c.key || (c.key === 'vehiculo' && esTabMant)" (click)="cambiarTab(c.key)">
+                [class.fl-tab-activa]="tabActiva === c.key || (c.key === 'vehiculo' && (esTabMant || esTabKm))" (click)="cambiarTab(c.key)">
           <i class="fa" [ngClass]="c.icono"></i>
           {{ c.nombre }}
           <span class="fl-tab-badge">{{ conteo[c.key] || 0 }}</span>
         </button>
       </nav>
 
-      <!-- Sub-pestañas de Vehículos: la flota y sus mantenciones -->
-      <div class="fl-subtabs" *ngIf="tabActiva === 'vehiculo' || esTabMant">
-        <button type="button" class="fl-subtab" [class.activa]="tabActiva === 'vehiculo'" (click)="cambiarTab('vehiculo')">
-          <i class="fa fa-truck"></i> Vehículos
-          <span class="fl-subtab-badge">{{ conteo.vehiculo || 0 }}</span>
+      <!-- Sub-pestañas de Vehículos: la flota y sus mantenciones (usan los mismos estilos de las pestañas de arriba) -->
+      <nav class="fl-tabs fl-subtabs-nav" *ngIf="tabActiva === 'vehiculo' || esTabMant || esTabKm"
+           style="background:#fff;padding-top:6px;padding-left:28px;">
+        <button type="button" class="fl-tab" [class.fl-tab-activa]="tabActiva === 'vehiculo'" (click)="cambiarTab('vehiculo')"
+                style="padding:9px 16px 8px;font-size:13px;">
+          <i class="fa fa-list"></i> Vehículos
+          <span class="fl-tab-badge">{{ conteo.vehiculo || 0 }}</span>
         </button>
-        <button type="button" class="fl-subtab" [class.activa]="esTabMant" (click)="cambiarTab('mantenimiento')">
+        <button type="button" class="fl-tab" [class.fl-tab-activa]="esTabMant" (click)="cambiarTab('mantenimiento')"
+                style="padding:9px 16px 8px;font-size:13px;">
           <i class="fa fa-wrench"></i> Mantención
-          <span class="fl-subtab-badge">{{ mantenciones.length }}</span>
+          <span class="fl-tab-badge">{{ mantenciones.length }}</span>
         </button>
-      </div>
+        <button type="button" class="fl-tab" [class.fl-tab-activa]="esTabKm" (click)="cambiarTab('kilometraje')"
+                style="padding:9px 16px 8px;font-size:13px;">
+          <i class="fa fa-tachometer"></i> Kilometraje
+          <span class="fl-tab-badge" *ngIf="kpiKmProximos + kpiKmSuperados > 0" style="background:#e6a100;color:#fff;">{{ kpiKmProximos + kpiKmSuperados }}</span>
+        </button>
+      </nav>
 
       <!-- ═══════════════ Pestaña MANTENIMIENTO ═══════════════ -->
       <div class="widget-body flota-cuerpo" *ngIf="esTabMant">
@@ -157,8 +169,169 @@
         </div>
       </div>
 
+
+      <!-- ═══════════════ Sub-pestaña KILOMETRAJE (Vehículos) ═══════════════ -->
+      <div class="widget-body flota-cuerpo" *ngIf="esTabKm">
+        <div class="fl-kpis">
+          <div class="fl-kpi">
+            <span class="fl-kpi-num">{{ kpiKmVehiculos }}</span>
+            <span class="fl-kpi-txt">Vehículos con registro</span>
+          </div>
+          <div class="fl-kpi fl-kpi-ok">
+            <span class="fl-kpi-num">{{ fmtNum(kpiKmAnio) }}</span>
+            <span class="fl-kpi-txt">Km recorridos {{ anioKm }}</span>
+          </div>
+          <div class="fl-kpi fl-kpi-warn">
+            <span class="fl-kpi-num">{{ kpiKmProximos }}</span>
+            <span class="fl-kpi-txt">Próximos a {{ fmtNum(configKm.intervalo) }} km</span>
+          </div>
+          <div class="fl-kpi fl-kpi-mal">
+            <span class="fl-kpi-num">{{ kpiKmSuperados }}</span>
+            <span class="fl-kpi-txt">Superaron {{ fmtNum(configKm.intervalo) }} km</span>
+          </div>
+        </div>
+
+        <div class="fl-toolbar">
+          <div class="fl-buscar">
+            <i class="fa fa-search"></i>
+            <input type="text" [(ngModel)]="busqKm" (ngModelChange)="aplicarFiltroKm()" placeholder="Buscar patente, marca, modelo...">
+          </div>
+          <select [ngModel]="anioKm" (ngModelChange)="cambiarAnioKm($event)">
+            <option *ngFor="let a of aniosKm" [value]="a">Año {{ a }}</option>
+          </select>
+          <select [(ngModel)]="filtroEstadoKm" (ngModelChange)="aplicarFiltroKm()">
+            <option value="todos">Estado: todos</option>
+            <option value="ok">Al día</option>
+            <option value="proximo">Próximos</option>
+            <option value="superado">Superados</option>
+            <option value="sin">Sin registros</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;border-radius:8px;font-size:12.5px;"
+             [style.background]="destinatariosKm().length ? '#eef6fb' : '#fdf8ec'"
+             [style.border]="destinatariosKm().length ? '1px solid #cfe3ef' : '1px solid #f1dfa8'">
+          <span style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 30px;color:#fff;"
+                [style.background]="destinatariosKm().length ? '#075f91' : '#e6a100'">
+            <i class="fa" [ngClass]="destinatariosKm().length ? 'fa-envelope' : 'fa-exclamation'"></i>
+          </span>
+          <div style="flex:1;min-width:220px;line-height:1.45;">
+            <div *ngIf="destinatariosKm().length" style="color:#1f2d3a;">
+              Recordatorios a los Sub-Gerentes: <strong>{{ nombresDestinatariosKm }}</strong>
+              <span *ngIf="subGerSinCorreo" style="color:#b07a00;"> · {{ subGerSinCorreo }} sin correo</span>
+            </div>
+            <div *ngIf="!destinatariosKm().length" style="color:#8a6100;font-weight:700;">
+              <ng-container *ngIf="cargandoSubGer"><i class="fa fa-spinner fa-spin"></i> Buscando Sub-Gerentes...</ng-container>
+              <ng-container *ngIf="!cargandoSubGer">{{ errorSubGer || 'No hay Sub-Gerentes con correo: no se enviarán recordatorios.' }}</ng-container>
+            </div>
+            <div style="color:#61707b;">
+              Se avisa cuando faltan {{ fmtNum(configKm.avisoAntes) }} km o menos para cumplir {{ fmtNum(configKm.intervalo) }} km desde la última mantención.
+            </div>
+          </div>
+          <button type="button" class="fl-btn fl-btn-borde fl-btn-sm" *ngIf="puedeEditar" (click)="abrirConfigKm()">
+            <i class="fa fa-cog"></i> {{ destinatariosKm().length ? 'Cambiar' : 'Configurar' }}
+          </button>
+        </div>
+
+        <div class="fl-alerta" *ngIf="errorKm">{{ errorKm }}</div>
+        <div *ngIf="msgKm" style="display:flex;align-items:center;gap:10px;background:#e3f0f7;color:#075f91;border-radius:6px;padding:9px 12px;margin-bottom:10px;font-size:13px;">
+          <i class="fa fa-info-circle"></i> <span style="flex:1;">{{ msgKm }}</span>
+          <a href="javascript:void(0)" (click)="msgKm = ''" style="color:#075f91;"><i class="fa fa-times"></i></a>
+        </div>
+
+        <div class="fl-tabla-wrap">
+          <table class="fl-tabla fl-tabla-eq">
+            <thead>
+              <tr>
+                <th>Patente</th>
+                <th>Vehículo</th>
+                <th *ngFor="let m of mesesCortos; let i = index" style="text-align:right;min-width:54px;" [class.fl-mes-actual]="esMesActualKm(i)">{{ m }}</th>
+                <th style="text-align:right;">Total {{ anioKm }}</th>
+                <th style="text-align:right;">Odómetro</th>
+                <th style="min-width:170px;">Ciclo {{ fmtNum(configKm.intervalo) }} km</th>
+                <th>Estado</th>
+                <th class="fl-acc">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="cargandoKm || cargando">
+                <td colspan="19" class="fl-vacio"><i class="fa fa-spinner fa-spin"></i> Cargando...</td>
+              </tr>
+              <tr *ngIf="!cargandoKm && !cargando && !filasKmFiltradas.length">
+                <td colspan="19" class="fl-vacio">No hay vehículos para mostrar.</td>
+              </tr>
+              <ng-container *ngIf="!cargandoKm && !cargando">
+                <tr *ngFor="let f of filasKmFiltradas">
+                  <td><span class="fl-patente">{{ f.v.patente }}</span></td>
+                  <td class="fl-nowrap">
+                    <strong>{{ titulo(f.v) }}</strong>
+                    <span class="fl-sub" style="color:#8a96a0;font-weight:400;">{{ f.v.anio }}{{ f.v.tipo ? ' · ' + f.v.tipo : '' }}</span>
+                  </td>
+                  <td *ngFor="let l of f.meses; let i = index" class="fl-dias fl-nowrap" [class.fl-mes-actual]="esMesActualKm(i)"
+                      [title]="tituloMesKm(l)" (click)="puedeEditar && nuevoKm(f, i)"
+                      [style.cursor]="puedeEditar ? 'pointer' : 'default'">
+                    <ng-container *ngIf="l">
+                      <span *ngIf="l.kmMes !== null" style="font-weight:600;color:#1f2d3a;">{{ fmtNum(l.kmMes) }}</span>
+                      <span *ngIf="l.kmMes === null" style="font-size:10px;font-weight:700;color:#075f91;background:#e3f0f7;border-radius:8px;padding:1px 6px;">INICIO</span>
+                    </ng-container>
+                    <span *ngIf="!l" style="color:#d5dbe0;">–</span>
+                  </td>
+                  <td class="fl-dias fl-nowrap"><strong>{{ f.totalAnio ? fmtNum(f.totalAnio) : '—' }}</strong></td>
+                  <td class="fl-dias fl-nowrap">
+                    <ng-container *ngIf="f.ultima || f.odometro">
+                      <strong>{{ fmtNum(f.odometro) }}</strong> <small style="color:#8a96a0;">km</small>
+                      <span class="fl-sub" style="color:#8a96a0;font-weight:400;">{{ f.ultima ? nombrePeriodo(f.ultima.periodo) : 'según ficha' }}</span>
+                    </ng-container>
+                    <span *ngIf="!f.ultima && !f.odometro" style="color:#c3cbd2;">—</span>
+                  </td>
+                  <td>
+                    <ng-container *ngIf="f.ciclo">
+                      <div style="position:relative;height:16px;border-radius:8px;background:#eceff1;overflow:hidden;min-width:150px;">
+                        <div [style.width.%]="f.ciclo.pct" [style.background]="colorBarraKm(f.estado)" style="height:100%;transition:width .3s;"></div>
+                        <span style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1f2d3a;">
+                          {{ fmtNum(f.ciclo.recorrido) }} / {{ fmtNum(f.ciclo.intervalo) }}
+                        </span>
+                      </div>
+                      <span class="fl-sub" style="color:#8a96a0;font-weight:400;margin-top:3px;" [title]="f.ciclo.origenBase + ': ' + fmtNum(f.ciclo.base) + ' km'">
+                        Próx. mantención: {{ fmtNum(f.ciclo.hito) }} km
+                      </span>
+                    </ng-container>
+                    <a *ngIf="!f.ciclo && puedeEditar" href="javascript:void(0)" (click)="nuevoKm(f)" style="font-size:12px;color:#075f91;">
+                      <i class="fa fa-plus-circle"></i> Registrar primer kilometraje
+                    </a>
+                    <span *ngIf="!f.ciclo && !puedeEditar" style="font-size:12px;color:#a3adb5;">Sin registros</span>
+                  </td>
+                  <td class="fl-nowrap">
+                    <span class="fl-chip" [ngClass]="claseEstadoKm(f.estado)">{{ textoEstadoKm(f) }}</span>
+                    <span class="fl-sub" *ngIf="f.avisado" style="color:#1e8a50;margin-top:3px;"><i class="fa fa-envelope"></i> Avisado</span>
+                  </td>
+                  <td class="fl-acc fl-nowrap">
+                    <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" *ngIf="puedeEditar" (click)="nuevoKm(f)" title="Registrar kilometraje del mes">
+                      <i class="fa fa-tachometer"></i> Registrar
+                    </button>
+                    <button type="button" class="fl-btn fl-btn-borde fl-btn-sm" *ngIf="puedeEditar && (f.estado === 'proximo' || f.estado === 'superado')"
+                            (click)="enviarAvisoManual(f)" [disabled]="enviandoAviso[f.v.id]" title="Enviar recordatorio por correo ahora">
+                      <i class="fa" [ngClass]="enviandoAviso[f.v.id] ? 'fa-spinner fa-spin' : 'fa-envelope'"></i>
+                    </button>
+                    <button type="button" class="fl-btn fl-btn-gris fl-btn-sm" *ngIf="puedeEditar && f.ciclo && f.ciclo.recorrido > 0"
+                            (click)="reiniciarCicloKm(f)" title="Ya se hizo la mantención: reiniciar conteo desde el odómetro actual">
+                      <i class="fa fa-refresh"></i>
+                    </button>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+        <p class="fl-nota" style="margin-top:8px;">
+          Cada celda muestra los km recorridos en el mes (diferencia con la lectura anterior). Pasa el mouse para ver el odómetro.
+          <span *ngIf="puedeEditar">Haz clic en una celda para registrar o corregir ese mes.</span>
+          El conteo se reinicia solo al registrar una mantención (clasificación "Mantención") con su kilometraje.
+        </p>
+      </div>
+
       <!-- ═══════════════ Pestañas VEHÍCULOS / MAQUINARIAS / EQUIPOS ═══════════════ -->
-      <div class="widget-body flota-cuerpo" *ngIf="!esTabMant">
+      <div class="widget-body flota-cuerpo" *ngIf="!esTabMant && !esTabKm">
 
         <!-- KPIs -->
         <div class="fl-kpis">
@@ -1099,6 +1272,191 @@
       <button type="button" class="fl-btn fl-btn-azul" *ngIf="puedeEditar" (click)="guardarMant()" [disabled]="guardandoMant">
         <i class="fa" [ngClass]="guardandoMant ? 'fa-spinner fa-spin' : 'fa-save'"></i>
         {{ guardandoMant ? 'Guardando...' : 'Guardar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ Modal: registrar kilometraje mensual ═══════════════ -->
+<div class="fl-modal-fondo" *ngIf="formKmAbierto">
+  <div class="fl-modal">
+    <div class="fl-modal-head">
+      <h3><i class="fa fa-tachometer"></i> {{ formKm.existente ? 'Editar' : 'Registrar' }} kilometraje mensual</h3>
+      <button type="button" class="fl-cerrar" (click)="cerrarFormKm()" [disabled]="guardandoKm">&times;</button>
+    </div>
+
+    <div class="fl-modal-body">
+      <div class="fl-grid3">
+        <label class="fl-campo fl-col2">
+          <span>Vehículo *</span>
+          <select [(ngModel)]="formKm.idVehiculo" (ngModelChange)="onCambioFormKm()">
+            <option value="">— Elige un vehículo —</option>
+            <option *ngFor="let v of vehiculosKm()" [value]="v.id">{{ v.patente }} · {{ titulo(v) }}</option>
+          </select>
+        </label>
+        <label class="fl-campo">
+          <span>Mes *</span>
+          <input type="month" [(ngModel)]="formKm.periodo" (ngModelChange)="onCambioFormKm()">
+        </label>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div style="font-size:12px;font-weight:600;color:#4a5864;margin-bottom:6px;">¿Qué vas a ingresar?</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button type="button" (click)="formKm.modo = 'odometro'"
+                  style="flex:1;min-width:200px;display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all .15s;"
+                  [style.border]="formKm.modo !== 'km' ? '2px solid #075f91' : '1px solid #d3dbe2'"
+                  [style.background]="formKm.modo !== 'km' ? '#eef6fb' : '#fff'">
+            <span style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 34px;"
+                  [style.background]="formKm.modo !== 'km' ? '#075f91' : '#eceff1'" [style.color]="formKm.modo !== 'km' ? '#fff' : '#61707b'">
+              <i class="fa fa-tachometer"></i>
+            </span>
+            <span style="line-height:1.3;">
+              <strong style="display:block;font-size:13px;color:#1f2d3a;">Lectura del odómetro</strong>
+              <small style="color:#61707b;">Los km que marca el tablero</small>
+            </span>
+          </button>
+          <button type="button" (click)="formKm.modo = 'km'"
+                  style="flex:1;min-width:200px;display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all .15s;"
+                  [style.border]="formKm.modo === 'km' ? '2px solid #075f91' : '1px solid #d3dbe2'"
+                  [style.background]="formKm.modo === 'km' ? '#eef6fb' : '#fff'">
+            <span style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 34px;"
+                  [style.background]="formKm.modo === 'km' ? '#075f91' : '#eceff1'" [style.color]="formKm.modo === 'km' ? '#fff' : '#61707b'">
+              <i class="fa fa-road"></i>
+            </span>
+            <span style="line-height:1.3;">
+              <strong style="display:block;font-size:13px;color:#1f2d3a;">Km recorridos en el mes</strong>
+              <small style="color:#61707b;">Se suman a la lectura anterior</small>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div class="fl-grid3" style="margin-top:14px;">
+        <label class="fl-campo">
+          <span>{{ formKm.modo === 'km' ? 'Km recorridos en el mes *' : 'Odómetro (km) *' }}</span>
+          <input type="number" min="0" [(ngModel)]="formKm.valor" style="font-size:16px;font-weight:700;"
+                 [placeholder]="formKm.modo === 'km' ? 'Ej: 1850' : 'Ej: 118500'">
+        </label>
+        <label class="fl-campo fl-col2">
+          <span>Observación</span>
+          <input type="text" [(ngModel)]="formKm.observacion" placeholder="Opcional">
+        </label>
+      </div>
+
+      <div *ngIf="formKm.existente" style="margin-top:10px;font-size:12px;color:#b07a00;">
+        <i class="fa fa-pencil"></i> Este mes ya tiene registro: al guardar se reemplaza.
+      </div>
+
+      <div *ngIf="previewKm as p" style="margin-top:12px;border:1px solid #dde3e8;border-radius:8px;padding:12px 14px;background:#f7f9fb;font-size:13px;">
+        <div *ngIf="p.error" class="fl-alerta" style="margin:0;">{{ p.error }}</div>
+        <ng-container *ngIf="!p.error">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:140px;background:#fff;border:1px solid #e3e8ec;border-radius:6px;padding:8px 10px;">
+              <div style="color:#61707b;font-size:11px;">{{ p.anterior ? 'Lectura anterior · ' + nombrePeriodo(p.anterior.periodo) : 'Km en la ficha' }}</div>
+              <strong style="font-size:15px;color:#1f2d3a;">{{ p.refAnterior === null ? '—' : fmtNum(p.refAnterior) + ' km' }}</strong>
+            </div>
+            <div style="flex:1;min-width:140px;background:#fff;border:1px solid #e3e8ec;border-radius:6px;padding:8px 10px;">
+              <div style="color:#61707b;font-size:11px;">Km del mes</div>
+              <strong style="font-size:15px;color:#075f91;">{{ p.kmMes === null ? '—' : '+ ' + fmtNum(p.kmMes) + ' km' }}</strong>
+            </div>
+            <div style="flex:1;min-width:140px;background:#fff;border:1px solid #e3e8ec;border-radius:6px;padding:8px 10px;">
+              <div style="color:#61707b;font-size:11px;">Odómetro que queda</div>
+              <strong style="font-size:15px;color:#1f2d3a;">{{ fmtNum(p.odometro) }} km</strong>
+            </div>
+          </div>
+          <div *ngIf="p.ciclo" style="margin-top:10px;">
+            <div style="position:relative;height:16px;border-radius:8px;background:#e6eaee;overflow:hidden;">
+              <div [style.width.%]="p.ciclo.pct" [style.background]="colorBarraKm(p.ciclo.estado)" style="height:100%;"></div>
+              <span style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1f2d3a;">
+                {{ fmtNum(p.ciclo.recorrido) }} / {{ fmtNum(p.ciclo.intervalo) }} km desde {{ p.ciclo.origenBase | lowercase }} ({{ fmtNum(p.ciclo.base) }} km)
+              </span>
+            </div>
+            <div style="margin-top:6px;font-weight:600;" [style.color]="p.ciclo.estado === 'ok' ? '#1e8a50' : p.ciclo.estado === 'proximo' ? '#b07a00' : '#c0413c'">
+              <ng-container *ngIf="p.ciclo.estado === 'ok'">Faltan {{ fmtNum(p.ciclo.faltan) }} km para la próxima mantención ({{ fmtNum(p.ciclo.hito) }} km).</ng-container>
+              <ng-container *ngIf="p.ciclo.estado === 'proximo'"><i class="fa fa-envelope"></i> Faltan {{ fmtNum(p.ciclo.faltan) }} km: al guardar se envía el recordatorio por correo.</ng-container>
+              <ng-container *ngIf="p.ciclo.estado === 'superado'"><i class="fa fa-envelope"></i> Superó los {{ fmtNum(p.ciclo.intervalo) }} km: al guardar se envía el recordatorio por correo.</ng-container>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      <div class="fl-alerta" *ngIf="errorFormKm" style="margin-top:10px;">{{ errorFormKm }}</div>
+    </div>
+
+    <div class="fl-modal-foot">
+      <button type="button" class="fl-btn fl-btn-rojo fl-foot-izq" *ngIf="formKm.existente" (click)="eliminarKm()" [disabled]="guardandoKm">
+        <i class="fa fa-trash"></i> Eliminar
+      </button>
+      <button type="button" class="fl-btn fl-btn-gris" (click)="cerrarFormKm()" [disabled]="guardandoKm">Cancelar</button>
+      <button type="button" class="fl-btn fl-btn-azul" (click)="guardarKm()" [disabled]="guardandoKm">
+        <i class="fa" [ngClass]="guardandoKm ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+        {{ guardandoKm ? 'Guardando...' : 'Guardar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ Modal: correos de aviso ═══════════════ -->
+<div class="fl-modal-fondo" *ngIf="configKmAbierto">
+  <div class="fl-modal">
+    <div class="fl-modal-head">
+      <h3><i class="fa fa-envelope"></i> Recordatorios de kilometraje · Sub-Gerentes</h3>
+      <button type="button" class="fl-cerrar" (click)="cerrarConfigKm()" [disabled]="guardandoConfigKm">&times;</button>
+    </div>
+    <div class="fl-modal-body">
+      <div style="font-size:12px;font-weight:600;color:#4a5864;margin-bottom:6px;">
+        Reciben el recordatorio los usuarios con perfil <strong>SUB-GERENTE</strong>
+      </div>
+      <div style="border:1px solid #dde3e8;border-radius:8px;overflow:hidden;">
+        <div *ngIf="cargandoSubGer" style="padding:14px;color:#61707b;font-size:13px;"><i class="fa fa-spinner fa-spin"></i> Buscando Sub-Gerentes...</div>
+        <div *ngIf="!cargandoSubGer && !(formConfigKm.subGer && formConfigKm.subGer.length)" style="padding:14px;color:#b07a00;font-size:13px;">
+          {{ errorSubGer || 'No hay usuarios activos con perfil SUB-GERENTE. Asígnalo en Perfiles.' }}
+        </div>
+        <div *ngFor="let s of formConfigKm.subGer; let last = last"
+             style="display:flex;align-items:center;gap:12px;padding:10px 12px;"
+             [style.border-bottom]="last ? 'none' : '1px solid #eef1f4'"
+             [style.background]="s.incluido ? '#fff' : '#f7f9fb'">
+          <input type="checkbox" [(ngModel)]="s.incluido" style="width:16px;height:16px;margin:0;flex:0 0 16px;cursor:pointer;" title="Recibe recordatorios">
+          <span style="width:32px;height:32px;border-radius:50%;background:#075f91;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 32px;"
+                [style.opacity]="s.incluido ? 1 : .4">{{ (s.nombre || '?').charAt(0) }}</span>
+          <div style="flex:1;min-width:0;" [style.opacity]="s.incluido ? 1 : .55">
+            <div style="font-weight:700;font-size:13px;color:#1f2d3a;">{{ s.nombre }}</div>
+            <input type="email" [(ngModel)]="s.email" [disabled]="!s.incluido" placeholder="Escribe su correo"
+                   style="width:100%;margin-top:4px;padding:5px 8px;border:1px solid #d3dbe2;border-radius:5px;font-size:12.5px;"
+                   [style.border-color]="s.incluido && !s.email ? '#e6a100' : '#d3dbe2'">
+            <small *ngIf="s.incluido && !s.email" style="color:#b07a00;">No tiene correo en el sistema: escríbelo para que le lleguen los avisos.</small>
+            <small *ngIf="s.email && s.emailSistema && s.email !== s.emailSistema" style="color:#61707b;">En el sistema: {{ s.emailSistema }}</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="fl-grid3" style="margin-top:14px;">
+        <label class="fl-campo">
+          <span>Avisar cada (km)</span>
+          <input type="number" min="100" [(ngModel)]="formConfigKm.intervalo">
+        </label>
+        <label class="fl-campo">
+          <span>Avisar cuando falten (km)</span>
+          <input type="number" min="0" [(ngModel)]="formConfigKm.avisoAntes">
+        </label>
+      </div>
+      <p class="fl-nota" style="margin-top:10px;">
+        El correo lleva patente, marca, modelo, año, tipo, color, combustible, ubicación, odómetro, km desde la última mantención y km que faltan.
+        Se manda una vez cuando entra en "próximo" y otra si supera el intervalo.
+      </p>
+      <div *ngIf="okConfigKm" style="margin-top:10px;display:flex;gap:8px;align-items:flex-start;background:#e3f5ea;color:#1e8a50;border-radius:6px;padding:9px 12px;font-size:13px;">
+        <i class="fa fa-check-circle" style="margin-top:2px;"></i> <span>{{ okConfigKm }}</span>
+      </div>
+      <div class="fl-alerta" *ngIf="errorConfigKm">{{ errorConfigKm }}</div>
+    </div>
+    <div class="fl-modal-foot">
+      <button type="button" class="fl-btn fl-btn-borde fl-foot-izq" (click)="probarCorreoKm()" [disabled]="guardandoConfigKm">
+        <i class="fa fa-paper-plane"></i> Enviar correo de prueba
+      </button>
+      <button type="button" class="fl-btn fl-btn-gris" (click)="cerrarConfigKm()" [disabled]="guardandoConfigKm">Cancelar</button>
+      <button type="button" class="fl-btn fl-btn-azul" (click)="guardarConfigKm()" [disabled]="guardandoConfigKm">
+        <i class="fa" [ngClass]="guardandoConfigKm ? 'fa-spinner fa-spin' : 'fa-save'"></i> Guardar
       </button>
     </div>
   </div>
