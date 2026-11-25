@@ -256,6 +256,15 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   okConfigKm = '';
 
   enviandoAviso: any = {};
+
+  // ── Consolidado de gastos de mantención por vehículo ──
+  anioCons = 'todos';
+  soloVehiculosCons = true;
+  cons: any = null;
+  readonly coloresClas: any = {
+    'Mantención': '#075f91', 'Reparación': '#e0663a', 'Neumáticos': '#7a5cc4', 'Carrocería': '#2fa3a0',
+    'Siniestro': '#d9534f', 'Revisión técnica': '#e6a100', 'Equipamiento': '#5b8c2a', 'Otro': '#8a96a0'
+  };
   private unsubKm: any = null;
   private unsubConfigKm: any = null;
 
@@ -426,6 +435,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
     this.tabActiva = key;
     if (key === 'mantenimiento') { this.aplicarFiltroMant(); }
     if (key === 'kilometraje') { this.msgKm = ''; this.armarKm(); }
+    if (key === 'consolidado') { this.armarConsolidado(); }
     this.filtroAcreditado = 'todos';
     this.filtroUbicacion = 'todas';
     this.aplicarFiltro();
@@ -1953,6 +1963,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
       };
     });
     this.aplicarFiltroKm();
+    if (this.esTabCons) { this.armarConsolidado(); }
   }
 
   aplicarFiltroKm() {
@@ -2544,5 +2555,163 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
     } catch (e) {
       return '';
     }
+  }
+
+  // ───────────────────────── Consolidado de gastos ─────────────────────────
+
+  get esTabCons(): boolean {
+    return this.tabActiva === 'consolidado';
+  }
+
+  colorClas(c: string): string {
+    return this.coloresClas[c] || '#8a96a0';
+  }
+
+  private clasDe(m: any): string {
+    const c = m.clasificacion || this.clasificarMant(m.tipoMantencion);
+    return this.clasificacionesMant.indexOf(c) >= 0 ? c : 'Otro';
+  }
+
+  private anioDeMant(m: any): string {
+    if (m._anio) { return String(m._anio); }
+    const f = String(m.fecha || '');
+    return /^\d{4}/.test(f) ? f.substr(0, 4) : '';
+  }
+
+  cambiarAnioCons(a: string) {
+    this.anioCons = this.anioCons === a ? 'todos' : a;
+    this.armarConsolidado();
+  }
+
+  /** Arma el consolidado: gasto por año (apilado por clasificación), por clasificación y por vehículo. */
+  armarConsolidado() {
+    const clases = this.clasificacionesMant;
+    // Patentes que cuentan: vehículos (o todo lo que tenga patente si se desmarca "solo vehículos")
+    const vehPorPat: any = {};
+    this.vehiculos.forEach(v => {
+      const p = this.normPatente(v.patente);
+      if (p && v.activo !== false) { vehPorPat[p] = v; }
+    });
+    const cuenta = (m: any) => {
+      const p = this.normPatente(m.patente);
+      if (!p) { return false; }
+      const v = vehPorPat[p];
+      return this.soloVehiculosCons ? !!(v && v.categoria === 'vehiculo') : true;
+    };
+    const lista = this.mantenciones.filter(m => cuenta(m) && +m.monto > 0 && this.anioDeMant(m));
+
+    // ── Por año (histórico) ──
+    const porAnio: any = {};
+    lista.forEach(m => {
+      const a = this.anioDeMant(m);
+      if (!porAnio[a]) { porAnio[a] = { anio: a, total: 0, n: 0, clas: {}, pats: {} }; }
+      const c = this.clasDe(m);
+      porAnio[a].total += +m.monto;
+      porAnio[a].n++;
+      porAnio[a].clas[c] = (porAnio[a].clas[c] || 0) + (+m.monto);
+      porAnio[a].pats[this.normPatente(m.patente)] = true;
+    });
+    const anios = Object.keys(porAnio).sort();
+    const totalHist = anios.reduce((t, a) => t + porAnio[a].total, 0);
+    const maxAnio = anios.reduce((mx, a) => Math.max(mx, porAnio[a].total), 0);
+    const promedioAnual = anios.length ? Math.round(totalHist / anios.length) : 0;
+    const colsAnio = anios.map(a => {
+      const d = porAnio[a];
+      return {
+        anio: a,
+        total: d.total,
+        n: d.n,
+        vehiculos: Object.keys(d.pats).length,
+        alto: maxAnio ? Math.max(2, d.total / maxAnio * 88) : 0,
+        tramos: clases.filter(c => d.clas[c] > 0).map(c => ({ clas: c, monto: d.clas[c], color: this.colorClas(c) }))
+      };
+    });
+    if (this.anioCons !== 'todos' && anios.indexOf(this.anioCons) < 0) { this.anioCons = 'todos'; }
+
+    // ── Periodo elegido ──
+    const periodo = this.anioCons === 'todos' ? lista : lista.filter(m => this.anioDeMant(m) === this.anioCons);
+    const total = periodo.reduce((t, m) => t + (+m.monto), 0);
+
+    const porClas = clases.map(c => {
+      const ms = periodo.filter(m => this.clasDe(m) === c);
+      const monto = ms.reduce((t, m) => t + (+m.monto), 0);
+      return { clas: c, color: this.colorClas(c), monto: monto, n: ms.length, pct: total ? monto / total * 100 : 0 };
+    }).filter(x => x.monto > 0).sort((a, b) => b.monto - a.monto);
+    const maxClas = porClas.length ? porClas[0].monto : 0;
+    porClas.forEach((x: any) => { x.ancho = maxClas ? x.monto / maxClas * 100 : 0; });
+
+    // ── Por vehículo ──
+    const filasMap: any = {};
+    const agregarFila = (p: string) => {
+      if (!filasMap[p]) {
+        const v = vehPorPat[p];
+        filasMap[p] = {
+          patente: p, v: v || null,
+          nombre: v ? this.titulo(v) : 'Patente sin ficha',
+          sub: v ? [v.anio, v.tipo].filter((x: any) => !!x).join(' · ') : '',
+          n: 0, total: 0, clas: {}, totalHist: 0, aniosHist: {}, ultima: ''
+        };
+      }
+      return filasMap[p];
+    };
+    // Todos los vehículos aparecen, aunque no tengan gastos
+    this.vehiculos.forEach(v => {
+      if (v.activo !== false && v.categoria === 'vehiculo' && v.patente) { agregarFila(this.normPatente(v.patente)); }
+    });
+    lista.forEach(m => {
+      const f = agregarFila(this.normPatente(m.patente));
+      f.totalHist += +m.monto;
+      f.aniosHist[this.anioDeMant(m)] = true;
+      if ((m.fecha || '') > f.ultima) { f.ultima = m.fecha || ''; }
+    });
+    periodo.forEach(m => {
+      const f = agregarFila(this.normPatente(m.patente));
+      const c = this.clasDe(m);
+      f.n++;
+      f.total += +m.monto;
+      f.clas[c] = (f.clas[c] || 0) + (+m.monto);
+    });
+    const filas = Object.keys(filasMap).map(k => filasMap[k]);
+    const maxFila = filas.reduce((mx, f) => Math.max(mx, f.total), 0);
+    filas.forEach(f => {
+      const na = Object.keys(f.aniosHist).length;
+      f.promedioAnual = na ? Math.round(f.totalHist / na) : 0;
+      f.aniosConDatos = na;
+      f.pct = total ? f.total / total * 100 : 0;
+      f.ancho = maxFila ? f.total / maxFila * 100 : 0;
+      f.tramos = clases.filter(c => f.clas[c] > 0).map(c => ({ clas: c, color: this.colorClas(c), pct: f.total ? f.clas[c] / f.total * 100 : 0, monto: f.clas[c] }));
+    });
+    filas.sort((a, b) => b.total - a.total || b.totalHist - a.totalHist || a.patente.localeCompare(b.patente));
+    const conGasto = filas.filter(f => f.total > 0);
+
+    const colsClas = clases.filter(c => periodo.some(m => this.clasDe(m) === c));
+    const totalesClas: any = {};
+    colsClas.forEach(c => { totalesClas[c] = conGasto.reduce((t, f) => t + (f.clas[c] || 0), 0); });
+
+    this.cons = {
+      anios: colsAnio,
+      promedioAnual: promedioAnual,
+      altoPromedio: maxAnio ? promedioAnual / maxAnio * 88 : 0,
+      totalHist: totalHist,
+      nAnios: anios.length,
+      total: total,
+      n: periodo.length,
+      vehiculosConGasto: conGasto.length,
+      promedioPorVehiculo: conGasto.length ? Math.round(total / conGasto.length) : 0,
+      promedioPorMant: periodo.length ? Math.round(total / periodo.length) : 0,
+      porClas: porClas,
+      filas: filas,
+      colsClas: colsClas,
+      totalesClas: totalesClas,
+      mayor: conGasto.length ? conGasto[0] : null,
+      totalPromedioAnualVeh: filas.reduce((t, f) => t + f.promedioAnual, 0)
+    };
+  }
+
+  fmtMontoCorto(n: number): string {
+    if (!n) { return '$0'; }
+    if (n >= 1000000) { return '$' + (Math.round(n / 100000) / 10).toLocaleString('es-CL') + 'M'; }
+    if (n >= 1000) { return '$' + Math.round(n / 1000).toLocaleString('es-CL') + 'mil'; }
+    return '$' + n.toLocaleString('es-CL');
   }
 }
