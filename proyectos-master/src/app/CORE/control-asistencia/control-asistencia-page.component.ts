@@ -10,6 +10,7 @@ import {
   TrabajadorCore, listarTrabajadores, guardarTrabajador, eliminarTrabajador, buscarEnAgenda,
   etiquetaTrabajador, formatearRut, rutValido, limpiarRut, normalizarTexto, ordenarTrabajadores, clavesTrabajador
 } from '../trabajadores/trabajadores-core';
+import { esUsuarioAdministracion } from '../perfil-administracion';
 
 const COLECCION_ASISTENCIA = 'asistenciaHH';
 /** Misma colección de la agenda: la ficha completa se guarda en el mismo documento del trabajador. */
@@ -151,6 +152,21 @@ interface ConsFilaSp { id: string; nombre: string; meses: number[]; total: numbe
 /** Barra de un gráfico (horizontal o de columnas). */
 interface ConsBarra { id: string; nombre: string; valor: number; pct: number; color: string; sub?: string; actual?: boolean; }
 
+/** Obra (subproyecto) en el gráfico apilado de HH por mes. */
+interface ConsSerieObra { id: string; nombre: string; color: string; meses: number[]; total: number; }
+
+/** Columna del gráfico apilado: un mes con sus HH por obra. */
+interface ConsColApilada {
+  mes: number; nombre: string; total: number; pct: number; actual: boolean; texto: string;
+  segs: { id: string; nombre: string; color: string; valor: number; pct: number }[];
+}
+
+/** Columna del gráfico de HH por año. */
+interface ConsColAnio {
+  anio: number; total: number; pct: number; actual: boolean; texto: string;
+  segs: { nombre: string; color: string; valor: number; pct: number }[];
+}
+
 /** Segmento del gráfico de dona de ausencias. */
 interface ConsDonaSeg { v: string; t: string; letra: string; n: number; pct: number; color: string; dash: string; offset: number; }
 
@@ -207,6 +223,8 @@ export class ControlAsistenciaPageComponent implements OnInit {
   private cargaConsolidado: number = 0;
   consMensual: ConsFilaMes[] = [];
   consAnual: ConsFilaAnio[] = [];
+  /** HH del año por trabajador, de mayor a menor (gráfico de barras del anual). */
+  consAnualBarras: { nombre: string; rut: string; cargo: string; hh: number; dias: number; extra: number; ausTotal: number; sps: string[]; pct: number; texto: string }[] = [];
   consPorSp: ConsFilaSp[] = [];
   consTotMes = { personas: 0, sps: 0, dias: 0, extra: 0, hh: 0, aus: 0, faltas: 0, tele: 0 };
   consTotAnio = { personas: 0, sps: 0, hh: 0, dias: 0, tele: 0, meses: [] as number[] };
@@ -225,9 +243,24 @@ export class ControlAsistenciaPageComponent implements OnInit {
   consAusAnioTotal: number = 0;
   consMaxCelda: number = 0;
   consResAnio = { mejorMes: '', mejorHH: 0, promedio: 0, mesesConDatos: 0, extra: 0 };
+  // HH trabajadas por mes y obra (gráfico apilado del anual)
+  consObras: ConsSerieObra[] = [];
+  consApilado: ConsColApilada[] = [];
+  /** Obra elegida en la leyenda ('' = todas). */
+  obraSel: string = '';
+  // HH trabajadas por año (todos los años con asistencia)
+  consPorAnio: ConsColAnio[] = [];
+  cargandoPorAnio: boolean = false;
+  errorPorAnio: boolean = false;
+  /** hhPorAnio[anio][idSubProyecto] = HH de asistencia de esa obra en ese año. */
+  private hhPorAnio: { [anio: number]: { [id: string]: number } } = null;
+  private nombresSp: { [id: string]: string } = {};
 
   // Permisos y subproyectos que puede ver el usuario
   soloLectura: boolean = true;
+  /** Perfil Administración (colección perfilesExtra de Firestore): el único que puede editar. */
+  esAdministracion: boolean = false;
+  esCliente: boolean = false;
   cargandoPermisos: boolean = true;
   cargandoSubProyectos: boolean = true;
   errorCarga: boolean = false;
@@ -335,10 +368,15 @@ export class ControlAsistenciaPageComponent implements OnInit {
     this._sUsuariosPerfiles.getUsuariosPerfilesbyidUsuario(Number(usuario.idUsuario)).subscribe(
       (perfiles: any[]) => {
         const lista = Array.isArray(perfiles) ? perfiles : [];
-        this.soloLectura = lista.some(p => p.idPerfil == 5 || p.idPerfil === 'Clientes');
-        this.cargandoPermisos = false;
-        this.cargarSubProyectos(usuario.idUsuario, lista);
-        if (!this.soloLectura) { this.cargarAgenda(); } else { this.cargandoAgenda = false; }
+        esUsuarioAdministracion(usuario.idUsuario).then(esAdm => {
+          this.esAdministracion = esAdm;
+          this.esCliente = !esAdm && lista.some(p => p.idPerfil == 5 || p.idPerfil === 'Clientes');
+          // Solo Administración edita; el resto mira
+          this.soloLectura = !esAdm;
+          this.cargandoPermisos = false;
+          this.cargarSubProyectos(usuario.idUsuario, lista);
+          if (!this.soloLectura) { this.cargarAgenda(); } else { this.cargandoAgenda = false; }
+        });
       },
       error => {
         console.error('Error al verificar permisos de Control Asistencia:', error);
@@ -353,8 +391,9 @@ export class ControlAsistenciaPageComponent implements OnInit {
   // ===================== Subproyectos permitidos =====================
 
   private cargarSubProyectos(idUsuario: number, perfiles: any[]) {
-    const esCliente = this.soloLectura;
-    const esAdministrador = perfiles.some(p => p.idPerfil == 1 || p.idPerfil == 9);
+    const esCliente = this.esCliente;
+    // Administración ve todos los subproyectos (la asistencia es central)
+    const esAdministrador = this.esAdministracion || perfiles.some(p => p.idPerfil == 1 || p.idPerfil == 9);
 
     const fallar = (error: any) => {
       console.error('Error al cargar subproyectos para Control Asistencia:', error);
@@ -462,6 +501,99 @@ export class ControlAsistenciaPageComponent implements OnInit {
     this.vista = 'consolidado';
     this.consAnio = Number(this.anio);
     this.consMes = Number(this.mes);
+    this.cargarConsolidado();
+    if (!this.hhPorAnio && !this.cargandoPorAnio) { this.cargarPorAnio(); }
+  }
+
+  /** Lee toda la asistencia (todos los años) y suma las HH por año y obra. */
+  cargarPorAnio() {
+    this.cargandoPorAnio = true;
+    this.errorPorAnio = false;
+    firestoreDB.collection(COLECCION_ASISTENCIA).get()
+      .then((snap: any) => {
+        const porAnio: { [anio: number]: { [id: string]: number } } = {};
+        const nombres: { [id: string]: string } = {};
+        snap.forEach((doc: any) => {
+          const d = doc.data() || {};
+          const id = String(d.idSubProyecto);
+          const sp = this.permitidos[id];
+          const anio = Number(d.anio);
+          if (!sp || !anio) { return; }
+          nombres[id] = sp.nombreSubProyecto || d.nombreSubProyecto || ('Subproyecto ' + id);
+          const mapa = d.trabajadores || {};
+          let hh = 0;
+          Object.keys(mapa).forEach(k => {
+            const t = mapa[k];
+            if (!t || t.eliminado) { return; }
+            let dias = 0, extra = 0;
+            const diasMapa = t.dias || {};
+            Object.keys(diasMapa).forEach(dia => {
+              const v = diasMapa[dia] || {};
+              dias += Number(v.jornada) || 0;
+              extra += Number(v.extra) || 0;
+            });
+            hh += dias * HORAS_JORNADA + extra;
+          });
+          if (!hh) { return; }
+          const a = porAnio[anio] || (porAnio[anio] = {});
+          a[id] = this.redondear((a[id] || 0) + hh);
+        });
+        this.hhPorAnio = porAnio;
+        this.nombresSp = nombres;
+        this.cargandoPorAnio = false;
+        this.armarPorAnio();
+      })
+      .catch((error: any) => {
+        console.error('Error al cargar las HH por año:', error);
+        this.errorPorAnio = true;
+        this.cargandoPorAnio = false;
+      });
+  }
+
+  /** Columnas de HH por año; respeta la obra elegida en la leyenda y usa sus mismos colores. */
+  private armarPorAnio() {
+    if (!this.hhPorAnio) { this.consPorAnio = []; return; }
+    const hoy = new Date().getFullYear();
+    const conDatos = Object.keys(this.hhPorAnio).map(Number).filter(a => a <= hoy);
+    if (!conDatos.length) { this.consPorAnio = []; return; }
+    const desde = Math.max(Math.min.apply(null, conDatos), hoy - 6);
+    const colores: { [id: string]: string } = {};
+    this.consObras.forEach(o => { if (o.id !== '_otras') { colores[o.id] = o.color; } });
+    const incluye = (id: string) => !this.obraSel || (this.obraSel === '_otras' ? !colores[id] : this.obraSel === id);
+
+    const cols: ConsColAnio[] = [];
+    for (let anio = desde; anio <= hoy; anio++) {
+      const mapa = this.hhPorAnio[anio] || {};
+      const porColor: { [k: string]: { nombre: string; color: string; valor: number } } = {};
+      const detalle: { nombre: string; valor: number }[] = [];
+      Object.keys(mapa).filter(incluye).forEach(id => {
+        const v = mapa[id];
+        detalle.push({ nombre: this.nombresSp[id] || id, valor: v });
+        const clave = colores[id] ? id : '_otras';
+        const g = porColor[clave] || (porColor[clave] = {
+          nombre: colores[id] ? (this.nombresSp[id] || id) : 'Otras obras', color: colores[id] || '#b0b8c1', valor: 0
+        });
+        g.valor = this.redondear(g.valor + v);
+      });
+      const total = this.redondear(detalle.reduce((s, x) => s + x.valor, 0));
+      const segs = Object.keys(porColor).map(k => porColor[k]).sort((a, b) => b.valor - a.valor)
+        .map(g => ({ nombre: g.nombre, color: g.color, valor: g.valor, pct: total ? g.valor / total * 100 : 0 }));
+      cols.push({
+        anio: anio, total: total, pct: 0, actual: anio === Number(this.consAnio), segs: segs,
+        texto: anio + ': ' + this.formatear(total) + ' HH'
+          + detalle.sort((a, b) => b.valor - a.valor).map(x => '\n• ' + x.nombre + ': ' + this.formatear(x.valor) + ' HH').join('')
+      });
+    }
+    const mayor = Math.max.apply(null, cols.map(c => c.total).concat([0]));
+    cols.forEach(c => c.pct = mayor && c.total ? Math.max(3, Math.round(c.total / mayor * 100)) : 0);
+    this.consPorAnio = cols;
+  }
+
+  /** Clic en un año: muestra el consolidado de ese año. */
+  verAnioConsolidado(anio: number) {
+    if (Number(this.consAnio) === anio) { return; }
+    if (this.anios.indexOf(anio) < 0) { this.anios = this.anios.concat(anio).sort((a, b) => b - a); }
+    this.consAnio = anio;
     this.cargarConsolidado();
   }
 
@@ -710,6 +842,15 @@ export class ControlAsistenciaPageComponent implements OnInit {
       filas.push({ persona: p, meses: meses, dias: this.redondear(dias), extra: this.redondear(extra), hh: this.redondear(hh), ausTotal: ausTotal, sps: sps });
     });
     this.consAnual = filas;
+    const mayorHH = filas.reduce((m, f) => Math.max(m, f.hh), 0);
+    this.consAnualBarras = filas.filter(f => f.hh > 0 || f.ausTotal > 0).slice().sort((a, b) => b.hh - a.hh).map(f => ({
+      nombre: f.persona.nombre, rut: f.persona.rut, cargo: f.persona.cargo,
+      hh: f.hh, dias: f.dias, extra: f.extra, ausTotal: f.ausTotal, sps: f.sps,
+      pct: mayorHH && f.hh ? Math.max(2, Math.round(f.hh / mayorHH * 100)) : 0,
+      texto: f.persona.nombre + ' · ' + this.formatear(f.hh) + ' HH en el año'
+        + f.meses.map((m, i) => m.hh ? '\n' + this.meses[i] + ': ' + this.formatear(m.hh) + ' HH' : '').join('')
+        + (f.sps.length ? '\n\nObras: ' + f.sps.join(', ') : '')
+    }));
     this.consPorSp = Object.keys(this.consSpsAnio).map(k => this.consSpsAnio[k]).sort((a, b) => b.total - a.total);
     this.consTotAnio = { personas: filas.length, sps: this.consPorSp.length, hh: this.redondear(hhTot), dias: this.redondear(diasTot), tele: teleTot, meses: totMeses };
 
@@ -747,6 +888,61 @@ export class ControlAsistenciaPageComponent implements OnInit {
       sub: this.formatear(f.dias) + ' días' })), 0, 6);
     this.consDonaAnio = this.armarDona(ausAnio);
     this.consAusAnioTotal = Object.keys(ausAnio).reduce((s, k) => s + ausAnio[k], 0);
+    this.armarApilado();
+  }
+
+  /**
+   * HH trabajadas por mes y obra (solo asistencia: días × 8,5 + horas extra).
+   * Las 9 obras con más HH llevan su color; si hay más, el resto va junto en "Otras obras".
+   */
+  private armarApilado() {
+    const lista = this.consPorSp.slice();   // ya viene de mayor a menor
+    const corte = lista.length > PALETA_CONS.length ? PALETA_CONS.length - 1 : lista.length;
+    const series: ConsSerieObra[] = lista.slice(0, corte).map((sp, i) => ({
+      id: sp.id, nombre: sp.nombre, color: PALETA_CONS[i % PALETA_CONS.length], meses: sp.meses.slice(), total: sp.total
+    }));
+    const resto = lista.slice(corte);
+    if (resto.length) {
+      const meses = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      resto.forEach(sp => sp.meses.forEach((v, i) => meses[i] = this.redondear(meses[i] + v)));
+      series.push({
+        id: '_otras', nombre: 'Otras obras (' + resto.length + ')', color: '#b0b8c1', meses: meses,
+        total: this.redondear(resto.reduce((s, sp) => s + sp.total, 0))
+      });
+    }
+    this.consObras = series;
+    if (this.obraSel && !series.some(s => s.id === this.obraSel)) { this.obraSel = ''; }
+
+    const visibles = this.obraSel ? series.filter(s => s.id === this.obraSel) : series;
+    const totales = this.mesesCortos.map((x, i) => this.redondear(visibles.reduce((s, o) => s + (o.meses[i] || 0), 0)));
+    const mayor = Math.max.apply(null, totales.concat([0]));
+    this.consApilado = totales.map((total, i) => {
+      const segs = visibles.filter(o => o.meses[i] > 0).map(o => ({
+        id: o.id, nombre: o.nombre, color: o.color, valor: o.meses[i], pct: total ? o.meses[i] / total * 100 : 0
+      }));
+      return {
+        mes: i + 1,
+        nombre: this.mesesCortos[i],
+        total: total,
+        pct: mayor && total ? Math.max(3, Math.round(total / mayor * 100)) : 0,
+        actual: this.esMesActualCons(i + 1),
+        segs: segs,
+        texto: this.meses[i] + ': ' + this.formatear(total) + ' HH'
+          + segs.slice().sort((a, b) => b.valor - a.valor).map(s => '\n• ' + s.nombre + ': ' + this.formatear(s.valor) + ' HH').join('')
+      };
+    });
+    this.armarPorAnio();
+  }
+
+  /** Clic en la leyenda: muestra solo esa obra (otro clic vuelve a todas). */
+  elegirObra(id: string) {
+    this.obraSel = this.obraSel === id ? '' : id;
+    this.armarApilado();
+  }
+
+  get nombreObraSel(): string {
+    const o = this.consObras.filter(x => x.id === this.obraSel)[0];
+    return o ? o.nombre : '';
   }
 
   textoAusenciasCons(aus: { [m: string]: number }): string {

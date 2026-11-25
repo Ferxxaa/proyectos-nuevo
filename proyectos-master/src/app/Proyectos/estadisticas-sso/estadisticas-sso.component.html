@@ -775,63 +775,28 @@
             </section>
           </div>
 
-          <!-- Detalle por obra del mes -->
-          <section class="sso-panel" *ngIf="obrasMesHH.length">
-            <h6><i class="fa fa-table" aria-hidden="true"></i> Detalle por obra · {{resumenMesHH.periodo}}</h6>
-            <div class="sso-tabla-scroll">
-              <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado sso-tabla-hh-subproyectos ssom-tabla">
-                <thead>
-                  <tr>
-                    <th class="sso-ma-indicador">Obra</th>
-                    <th>Trabajadores</th>
-                    <th>HH trabajadas</th>
-                    <th>Horas extra</th>
-                    <th>Charlas</th>
-                    <th>HH operacionales</th>
-                    <th>HH específicas</th>
-                    <th>Total capacitación</th>
-                    <th>Cap. Programa SSO</th>
-                    <th>Cap. Programa MA</th>
-                    <th>Incidentes</th>
-                    <th>Días perdidos</th>
-                    <th title="Índice de severidad">IS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let o of obrasMesHH">
-                    <th scope="row" class="sso-ma-indicador">{{o.nombre}}</th>
-                    <td>{{o.trabajadores}}</td>
-                    <td><b>{{o.hh}}</b></td>
-                    <td>{{o.extra}}</td>
-                    <td>{{o.charlas}}</td>
-                    <td>{{o.op}}</td>
-                    <td>{{o.esp}}</td>
-                    <td><b>{{o.cap}}</b></td>
-                    <td>{{o.capSSO}}</td>
-                    <td [class.ssom-ma-alerta]="o.capMA !== '-'">{{o.capMA}}</td>
-                    <td>{{o.incidentes}}</td>
-                    <td>{{o.diasPerdidos}}</td>
-                    <td>{{o.is}}</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <th scope="row">Total {{nombreMesHH}}</th>
-                    <td>{{totalesMesHH.trabajadores}}</td>
-                    <td>{{totalesMesHH.hh}}</td>
-                    <td>{{totalesMesHH.extra}}</td>
-                    <td>{{totalesMesHH.charlas}}</td>
-                    <td>{{totalesMesHH.op}}</td>
-                    <td>{{totalesMesHH.esp}}</td>
-                    <td>{{totalesMesHH.cap}}</td>
-                    <td>{{totalesMesHH.capSSO}}</td>
-                    <td>{{totalesMesHH.capMA}}</td>
-                    <td>{{totalesMesHH.incidentes}}</td>
-                    <td>{{totalesMesHH.diasPerdidos}}</td>
-                    <td>{{totalesMesHH.is}}</td>
-                  </tr>
-                </tfoot>
-              </table>
+          <!-- Detalle por obra del mes, en gráficos -->
+          <section class="ssog-panel ssod" *ngIf="obrasMesHH.length">
+            <div class="ssog-cab">
+              <h6><i class="fa fa-bar-chart" aria-hidden="true"></i> Detalle por obra · {{resumenMesHH.periodo}}</h6>
+              <span class="ssog-total">{{obrasMesHH.length}} {{obrasMesHH.length === 1 ? 'obra' : 'obras'}}</span>
+            </div>
+            <div class="ssod-grilla ssod-grilla-3">
+              <div class="ssod-mini" *ngFor="let g of detalleMesGraficos">
+                <div class="ssod-mini-cab">
+                  <span class="ssod-mini-ico" [style.color]="g.color"><i class="fa" [ngClass]="g.icono" aria-hidden="true"></i></span>
+                  <strong>{{g.titulo}}</strong>
+                  <b class="ssod-mini-total" [style.color]="g.color">{{g.total}}</b>
+                </div>
+                <div class="ssod-vacio" *ngIf="!g.items.length">Sin datos este mes</div>
+                <div class="ssod-hbarras" *ngIf="g.items.length">
+                  <div class="ssod-hbarra" *ngFor="let it of g.items" [title]="it.nombre + ': ' + it.texto">
+                    <span class="ssod-hbarra-nombre">{{it.nombre}}</span>
+                    <div class="ssod-hbarra-pista"><i [style.width.%]="it.ancho" [style.background]="g.color"></i></div>
+                    <b>{{it.texto}}</b>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </ng-container>
@@ -844,10 +809,11 @@
           <!-- HH trabajadas por mes -->
           <section class="ssog-panel">
             <div class="ssog-cab">
-              <h6><i class="fa fa-users" aria-hidden="true"></i> HH trabajadas por mes <small class="ssog-tip">clic en un mes para verlo en detalle</small></h6>
-              <span class="ssog-total">{{consolidadoHHResumen.hh}} en {{consolidadoHHAnio}}</span>
+              <h6><i class="fa fa-users" aria-hidden="true"></i> HH trabajadas por mes <small class="ssog-tip">desde Control de asistencia · clic en un mes para verlo en detalle</small></h6>
+              <span class="ssog-total">{{totalHHAsistencia}} en {{consolidadoHHAnio}}</span>
             </div>
-            <div class="ssog-vacio" *ngIf="!hayGraficoHH">Sin HH trabajadas en {{consolidadoHHAnio}}.</div>
+            <div class="ssog-vacio" *ngIf="errorAsistenciaHH">No se pudo cargar el Control de asistencia. <a href="javascript:void(0)" (click)="reintentarConsolidadoHH()">Reintentar</a></div>
+            <div class="ssog-vacio" *ngIf="!errorAsistenciaHH && !hayGraficoHH">Sin asistencia registrada en {{consolidadoHHAnio}}.</div>
             <div class="ssog-columnas" *ngIf="hayGraficoHH">
               <div class="ssog-col ssog-clic" *ngFor="let c of graficoHHMes" [class.ssog-actual]="esMesActualConsolidadoHH(c.mes)" (click)="verMesHH(c.mes)"
                    [title]="c.nombre + ': ' + (c.texto || '0') + ' HH · clic para ver el mes'">
@@ -886,68 +852,104 @@
           </section>
 
           <!-- Por obra -->
-          <section class="ssog-panel ssog-ancho" *ngIf="graficoObras.length > 1">
+          <section class="ssog-panel ssog-ancho pob" *ngIf="graficoObras.length > 1">
             <div class="ssog-cab">
               <h6><i class="fa fa-building-o" aria-hidden="true"></i> Por obra · {{consolidadoHHAnio}}</h6>
               <div class="ssog-leyenda">
-                <span><i class="ssog-hh"></i> HH trabajadas</span>
+                <span><i class="ssog-hh"></i> HH trabajadas <small class="pob-fuente">(Control de asistencia)</small></span>
                 <span><i class="ssog-op"></i> Cap. operacionales</span>
                 <span><i class="ssog-esp"></i> Cap. específicas</span>
               </div>
             </div>
-            <div class="ssog-obras">
-              <div class="ssog-obras-tit">
-                <span></span><span>HH trabajadas</span><span>HH capacitación</span>
+
+            <div class="pob-tit">
+              <span>Obra</span><span>HH trabajadas</span><span>HH capacitación</span>
+            </div>
+
+            <div class="pob-fila" *ngFor="let o of graficoObras; let n = index" [class.pob-primera]="n === 0">
+              <div class="pob-obra">
+                <span class="pob-pos">{{n + 1}}</span>
+                <span class="pob-nombre" [title]="o.nombre">{{o.nombre}}</span>
               </div>
-              <div class="ssog-obra" *ngFor="let o of graficoObras">
-                <span class="ssog-obra-nombre" [title]="o.nombre">{{o.nombre}}</span>
-                <div class="ssog-hbarra-celda">
-                  <div class="ssog-hbarra"><i class="ssog-hh" [style.width.%]="o.anchoHH"></i></div>
-                  <b>{{o.textoHH}}</b>
-                </div>
-                <div class="ssog-hbarra-celda">
-                  <div class="ssog-hbarra">
-                    <i class="ssog-op" [style.width.%]="o.anchoOp"></i><i class="ssog-esp" [style.width.%]="o.anchoEsp"></i>
+
+              <div class="pob-celda">
+                <ng-container *ngIf="o.hh">
+                  <div class="pob-pista"><i class="pob-hh" [style.width.%]="o.anchoHH"></i></div>
+                  <div class="pob-valor">
+                    <b>{{o.textoHH}}</b> <span>HH</span>
+                    <em *ngIf="o.pctHH">{{o.pctHH}}</em>
                   </div>
-                  <b>{{o.textoCap}}<small class="ssog-desglose" *ngIf="o.desglose">{{o.desglose}}</small></b>
-                </div>
+                </ng-container>
+                <span class="pob-sin" *ngIf="!o.hh">Sin asistencia</span>
               </div>
+
+              <div class="pob-celda">
+                <ng-container *ngIf="o.cap">
+                  <div class="pob-pista">
+                    <i class="pob-op" [style.width.%]="o.anchoOp"></i><i class="pob-esp" [style.width.%]="o.anchoEsp"></i>
+                  </div>
+                  <div class="pob-valor">
+                    <b>{{o.textoCap}}</b>
+                    <small *ngIf="o.desglose">{{o.desglose}}</small>
+                  </div>
+                </ng-container>
+                <span class="pob-sin" *ngIf="!o.cap">Sin capacitación</span>
+              </div>
+            </div>
+
+            <div class="pob-fila pob-total">
+              <div class="pob-obra">
+                <span class="pob-pos"><i class="fa fa-calculator" aria-hidden="true"></i></span>
+                <span class="pob-nombre">Total {{consolidadoHHAnio}} <small>{{graficoObras.length}} {{graficoObras.length === 1 ? 'obra' : 'obras'}}</small></span>
+              </div>
+              <div class="pob-celda"><div class="pob-valor"><b>{{graficoObrasTotal.textoHH}}</b> <span>HH</span></div></div>
+              <div class="pob-celda"><div class="pob-valor"><b>{{graficoObrasTotal.textoCap}}</b></div></div>
             </div>
           </section>
         </div>
 
-        <section class="sso-panel sso-panel-ma">
-          <div class="sso-ma-encabezado">
-            <h6><i class="fa fa-table" aria-hidden="true"></i> Detalle mes a mes · {{consolidadoHHResumen.filtro || 'Todas las obras'}} · {{consolidadoHHAnio}}</h6>
+        <!-- Detalle mes a mes, en gráficos -->
+        <section class="ssog-panel ssod">
+          <div class="ssog-cab">
+            <h6><i class="fa fa-bar-chart" aria-hidden="true"></i> Detalle mes a mes · {{consolidadoHHResumen.filtro || 'Todas las obras'}} · {{consolidadoHHAnio}}
+              <small class="ssog-tip">clic en un mes para verlo en detalle · las HH trabajadas van en el gráfico de asistencia de arriba</small></h6>
           </div>
           <div class="sso-mensaje" *ngIf="!errorConsolidadoHH && !errorTablasSSO && !consolidadoHHPorSubproyecto.length">No hay registros para este filtro.</div>
-          <div class="sso-tabla-scroll" *ngIf="consolidadoHHPorSubproyecto.length">
-            <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado sso-tabla-hh-consolidado">
-              <thead>
-                <tr>
-                  <th class="sso-ma-indicador">Concepto</th>
-                  <th *ngFor="let mes of mesesMA; trackBy: trackMesMA" [class.mes-actual]="esMesActualConsolidadoHH(mes.numero)" [title]="mes.nombre">{{mes.corto}}</th>
-                  <th class="sso-ma-total">Total año</th>
-                </tr>
-              </thead>
-              <tbody>
-                <ng-container *ngFor="let fila of consolidadoHHFilas; let i = index">
-                  <tr class="sso-fila-hh-grupo" *ngIf="i === 0 || fila.grupo !== consolidadoHHFilas[i - 1].grupo">
-                    <th scope="colgroup" [attr.colspan]="mesesMA.length + 2">
-                      <span class="sso-grupo-num" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-right:6px;border-radius:50%;background:#075f91;color:#fff;font-size:10.5px;font-weight:800;">{{fila.grupo === 'personal' ? '1' : (fila.grupo === 'capacitacion' ? '2' : '3')}}</span>
-                      <i class="fa" [ngClass]="fila.grupo === 'personal' ? 'fa-users' : (fila.grupo === 'capacitacion' ? 'fa-graduation-cap' : 'fa-medkit')" aria-hidden="true"></i>
-                      {{fila.grupo === 'personal' ? 'Personal y horas trabajadas' : (fila.grupo === 'capacitacion' ? 'Capacitación' : 'Accidentabilidad')}}
-                    </th>
-                  </tr>
-                  <tr [class.sso-fila-hh-total]="fila.destacada">
-                    <th scope="row" class="sso-ma-indicador">{{fila.etiqueta}} <small>{{fila.ayuda}}</small></th>
-                    <td *ngFor="let valor of fila.meses; let indice = index" [class.mes-actual]="esMesActualConsolidadoHH(indice + 1)">{{valor}}</td>
-                    <td class="sso-ma-total">{{fila.anual}}</td>
-                  </tr>
-                </ng-container>
-              </tbody>
-            </table>
-          </div>
+          <ng-container *ngIf="consolidadoHHPorSubproyecto.length">
+            <ng-container *ngFor="let grupo of detalleGrupos">
+              <div class="ssod-grupo">
+                <span class="ssod-grupo-num">{{grupo.num}}</span>
+                <i class="fa" [ngClass]="grupo.icono" aria-hidden="true"></i> {{grupo.titulo}}
+              </div>
+              <div class="ssod-grilla" [class.ssod-grilla-3]="grupo.graficos.length === 3">
+                <div class="ssod-mini" *ngFor="let g of grupo.graficos">
+                  <div class="ssod-mini-cab">
+                    <div class="ssod-mini-tit">
+                      <strong>{{g.titulo}}</strong>
+                      <small>{{g.ayuda}}</small>
+                    </div>
+                    <b class="ssod-mini-total" [style.color]="g.color">{{g.total}}</b>
+                  </div>
+                  <div class="ssod-ley" *ngIf="g.series.length > 1">
+                    <span *ngFor="let s of g.series"><i [style.background]="s.color"></i> {{s.nombre}}</span>
+                  </div>
+                  <div class="ssod-vacio" *ngIf="!g.hay">Sin datos en {{consolidadoHHAnio}}</div>
+                  <div class="ssog-columnas ssod-columnas" *ngIf="g.hay">
+                    <div class="ssog-col ssog-clic" *ngFor="let c of g.cols" [class.ssog-actual]="esMesActualConsolidadoHH(c.mes)"
+                         (click)="verMesHH(c.mes)" [title]="c.titulo">
+                      <div class="ssog-area">
+                        <b *ngIf="c.texto">{{c.texto}}</b>
+                        <div class="ssog-pila ssod-pila" [style.height.%]="c.alto">
+                          <i *ngFor="let p of c.partes" [style.height.%]="p.pct" [style.background]="p.color"></i>
+                        </div>
+                      </div>
+                      <span>{{c.corto}}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ng-container>
+          </ng-container>
         </section>
 
         <section class="sso-panel" *ngIf="consolidadoHHPorSubproyecto.length">
@@ -1159,16 +1161,30 @@
           <button type="button" class="sso-boton" (click)="reintentarConsolidadoMA()">Reintentar</button>
         </div>
 
-        <div class="sso-tiles">
-          <div class="sso-tile"><span>Subproyectos con datos</span><strong>{{consolidadoMAResumen.subproyectos}}</strong></div>
-          <div class="sso-tile"><span>Agua (LTS)</span><strong>{{consolidadoMAResumen.agua}}</strong></div>
-          <div class="sso-tile"><span>Combustible (LTS)</span><strong>{{consolidadoMAResumen.combustible}}</strong></div>
-          <div class="sso-tile"><span>Residuos domiciliarios (TONS.)</span><strong>{{consolidadoMAResumen.residuos}}</strong></div>
+
+        <div class="ssof-barra">
+          <div class="ssof-izq">
+            <div class="ssof-vista" role="tablist" aria-label="Vista del consolidado MA">
+              <button type="button" role="tab" [class.activa]="maVista === 'mensual'" [attr.aria-selected]="maVista === 'mensual'" (click)="maVista = 'mensual'">
+                <i class="fa fa-calendar-o" aria-hidden="true"></i> Mensual
+              </button>
+              <button type="button" role="tab" [class.activa]="maVista === 'anual'" [attr.aria-selected]="maVista === 'anual'" (click)="maVista = 'anual'">
+                <i class="fa fa-calendar" aria-hidden="true"></i> Anual
+              </button>
+            </div>
+            <div class="ssof-texto" *ngIf="maVista === 'mensual'">
+              Mes a mes de <b>{{consolidadoMASubproyecto === 'todos' ? 'todos los subproyectos' : nombreSubproyectoMA}}</b> · <b>{{consolidadoMAAnio}}</b>
+            </div>
+            <div class="ssof-texto" *ngIf="maVista === 'anual'">
+              Año a año · <b>todos los subproyectos</b>
+            </div>
+          </div>
         </div>
 
+        <ng-container *ngIf="maVista === 'mensual'">
         <section class="sso-panel sso-panel-ma">
           <div class="sso-ma-encabezado">
-            <h6>Estadísticas mensuales de Medio Ambiente</h6>
+            <h6><i class="fa fa-line-chart" aria-hidden="true"></i> Estadísticas mensuales de Medio Ambiente</h6>
             <div class="sso-ma-controles">
               <label for="sso-consolidado-ma-anio">Año</label>
               <select id="sso-consolidado-ma-anio" [(ngModel)]="consolidadoMAAnio" (ngModelChange)="recalcularConsolidadoMA()">
@@ -1182,90 +1198,141 @@
             </div>
           </div>
           <div class="sso-mensaje" *ngIf="!errorConsolidadoMA && !consolidadoMAPorSubproyecto.length">No hay datos de MA para este filtro.</div>
-          <div class="sso-tabla-scroll" *ngIf="consolidadoMAPorSubproyecto.length">
-            <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado">
-              <thead>
-                <tr>
-                  <th class="sso-ma-indicador">Indicador</th>
-                  <th *ngFor="let mes of mesesMA; trackBy: trackMesMA" [class.mes-actual]="esMesActualConsolidadoMA(mes.numero)" [title]="mes.nombre">{{mes.corto}}</th>
-                  <th class="sso-ma-total">Total año</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let fila of consolidadoMAFilas">
-                  <th scope="row" class="sso-ma-indicador">
-                    {{fila.indicador.etiqueta}} <small *ngIf="fila.indicador.unidad">{{fila.indicador.unidad}}</small>
-                  </th>
-                  <td *ngFor="let valor of fila.meses; let indice = index" [class.mes-actual]="esMesActualConsolidadoMA(indice + 1)">{{valor}}</td>
-                  <td class="sso-ma-total">{{fila.total}}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+
+          <ng-container *ngIf="consolidadoMAPorSubproyecto.length">
+            <div class="mag-ley" *ngIf="maLeyendaMes.length > 1">
+              <span class="mag-ley-tit">Subproyectos</span>
+              <span class="mag-ley-item" *ngFor="let sp of maLeyendaMes"><i [style.background]="sp.color"></i>{{sp.nombre}}</span>
+            </div>
+            <div class="mag-grilla">
+              <div class="mag-card" *ngFor="let g of maGraficosMes">
+                <div class="mag-cab">
+                  <span class="sso-ma-ind-icono" [style.color]="g.indicador.color" [style.background-color]="g.indicador.fondo">
+                    <i class="fa" [ngClass]="g.indicador.icono" aria-hidden="true"></i>
+                  </span>
+                  <div class="mag-tit">
+                    <strong [title]="g.indicador.etiqueta">{{g.indicador.etiqueta}}</strong>
+                    <small>Promedio {{g.promedio}} {{g.indicador.unidad}} · {{g.meses}} {{g.meses === 1 ? 'mes' : 'meses'}} con datos</small>
+                  </div>
+                  <div class="mag-total">
+                    <b>{{g.total}}</b>
+                    <small>{{g.indicador.unidad || 'total'}} {{consolidadoMAAnio}}</small>
+                  </div>
+                </div>
+                <div class="mag-cols">
+                  <div class="mag-col" *ngFor="let c of g.cols" [class.mag-col-actual]="c.actual" [title]="c.titulo">
+                    <span class="mag-col-valor">{{c.texto}}</span>
+                    <div class="mag-col-pista">
+                      <div class="mag-col-barra" [style.height.%]="c.alto">
+                        <i *ngFor="let p of c.partes" [style.height.%]="p.pct" [style.background]="p.color"></i>
+                      </div>
+                    </div>
+                    <span class="mag-col-mes">{{c.corto}}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mag-sin-lista" *ngIf="maMesSinDatos.length">
+              <i class="fa fa-info-circle" aria-hidden="true"></i> Sin datos en {{consolidadoMAAnio}}:
+              <span *ngFor="let n of maMesSinDatos">{{n}}</span>
+            </div>
+          </ng-container>
         </section>
 
-        <section class="sso-panel" *ngIf="consolidadoMAPorSubproyecto.length">
-          <h6>Total del año por subproyecto</h6>
-          <div class="sso-tabla-scroll">
-            <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado">
-              <thead>
-                <tr>
-                  <th class="sso-ma-indicador">Subproyecto</th>
-                  <th *ngFor="let indicador of indicadoresMA; trackBy: trackIndicadorMA">
-                    {{indicador.etiqueta}} <small *ngIf="indicador.unidad">{{indicador.unidad}}</small>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let fila of consolidadoMAPorSubproyecto">
-                  <th scope="row" class="sso-ma-indicador">{{fila.nombre}}</th>
-                  <td *ngFor="let total of fila.totales">{{total}}</td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th scope="row">Total</th>
-                  <td *ngFor="let total of consolidadoMATotales">{{total}}</td>
-                </tr>
-              </tfoot>
-            </table>
+        </ng-container>
+
+        <ng-container *ngIf="maVista === 'anual'">
+        <section class="sso-panel sso-panel-ma">
+          <div class="sso-ma-encabezado">
+            <h6><i class="fa fa-bar-chart" aria-hidden="true"></i> Por año · todos los subproyectos</h6>
           </div>
+          <div class="sso-mensaje" *ngIf="!maGraficosAnio.length">Aún no hay datos de MA.</div>
+          <ng-container *ngIf="maGraficosAnio.length">
+            <div class="mag-ley" *ngIf="maLeyendaSp.length">
+              <span class="mag-ley-tit">Subproyectos</span>
+              <span class="mag-ley-item" *ngFor="let sp of maLeyendaSp"><i [style.background]="sp.color"></i>{{sp.nombre}}</span>
+            </div>
+            <div class="mag-grilla">
+              <div class="mag-card" *ngFor="let g of maGraficosAnio">
+                <div class="mag-cab">
+                  <span class="sso-ma-ind-icono" [style.color]="g.indicador.color" [style.background-color]="g.indicador.fondo">
+                    <i class="fa" [ngClass]="g.indicador.icono" aria-hidden="true"></i>
+                  </span>
+                  <div class="mag-tit">
+                    <strong [title]="g.indicador.etiqueta">{{g.indicador.etiqueta}}</strong>
+                    <small>{{g.indicador.unidad || 'sin unidad'}} · todos los años</small>
+                  </div>
+                  <div class="mag-total">
+                    <b>{{g.total}}</b>
+                    <small>{{g.indicador.unidad || 'total'}}</small>
+                  </div>
+                </div>
+                <div class="mag-anios">
+                  <div class="mag-anio" *ngFor="let f of g.filas" [class.activo]="f.anio === consolidadoMAAnio" (click)="verAnioMA(f.anio)"
+                       [title]="'Clic para ver el reparto de ' + f.anio">
+                    <span class="mag-anio-num">{{f.anio}}</span>
+                    <div class="mag-anio-pista">
+                      <div class="mag-anio-barra" [style.width.%]="f.ancho">
+                        <i *ngFor="let p of f.partes" [style.width.%]="p.pct" [style.background]="p.color" [title]="p.titulo"></i>
+                      </div>
+                    </div>
+                    <b class="mag-anio-valor">{{f.texto}}</b>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mag-sin-lista" *ngIf="maAnioSinDatos.length">
+              <i class="fa fa-info-circle" aria-hidden="true"></i> Sin datos:
+              <span *ngFor="let n of maAnioSinDatos">{{n}}</span>
+            </div>
+          </ng-container>
         </section>
 
-        <section class="sso-panel" *ngIf="consolidadoMAProyectos.length">
-          <h6>Total por proyecto (todos los años y subproyectos)</h6>
-          <div class="sso-tabla-scroll">
-            <table class="sso-tabla sso-tabla-ma sso-tabla-ma-consolidado sso-tabla-ma-proyectos">
-              <thead>
-                <tr>
-                  <th class="sso-ma-indicador">Proyecto / Año</th>
-                  <th *ngFor="let indicador of indicadoresMA; trackBy: trackIndicadorMA">
-                    {{indicador.etiqueta}} <small *ngIf="indicador.unidad">{{indicador.unidad}}</small>
-                  </th>
-                </tr>
-              </thead>
-              <tbody *ngFor="let proyecto of consolidadoMAProyectos">
-                <tr class="sso-fila-proyecto">
-                  <th scope="row" class="sso-ma-indicador">
-                    {{proyecto.nombre}}
-                    <small>{{proyecto.subproyectos}} {{proyecto.subproyectos === 1 ? 'subproyecto' : 'subproyectos'}}</small>
-                  </th>
-                  <td *ngFor="let total of proyecto.totales">{{total}}</td>
-                </tr>
-                <tr class="sso-fila-anio" *ngFor="let fila of proyecto.anios">
-                  <th scope="row" class="sso-ma-indicador">{{fila.anio}}</th>
-                  <td *ngFor="let total of fila.totales">{{total}}</td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th scope="row">Total general</th>
-                  <td *ngFor="let total of consolidadoMATotalesProyectos">{{total}}</td>
-                </tr>
-              </tfoot>
-            </table>
+        <section class="sso-panel sso-panel-ma" *ngIf="maDonas.length">
+          <div class="sso-ma-encabezado">
+            <h6><i class="fa fa-pie-chart" aria-hidden="true"></i> Total del año por subproyecto · {{consolidadoMAAnio}}</h6>
+            <div class="sso-ma-controles">
+              <label for="sso-ma-anio-donas">Año</label>
+              <select id="sso-ma-anio-donas" [(ngModel)]="consolidadoMAAnio" (ngModelChange)="recalcularConsolidadoMA()">
+                <option *ngFor="let opcion of consolidadoMAAnios" [ngValue]="opcion">{{opcion}}</option>
+              </select>
+            </div>
           </div>
+          <div class="mag-donas">
+            <div class="mag-dona-card" *ngFor="let d of maDonas">
+              <div class="mag-cab">
+                <span class="sso-ma-ind-icono" [style.color]="d.indicador.color" [style.background-color]="d.indicador.fondo">
+                  <i class="fa" [ngClass]="d.indicador.icono" aria-hidden="true"></i>
+                </span>
+                <div class="mag-tit"><strong [title]="d.indicador.etiqueta">{{d.indicador.etiqueta}}</strong></div>
+              </div>
+              <div class="mag-dona-cuerpo">
+                <svg viewBox="0 0 42 42" class="mag-dona" aria-hidden="true">
+                  <circle cx="21" cy="21" r="15.915" fill="none" stroke="#eef1f4" stroke-width="6"></circle>
+                  <circle *ngFor="let s of d.segmentos" cx="21" cy="21" r="15.915" fill="none" stroke-width="6"
+                          [attr.stroke]="s.color" [attr.stroke-dasharray]="s.dash" [attr.stroke-dashoffset]="s.offset">
+                    <title>{{s.nombre}}: {{s.valor}} ({{s.pct}}%)</title>
+                  </circle>
+                  <text x="21" y="21.5" class="mag-dona-num">{{d.total}}</text>
+                  <text x="21" y="26.5" class="mag-dona-txt">{{d.indicador.unidad || 'total'}}</text>
+                </svg>
+                <ul class="mag-dona-ley">
+                  <li *ngFor="let s of d.segmentos">
+                    <i [style.background]="s.color"></i>
+                    <span [title]="s.nombre">{{s.nombre}}</span>
+                    <b>{{s.valor}}</b>
+                    <em>{{s.pct}}%</em>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <p class="mag-nota" *ngIf="maIndicadoresSinDatos.length">
+            <i class="fa fa-info-circle" aria-hidden="true"></i> Sin datos en {{consolidadoMAAnio}}: {{maIndicadoresSinDatos.join(' · ')}}
+          </p>
         </section>
+
+        </ng-container>
       </ng-container>
     </ng-container>
   </ng-container>

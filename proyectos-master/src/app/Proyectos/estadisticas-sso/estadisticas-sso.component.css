@@ -3232,3 +3232,501 @@
   .sso-dias-texto strong { font-size: 17px; }
   .sso-dias-texto strong b { font-size: 20px; }
 }
+
+/* ===== Consolidado SSO: Por obra ===== */
+.pob .ssog-cab { margin-bottom: 10px; }
+.pob-fuente { color: #8f979f; font-size: 10.5px; }
+
+.pob-tit,
+.pob-fila {
+  display: grid;
+  grid-template-columns: minmax(200px, 300px) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+}
+
+.pob-tit {
+  padding: 0 10px 6px;
+  border-bottom: 1px solid #e3e8ed;
+  color: #8f979f;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+.pob-fila {
+  padding: 10px;
+  border-bottom: 1px solid #f0f2f5;
+  border-radius: 8px;
+  transition: background-color .15s;
+}
+
+.pob-fila:hover { background: #f7fafc; }
+
+.pob-obra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pob-pos {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #eef1f4;
+  color: #6b7580;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.pob-primera .pob-pos { background: #24404f; color: #fff; }
+
+.pob-nombre {
+  min-width: 0;
+  overflow: hidden;
+  color: #24404f;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pob-nombre small { margin-left: 6px; color: #8f979f; font-size: 11px; font-weight: 600; }
+
+.pob-celda {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pob-pista {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #eef1f4;
+}
+
+.pob-pista i { display: block; height: 100%; transition: width .4s ease; }
+.pob-hh { border-radius: 7px; background: linear-gradient(90deg, #24404f 0%, #3f6b82 100%); }
+.pob-op { background: #1f8fd1; }
+.pob-esp { background: #2f9e5b; }
+
+.pob-valor {
+  flex: 0 0 132px;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pob-valor b { color: #24404f; font-size: 13px; font-weight: 800; }
+.pob-valor span { color: #8f979f; font-size: 11px; font-weight: 700; }
+
+.pob-valor em {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #eef3f6;
+  color: #3f6b82;
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.pob-valor small {
+  display: block;
+  margin-top: 1px;
+  color: #8f979f;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.pob-sin {
+  color: #b9c1c8;
+  font-size: 11.5px;
+  font-style: italic;
+}
+
+/* fila de total */
+.pob-fila.pob-total {
+  margin-top: 6px;
+  border: 1px solid #d6e6f1;
+  background: #f2f8fc;
+}
+
+.pob-total:hover { background: #f2f8fc; }
+.pob-total .pob-pos { background: #075f91; color: #fff; }
+.pob-total .pob-nombre { color: #075f91; font-weight: 800; }
+.pob-total .pob-celda { justify-content: flex-end; }
+.pob-total .pob-valor { flex: 0 0 auto; }
+.pob-total .pob-valor b { color: #075f91; font-size: 15px; }
+
+@media (max-width: 991px) {
+  .pob-tit { display: none; }
+  .pob-fila { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .pob-total .pob-celda { justify-content: flex-start; }
+}
+
+/* ===== Detalle mes a mes / por obra en gráficos ===== */
+.ssod { margin-bottom: 12px; }
+
+.ssod-grupo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #e3e8ed;
+  color: #075f91;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+.ssod-grupo:first-of-type { margin-top: 4px; }
+
+.ssod-grupo-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #075f91;
+  color: #fff;
+  font-size: 10.5px;
+}
+
+.ssod-grilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ssod-grilla.ssod-grilla-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.ssod-mini {
+  min-width: 0;
+  padding: 10px 12px 8px;
+  border: 1px solid #edf1f4;
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+.ssod-mini-cab {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ssod-mini-tit { min-width: 0; }
+.ssod-mini-cab strong { display: block; color: #24404f; font-size: 12.5px; font-weight: 800; }
+.ssod-mini-tit small { display: block; color: #8f979f; font-size: 10.5px; }
+.ssod-mini-cab .ssod-mini-ico { flex: 0 0 auto; font-size: 13px; }
+.ssod-mini-cab > strong { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ssod-mini-total {
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ssod-ley {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-bottom: 4px;
+  color: #6b7580;
+  font-size: 11px;
+}
+
+.ssod-ley i { display: inline-block; width: 9px; height: 9px; margin-right: 3px; border-radius: 2px; }
+
+.ssod-columnas { height: 130px; gap: 3px; }
+.ssod-columnas .ssog-area b { font-size: 9.5px; }
+.ssod-columnas .ssog-col > span { font-size: 10px; }
+.ssod-pila { width: 70%; max-width: 26px; }
+
+.ssod-vacio {
+  padding: 30px 6px;
+  color: #b0b8c0;
+  font-size: 12px;
+  font-style: italic;
+  text-align: center;
+}
+
+/* barras horizontales por obra (vista por mes) */
+.ssod-hbarras { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+
+.ssod-hbarra {
+  display: grid;
+  grid-template-columns: minmax(90px, 42%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.ssod-hbarra-nombre {
+  overflow: hidden;
+  color: #3d454c;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ssod-hbarra-pista { height: 10px; overflow: hidden; border-radius: 5px; background: #eef1f4; }
+.ssod-hbarra-pista i { display: block; height: 100%; border-radius: 5px; transition: width .4s ease; }
+.ssod-hbarra b { min-width: 34px; color: #24404f; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 1200px) {
+  .ssod-grilla.ssod-grilla-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .ssod-grilla, .ssod-grilla.ssod-grilla-3 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ===== Consolidado MA en gráficos ===== */
+.sso-ma-encabezado h6 .fa { margin-right: 4px; }
+
+.sso-panel .mag-ley {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 12px 12px 0;
+  padding: 8px 12px;
+  border: 1px solid #e3e8ed;
+  border-radius: 8px;
+  background: #f7f9fb;
+}
+
+.sso-panel .mag-ley-tit {
+  margin-right: 4px;
+  color: #8f979f;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+.sso-panel .mag-ley-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid #e3e8ed;
+  border-radius: 12px;
+  background: #fff;
+  color: #3d454c;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.sso-panel .mag-ley-item i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+
+.mag-grilla {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+
+.mag-card,
+.mag-dona-card {
+  min-width: 0;
+  padding: 12px 14px 10px;
+  border: 1px solid #e3e8ed;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(31, 45, 61, .05);
+}
+
+.mag-cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.mag-tit { flex: 1 1 auto; min-width: 0; }
+
+.mag-tit strong {
+  display: block;
+  overflow: hidden;
+  color: #24404f;
+  font-size: 12.5px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mag-tit small { display: block; color: #8f979f; font-size: 10.5px; }
+
+.mag-total { flex: 0 0 auto; text-align: right; line-height: 1.1; }
+.mag-total b { display: block; color: #24404f; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.mag-total small { color: #8f979f; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+
+/* columnas mes a mes */
+.mag-cols {
+  display: flex;
+  gap: 4px;
+  height: 150px;
+  padding-top: 4px;
+  background: repeating-linear-gradient(to top, transparent 0, transparent 31px, #f0f2f4 31px, #f0f2f4 32px);
+}
+
+.mag-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  border-radius: 6px 6px 0 0;
+  cursor: help;
+}
+
+.mag-col:hover { background: rgba(7, 95, 145, .04); }
+
+.mag-col-valor {
+  height: 14px;
+  color: #3d454c;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.mag-col-pista {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  border-bottom: 1px solid #d5dce2;
+}
+
+.mag-col-barra {
+  display: flex;
+  flex-direction: column;
+  width: 68%;
+  max-width: 26px;
+  overflow: hidden;
+  border-radius: 5px 5px 0 0;
+  transition: height .4s ease;
+}
+
+.mag-col-barra i { display: block; width: 100%; }
+.mag-col-barra i + i { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6); }
+
+.mag-col-mes { padding-top: 4px; color: #8f979f; font-size: 10px; font-weight: 700; }
+.mag-col-actual .mag-col-mes { color: #075f91; }
+.mag-col-actual { background: rgba(7, 95, 145, .05); }
+
+.mag-sin-lista {
+  margin: 0 12px 12px;
+  padding: 8px 12px;
+  border: 1px dashed #dfe5eb;
+  border-radius: 8px;
+  color: #8f979f;
+  font-size: 11.5px;
+}
+
+.mag-sin-lista span {
+  display: inline-block;
+  margin: 2px 0 2px 6px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #f1f3f5;
+  color: #6b7580;
+  font-weight: 600;
+}
+
+/* anual: barras horizontales por año */
+.mag-anios { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 2px; }
+
+.mag-anio {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.mag-anio:hover { background: #f4f8fb; }
+.mag-anio.activo { background: #eaf3fa; }
+.mag-anio-num { color: #6b7580; font-size: 12px; font-weight: 800; }
+.mag-anio.activo .mag-anio-num { color: #075f91; }
+
+.mag-anio-pista { height: 18px; overflow: hidden; border-radius: 9px; background: #eef1f4; }
+.mag-anio-barra { display: flex; height: 100%; overflow: hidden; border-radius: 9px; transition: width .4s ease; }
+.mag-anio-barra i { display: block; height: 100%; }
+.mag-anio-barra i + i { box-shadow: inset 1px 0 0 rgba(255, 255, 255, .7); }
+
+.mag-anio-valor { color: #24404f; font-size: 13px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* donas por subproyecto */
+.mag-donas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+
+.mag-dona-cuerpo {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.mag-dona { display: block; width: 130px; height: 130px; }
+.mag-dona circle { transition: stroke-dasharray .4s ease; cursor: help; }
+.mag-dona-num { fill: #24404f; font-size: 6px; font-weight: 800; text-anchor: middle; }
+.mag-dona-txt { fill: #8f979f; font-size: 3.4px; font-weight: 700; text-anchor: middle; text-transform: uppercase; }
+
+.mag-dona-ley { margin: 0; padding: 0; list-style: none; }
+
+.mag-dona-ley li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 0;
+  border-bottom: 1px dashed #eef1f4;
+  font-size: 11.5px;
+}
+
+.mag-dona-ley li:last-child { border-bottom: 0; }
+.mag-dona-ley li i { display: block; width: 10px; height: 10px; border-radius: 3px; }
+.mag-dona-ley li span { overflow: hidden; color: #3d454c; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.mag-dona-ley li b { color: #24404f; font-variant-numeric: tabular-nums; }
+.mag-dona-ley li em { color: #8f979f; font-size: 10.5px; font-style: normal; text-align: right; }
+
+.mag-nota { margin: 0; padding: 0 14px 12px; color: #8f979f; font-size: 11.5px; }
+
+@media (max-width: 1200px) {
+  .mag-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .mag-grilla { grid-template-columns: minmax(0, 1fr); }
+  .mag-dona-cuerpo { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+}

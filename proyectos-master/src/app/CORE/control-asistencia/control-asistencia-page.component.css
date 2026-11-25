@@ -1901,3 +1901,154 @@
 
 .core-solo-activos.activo { color: #2d8a44; }
 .core-solo-activos:hover { background: #eef1f4; }
+/* ===== HH trabajadas por mes y obra (columnas apiladas) ===== */
+.cons-apil-ley {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 12px;
+}
+
+.cons-apil-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 3px 10px;
+  overflow: hidden;
+  border: 1px solid #dfe5eb;
+  border-radius: 14px;
+  background: #fff;
+  color: #3d454c;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: opacity .15s, background .15s;
+}
+
+.cons-apil-chip i {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.cons-apil-chip b { color: #075f91; font-weight: 800; font-variant-numeric: tabular-nums; }
+.cons-apil-chip:hover { background: #f4f7fa; }
+.cons-apil-chip.activa { border-color: #075f91; background: #e6f1f8; }
+.cons-apil-chip.apagada { opacity: .45; }
+
+.cons-apil-fill {
+  display: flex;
+  flex-direction: column-reverse;
+  width: 72%;
+  max-width: 46px;
+  overflow: hidden;
+  border-radius: 7px 7px 2px 2px;
+  background: #eef1f4;
+  transition: height .5s ease, filter .15s;
+}
+
+.cons-apil-seg {
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
+  transition: height .5s ease;
+}
+
+.cons-apil-seg + .cons-apil-seg { box-shadow: 0 1px 0 rgba(255, 255, 255, .7); }
+.cons-col:hover .cons-apil-fill { filter: brightness(1.1); }
+.cons-col-actual .cons-apil-fill { box-shadow: 0 0 0 2px #f58941; }
+
+/* ===== HH trabajadas por año ===== */
+.cons-columnas.cons-columnas-anio {
+  display: flex;
+  height: 210px;
+  background: repeating-linear-gradient(to top, #fff 0, #fff 40px, #f0f2f4 40px, #f0f2f4 41px);
+}
+
+.cons-columnas-anio .cons-col { flex: 1 1 0; min-width: 0; max-width: 140px; margin: 0 auto; }
+.cons-columnas-anio .cons-col-valor { font-size: 10px; }
+.cons-columnas-anio .cons-col-mes { font-size: 11px; }
+
+.cons-apil-chip small { color: #8f979f; font-size: 10.5px; font-weight: 600; }
+
+/* Anual: HH por subproyecto + ausencias, en dos columnas */
+.cons-graficos.cons-graficos-2 { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) !important; }
+.cons-graficos.cons-graficos-2 .cons-graf-ancho { grid-column: auto; }
+@media (max-width: 1100px) {
+  .cons-graficos.cons-graficos-2 { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* ===== HH trabajadas por trabajador (anual, barras) ===== */
+.cons-trab {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 28px;
+  padding: 12px 16px 14px;
+}
+
+.cons-trab-fila {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 4px;
+  border-bottom: 1px dashed #eef1f4;
+  border-radius: 6px;
+  cursor: help;
+}
+
+.cons-trab-fila:hover { background: #f7fafc; }
+
+.cons-trab-num {
+  flex: 0 0 22px;
+  padding-top: 1px;
+  color: #a3abb3;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.cons-trab-info { flex: 1 1 auto; min-width: 0; }
+
+.cons-trab-cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+}
+
+.cons-trab-nombre {
+  min-width: 0;
+  overflow: hidden;
+  color: #24404f;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cons-trab-valor { flex: 0 0 auto; color: #59636e; font-variant-numeric: tabular-nums; }
+.cons-trab-valor b { color: #075f91; font-size: 13px; }
+
+.cons-trab-pista { height: 9px; overflow: hidden; border-radius: 5px; background: #eef1f4; }
+
+.cons-trab-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #075f91 0%, #1089bd 100%);
+  transition: width .5s ease;
+}
+
+.cons-trab-fila:first-child .cons-trab-fill,
+.cons-trab-fila:nth-child(2) .cons-trab-fill { background: linear-gradient(90deg, #075f91 0%, #1089bd 100%); }
+
+.cons-trab-sub { display: block; margin-top: 3px; color: #8f979f; font-size: 10.5px; font-weight: 600; }
+
+@media (max-width: 991px) {
+  .cons-trab { grid-template-columns: minmax(0, 1fr); }
+}

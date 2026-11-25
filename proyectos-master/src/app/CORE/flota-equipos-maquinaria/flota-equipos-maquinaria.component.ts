@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import * as firebase from 'firebase/app';
 import 'firebase/firestore';
 import 'firebase/storage';
+import { esUsuarioAdministracion } from '../perfil-administracion';
 
 export interface TipoDocFlota {
   key: string;
@@ -117,6 +118,10 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   vehiculos: any[] = [];
   filtrados: any[] = [];
   cargando = true;
+
+  /** Solo el perfil Administración (colección perfilesExtra) puede crear, editar y eliminar. */
+  puedeEditar = false;
+  cargandoPermiso = true;
   errorCarga = '';
   busqueda = '';
   filtroEstado = 'activos';
@@ -199,6 +204,11 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.db = firebase.firestore();
     this.storage = firebase.storage();
+
+    esUsuarioAdministracion().then(esAdm => this.zone.run(() => {
+      this.puedeEditar = esAdm;
+      this.cargandoPermiso = false;
+    }));
 
     this.unsub = this.db.collection('flota').onSnapshot((snap: any) => {
       this.zone.run(() => {
@@ -669,6 +679,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   nuevo() {
+    if (!this.puedeEditar) { return; }
     this.modoForm = 'nuevo';
     this.form = this.formVacio(this.tabActiva);
     this.fotoFile = null;
@@ -678,6 +689,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   editar(v: any) {
+    if (!this.puedeEditar) { return; }
     this.modoForm = 'editar';
     const f = this.formVacio(v.categoria);
     Object.keys(f).forEach(k => {
@@ -706,6 +718,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   onFoto(ev: any) {
+    if (!this.puedeEditar) { return; }
     const input = ev.target;
     const f: File = input.files && input.files[0];
     if (!f) { return; }
@@ -727,6 +740,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   guardar() {
+    if (!this.puedeEditar) { return; }
     if (this.guardando) { return; }
     this.errorForm = '';
     const f = this.form;
@@ -877,6 +891,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   // ───────────────────────── Importar desde Excel (equipos / maquinarias) ─────────────────────────
 
   abrirImport() {
+    if (!this.puedeEditar) { return; }
     this.importCat = this.tabActiva;
     this.textoImport = '';
     this.filasImport = [];
@@ -1053,6 +1068,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   importar() {
+    if (!this.puedeEditar) { return; }
     const nuevas = this.filasNuevasImport;
     if (!nuevas.length || this.importando) { return; }
     this.importando = true;
@@ -1341,6 +1357,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   nuevaMant(veh?: any) {
+    if (!this.puedeEditar) { return; }
     this.formMant = {
       numeroDoc: String(this.siguienteNumeroDoc()),
       fecha: this.hoyISO(),
@@ -1428,6 +1445,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   onArchivosMant(ev: any) {
+    if (!this.puedeEditar) { return; }
     const input = ev.target;
     const files: File[] = Array.prototype.slice.call(input.files || []);
     input.value = '';
@@ -1446,11 +1464,13 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   quitarAdjuntoMant(a: any) {
+    if (!this.puedeEditar) { return; }
     this.formMant.adjuntos = this.formMant.adjuntos.filter((x: any) => x.path !== a.path);
     if (a.path) { this.pathsMantBorrar.push(a.path); }
   }
 
   guardarMant() {
+    if (!this.puedeEditar) { return; }
     if (this.guardandoMant) { return; }
     this.errorFormMant = '';
     const f = this.formMant;
@@ -1504,6 +1524,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   eliminarMant(m: any) {
+    if (!this.puedeEditar) { return; }
     if (!m) { return; }
     const ok = confirm('¿Eliminar la mantención N° ' + (m.numeroDoc || '—') + ' de ' + m.patente + ' (' + this.formatoFecha(m.fecha) + ')?\n\n' +
                        'Se borrarán también sus adjuntos. Esta acción no se puede deshacer.');
@@ -1525,6 +1546,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   // ───────────────────────── Eliminar ─────────────────────────
 
   eliminarVehiculo(v: any) {
+    if (!this.puedeEditar) { return; }
     if (!v || this.eliminandoId) { return; }
     const nombre = v.categoria === 'equipo'
       ? '"' + this.titulo(v) + '"' + (v.codigo ? ' (N° serie ' + v.codigo + ')' : '')
@@ -1600,6 +1622,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   guardarFechas(t: TipoDocFlota) {
+    if (!this.puedeEditar) { return; }
     const veh = this.vehSel;
     const fe = this.fechasEdit[t.key];
     this.msgDetalle = '';
@@ -1615,6 +1638,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   toggleNoAplica(t: TipoDocFlota, valor: boolean) {
+    if (!this.puedeEditar) { return; }
     const upd: any = { actualizado: Date.now() };
     upd['documentos.' + t.key + '.noAplica'] = !!valor;
     this.db.collection('flota').doc(this.vehSel.id).update(upd)
@@ -1622,6 +1646,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   subirDoc(t: TipoDocFlota, ev: any) {
+    if (!this.puedeEditar) { return; }
     const input = ev.target;
     const file: File = input.files && input.files[0];
     input.value = '';
@@ -1664,6 +1689,7 @@ export class FlotaEquiposMaquinariaComponent implements OnInit, OnDestroy {
   }
 
   eliminarArchivo(t: TipoDocFlota, a: any) {
+    if (!this.puedeEditar) { return; }
     if (!confirm('¿Eliminar "' + (a.descripcion || a.nombre) + '"?')) { return; }
     const veh = this.vehSel;
     const lista = this.archivosDe(veh, t.key).filter(x => x.path !== a.path);

@@ -1,11 +1,6 @@
 <ng-container
     *ngIf="perfiles$ | async  | orderPerfiles as perfiles">
-    <!-- <ul>
-                                    <li class="d-flex bold">
-                                        <div>Usuario</div>
-                                        <div *ngFor="let perfil of perfiles">{{perfil.nombrePerfil}}</div>
-                                    </li>
-                                </ul> -->
+    <div class="alerta-core" *ngIf="errorAdminCore">{{errorAdminCore}}</div>
     <table class="table table-bordered table-striped table-hover no-footer">
         <thead>
             <tr>
@@ -14,6 +9,7 @@
                 <th colspan="2" class="licitaciones">LICITACIONES</th>
                 <th colspan="3" class="finanzas">FINANZAS</th>
                 <th>INTERNO</th>
+                <th class="core">SCORH</th>
             </tr>
             <tr>
                 <th>Usuario</th>
@@ -23,6 +19,7 @@
                     'finanzas': perfil.nombrePerfil.toUpperCase() == 'ADMINISTRACION' || perfil.nombrePerfil.toUpperCase() == 'JEFEADMINISTRACION' || perfil.nombrePerfil.toUpperCase() == 'GENERENTE-ADMINISTRACION' 
                 }"
                 >{{perfil.nombrePerfil}}</th>
+                <th class="core" title="Puede editar Control Asistencia y Flota, Equipos y Maquinaria">ADMINISTRACION SCORH</th>
             </tr>
         </thead>
         <tbody *ngIf="usuariosPerfiles">
@@ -34,7 +31,42 @@
                         <mat-icon *ngSwitchDefault (click)="addPerfil(user,perfil)">crop_square</mat-icon>
                     </div>
                 </td>
+                <td class="core-col">
+                    <div class="perfil" (click)="toggleAdminCore(user)"
+                         [class.ocupado]="cargandoAdminCore || guardandoAdminCore[user.idUsuario]">
+                        <i *ngIf="cargandoAdminCore || guardandoAdminCore[user.idUsuario]" class="fa fa-spinner fa-spin core-spin" aria-hidden="true"></i>
+                        <ng-container *ngIf="!cargandoAdminCore && !guardandoAdminCore[user.idUsuario]">
+                            <mat-icon *ngIf="esAdminCore(user)" class="text-success">check</mat-icon>
+                            <mat-icon *ngIf="!esAdminCore(user)">crop_square</mat-icon>
+                        </ng-container>
+                    </div>
+                </td>
             </tr>
         </tbody>
     </table>
 </ng-container>
+
+<!-- Popup confirmación SCOREH -->
+<div class="pc-fondo" *ngIf="confirmUser" (mousedown)="clickFondoConfirm($event)">
+    <div class="pc-modal" role="dialog" aria-modal="true" aria-labelledby="pc-titulo">
+        <div class="pc-cab" [class.pc-cab-quitar]="!confirmDar">
+            <span class="pc-ico"><i class="fa" [ngClass]="confirmDar ? 'fa-shield' : 'fa-user-times'" aria-hidden="true"></i></span>
+            <div>
+                <span class="pc-kicker">SCOREH</span>
+                <h4 id="pc-titulo">{{ confirmDar ? 'Dar permisos' : 'Quitar permisos' }}</h4>
+            </div>
+        </div>
+        <div class="pc-cuerpo">
+            <p>
+                {{ confirmDar ? '¿Estás seguro que quieres darle permisos a este usuario en SCOREH?' : '¿Estás seguro que quieres quitarle los permisos a este usuario en SCOREH?' }}
+            </p>
+            <div class="pc-usuario"><i class="fa fa-user" aria-hidden="true"></i> {{confirmUser.nombreUsuario}}</div>
+        </div>
+        <div class="pc-pie">
+            <button type="button" class="pc-btn pc-btn-gris" (click)="cancelarConfirm()">Cancelar</button>
+            <button type="button" class="pc-btn" [ngClass]="confirmDar ? 'pc-btn-azul' : 'pc-btn-rojo'" (click)="aceptarConfirm()">
+                <i class="fa fa-check" aria-hidden="true"></i> {{ confirmDar ? 'Sí, dar permisos' : 'Sí, quitar' }}
+            </button>
+        </div>
+    </div>
+</div>

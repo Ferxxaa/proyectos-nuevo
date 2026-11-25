@@ -784,3 +784,18 @@
 .fl-tabla thead th.fl-th-activo { color: #075f91; }
 .fl-tabla thead th.fl-th-activo .fa { color: #075f91; }
 .fl-campo input.fl-input-auto { background: #f0f9f4; border-color: #9fd6b6; }
+/* Solo lectura (usuarios sin perfil Administración) */
+.fl-sl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.fl-na input:disabled { cursor: not-allowed; }

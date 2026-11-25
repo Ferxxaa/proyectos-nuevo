@@ -6,6 +6,7 @@ import { sPerfil } from '../../services/sPerfil.service';
 import { ACCIDENTES_HISTORICOS, AccidenteHistorico } from './accidentes-historicos';
 import { sumarHHPrograma, formatoHM, juntarTrabajadoresPorDia, promedioTrabajadores, registrosDe } from '../programa-sso/programa-registro';
 import { getHhIndice } from '../estadisticas-hh/estadisticas-hh.component';
+import { HORAS_JORNADA } from '../estadisticas-hh/control-asistencia.component';
 
 import * as firebase from 'firebase/app';
 import 'firebase/storage';
@@ -19,6 +20,8 @@ declare var Swal: any;
 const COLECCION = 'accidentesSSO';
 const COLECCION_MA = 'estadisticasMA';
 const COLECCION_CERTIFICADOS_MA = 'certificadosMA';
+/** Control de Asistencia (CORE): de aquí sale el gráfico "HH trabajadas por mes" del consolidado SSO. */
+const COLECCION_ASISTENCIA = 'asistenciaHH';
 const MAX_MB_CERTIFICADO = 50;
 const MAX_MB_ADJUNTO = 50;
 /** Misma clave del candado de Control de Hallazgos (hash + salt en hallazgosConfig). */
@@ -328,9 +331,20 @@ export class EstadisticasSsoComponent implements OnInit {
   // Gráficos del Consolidado SSO
   graficoHHMes: { mes: number, corto: string, nombre: string, valor: number, texto: string, alto: number }[] = [];
   graficoCapMes: { mes: number, corto: string, nombre: string, op: number, esp: number, total: number, texto: string, alto: number }[] = [];
-  graficoObras: { nombre: string, hh: number, textoHH: string, anchoHH: number, desglose: string,
+  graficoObras: { nombre: string, hh: number, textoHH: string, pctHH: string, anchoHH: number, desglose: string,
                   op: number, esp: number, cap: number, textoCap: string, anchoOp: number, anchoEsp: number }[] = [];
   hayGraficoHH = false;
+  /** "Detalle mes a mes" en gráficos (año completo): grupos con un mini gráfico por concepto. */
+  detalleGrupos: { grupo: string, titulo: string, icono: string, num: number, graficos: any[] }[] = [];
+  /** "Detalle por obra" en gráficos (vista por mes): un gráfico de barras por concepto. */
+  detalleMesGraficos: any[] = [];
+  /** Total del año del gráfico "HH trabajadas por mes" (Control de Asistencia). */
+  totalHHAsistencia: string = '-';
+  errorAsistenciaHH: boolean = false;
+  /** HH de asistencia por subproyecto y mes: días × 8,5 + horas extra. */
+  private registrosAsistencia: { idSubProyecto: string, nombre: string, anio: number, mes: number, hh: number, personas: string[] }[] = [];
+  /** Total del año del gráfico "Por obra": HH (asistencia) y capacitación. */
+  graficoObrasTotal: { textoHH: string, textoCap: string } = { textoHH: '-', textoCap: '-' };
   hayGraficoCap = false;
 
   // Vista del Consolidado SSO: año completo o un mes
@@ -357,6 +371,20 @@ export class EstadisticasSsoComponent implements OnInit {
   consolidadoMAProyectos: ProyectoConsolidadoMA[] = [];
   consolidadoMATotalesProyectos: string[] = [];
   consolidadoMAResumen: any = { subproyectos: 0, agua: '-', combustible: '-', residuos: '-' };
+  /** Consolidado MA en gráficos: uno por indicador, mes a mes (línea con puntos o columnas). */
+  maGraficosMes: any[] = [];
+  /** Consolidado MA en gráficos: reparto del total del año por subproyecto (dona). */
+  maDonas: any[] = [];
+  maIndicadoresSinDatos: string[] = [];
+  /** Pestañas del consolidado MA: 'mensual' (mes a mes, todas o una obra) | 'anual' (por año, todos los subproyectos). */
+  maVista: string = 'mensual';
+  /** Anual: un gráfico por indicador con una columna por año, apilada por subproyecto. */
+  maGraficosAnio: any[] = [];
+  maLeyendaSp: { id: string, nombre: string, color: string }[] = [];
+  maLeyendaMes: { id: string, nombre: string, color: string }[] = [];
+  maMesSinDatos: string[] = [];
+  maAnioSinDatos: string[] = [];
+  private maColoresSp: { [id: string]: string } = {};
   errorConsolidadoMA: boolean = false;
 
   private idUsuario: any = null;
@@ -1141,7 +1169,7 @@ export class EstadisticasSsoComponent implements OnInit {
           return;
         }
 
-        Promise.all([this.cargarAccidentesSistema(), this.cargarConsolidadoMA(), this.cargarConsolidadoHH(), this.cargarTablasSSO()]).then(() => {
+        Promise.all([this.cargarAccidentesSistema(), this.cargarConsolidadoMA(), this.cargarConsolidadoHH(), this.cargarTablasSSO(), this.cargarAsistenciaHH()]).then(() => {
           this.prepararHistorico();
           this.prepararConsolidadoMA();
           this.prepararConsolidadoHH();
@@ -1275,7 +1303,53 @@ export class EstadisticasSsoComponent implements OnInit {
   }
 
   reintentarConsolidadoHH() {
-    Promise.all([this.cargarConsolidadoHH(), this.cargarTablasSSO()]).then(() => this.prepararConsolidadoHH());
+    Promise.all([this.cargarConsolidadoHH(), this.cargarTablasSSO(), this.cargarAsistenciaHH()]).then(() => this.prepararConsolidadoHH());
+  }
+
+  /** Control de Asistencia de todas las obras: HH = días × 8,5 + horas extra (igual que en CORE). */
+  private cargarAsistenciaHH(): Promise<void> {
+    this.errorAsistenciaHH = false;
+    return firestoreDB.collection(COLECCION_ASISTENCIA).get()
+      .then((snapshot: any) => {
+        const registros: { idSubProyecto: string, nombre: string, anio: number, mes: number, hh: number, personas: string[] }[] = [];
+        snapshot.forEach((doc: any) => {
+          const d = doc.data() || {};
+          const anio = Number(d.anio);
+          const mes = Number(d.mes);
+          if (d.idSubProyecto === undefined || d.idSubProyecto === null || !anio || !mes || mes < 1 || mes > 12) { return; }
+          const mapa = d.trabajadores || {};
+          let hh = 0;
+          const personas: string[] = [];
+          Object.keys(mapa).forEach(k => {
+            const t = mapa[k];
+            if (!t || t.eliminado) { return; }
+            const dias = t.dias || {};
+            let trabajo = false;
+            Object.keys(dias).forEach(dia => {
+              const v = dias[dia] || {};
+              const jornada = Number(v.jornada) || 0;
+              const extra = Number(v.extra) || 0;
+              hh += jornada * HORAS_JORNADA + extra;
+              if (jornada > 0 || extra > 0) { trabajo = true; }
+            });
+            // trabajador que tuvo al menos un día trabajado en el mes (se identifica por RUT o nombre)
+            if (trabajo) {
+              const rut = String(t.rut || '').replace(/[^0-9kK]/g, '').toUpperCase();
+              const clave = rut ? 'r:' + rut : 'n:' + this.normalizarTexto((t.nombre || '') + ' ' + (t.apellido || ''));
+              if (clave !== 'n:' && personas.indexOf(clave) < 0) { personas.push(clave); }
+            }
+          });
+          if (hh || personas.length) {
+            registros.push({ idSubProyecto: String(d.idSubProyecto), nombre: d.nombreSubProyecto || '', anio: anio, mes: mes, hh: this.redondearSSO(hh), personas: personas });
+          }
+        });
+        this.registrosAsistencia = registros;
+      })
+      .catch((error: any) => {
+        console.error('Error al cargar el Control de Asistencia para el consolidado:', error);
+        this.registrosAsistencia = [];
+        this.errorAsistenciaHH = true;
+      });
   }
 
   /**
@@ -1320,9 +1394,11 @@ export class EstadisticasSsoComponent implements OnInit {
     this.registrosConsolidadoMA.forEach(r => { if (esNombre(r.nombre)) { nombres[r.idSubProyecto] = r.nombre; } });
     this.registrosConsolidadoHH.forEach(r => { if (esNombre(r.nombre)) { nombres[r.idSubProyecto] = r.nombre; } });
     this.registrosTablaSSO.forEach(r => { if (esNombre(r.nombre)) { nombres[r.idSubProyecto] = r.nombre; } });
+    this.registrosAsistencia.forEach(r => { if (esNombre(r.nombre) && !nombres[r.idSubProyecto]) { nombres[r.idSubProyecto] = r.nombre; } });
     const nombreDe = (id: string) => nombres[id] || ('Subproyecto ' + id);
     this.registrosConsolidadoHH.forEach(r => r.nombre = nombreDe(r.idSubProyecto));
     this.registrosTablaSSO.forEach(r => r.nombre = nombreDe(r.idSubProyecto));
+    this.registrosAsistencia.forEach(r => r.nombre = nombreDe(r.idSubProyecto));
 
     const anios: { [anio: number]: boolean } = {};
     const subproyectos: { [id: string]: string } = {};
@@ -1488,6 +1564,80 @@ export class EstadisticasSsoComponent implements OnInit {
       }
     ];
 
+    // ---- "Detalle mes a mes" en gráficos (mismos datos de la tabla) ----
+    const numMeses = this.mesesMA.map(m => m.numero);
+    const horasCorto = (min: number) => numero(Math.round(min / 60 * 10) / 10) + ' h';
+    const mini = (titulo: string, ayuda: string, total: string, fmt: (v: number) => string, fmtLargo: (v: number) => string,
+                  series: { nombre: string, color: string, valores: (number | null)[] }[]) => {
+      const tot = numMeses.map((m, i) => series.reduce((acc, x) => acc + (Number(x.valores[i]) || 0), 0));
+      const conDato = numMeses.map((m, i) => series.some(x => x.valores[i] !== null && x.valores[i] !== undefined));
+      const mayor = Math.max.apply(null, tot.concat([0]));
+      return {
+        titulo: titulo, ayuda: ayuda, total: total,
+        series: series.map(x => ({ nombre: x.nombre, color: x.color })),
+        color: series[0].color,
+        hay: conDato.some(x => x),
+        cols: this.mesesMA.map((m, i) => ({
+          mes: m.numero, corto: m.corto,
+          texto: conDato[i] && tot[i] ? fmt(tot[i]) : (conDato[i] ? '0' : ''),
+          alto: mayor && tot[i] ? Math.max(3, Math.round(tot[i] * 100 / mayor)) : 0,
+          titulo: m.nombre + ': ' + (conDato[i] ? fmtLargo(tot[i]) : 'sin datos')
+            + (series.length > 1 && conDato[i] ? series.map(x => '\n• ' + x.nombre + ': ' + fmtLargo(Number(x.valores[i]) || 0)).join('') : ''),
+          partes: series.map(x => ({ color: x.color, pct: tot[i] ? (Number(x.valores[i]) || 0) * 100 / tot[i] : 0 }))
+        }))
+      };
+    };
+    // N° de trabajadores del mes: personas distintas que trabajaron en todas las obras (Control de asistencia)
+    const asisDetalle = this.registrosAsistencia.filter(filtro);
+    const personasDe = (lista: { personas: string[] }[]): number => {
+      const unicas: { [clave: string]: boolean } = {};
+      lista.forEach(r => (r.personas || []).forEach(p => unicas[p] = true));
+      return Object.keys(unicas).length;
+    };
+    const personasMes = numMeses.map(m => {
+      const delMes = asisDetalle.filter(r => r.mes === m);
+      return delMes.length ? personasDe(delMes) : null;
+    });
+    const personasAnio = personasDe(asisDetalle);
+    const capSSOMes = numMeses.map(m => sumarCap(programas.filter(r => r.tipo === 'SSO'), 'total', m));
+    const capMAMes = numMeses.map(m => sumarCap(programas.filter(r => r.tipo === 'MA'), 'total', m));
+    this.detalleGrupos = [
+      {
+        grupo: 'personal', num: 1, icono: 'fa-users', titulo: 'Personal',
+        graficos: [
+          mini('N° de trabajadores', 'Personas que trabajaron en el mes, todas las obras (Control de asistencia)',
+            personasAnio ? personasAnio + ' en el año' : '-',
+            numero, (v: number) => numero(v) + (v === 1 ? ' trabajador' : ' trabajadores'),
+            [{ nombre: 'Trabajadores', color: '#1f8fd1', valores: personasMes }]),
+          mini('Horas extra', 'Horas fuera de la jornada', numero(sumarTabla(tablas, 'horasExtra')),
+            numero, numero, [{ nombre: 'Horas extra', color: '#e07b24', valores: numMeses.map(m => sumarTabla(tablas, 'horasExtra', m)) }])
+        ]
+      },
+      {
+        grupo: 'capacitacion', num: 2, icono: 'fa-graduation-cap', titulo: 'Capacitación',
+        graficos: [
+          mini('Charlas diarias', 'Charlas de 5 minutos', numero(sumarTabla(tablas, 'hhCharlasDiarias')),
+            numero, numero, [{ nombre: 'Charlas', color: '#2f9e5b', valores: numMeses.map(m => sumarTabla(tablas, 'hhCharlasDiarias', m)) }]),
+          mini('HH capacitación por origen', 'Programa SSO + Programa MA', this.textoHH(sumarCap(programas, 'total')),
+            horasCorto, (v: number) => this.textoHH(v), [
+              { nombre: 'Programa SSO', color: '#075f91', valores: capSSOMes },
+              { nombre: 'Programa MA', color: '#3f9a52', valores: capMAMes }
+            ])
+        ]
+      },
+      {
+        grupo: 'accidentes', num: 3, icono: 'fa-medkit', titulo: 'Accidentabilidad',
+        graficos: [
+          mini('N° incidentes', 'Incidentes del mes', numero(sumarTabla(tablas, 'incidentes')),
+            numero, numero, [{ nombre: 'Incidentes', color: '#e0a43a', valores: numMeses.map(m => sumarTabla(tablas, 'incidentes', m)) }]),
+          mini('Días perdidos', 'Por accidentes', numero(sumarTabla(tablas, 'diasPerdidos')),
+            numero, numero, [{ nombre: 'Días perdidos', color: '#d64545', valores: numMeses.map(m => sumarTabla(tablas, 'diasPerdidos', m)) }]),
+          mini('IS · Índice de severidad', 'Días perdidos × 1.000 / HH', numero(indiceIS(tablas, programas)),
+            numero, numero, [{ nombre: 'IS', color: '#8e6bd1', valores: numMeses.map(m => indiceIS(tablas, programas, m)) }])
+        ]
+      }
+    ];
+
     // ---- total del año por subproyecto ----
     const ids: { [id: string]: string } = {};
     tablas.forEach(r => ids[r.idSubProyecto] = r.nombre);
@@ -1537,8 +1687,12 @@ export class EstadisticasSsoComponent implements OnInit {
       : ((this.consolidadoHHSubproyectos.filter(o => o.id === subproyecto)[0] || { nombre: '' }).nombre);
 
     // ---- gráficos ----
-    // 1) HH trabajadas por mes
-    const hhMes = this.mesesMA.map(mes => Number(hhTrabajadas(tablas, programas, mes.numero)) || 0);
+    // 1) HH trabajadas por mes: desde el Control de Asistencia (días × 8,5 + horas extra)
+    const asistencia = this.registrosAsistencia.filter(filtro);
+    const hhMes = this.mesesMA.map(mes => this.redondearSSO(
+      asistencia.filter(r => r.mes === mes.numero).reduce((suma, r) => suma + r.hh, 0)));
+    const totalAsistencia = this.redondearSSO(hhMes.reduce((a, b) => a + b, 0));
+    this.totalHHAsistencia = totalAsistencia ? numero(totalAsistencia) : '-';
     const maxHH = Math.max.apply(null, hhMes.concat([0]));
     this.graficoHHMes = this.mesesMA.map((mes, i) => ({
       mes: mes.numero, corto: mes.corto, nombre: mes.nombre,
@@ -1564,24 +1718,35 @@ export class EstadisticasSsoComponent implements OnInit {
     });
     this.hayGraficoCap = maxCap > 0;
 
-    // 3) Por obra: HH trabajadas y capacitación (barras horizontales)
-    const obras = Object.keys(ids).map(id => {
-      const tab = tablas.filter(r => r.idSubProyecto === id);
+    // 3) Por obra: HH trabajadas (Control de asistencia) y capacitación (Programas), total del año
+    const idsObras: { [id: string]: string } = {};
+    Object.keys(ids).forEach(id => idsObras[id] = ids[id]);
+    asistencia.forEach(r => { if (!idsObras[r.idSubProyecto]) { idsObras[r.idSubProyecto] = r.nombre || ('Subproyecto ' + r.idSubProyecto); } });
+    const obras = Object.keys(idsObras).map(id => {
       const prog = programas.filter(r => r.idSubProyecto === id);
       const op = sumarCap(prog, 'minOperacional') || 0;
       const esp = sumarCap(prog, 'minEspecificas') || 0;
-      return { nombre: ids[id], hh: Number(hhTrabajadas(tab, prog)) || 0, op: op, esp: esp,
+      const hhAsis = this.redondearSSO(asistencia.filter(r => r.idSubProyecto === id).reduce((s, r) => s + r.hh, 0));
+      return { nombre: idsObras[id], hh: hhAsis, op: op, esp: esp,
         capSSO: sumarCap(prog.filter(r => r.tipo === 'SSO'), 'total') || 0,
         capMA: sumarCap(prog.filter(r => r.tipo === 'MA'), 'total') || 0 };
     });
     const maxObraHH = Math.max.apply(null, obras.map(o => o.hh).concat([0]));
     const maxObraCap = Math.max.apply(null, obras.map(o => o.op + o.esp).concat([0]));
+    const totalObrasHH = this.redondearSSO(obras.reduce((s, o) => s + o.hh, 0));
+    const totalObrasCap = obras.reduce((s, o) => s + o.op + o.esp, 0);
+    this.graficoObrasTotal = {
+      textoHH: totalObrasHH ? numero(totalObrasHH) : '-',
+      textoCap: totalObrasCap ? this.textoHH(totalObrasCap) : '-'
+    };
     this.graficoObras = obras.map(o => ({
       nombre: o.nombre,
-      hh: o.hh, textoHH: o.hh ? numero(o.hh) : '-',
+      hh: o.hh,
+      textoHH: o.hh ? numero(o.hh) : '',
+      pctHH: o.hh && totalObrasHH ? (Math.round(o.hh * 1000 / totalObrasHH) / 10).toString().replace('.', ',') + '%' : '',
       anchoHH: maxObraHH ? Math.round(o.hh * 100 / maxObraHH) : 0,
       op: o.op, esp: o.esp, cap: o.op + o.esp,
-      textoCap: o.op + o.esp ? this.textoHH(o.op + o.esp) : '-',
+      textoCap: o.op + o.esp ? this.textoHH(o.op + o.esp) : '',
       desglose: this.desgloseSSOMA(o.capSSO, o.capMA),
       anchoOp: maxObraCap ? o.op * 100 / maxObraCap : 0,
       anchoEsp: maxObraCap ? o.esp * 100 / maxObraCap : 0
@@ -1648,6 +1813,29 @@ export class EstadisticasSsoComponent implements OnInit {
       anchoOp: maxCapMes ? f.op * 100 / maxCapMes : 0,
       anchoEsp: maxCapMes ? f.esp * 100 / maxCapMes : 0
     })).sort((a, b) => b.valorHH - a.valorHH || b.valorCap - a.valorCap);
+
+    // ---- "Detalle por obra" del mes en gráficos (mismos datos de la tabla) ----
+    const barrasObra = (titulo: string, icono: string, color: string, total: string, valor: (f: any) => number | null) => {
+      const items = filasMes.map(f => ({ nombre: f.nombre, v: valor(f) }))
+        .filter(x => x.v !== null && x.v !== undefined)
+        .sort((a, b) => (b.v as number) - (a.v as number));
+      const mayor = Math.max.apply(null, items.map(x => x.v as number).concat([0]));
+      return {
+        titulo: titulo, icono: icono, color: color, total: total,
+        items: items.map(x => ({
+          nombre: x.nombre, texto: numero(x.v),
+          ancho: mayor && x.v ? Math.max(3, Math.round((x.v as number) * 100 / mayor)) : 0
+        }))
+      };
+    };
+    this.detalleMesGraficos = [
+      barrasObra('N° de trabajadores', 'fa-users', '#1f8fd1', numero(sumarTrabajadores(mesSel)), f => f.trab),
+      barrasObra('Horas extra', 'fa-hourglass-half', '#e07b24', numero(sumarTabla(tablas, 'horasExtra', mesSel)), f => f.extra),
+      barrasObra('Charlas diarias', 'fa-comments-o', '#2f9e5b', numero(sumarTabla(tablas, 'hhCharlasDiarias', mesSel)), f => f.charlas),
+      barrasObra('N° incidentes', 'fa-exclamation-triangle', '#e0a43a', numero(sumarTabla(tablas, 'incidentes', mesSel)), f => f.inc),
+      barrasObra('Días perdidos', 'fa-medkit', '#d64545', numero(sumarTabla(tablas, 'diasPerdidos', mesSel)), f => f.dias),
+      barrasObra('IS · Índice de severidad', 'fa-line-chart', '#8e6bd1', numero(indiceIS(tablas, programas, mesSel)), f => f.is)
+    ];
 
     const hhMesTotal = Number(hhTrabajadas(tablas, programas, mesSel)) || 0;
     const opMes = sumarCap(programas, 'minOperacional', mesSel) || 0;
@@ -1767,7 +1955,62 @@ export class EstadisticasSsoComponent implements OnInit {
       .map(id => ({ id: id, nombre: subproyectos[id] }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
+    // cada subproyecto con su color, igual en todos los gráficos
+    const paleta = ['#075f91', '#f58941', '#2bb3a3', '#8e6bd1', '#e2615b', '#4caf7a', '#e0a43a', '#5b8def', '#d16ba5', '#6b7580'];
+    this.maColoresSp = {};
+    this.consolidadoMASubproyectos.forEach((sp, i) => this.maColoresSp[sp.id] = paleta[i % paleta.length]);
+    this.maLeyendaSp = this.consolidadoMASubproyectos.map(sp => ({ id: sp.id, nombre: sp.nombre, color: this.maColoresSp[sp.id] }));
+
     this.prepararProyectosMA();
+    this.armarGraficosAnualesMA();
+    this.recalcularConsolidadoMA();
+  }
+
+  /** Anual: por indicador, una barra por año con lo de todos los subproyectos (repartida por subproyecto). */
+  private armarGraficosAnualesMA() {
+    const conDatos = this.registrosConsolidadoMA.filter(r => this.tieneDatosMA(r));
+    const anios = this.consolidadoMAAnios.slice().filter(a => a <= this.anioActualMA).sort((a, b) => b - a);
+    const graficos: any[] = [];
+    const sinDatos: string[] = [];
+    this.indicadoresMA.forEach(ind => {
+      const filas = anios.map(anio => {
+        const partes = conDatos.filter(r => r.anio === anio)
+          .map(r => ({ id: r.idSubProyecto, nombre: r.nombre, v: this.sumarMA([r], ind.campo) || 0 }))
+          .filter(x => x.v > 0)
+          .sort((a, b) => b.v - a.v);
+        return { anio: anio, total: partes.reduce((s2, x) => s2 + x.v, 0), partes: partes };
+      }).filter(f => f.total > 0);
+      if (!filas.length) { sinDatos.push(ind.etiqueta); return; }
+      const mayor = Math.max.apply(null, filas.map(f => f.total));
+      const totalTodos = filas.reduce((s2, f) => s2 + f.total, 0);
+      graficos.push({
+        indicador: ind,
+        total: this.formatearMA(totalTodos),
+        filas: filas.map(f => ({
+          anio: f.anio,
+          texto: this.formatearMA(f.total),
+          ancho: Math.max(4, Math.round(f.total * 100 / mayor)),
+          partes: f.partes.map(p => ({
+            nombre: p.nombre, color: this.maColoresSp[p.id] || '#b0b8c1',
+            pct: p.v * 100 / f.total,
+            titulo: p.nombre + ': ' + this.formatearMA(p.v) + ' ' + (ind.unidad || '') + ' (' + Math.round(p.v * 100 / f.total) + '%)'
+          }))
+        }))
+      });
+    });
+    this.maGraficosAnio = graficos;
+    this.maAnioSinDatos = sinDatos;
+  }
+
+  get nombreSubproyectoMA(): string {
+    const sp = this.consolidadoMASubproyectos.filter(x => x.id === this.consolidadoMASubproyecto)[0];
+    return sp ? sp.nombre : '';
+  }
+
+  /** Clic en un año del gráfico anual: las donas pasan a ese año. */
+  verAnioMA(anio: number) {
+    if (Number(this.consolidadoMAAnio) === anio) { return; }
+    this.consolidadoMAAnio = anio;
     this.recalcularConsolidadoMA();
   }
 
@@ -1832,12 +2075,86 @@ export class EstadisticasSsoComponent implements OnInit {
 
     this.consolidadoMATotales = this.consolidadoMAFilas.map(fila => fila.total);
 
+    const registrosAnio = this.registrosConsolidadoMA.filter(registro => registro.anio === anio && this.tieneDatosMA(registro));
+    this.armarGraficosMA(registros, registrosAnio);
+
     this.consolidadoMAResumen = {
       subproyectos: registros.length,
       agua: this.formatearMA(this.sumarMA(registros, 'consumoAgua')),
       combustible: this.formatearMA(this.sumarMA(registros, 'consumoCombustible')),
       residuos: this.formatearMA(this.sumarMA(registros, 'residuosDomiciliarios'))
     };
+  }
+
+  /**
+   * Gráficos del consolidado MA:
+   *  - Mensual: por indicador, columnas mes a mes repartidas por subproyecto (o de la obra elegida)
+   *  - Anual: reparto del total del año entre todos los subproyectos (dona)
+   */
+  private armarGraficosMA(registros: RegistroConsolidadoMA[], registrosAnio: RegistroConsolidadoMA[]) {
+    const colorSp = this.maColoresSp;
+    const graficos: any[] = [];
+    const sinDatos: string[] = [];
+    const presentes: { [id: string]: boolean } = {};
+
+    this.indicadoresMA.forEach(ind => {
+      const cols = this.mesesMA.map(m => {
+        const partes = registros
+          .map(r => ({ id: r.idSubProyecto, nombre: r.nombre, v: this.sumarMA([r], ind.campo, m.numero) || 0 }))
+          .filter(x => x.v > 0)
+          .sort((a, b) => b.v - a.v);
+        return { mes: m, total: partes.reduce((s2, x) => s2 + x.v, 0), partes: partes };
+      });
+      const totalAnio = cols.reduce((s2, c) => s2 + c.total, 0);
+      if (!totalAnio) { sinDatos.push(ind.etiqueta); return; }
+      const mayor = Math.max.apply(null, cols.map(c => c.total));
+      const conDato = cols.filter(c => c.total > 0);
+      cols.forEach(c => c.partes.forEach(p => presentes[p.id] = true));
+      graficos.push({
+        indicador: ind,
+        total: this.formatearMA(totalAnio),
+        promedio: this.formatearMA(totalAnio / conDato.length),
+        meses: conDato.length,
+        cols: cols.map(c => ({
+          mes: c.mes.numero, corto: c.mes.corto,
+          texto: c.total ? this.formatearMA(c.total) : '',
+          alto: c.total ? Math.max(4, Math.round(c.total * 100 / mayor)) : 0,
+          actual: Number(this.consolidadoMAAnio) === this.anioActualMA && c.mes.numero === this.mesActualMA,
+          titulo: c.mes.nombre + ': ' + (c.total ? this.formatearMA(c.total) + ' ' + (ind.unidad || '') : 'sin datos')
+            + (c.partes.length > 1 ? c.partes.map(p => '\n• ' + p.nombre + ': ' + this.formatearMA(p.v)).join('') : ''),
+          partes: c.partes.map(p => ({ color: colorSp[p.id] || ind.color, pct: p.v * 100 / c.total }))
+        }))
+      });
+    });
+    this.maGraficosMes = graficos;
+    this.maMesSinDatos = sinDatos;
+    this.maLeyendaMes = this.maLeyendaSp.filter(sp => presentes[sp.id]);
+
+    this.maDonas = [];
+    this.maIndicadoresSinDatos = [];
+    this.indicadoresMA.forEach(ind => {
+      const items = registrosAnio.map(r => ({ id: r.idSubProyecto, nombre: r.nombre, v: this.sumarMA([r], ind.campo) || 0 }))
+        .filter(x => x.v > 0)
+        .sort((a, b) => b.v - a.v);
+      const total = items.reduce((s2, x) => s2 + x.v, 0);
+      if (!total) { this.maIndicadoresSinDatos.push(ind.etiqueta); return; }
+      let acumulado = 0;
+      this.maDonas.push({
+        indicador: ind,
+        total: this.formatearMA(total),
+        segmentos: items.map(x => {
+          const pct = x.v / total * 100;
+          const seg = {
+            nombre: x.nombre, color: colorSp[x.id] || '#b0b8c1', valor: this.formatearMA(x.v),
+            pct: (Math.round(pct * 10) / 10).toString().replace('.', ','),
+            dash: pct.toFixed(2) + ' ' + (100 - pct).toFixed(2),
+            offset: (25 - acumulado).toFixed(2)
+          };
+          acumulado += pct;
+          return seg;
+        })
+      });
+    });
   }
 
   /** Suma un indicador de todo el año, o de un solo mes si viene el número. */

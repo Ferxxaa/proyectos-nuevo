@@ -9,10 +9,13 @@
           <span class="flota-kicker">CORE</span>
           <h2>Flota, Equipos y Maquinaria</h2>
         </div>
-        <button type="button" class="fl-btn fl-btn-transp" *ngIf="esTabEquipo || esTabMaq || esTabMant" (click)="abrirImport()">
+        <span class="fl-sl-chip" *ngIf="!cargandoPermiso && !puedeEditar" title="Solo el perfil Administración puede editar">
+          <i class="fa fa-eye"></i> Solo lectura
+        </span>
+        <button type="button" class="fl-btn fl-btn-transp" *ngIf="puedeEditar && (esTabEquipo || esTabMaq || esTabMant)" (click)="abrirImport()">
           <i class="fa fa-file-excel-o"></i> Importar desde Excel
         </button>
-        <button type="button" class="fl-btn fl-btn-blanco" (click)="esTabMant ? nuevaMant() : nuevo()">
+        <button type="button" class="fl-btn fl-btn-blanco" *ngIf="puedeEditar" (click)="esTabMant ? nuevaMant() : nuevo()">
           <i class="fa fa-plus"></i> {{ esTabMant ? 'Nueva mantención' : 'Nuevo ' + catActual.singular }}
         </button>
       </header>
@@ -104,7 +107,7 @@
               <tr *ngIf="!cargandoMant && !mantFiltradas.length">
                 <td colspan="12" class="fl-vacio">
                   No hay mantenciones para mostrar.
-                  <a href="javascript:void(0)" (click)="abrirImport()">Importar desde Excel</a>
+                  <a href="javascript:void(0)" *ngIf="puedeEditar" (click)="abrirImport()">Importar desde Excel</a>
                 </td>
               </tr>
               <tr *ngFor="let m of mantFiltradas; trackBy: trackById" (dblclick)="editarMant(m)">
@@ -129,8 +132,8 @@
                   </ng-container>
                 </td>
                 <td class="fl-acc">
-                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" (click)="editarMant(m)">Editar</button>
-                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar" (click)="eliminarMant(m)">
+                  <button type="button" class="fl-btn fl-btn-sm" [ngClass]="puedeEditar ? 'fl-btn-azul' : 'fl-btn-gris'" (click)="editarMant(m)">{{ puedeEditar ? 'Editar' : 'Ver' }}</button>
+                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar" *ngIf="puedeEditar" (click)="eliminarMant(m)">
                     <i class="fa fa-trash"></i>
                   </button>
                 </td>
@@ -274,8 +277,8 @@
                 </td>
                 <td class="fl-acc">
                   <button type="button" class="fl-btn fl-btn-gris fl-btn-sm" (click)="verDetalle(v)">Ver</button>
-                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" (click)="editar(v)">Editar</button>
-                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar"
+                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" *ngIf="puedeEditar" (click)="editar(v)">Editar</button>
+                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar" *ngIf="puedeEditar"
                           [disabled]="eliminandoId === v.id" (click)="eliminarVehiculo(v)">
                     <i class="fa" [ngClass]="eliminandoId === v.id ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
                   </button>
@@ -314,7 +317,7 @@
               <tr *ngIf="!cargando && !filtrados.length">
                 <td colspan="15" class="fl-vacio">
                   No hay maquinarias para mostrar.
-                  <a href="javascript:void(0)" (click)="abrirImport()">Importar desde Excel</a>
+                  <a href="javascript:void(0)" *ngIf="puedeEditar" (click)="abrirImport()">Importar desde Excel</a>
                 </td>
               </tr>
               <tr *ngFor="let v of filtrados; trackBy: trackById" (dblclick)="verDetalle(v)"
@@ -349,8 +352,8 @@
                 </td>
                 <td class="fl-acc">
                   <button type="button" class="fl-btn fl-btn-gris fl-btn-sm" (click)="verDetalle(v)">Ver</button>
-                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" (click)="editar(v)">Editar</button>
-                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar"
+                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" *ngIf="puedeEditar" (click)="editar(v)">Editar</button>
+                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar" *ngIf="puedeEditar"
                           [disabled]="eliminandoId === v.id" (click)="eliminarVehiculo(v)">
                     <i class="fa" [ngClass]="eliminandoId === v.id ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
                   </button>
@@ -387,7 +390,7 @@
               <tr *ngIf="!cargando && !filtrados.length">
                 <td colspan="13" class="fl-vacio">
                   No hay equipos para mostrar.
-                  <a href="javascript:void(0)" (click)="abrirImport()">Importar desde Excel</a>
+                  <a href="javascript:void(0)" *ngIf="puedeEditar" (click)="abrirImport()">Importar desde Excel</a>
                 </td>
               </tr>
               <tr *ngFor="let v of filtrados; trackBy: trackById" (dblclick)="verDetalle(v)"
@@ -410,8 +413,8 @@
                 <td class="fl-obs" [title]="v.observacion || ''">{{ v.observacion }}</td>
                 <td class="fl-acc">
                   <button type="button" class="fl-btn fl-btn-gris fl-btn-sm" (click)="verDetalle(v)">Ver</button>
-                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" (click)="editar(v)">Editar</button>
-                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar"
+                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" *ngIf="puedeEditar" (click)="editar(v)">Editar</button>
+                  <button type="button" class="fl-btn fl-btn-rojo fl-btn-sm" title="Eliminar" *ngIf="puedeEditar"
                           [disabled]="eliminandoId === v.id" (click)="eliminarVehiculo(v)">
                     <i class="fa" [ngClass]="eliminandoId === v.id ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
                   </button>
@@ -799,7 +802,7 @@
         <small>Detalle de {{ cat(vehSel.categoria).singular }} · {{ ident(vehSel) || 'sin identificador' }}</small>
       </div>
       <div class="fl-head-acc">
-        <button type="button" class="fl-btn fl-btn-blanco fl-btn-sm" (click)="editarDesdeDetalle()">
+        <button type="button" class="fl-btn fl-btn-blanco fl-btn-sm" *ngIf="puedeEditar" (click)="editarDesdeDetalle()">
           <i class="fa fa-pencil"></i> Editar
         </button>
         <button type="button" class="fl-cerrar" (click)="cerrarDetalle()">&times;</button>
@@ -900,7 +903,7 @@
                   <span class="fl-estado" [ngClass]="'fl-estado-' + st.codigo">{{ st.texto }}</span>
                 </div>
                 <label class="fl-na" *ngIf="t.requerido" title="Marcar si este documento no aplica">
-                  <input type="checkbox" [checked]="docDe(vehSel, t.key).noAplica" (change)="toggleNoAplica(t, $event.target.checked)">
+                  <input type="checkbox" [checked]="docDe(vehSel, t.key).noAplica" [disabled]="!puedeEditar" (change)="toggleNoAplica(t, $event.target.checked)">
                   No aplica
                 </label>
               </div>
@@ -909,19 +912,19 @@
                 <div class="fl-doc-fechas" *ngIf="t.vence">
                   <label>
                     <span>Emisión</span>
-                    <input type="date" [(ngModel)]="fechasEdit[t.key].fechaEmision">
+                    <input type="date" [(ngModel)]="fechasEdit[t.key].fechaEmision" [disabled]="!puedeEditar">
                   </label>
                   <label>
                     <span>Vencimiento</span>
-                    <input type="date" [(ngModel)]="fechasEdit[t.key].fechaVencimiento">
+                    <input type="date" [(ngModel)]="fechasEdit[t.key].fechaVencimiento" [disabled]="!puedeEditar">
                   </label>
-                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" title="Guardar fechas"
+                  <button type="button" class="fl-btn fl-btn-azul fl-btn-sm" title="Guardar fechas" *ngIf="puedeEditar"
                           [disabled]="!fechasCambiadas(t)" (click)="guardarFechas(t)">
                     <i class="fa fa-save"></i>
                   </button>
                 </div>
 
-                <input *ngIf="t.key === 'otros'" type="text" class="fl-otro-desc" [(ngModel)]="descOtro"
+                <input *ngIf="t.key === 'otros' && puedeEditar" type="text" class="fl-otro-desc" [(ngModel)]="descOtro"
                        placeholder="Descripción (ej: Certificación SEC N° 29261)">
 
                 <ul class="fl-archivos">
@@ -930,14 +933,14 @@
                     <a [href]="a.url" target="_blank" rel="noopener" [title]="a.nombre">{{ a.descripcion || a.nombre }}</a>
                     <span class="fl-tag" *ngIf="i === 0 && t.key !== 'otros'">Actual</span>
                     <small>{{ a.subido | date:'dd/MM/yyyy' }}</small>
-                    <button type="button" class="fl-icono-btn" title="Eliminar" (click)="eliminarArchivo(t, a)">
+                    <button type="button" class="fl-icono-btn" title="Eliminar" *ngIf="puedeEditar" (click)="eliminarArchivo(t, a)">
                       <i class="fa fa-trash"></i>
                     </button>
                   </li>
                   <li class="fl-sin" *ngIf="!archivosDe(vehSel, t.key).length">Sin archivos</li>
                 </ul>
 
-                <label class="fl-btn fl-btn-borde fl-btn-sm fl-subir" [class.fl-disabled]="subiendo[t.key]">
+                <label class="fl-btn fl-btn-borde fl-btn-sm fl-subir" *ngIf="puedeEditar" [class.fl-disabled]="subiendo[t.key]">
                   <input type="file" (change)="subirDoc(t, $event)" [disabled]="subiendo[t.key]">
                   <i class="fa" [ngClass]="subiendo[t.key] ? 'fa-spinner fa-spin' : 'fa-upload'"></i>
                   {{ subiendo[t.key] ? 'Subiendo...' : 'Subir archivo' }}
@@ -954,7 +957,7 @@
             <span class="fl-mant-total" *ngIf="mantSel.length">
               {{ mantSel.length }} registro(s) · {{ fmtMonto(totalMonto(mantSel)) }}
             </span>
-            <button type="button" class="fl-btn fl-btn-borde fl-btn-sm" (click)="nuevaMant(vehSel)" [disabled]="!vehSel.patente"
+            <button type="button" class="fl-btn fl-btn-borde fl-btn-sm" *ngIf="puedeEditar" (click)="nuevaMant(vehSel)" [disabled]="!vehSel.patente"
                     [title]="vehSel.patente ? '' : 'Este registro no tiene patente'">
               <i class="fa fa-plus"></i> Registrar mantención
             </button>
@@ -973,7 +976,7 @@
                   <td class="fl-dias fl-nowrap">{{ fmtMonto(m.monto) }}</td>
                   <td>{{ m.taller || '—' }}</td>
                   <td class="fl-acc">
-                    <button type="button" class="fl-icono-btn fl-icono-azul" title="Editar" (click)="editarMant(m)"><i class="fa fa-pencil"></i></button>
+                    <button type="button" class="fl-icono-btn fl-icono-azul" [title]="puedeEditar ? 'Editar' : 'Ver'" (click)="editarMant(m)"><i class="fa" [ngClass]="puedeEditar ? 'fa-pencil' : 'fa-eye'"></i></button>
                   </td>
                 </tr>
               </tbody>
@@ -990,7 +993,7 @@
 <div class="fl-modal-fondo" *ngIf="formMantAbierto">
   <div class="fl-modal">
     <div class="fl-modal-head">
-      <h3><i class="fa fa-wrench"></i> {{ formMant.id ? 'Editar' : 'Registrar' }} mantención</h3>
+      <h3><i class="fa fa-wrench"></i> {{ !puedeEditar ? 'Ver' : formMant.id ? 'Editar' : 'Registrar' }} mantención</h3>
       <button type="button" class="fl-cerrar" (click)="cerrarFormMant()" [disabled]="guardandoMant">&times;</button>
     </div>
 
@@ -1061,7 +1064,7 @@
             <i class="fa fa-file-o"></i>
             <a [href]="a.url" target="_blank" rel="noopener">{{ a.nombre }}</a>
             <small>{{ a.subido | date:'dd/MM/yyyy' }}</small>
-            <button type="button" class="fl-icono-btn" title="Quitar" (click)="quitarAdjuntoMant(a)"><i class="fa fa-trash"></i></button>
+            <button type="button" class="fl-icono-btn" title="Quitar" *ngIf="puedeEditar" (click)="quitarAdjuntoMant(a)"><i class="fa fa-trash"></i></button>
           </li>
           <li *ngFor="let f of archivosMantNuevos; let i = index">
             <i class="fa fa-file-o"></i>
@@ -1071,7 +1074,7 @@
           </li>
           <li class="fl-sin" *ngIf="!formMant.adjuntos.length && !archivosMantNuevos.length">Sin adjuntos</li>
         </ul>
-        <label class="fl-btn fl-btn-borde fl-btn-sm fl-subir">
+        <label class="fl-btn fl-btn-borde fl-btn-sm fl-subir" *ngIf="puedeEditar">
           <input type="file" multiple (change)="onArchivosMant($event)">
           <i class="fa fa-upload"></i> Agregar archivos
         </label>
@@ -1081,12 +1084,12 @@
     </div>
 
     <div class="fl-modal-foot">
-      <button type="button" class="fl-btn fl-btn-rojo fl-foot-izq" *ngIf="formMant.id"
+      <button type="button" class="fl-btn fl-btn-rojo fl-foot-izq" *ngIf="puedeEditar && formMant.id"
               (click)="eliminarMantDesdeForm()" [disabled]="guardandoMant">
         <i class="fa fa-trash"></i> Eliminar
       </button>
-      <button type="button" class="fl-btn fl-btn-gris" (click)="cerrarFormMant()" [disabled]="guardandoMant">Cancelar</button>
-      <button type="button" class="fl-btn fl-btn-azul" (click)="guardarMant()" [disabled]="guardandoMant">
+      <button type="button" class="fl-btn fl-btn-gris" (click)="cerrarFormMant()" [disabled]="guardandoMant">{{ puedeEditar ? 'Cancelar' : 'Cerrar' }}</button>
+      <button type="button" class="fl-btn fl-btn-azul" *ngIf="puedeEditar" (click)="guardarMant()" [disabled]="guardandoMant">
         <i class="fa" [ngClass]="guardandoMant ? 'fa-spinner fa-spin' : 'fa-save'"></i>
         {{ guardandoMant ? 'Guardando...' : 'Guardar' }}
       </button>

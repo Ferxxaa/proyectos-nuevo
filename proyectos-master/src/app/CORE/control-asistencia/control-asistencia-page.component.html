@@ -40,6 +40,12 @@
                 </button>
               </div>
 
+              <div *ngIf="soloLectura && !esCliente" role="status"
+                   style="display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:9px 14px;border:1px solid #c9dfec;border-left:4px solid #075f91;border-radius:6px;background:#f3f8fb;color:#3d4f5c;font-size:13px;">
+                <i class="fa fa-eye" aria-hidden="true" style="color:#075f91"></i>
+                <span><b>Solo lectura.</b> Solo el perfil Administración puede marcar asistencia y editar trabajadores.</span>
+              </div>
+
               <!-- ===================== CONTROL DE ASISTENCIA ===================== -->
               <div [hidden]="vista !== 'asistencia'">
 
@@ -218,7 +224,42 @@
                     </div>
                   </div>
 
-                  <div class="cons-graficos" *ngIf="consMensual.length">
+                  <div class="cons-graficos" *ngIf="consObras.length">
+                    <section class="cons-graf cons-graf-completo">
+                      <h6>
+                        <i class="fa fa-bar-chart" aria-hidden="true"></i> HH trabajadas por mes y obra · {{consAnio}}
+                        <small>{{obraSel ? 'Solo ' + nombreObraSel : 'Desde Control de asistencia'}} · clic en un mes para verlo</small>
+                      </h6>
+
+                      <!-- Leyenda: clic en una obra para verla sola -->
+                      <div class="cons-apil-ley" *ngIf="consObras.length">
+                        <button type="button" class="cons-apil-chip" [class.activa]="!obraSel" (click)="obraSel && elegirObra(obraSel)">
+                          Todas <b>{{formatear(consTotAnio.hh)}}</b> <small>en {{consAnio}}</small>
+                        </button>
+                        <button type="button" class="cons-apil-chip" *ngFor="let o of consObras"
+                                [class.activa]="obraSel === o.id" [class.apagada]="obraSel && obraSel !== o.id"
+                                (click)="elegirObra(o.id)" [title]="o.nombre + ': ' + formatear(o.total) + ' HH en ' + consAnio">
+                          <i [style.background]="o.color"></i>{{o.nombre}} <b>{{formatear(o.total)}}</b>
+                        </button>
+                      </div>
+
+                      <div class="cons-columnas">
+                        <button type="button" class="cons-col" *ngFor="let c of consApilado"
+                                [class.cons-col-actual]="c.mes === consMes" [class.cons-col-vacia]="!c.total"
+                                (click)="verMesConsolidado(c.mes)" [title]="c.texto">
+                          <span class="cons-col-valor">{{c.total ? formatear(c.total) : ''}}</span>
+                          <span class="cons-col-pista">
+                            <span class="cons-apil-fill" [style.height.%]="c.pct">
+                              <span class="cons-apil-seg" *ngFor="let s of c.segs" [style.height.%]="s.pct" [style.background]="s.color"></span>
+                            </span>
+                          </span>
+                          <span class="cons-col-mes">{{c.nombre}}</span>
+                        </button>
+                      </div>
+                    </section>
+                  </div>
+
+                  <div class="cons-graficos cons-graficos-2" *ngIf="consMensual.length">
                     <section class="cons-graf cons-graf-ancho">
                       <h6><i class="fa fa-bar-chart" aria-hidden="true"></i> HH por subproyecto <small>{{meses[consMes - 1]}} {{consAnio}}</small></h6>
                       <div class="cons-mix">
@@ -241,19 +282,6 @@
                         </div>
                       </div>
                       <div class="cons-graf-vacio" *ngIf="!consGrafSpMes.length">Sin datos</div>
-                    </section>
-                    <section class="cons-graf">
-                      <h6><i class="fa fa-trophy" aria-hidden="true"></i> Más HH del mes</h6>
-                      <div class="cons-hbarras" *ngIf="consTopMes.length">
-                        <div class="cons-hbarra" *ngFor="let b of consTopMes">
-                          <div class="cons-hbarra-cab">
-                            <span class="cons-hbarra-nombre" [title]="b.nombre"><i [style.background]="b.color"></i>{{b.nombre}}</span>
-                            <span class="cons-hbarra-valor"><b>{{formatear(b.valor)}}</b> HH<small *ngIf="b.sub"> · {{b.sub}}</small></span>
-                          </div>
-                          <div class="cons-hbarra-pista"><div class="cons-hbarra-fill" [style.width.%]="b.pct" [style.background]="b.color"></div></div>
-                        </div>
-                      </div>
-                      <div class="cons-graf-vacio" *ngIf="!consTopMes.length">Sin datos</div>
                     </section>
                     <section class="cons-graf">
                       <h6><i class="fa fa-pie-chart" aria-hidden="true"></i> Ausencias por motivo</h6>
@@ -388,19 +416,45 @@
                     </div>
                   </div>
 
-                  <div class="cons-graficos" *ngIf="consAnual.length">
+                  <div class="cons-graficos">
                     <section class="cons-graf cons-graf-completo">
-                      <h6><i class="fa fa-line-chart" aria-hidden="true"></i> HH por mes · {{consAnio}} <small>clic en una barra para ver el mes</small></h6>
-                      <div class="cons-columnas">
-                        <button type="button" class="cons-col" *ngFor="let b of consBarrasMes; let i = index"
-                                [class.cons-col-actual]="b.actual" [class.cons-col-vacia]="!b.valor"
-                                (click)="verMesConsolidado(i + 1)" [title]="meses[i] + ': ' + formatear(b.valor) + ' HH'">
-                          <span class="cons-col-valor">{{b.valor ? formatear(b.valor) : ''}}</span>
-                          <span class="cons-col-pista"><span class="cons-col-fill" [style.height.%]="b.pct"></span></span>
-                          <span class="cons-col-mes">{{b.nombre}}</span>
+                      <h6>
+                        <i class="fa fa-bar-chart" aria-hidden="true"></i> HH trabajadas por año
+                        <small>{{obraSel ? 'Solo ' + nombreObraSel : 'Desde Control de asistencia'}} · clic en un año para verlo</small>
+                      </h6>
+                      <!-- Leyenda: clic en una obra para verla sola -->
+                      <div class="cons-apil-ley" *ngIf="consObras.length">
+                        <button type="button" class="cons-apil-chip" [class.activa]="!obraSel" (click)="obraSel && elegirObra(obraSel)">
+                          Todas <b>{{formatear(consTotAnio.hh)}}</b>
+                        </button>
+                        <button type="button" class="cons-apil-chip" *ngFor="let o of consObras"
+                                [class.activa]="obraSel === o.id" [class.apagada]="obraSel && obraSel !== o.id"
+                                (click)="elegirObra(o.id)" [title]="o.nombre + ': ' + formatear(o.total) + ' HH en ' + consAnio">
+                          <i [style.background]="o.color"></i>{{o.nombre}} <b>{{formatear(o.total)}}</b>
                         </button>
                       </div>
+                      <div class="cons-graf-vacio" *ngIf="cargandoPorAnio"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Cargando...</div>
+                      <div class="cons-graf-vacio" *ngIf="!cargandoPorAnio && errorPorAnio">
+                        No se pudieron cargar los años. <a href="javascript:void(0)" (click)="cargarPorAnio()">Reintentar</a>
+                      </div>
+                      <div class="cons-columnas cons-columnas-anio" *ngIf="!cargandoPorAnio && !errorPorAnio && consPorAnio.length">
+                        <button type="button" class="cons-col" *ngFor="let c of consPorAnio"
+                                [class.cons-col-actual]="c.actual" [class.cons-col-vacia]="!c.total"
+                                (click)="verAnioConsolidado(c.anio)" [title]="c.texto">
+                          <span class="cons-col-valor">{{c.total ? formatear(c.total) : ''}}</span>
+                          <span class="cons-col-pista">
+                            <span class="cons-apil-fill" [style.height.%]="c.pct">
+                              <span class="cons-apil-seg" *ngFor="let s of c.segs" [style.height.%]="s.pct" [style.background]="s.color"></span>
+                            </span>
+                          </span>
+                          <span class="cons-col-mes">{{c.anio}}</span>
+                        </button>
+                      </div>
+                      <div class="cons-graf-vacio" *ngIf="!cargandoPorAnio && !errorPorAnio && !consPorAnio.length">Sin datos</div>
                     </section>
+                  </div>
+
+                  <div class="cons-graficos cons-graficos-2" *ngIf="consAnual.length">
                     <section class="cons-graf cons-graf-ancho">
                       <h6><i class="fa fa-bar-chart" aria-hidden="true"></i> HH por subproyecto <small>% del total del año</small></h6>
                       <div class="cons-hbarras" *ngIf="consGrafSpAnio.length">
@@ -413,19 +467,6 @@
                         </div>
                       </div>
                       <div class="cons-graf-vacio" *ngIf="!consGrafSpAnio.length">Sin datos</div>
-                    </section>
-                    <section class="cons-graf">
-                      <h6><i class="fa fa-trophy" aria-hidden="true"></i> Más HH del año</h6>
-                      <div class="cons-hbarras" *ngIf="consTopAnio.length">
-                        <div class="cons-hbarra" *ngFor="let b of consTopAnio">
-                          <div class="cons-hbarra-cab">
-                            <span class="cons-hbarra-nombre" [title]="b.nombre"><i [style.background]="b.color"></i>{{b.nombre}}</span>
-                            <span class="cons-hbarra-valor"><b>{{formatear(b.valor)}}</b> HH<small *ngIf="b.sub"> · {{b.sub}}</small></span>
-                          </div>
-                          <div class="cons-hbarra-pista"><div class="cons-hbarra-fill" [style.width.%]="b.pct" [style.background]="b.color"></div></div>
-                        </div>
-                      </div>
-                      <div class="cons-graf-vacio" *ngIf="!consTopAnio.length">Sin datos</div>
                     </section>
                     <section class="cons-graf">
                       <h6><i class="fa fa-pie-chart" aria-hidden="true"></i> Ausencias por motivo</h6>
@@ -454,44 +495,23 @@
                     <strong>Sin asistencia en {{consAnio}}</strong>
                   </div>
 
-                  <section class="core-panel" *ngIf="consAnual.length">
-                    <h6><i class="fa fa-user" aria-hidden="true"></i> HH por trabajador · {{consAnio}} <small>clic en un mes para ver su detalle · pasa el mouse para ver dónde estuvo</small></h6>
-                    <div class="core-tabla-scroll">
-                      <table class="cons-tabla cons-tabla-anual">
-                        <thead>
-                          <tr>
-                            <th class="cons-col-num">N°</th>
-                            <th class="cons-izq cons-col-nombre">Trabajador</th>
-                            <th *ngFor="let m of mesesCortos; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)"
-                                (click)="verMesConsolidado(i + 1)" [title]="'Ver ' + meses[i]">{{m}}</th>
-                            <th>Días</th>
-                            <th class="cons-col-hh">Total HH</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr *ngFor="let f of consAnual; let n = index">
-                            <td class="cons-col-num">{{n + 1}}</td>
-                            <td class="cons-izq cons-col-nombre" [title]="f.sps.join(', ')">
-                              <strong>{{f.persona.nombre}}</strong>
-                              <small>{{f.sps.length}} subproyecto{{f.sps.length === 1 ? '' : 's'}}<ng-container *ngIf="f.ausTotal"> · {{f.ausTotal}} ausencia{{f.ausTotal === 1 ? '' : 's'}}</ng-container></small>
-                            </td>
-                            <td *ngFor="let m of f.meses; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)"
-                                [class.cons-con-dato]="m.hh" [title]="m.texto"
-                                [style.background-color]="fondoCalor(m.hh)" [style.color]="textoCalor(m.hh)">{{m.hh ? formatear(m.hh) : ''}}</td>
-                            <td>{{formatear(f.dias)}}</td>
-                            <td class="cons-col-hh">{{formatear(f.hh)}}</td>
-                          </tr>
-                        </tbody>
-                        <tfoot>
-                          <tr>
-                            <td></td>
-                            <td class="cons-izq">Total por mes</td>
-                            <td *ngFor="let t of consTotAnio.meses; let i = index" class="cons-col-mes" [class.cons-mes-actual]="esMesActualCons(i + 1)">{{t ? formatear(t) : ''}}</td>
-                            <td>{{formatear(consTotAnio.dias)}}</td>
-                            <td class="cons-col-hh">{{formatear(consTotAnio.hh)}}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
+                  <section class="core-panel" *ngIf="consAnualBarras.length">
+                    <h6><i class="fa fa-user" aria-hidden="true"></i> HH trabajadas por trabajador · {{consAnio}} <small>de mayor a menor · pasa el mouse para ver el detalle por mes</small></h6>
+                    <div class="cons-trab">
+                      <div class="cons-trab-fila" *ngFor="let t of consAnualBarras; let n = index" [title]="t.texto">
+                        <span class="cons-trab-num">{{n + 1}}</span>
+                        <div class="cons-trab-info">
+                          <div class="cons-trab-cab">
+                            <span class="cons-trab-nombre">{{t.nombre}}</span>
+                            <span class="cons-trab-valor"><b>{{formatear(t.hh)}}</b> HH</span>
+                          </div>
+                          <div class="cons-trab-pista"><div class="cons-trab-fill" [style.width.%]="t.pct"></div></div>
+                          <small class="cons-trab-sub">
+                            {{formatear(t.dias)}} días<ng-container *ngIf="t.extra"> · {{formatear(t.extra)}} H.E.</ng-container>
+                            · {{t.sps.length}} obra{{t.sps.length === 1 ? '' : 's'}}<ng-container *ngIf="t.ausTotal"> · {{t.ausTotal}} ausencia{{t.ausTotal === 1 ? '' : 's'}}</ng-container>
+                          </small>
+                        </div>
+                      </div>
                     </div>
                   </section>
 
