@@ -501,6 +501,13 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   conexionGantt: ConexionGantt | null = null;
   /** Si está activo, al mover una actividad se corren las que dependen de ella (preferencia por navegador). */
   reprogramarDependencias: boolean = true;
+
+  // ---- Calendario del control: días corridos o solo días hábiles (L–V) ----
+  /** true = el plazo cuenta solo de lunes a viernes (como las planillas con sábado/domingo en rosado). Se guarda por control. */
+  soloDiasHabiles: boolean = false;
+  /** Mientras se recalculan y guardan los plazos al cambiar el calendario. */
+  cambiandoDiasHabiles: boolean = false;
+  private unsubscribeCalendario: (() => void) | null = null;
   /** Centro vertical (px, relativo al timeline) de cada fila, medido desde el DOM. */
   private ganttFilasY: { [id: string]: number } = {};
   private ganttAltoFila: number = 28;
@@ -784,6 +791,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   ngOnInit() {
     this.vistaActiva = this.vistaInicial;
     this.suscribirBloqueo();
+    this.suscribirCalendario();
     this.suscribirForecasts();
     this.suscribirCortesCurva();
     this.cargarUsuariosValidadores();
@@ -1129,6 +1137,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.suscribirPlantillasPersonalizadas();
       this.cargarValidadoresSeleccionados();
       this.suscribirBloqueo();
+      this.suscribirCalendario();
       this.suscribirForecasts();
       this.curvaPestana = 0;
       this.pestanaCurvaInicializada = false;
@@ -1150,6 +1159,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     }
     if (this.unsubscribeForecasts) {
       this.unsubscribeForecasts();
+    }
+    if (this.unsubscribeCalendario) {
+      this.unsubscribeCalendario();
     }
     if (this.unsubscribeCortesCurva) {
       this.unsubscribeCortesCurva();
@@ -3506,13 +3518,52 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return isNaN(fecha.getTime()) ? null : fecha;
   }
 
-  /** Cantidad de días (inclusive) entre dos fechas 'YYYY-MM-DD'. Devuelve 0 si falta alguna. */
+  /**
+   * Plazo en días (inicio y término inclusive) entre dos fechas 'YYYY-MM-DD'. Devuelve 0 si falta alguna.
+   * Con "solo días hábiles" no cuenta sábados ni domingos.
+   */
   private diasEntreFechasISO(desdeStr: string, hastaStr: string): number {
     const desde = this.parsearFechaISO(desdeStr);
     const hasta = this.parsearFechaISO(hastaStr);
     if (!desde || !hasta) { return 0; }
+    if (!this.soloDiasHabiles) {
+      const msPorDia = 1000 * 60 * 60 * 24;
+      return Math.round((hasta.getTime() - desde.getTime()) / msPorDia) + 1;
+    }
+    return this.contarDiasPlazo(desde, hasta);
+  }
+
+  /** ¿Este día cuenta para el plazo? Con días corridos todos cuentan; con días hábiles, solo L–V. */
+  private esDiaDePlazo(fecha: Date): boolean {
+    if (!this.soloDiasHabiles) { return true; }
+    const dia = fecha.getDay();
+    return dia !== 0 && dia !== 6;
+  }
+
+  /** Días que cuentan para el plazo entre dos fechas, ambas inclusive (0 si hasta < desde). */
+  private contarDiasPlazo(desde: Date, hasta: Date): number {
+    if (!desde || !hasta) { return 0; }
+    const ini = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate());
+    const fin = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate());
+    if (fin < ini) { return 0; }
     const msPorDia = 1000 * 60 * 60 * 24;
-    return Math.round((hasta.getTime() - desde.getTime()) / msPorDia) + 1;
+    const total = Math.round((fin.getTime() - ini.getTime()) / msPorDia) + 1;
+    if (!this.soloDiasHabiles) { return total; }
+    let n = 0;
+    const f = new Date(ini.getTime());
+    for (let i = 0; i < total; i++) {
+      if (this.esDiaDePlazo(f)) { n++; }
+      f.setDate(f.getDate() + 1);
+    }
+    return n;
+  }
+
+  /** Con días hábiles, si la fecha cae sábado o domingo la corre al lunes siguiente. */
+  private ajustarAInicioHabil(fecha: Date): Date {
+    const f = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+    let guardia = 0;
+    while (!this.esDiaDePlazo(f) && guardia++ < 7) { f.setDate(f.getDate() + 1); }
+    return f;
   }
 
   private formatearFechaISO(fecha: Date): string {
@@ -3528,9 +3579,23 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (!fechaInicio || !plazoDias || plazoDias <= 0) {
       return '';
     }
-    const fechaTermino = new Date(fechaInicio);
-    fechaTermino.setDate(fechaTermino.getDate() + (plazoDias - 1));
-    return this.formatearFechaISO(fechaTermino);
+    if (!this.soloDiasHabiles) {
+      const fechaTermino = new Date(fechaInicio);
+      fechaTermino.setDate(fechaTermino.getDate() + (plazoDias - 1));
+      return this.formatearFechaISO(fechaTermino);
+    }
+    // Días hábiles: avanza contando solo L–V hasta completar el plazo (sábado y domingo no suman)
+    const f = new Date(fechaInicio.getFullYear(), fechaInicio.getMonth(), fechaInicio.getDate());
+    let contados = 0;
+    let guardia = 0;
+    while (guardia++ < 5000) {
+      if (this.esDiaDePlazo(f)) {
+        contados++;
+        if (contados >= plazoDias) { break; }
+      }
+      f.setDate(f.getDate() + 1);
+    }
+    return this.formatearFechaISO(f);
   }
 
   /** Recalcula fechaTerminoProgramada/fechaTermino a partir de fecha inicio + plazo en días, salvo que el término se haya escrito a mano. */
@@ -3555,9 +3620,10 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     // hasta la fecha del corte se respeta lo programado antes; desde ahí, la reprogramación.
     if (this.cortesCurva && this.cortesCurva.length > 0) {
       const ahora = new Date();
-      const hoyLocal = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
-      const fraccion = this.fraccionLineaBase(this.cortesCurva.length, item, hoyLocal);
-      item.avanceProgramado = Math.min(100, Math.max(0, Math.round(fraccion * 100)));
+      // Días cerrados = hasta ayer inclusive (hoy todavía no termina), igual que la Curva S
+      const ayerLocal = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1);
+      const fraccion = this.fraccionLineaBase(this.cortesCurva.length, item, ayerLocal);
+      item.avanceProgramado = Math.min(100, Math.max(0, Math.round(fraccion * 10000) / 100));
       return;
     }
 
@@ -3592,25 +3658,29 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
 
-    if (fechaHoy < fechaInicio) {
+    // Igual que la planilla: cada día del plazo vale 1/plazo y cuenta cuando ese día ya terminó.
+    // Ej: 25/11 → 27/11 (3 días). El 26/11 lleva 1 día cerrado (el 25) = 33,33%.
+    if (fechaHoy <= fechaInicio) {
       item.avanceProgramado = 0;
       return;
     }
 
-    if (fechaHoy >= fechaTermino) {
+    if (fechaHoy > fechaTermino) {
       item.avanceProgramado = 100;
       return;
     }
 
-    const diasTotales = Math.floor((fechaTermino.getTime() - fechaInicio.getTime()) / (1000 * 60 * 60 * 24));
-    const diasTranscurridos = Math.floor((fechaHoy.getTime() - fechaInicio.getTime()) / (1000 * 60 * 60 * 24));
+    // Días que cuentan (corridos o solo hábiles): plazo completo y días ya cerrados (hasta ayer)
+    const plazoDias = this.contarDiasPlazo(fechaInicio, fechaTermino);
+    const ayer = new Date(fechaHoy.getFullYear(), fechaHoy.getMonth(), fechaHoy.getDate() - 1);
+    const diasCerrados = this.contarDiasPlazo(fechaInicio, ayer);
 
-    if (diasTotales <= 0) {
+    if (plazoDias <= 0) {
       item.avanceProgramado = 0;
       return;
     }
 
-    const porcentaje = Math.round((diasTranscurridos / diasTotales) * 100);
+    const porcentaje = Math.round((diasCerrados / plazoDias) * 10000) / 100;
     item.avanceProgramado = Math.min(Math.max(porcentaje, 0), 100);
   }
 
@@ -3654,6 +3724,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Días de desfase de la Curva S: 1 = la curva llega hasta ayer (último día terminado). */
   readonly DIAS_DESFASE_CURVA_S: number = 1;
+
+  /** Tabla de valores bajo la Curva S: plegada por defecto, se despliega con el botón. */
+  mostrarTablaCurvaS = false;
 
   /** Cada cuánto se toma un punto de la curva. 'auto' = máximo ~16 cortes. */
   curvaSEscala: 'auto' | 'dia' | 'semana' | 'mes' = 'auto';
@@ -4765,16 +4838,21 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return resultado;
   }
 
-  /** Fracción (0..1) programada entre dos fechas 'YYYY-MM-DD' a una fecha dada (lineal, igual que la tabla). */
+  /**
+   * Fracción (0..1) programada al CIERRE del día `fecha`, igual que la planilla:
+   * cada día del plazo (inicio y término inclusive) suma 1/plazo.
+   * Ej: 25/11 → 27/11 = 3 días: al cierre del 25 lleva 33,33%, del 26 66,67%, del 27 100%.
+   */
   private fraccionEntreFechasCurva(iniStr: string, finStr: string, fecha: Date): number {
     const ini = this.parsearFechaLocal(iniStr);
     const fin = this.parsearFechaLocal(finStr);
     if (!ini || !fin) { return 0; }
     if (fecha < ini) { return 0; }
     if (fecha >= fin) { return 1; }
-    const total = this.diasEntreFechas(ini, fin);
-    if (total <= 0) { return 0; }
-    return this.diasEntreFechas(ini, fecha) / total;
+    // Corridos o solo hábiles: sábado y domingo no suman avance si el control cuenta días hábiles
+    const plazoDias = this.contarDiasPlazo(ini, fin);
+    if (plazoDias <= 0) { return 0; }
+    return this.contarDiasPlazo(ini, fecha) / plazoDias;
   }
 
   /**
@@ -5984,7 +6062,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     } else {
       const avanceReal = Math.min(Math.max(Number(barra.item.avanceReal) || 0, 0), 100);
       barra.anchoRelleno = Math.round(barra.ancho * avanceReal / 100);
-      this.dragGanttEtiqueta = `${this.etiquetaDiaGantt(barra.offset)} → ${this.etiquetaDiaGantt(barra.offset + barra.ancho - 1)} · ${barra.ancho} día${barra.ancho === 1 ? '' : 's'}`;
+      this.dragGanttEtiqueta = `${this.etiquetaDiaGantt(barra.offset)} → ${this.etiquetaDiaGantt(barra.offset + barra.ancho - 1)} · ${this.plazoVivoGantt(barra)} día${this.plazoVivoGantt(barra) === 1 ? '' : 's'}${this.soloDiasHabiles ? ' háb.' : ''}`;
 
       // La fecha va apareciendo en el calendario a medida que la barra se mueve o se alarga.
       this.dragGuiaFinPx = this.ganttDiaAPixel(barra.offset) + this.ganttDiasAPixel(barra.offset, barra.ancho);
@@ -6023,14 +6101,29 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const esHito = barra.esHito;
       const anchoFinal = barra.ancho;
 
+      const modoDrag = drag.modo;
       this.aplicarCambioFechasGantt(item, () => {
-        item.fechaInicioProgramada = this.formatearFechaISO(this.fechaDesdeOffsetGantt(offsetFinal));
+        const inicioSoltado = this.fechaDesdeOffsetGantt(offsetFinal);
+        // Con días hábiles, si se suelta en sábado/domingo parte el lunes
+        const inicio = this.soloDiasHabiles && !esHito ? this.ajustarAInicioHabil(inicioSoltado) : inicioSoltado;
+        item.fechaInicioProgramada = this.formatearFechaISO(inicio);
         item.fechaInicioProgramadaManual = true; // si no, el encadenamiento la devuelve al término de la anterior
 
         if (!esHito) {
-          item.plazoProgramado = anchoFinal;
+          let plazo = anchoFinal;
+          if (this.soloDiasHabiles) {
+            if (modoDrag === 'mover' && Number(item.plazoProgramado) > 0) {
+              // Mover no cambia la duración: se mantienen los días hábiles (si cruza un fin de semana, la barra se alarga)
+              plazo = Number(item.plazoProgramado);
+            } else {
+              // Estirar: el plazo son los días hábiles que quedaron dentro de la barra
+              const finSoltado = this.fechaDesdeOffsetGantt(offsetFinal + anchoFinal - 1);
+              plazo = Math.max(1, this.contarDiasPlazo(inicio, finSoltado));
+            }
+          }
+          item.plazoProgramado = plazo;
           item.fechaTerminoProgramadaManual = false;
-          item.fechaTerminoProgramada = this.calcularFechaTerminoDesdePlazo(item.fechaInicioProgramada, anchoFinal);
+          item.fechaTerminoProgramada = this.calcularFechaTerminoDesdePlazo(item.fechaInicioProgramada, plazo);
         }
       });
 
@@ -6065,7 +6158,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const item = barra.item;
 
     this.aplicarCambioFechasGantt(item, () => {
-      item.fechaInicioProgramada = this.formatearFechaISO(this.fechaDesdeOffsetGantt(dia));
+      item.fechaInicioProgramada = this.formatearFechaISO(this.ajustarAInicioHabil(this.fechaDesdeOffsetGantt(dia)));
       item.fechaInicioProgramadaManual = true;
       if (!item.plazoProgramado || item.plazoProgramado <= 0) {
         item.plazoProgramado = this.PLAZO_DEFECTO_GANTT;
@@ -6397,6 +6490,134 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   //   una barra las dependientes se corren solas; si no, la flecha queda roja.
   // - Clic en una flecha para quitar la dependencia.
   // =========================================================================
+
+  // ---------------- Calendario: días corridos / solo días hábiles ----------------
+
+  private getIdDocCalendario(): string {
+    return 'calendario_' + (Number(this.idProyecto) || 0) + '_' + (Number(this.getIdSubProyectoActual()) || 0);
+  }
+
+  private suscribirCalendario() {
+    if (this.unsubscribeCalendario) {
+      this.unsubscribeCalendario();
+      this.unsubscribeCalendario = null;
+    }
+    this.soloDiasHabiles = false;
+    if (!Number(this.idProyecto)) { return; }
+
+    this.unsubscribeCalendario = firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocCalendario())
+      .onSnapshot((doc: any) => {
+        this._ngZone.run(() => {
+          const data = doc.exists ? doc.data() : null;
+          const valor = !!(data && data.soloDiasHabiles);
+          if (valor === this.soloDiasHabiles) { return; }
+          this.soloDiasHabiles = valor;
+          this.refrescarTrasCambioCalendario();
+        });
+      }, (error: any) => {
+        console.error('No se pudo leer el calendario del Control de Avance:', error);
+      });
+  }
+
+  private refrescarTrasCambioCalendario() {
+    this.recalcularJerarquiaYAgregados();
+    this.actualizarDatosGantt();
+    this.calcularTotalesDocumentos();
+    if (this.vistaActiva === 'curva') { this.calcularCurvaS(); }
+  }
+
+  /** Plazo que se muestra en vivo mientras se arrastra/estira una barra (corridos o hábiles). */
+  plazoVivoGantt(barra: BarraGantt): number {
+    if (!barra) { return 0; }
+    if (!this.soloDiasHabiles) { return barra.ancho; }
+    if (this.dragGantt && this.dragGantt.modo === 'mover' && Number(barra.item.plazoProgramado) > 0) {
+      return Number(barra.item.plazoProgramado);
+    }
+    const ini = this.fechaDesdeOffsetGantt(barra.offset);
+    const fin = this.fechaDesdeOffsetGantt(barra.offset + barra.ancho - 1);
+    return this.contarDiasPlazo(ini, fin);
+  }
+
+  /**
+   * Cambia el calendario del control. Las FECHAS no se mueven: se recalcula el plazo de cada lámina
+   * con sus fechas actuales (ej: 26/11 → 30/11 pasa de 5 días corridos a 3 hábiles) y se guarda.
+   */
+  async toggleSoloDiasHabiles(valor: boolean, input?: any) {
+    const revertir = () => { if (input) { input.checked = this.soloDiasHabiles; } };
+    if (!this.puedeEditarAvance || this.cambiandoDiasHabiles || valor === this.soloDiasHabiles) { revertir(); return; }
+
+    const laminas = (this.ControlesAvance || []).filter(it => it.id && it.activo !== false && !it.esTitulo);
+    const r: any = await Swal.fire({
+      icon: 'question',
+      title: valor ? 'Contar solo días hábiles (L–V)' : 'Contar días corridos',
+      html: (valor
+        ? 'Sábados y domingos <strong>no cuentan</strong> en el plazo, el % programado ni la Curva S.'
+        : 'Todos los días cuentan, incluidos sábados y domingos.')
+        + '<br><br>Las fechas de las láminas <strong>no cambian</strong>: se recalcula el plazo de '
+        + laminas.length + ' lámina(s) según sus fechas actuales.',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, cambiar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!r || !(r.value || r.isConfirmed)) { revertir(); return; }
+
+    const anterior = this.soloDiasHabiles;
+    this.cambiandoDiasHabiles = true;
+    this.soloDiasHabiles = valor;
+
+    // Plazos nuevos a partir de las fechas que ya tiene cada lámina
+    const cambios: Array<{ id: string; datos: any }> = [];
+    laminas.forEach(it => {
+      const datos: any = {};
+      if (it.fechaInicioProgramada && it.fechaTerminoProgramada) {
+        const plazo = this.diasEntreFechasISO(it.fechaInicioProgramada, it.fechaTerminoProgramada);
+        if (plazo > 0 && plazo !== Number(it.plazoProgramado)) { it.plazoProgramado = plazo; datos.plazoProgramado = plazo; }
+      }
+      if (it.fechaInicio && it.fechaTermino) {
+        const plazoReal = this.diasEntreFechasISO(it.fechaInicio, it.fechaTermino);
+        if (plazoReal > 0 && plazoReal !== Number(it.plazoReal)) { it.plazoReal = plazoReal; datos.plazoReal = plazoReal; }
+      }
+      if (Object.keys(datos).length) { cambios.push({ id: it.id, datos: datos }); }
+    });
+
+    this.historialCambiosFechasGantt = []; // los plazos cambiaron: el deshacer anterior ya no aplica
+    this.refrescarTrasCambioCalendario();
+
+    try {
+      // Firestore admite hasta 500 operaciones por batch
+      for (let i = 0; i < cambios.length; i += 400) {
+        const batch = firestoreDB.batch();
+        cambios.slice(i, i + 400).forEach(c => batch.update(firestoreDB.collection('controlAvance').doc(c.id), c.datos));
+        await batch.commit();
+      }
+      await firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocCalendario()).set({
+        soloDiasHabiles: valor,
+        idProyecto: Number(this.idProyecto) || 0,
+        idSubProyecto: Number(this.getIdSubProyectoActual()) || 0,
+        idUsuario: Number(this.usuario && this.usuario.idUsuario) || null,
+        nombre: this.getNombreUsuarioActual() || 'Usuario',
+        fechaActualizacion: new Date().toISOString()
+      });
+      this._ngZone.run(() => {
+        this.cambiandoDiasHabiles = false;
+        Swal.fire({
+          icon: 'success',
+          title: valor ? 'Ahora cuenta solo días hábiles' : 'Ahora cuenta días corridos',
+          text: cambios.length + ' plazo(s) recalculado(s).',
+          timer: 1800,
+          showConfirmButton: false
+        });
+      });
+    } catch (error) {
+      this._ngZone.run(() => {
+        this.soloDiasHabiles = anterior;
+        this.cambiandoDiasHabiles = false;
+        revertir();
+        this.refrescarTrasCambioCalendario();
+        Swal.fire('Error', 'No se pudo cambiar el calendario: ' + this.getMensajeError(error), 'error');
+      });
+    }
+  }
 
   toggleReprogramarDependencias(valor: boolean) {
     this.reprogramarDependencias = !!valor;
@@ -6762,8 +6983,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
           if (!predecesora) { return; }
           const fin = this.parsearFechaISO(predecesora.fechaTerminoProgramada || predecesora.fechaInicioProgramada);
           if (!fin) { return; }
-          const siguiente = new Date(fin);
+          let siguiente = new Date(fin);
           siguiente.setDate(siguiente.getDate() + 1);
+          siguiente = this.ajustarAInicioHabil(siguiente); // con días hábiles: viernes → lunes
           if (!inicioMinimo || siguiente > inicioMinimo) { inicioMinimo = siguiente; }
         });
         if (!inicioMinimo) { return; }

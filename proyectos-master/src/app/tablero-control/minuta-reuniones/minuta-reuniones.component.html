@@ -1,0 +1,195 @@
+<section class="minuta-reuniones" [attr.data-subproyecto-id]="idSubProyecto">
+  <header class="minuta-reuniones-encabezado">
+    <span class="minuta-reuniones-icono" aria-hidden="true">
+      <i class="fa fa-users"></i>
+    </span>
+    <div class="minuta-reuniones-titulo">
+      <h3>Minuta Reuniones</h3>
+      <p>{{nombreSubProyecto || 'Subproyecto actual'}}</p>
+    </div>
+
+    <div class="minuta-reuniones-acciones">
+      <select *ngIf="minutas.length" class="mr-control mr-select-minuta"
+              [ngModel]="minutaActual?.numero"
+              (ngModelChange)="seleccionarMinuta($event)">
+        <option *ngFor="let m of minutas" [value]="m.numero">Minuta N° {{m.numero}} · {{m.fecha | date:'dd/MM/yyyy'}}</option>
+      </select>
+      <button type="button" class="mr-btn mr-btn-primario" (click)="nuevaMinuta()">
+        <i class="fa fa-plus"></i> Nueva minuta
+      </button>
+    </div>
+  </header>
+
+  <!-- Vacío -->
+  <div class="minuta-reuniones-vacio" *ngIf="!minutaActual">
+    <i class="fa fa-file-text-o" aria-hidden="true"></i>
+    <h4>Minutas de reuniones</h4>
+    <p>Este espacio corresponde a las reuniones de este subproyecto.</p>
+    <button type="button" class="mr-btn mr-btn-primario" (click)="nuevaMinuta()">
+      <i class="fa fa-plus"></i> Crear primera minuta
+    </button>
+  </div>
+
+  <ng-container *ngIf="minutaActual as m">
+
+    <!-- Resumen -->
+    <div class="mr-resumen">
+      <div class="mr-resumen-principal">
+        <span class="mr-badge-numero">N° {{m.numero}}</span>
+        <div>
+          <strong>{{m.proyecto || 'Sin nombre de proyecto'}}</strong>
+          <small>Reunión del {{m.fecha | date:'dd/MM/yyyy'}}<ng-container *ngIf="m.codigo"> · {{m.codigo}}</ng-container></small>
+        </div>
+      </div>
+      <div class="mr-resumen-estados">
+        <span class="mr-resumen-total">{{totalItems()}} ítems</span>
+        <ng-container *ngFor="let e of estados">
+          <span class="mr-pill" [ngClass]="claseEstado(e)" *ngIf="totalEstado(e)">
+            {{totalEstado(e)}} {{e | titlecase}}
+          </span>
+        </ng-container>
+      </div>
+    </div>
+
+    <!-- Datos de la reunión -->
+    <div class="mr-card">
+      <div class="mr-card-header">
+        <h4><i class="fa fa-info-circle"></i> Datos de la reunión</h4>
+      </div>
+      <div class="mr-card-body mr-grid-datos">
+        <label class="mr-campo mr-campo-ancho">
+          <span>Proyecto</span>
+          <input class="mr-control" [(ngModel)]="m.proyecto" placeholder="Nombre del proyecto">
+        </label>
+        <label class="mr-campo">
+          <span>Fecha</span>
+          <input type="date" class="mr-control" [(ngModel)]="m.fecha">
+        </label>
+        <label class="mr-campo">
+          <span>Código</span>
+          <input class="mr-control" [(ngModel)]="m.codigo" placeholder="TRZ ...">
+        </label>
+        <label class="mr-campo">
+          <span>Mandante</span>
+          <input class="mr-control" [(ngModel)]="m.mandante" placeholder="Empresa mandante">
+        </label>
+        <label class="mr-campo">
+          <span>Contacto</span>
+          <input class="mr-control" [(ngModel)]="m.contacto" placeholder="Nombre del contacto">
+        </label>
+        <label class="mr-campo mr-campo-ancho">
+          <span>Dirección</span>
+          <input class="mr-control" [(ngModel)]="m.direccion" placeholder="Dirección">
+        </label>
+      </div>
+    </div>
+
+    <!-- Asistentes -->
+    <div class="mr-card">
+      <div class="mr-card-header">
+        <h4><i class="fa fa-user-circle-o"></i> Asistentes</h4>
+      </div>
+      <div class="mr-card-body mr-grid-asistentes">
+        <ng-container *ngTemplateOutlet="bloqueAsistentes; context: { titulo: 'Mandante', lista: m.asistentesMandante, empresa: '' }"></ng-container>
+        <ng-container *ngTemplateOutlet="bloqueAsistentes; context: { titulo: 'Trazas', lista: m.asistentesTrazas, empresa: 'TRAZAS' }"></ng-container>
+      </div>
+    </div>
+
+    <ng-template #bloqueAsistentes let-titulo="titulo" let-lista="lista" let-empresa="empresa">
+      <div class="mr-asistentes">
+        <div class="mr-asistentes-header">
+          <span>{{titulo}} <em>{{lista.length}}</em></span>
+          <button type="button" class="mr-btn-link" (click)="agregarAsistente(lista, empresa)">
+            <i class="fa fa-plus"></i> Agregar
+          </button>
+        </div>
+
+        <div class="mr-asistente" *ngFor="let a of lista; let i = index; trackBy: trackByIndex">
+          <span class="mr-avatar">{{(a.nombre || '?').charAt(0) | uppercase}}</span>
+          <div class="mr-asistente-campos">
+            <input class="mr-input-plano mr-asistente-nombre" [(ngModel)]="a.nombre" placeholder="Nombre">
+            <div class="mr-asistente-sub">
+              <input class="mr-input-plano" [(ngModel)]="a.cargo" placeholder="Cargo">
+              <input class="mr-input-plano" [(ngModel)]="a.empresa" placeholder="Empresa">
+            </div>
+          </div>
+          <select class="mr-asistencia" [ngClass]="claseAsistencia(a.asistencia)" [(ngModel)]="a.asistencia">
+            <option value="">Asistencia</option>
+            <option *ngFor="let o of opcionesAsistencia" [value]="o">{{o}}</option>
+          </select>
+          <button type="button" class="mr-btn-icono" title="Quitar" (click)="quitarAsistente(lista, i)">
+            <i class="fa fa-trash-o"></i>
+          </button>
+        </div>
+
+        <p class="mr-vacio-inline" *ngIf="!lista.length">Sin asistentes registrados.</p>
+      </div>
+    </ng-template>
+
+    <!-- Secciones -->
+    <div class="mr-card mr-seccion" *ngFor="let s of m.secciones">
+      <div class="mr-card-header mr-seccion-header" (click)="toggleSeccion(s)">
+        <h4>
+          <i class="fa mr-chevron" [ngClass]="colapsadas[s.titulo] ? 'fa-chevron-right' : 'fa-chevron-down'"></i>
+          {{s.titulo}}
+          <span class="mr-contador">{{s.items.length}}</span>
+        </h4>
+        <div class="mr-seccion-meta">
+          <ng-container *ngFor="let e of estados">
+            <span class="mr-pill mr-pill-sm" [ngClass]="claseEstado(e)" *ngIf="contarEstado(s, e)">
+              {{contarEstado(s, e)}} {{e | titlecase}}
+            </span>
+          </ng-container>
+          <button type="button" class="mr-btn mr-btn-secundario" (click)="$event.stopPropagation(); agregarItem(s)">
+            <i class="fa fa-plus"></i> Ítem
+          </button>
+        </div>
+      </div>
+
+      <div class="mr-card-body mr-sin-padding" *ngIf="!colapsadas[s.titulo]">
+        <table class="mr-tabla" *ngIf="s.items.length; else sinItems">
+          <thead>
+            <tr>
+              <th class="col-item">#</th>
+              <th class="col-alcance">Alcance</th>
+              <th class="col-comentario">Comentario</th>
+              <th class="col-responsable">Responsable</th>
+              <th class="col-fecha">Fecha</th>
+              <th class="col-compromiso">Compromiso</th>
+              <th class="col-estado">Estado</th>
+              <th class="col-accion"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let it of s.items; let i = index; trackBy: trackByIndex">
+              <td class="col-item"><span class="mr-num">{{i + 1}}</span></td>
+              <td><textarea class="mr-input-plano mr-bold" rows="2" [(ngModel)]="it.alcance" placeholder="Alcance"></textarea></td>
+              <td><textarea class="mr-input-plano" rows="2" [(ngModel)]="it.comentario" placeholder="Comentario"></textarea></td>
+              <td><input class="mr-input-plano" [(ngModel)]="it.responsable" placeholder="Responsable"></td>
+              <td><input type="date" class="mr-input-plano" [(ngModel)]="it.fecha"></td>
+              <td><textarea class="mr-input-plano" rows="2" [(ngModel)]="it.compromiso" placeholder="Compromiso"></textarea></td>
+              <td>
+                <select class="mr-pill mr-pill-select" [ngClass]="claseEstado(it.estado)" [(ngModel)]="it.estado">
+                  <option *ngFor="let e of estados" [value]="e">{{e | titlecase}}</option>
+                </select>
+              </td>
+              <td class="col-accion">
+                <button type="button" class="mr-btn-icono" title="Quitar" (click)="quitarItem(s, i)">
+                  <i class="fa fa-trash-o"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <ng-template #sinItems>
+          <p class="mr-vacio-inline mr-vacio-seccion">
+            Sin ítems en esta sección.
+            <button type="button" class="mr-btn-link" (click)="agregarItem(s)"><i class="fa fa-plus"></i> Agregar ítem</button>
+          </p>
+        </ng-template>
+      </div>
+    </div>
+
+  </ng-container>
+</section>

@@ -92,6 +92,7 @@ import { sVis_ProyectoMatriz } from './services/sVis_ProyectoMatriz.service';
 import { sVis_Proyectos } from './services/sVis_Proyectos.service';
 import { sVis_SubProyecto } from './services/sVis_SubProyecto.service';
 import { ProgramaSsoComponent } from './Proyectos/programa-sso/programa-sso.component';
+import { MinutaReunionesComponent } from './tablero-control/minuta-reuniones/minuta-reuniones.component';
 
 const route = [
   {
@@ -313,7 +314,8 @@ const route = [
     FlotaEquiposMaquinariaComponent,
     ConsolidadoHhComponent,
     EstadisticasSsoComponent,
-    ProgramaSsoComponent
+    ProgramaSsoComponent,
+    MinutaReunionesComponent
   ],
   imports: [
     // FormsModule ya está importado aquí, lo que permite usar [(ngModel)] en los templates de este módulo.

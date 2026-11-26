@@ -363,11 +363,11 @@
         </tr>
         <tr class="fila-subgrupos-thead">
           <th class="col-fecha sub-programado">F. inicio</th>
-          <th class="col-plazo sub-programado">Plazo</th>
+          <th class="col-plazo sub-programado" [title]="soloDiasHabiles ? 'Plazo en días hábiles (L–V)' : 'Plazo en días corridos'">Plazo{{ soloDiasHabiles ? ' háb.' : '' }}</th>
           <th class="col-fecha-auto sub-programado">F. término</th>
           <th class="col-avance sub-programado">% avance</th>
           <th class="col-fecha sub-real">F. inicio</th>
-          <th class="col-plazo sub-real">Plazo</th>
+          <th class="col-plazo sub-real" [title]="soloDiasHabiles ? 'Plazo en días hábiles (L–V)' : 'Plazo en días corridos'">Plazo{{ soloDiasHabiles ? ' háb.' : '' }}</th>
           <th class="col-fecha-auto sub-real">F. término</th>
           <th class="col-avance sub-real">% avance</th>
         </tr>
@@ -867,7 +867,17 @@
         </svg>
       </div>
 
-      <div class="curva-s-tabla-wrap">
+      <!-- Tabla de valores de la Curva S: plegable (por defecto oculta) -->
+      <button type="button" class="cs-tabla-toggle" (click)="mostrarTablaCurvaS = !mostrarTablaCurvaS"
+              [class.abierta]="mostrarTablaCurvaS"
+              [title]="mostrarTablaCurvaS ? 'Ocultar la tabla de valores' : 'Ver la tabla de valores'">
+        <i class="fa" [ngClass]="mostrarTablaCurvaS ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+        <i class="fa fa-table"></i>
+        {{ mostrarTablaCurvaS ? 'Ocultar tabla de valores' : 'Ver tabla de valores' }}
+        <span class="cs-tabla-toggle-info">({{ curvaS.puntos.length }} fechas)</span>
+      </button>
+
+      <div class="curva-s-tabla-wrap" *ngIf="mostrarTablaCurvaS">
         <table class="curva-s-tabla">
           <thead>
             <tr>
@@ -1153,6 +1163,18 @@
         <i class="fa fa-link"></i> Mover dependientes
       </label>
 
+      <!-- Calendario del control: con esto marcado, sábados y domingos no cuentan en plazos, % programado ni Curva S -->
+      <label class="gantt-reprogramar gantt-dias-habiles" *ngIf="!modoSoloLectura"
+             [class.activo]="soloDiasHabiles"
+             title="Marcado: el plazo cuenta solo de lunes a viernes (sábado y domingo no suman avance). Al cambiarlo, las fechas no se mueven: se recalcula el plazo de cada lámina. Aplica a todo este control.">
+        <input type="checkbox" [checked]="soloDiasHabiles" [disabled]="cambiandoDiasHabiles || !puedeEditarAvance"
+               (change)="toggleSoloDiasHabiles($event.target.checked, $event.target)">
+        <i class="fa" [ngClass]="cambiandoDiasHabiles ? 'fa-spinner fa-spin' : 'fa-calendar-check-o'"></i> Solo días hábiles (L–V)
+      </label>
+      <span class="gantt-dias-habiles-info" *ngIf="modoSoloLectura && soloDiasHabiles" title="Este control cuenta solo días hábiles">
+        <i class="fa fa-calendar-check-o"></i> Días hábiles (L–V)
+      </span>
+
       <ng-container *ngIf="!modoSoloLectura && pasosDeshacerGantt > 0">
         <button type="button" class="btn-deshacer-gantt"
                 [disabled]="guardandoCambioFechasGantt"
@@ -1259,7 +1281,7 @@
             <span class="gantt-col-plazo">
               <ng-container *ngIf="!barra.puedeElegirFranja">
                 <!-- Mientras se estira la barra, el plazo se actualiza en vivo -->
-                <span *ngIf="dragGanttId === barra.item.id && !barra.esHito" class="gantt-plazo-vivo">{{barra.ancho}}d</span>
+                <span *ngIf="dragGanttId === barra.item.id && !barra.esHito" class="gantt-plazo-vivo">{{plazoVivoGantt(barra)}}d</span>
                 <ng-container *ngIf="!(dragGanttId === barra.item.id && !barra.esHito)">{{barra.item.plazoProgramado ? (barra.item.plazoProgramado + 'd') : ''}}</ng-container>
               </ng-container>
               <label class="check-franja" *ngIf="barra.puedeElegirFranja" title="Marca esto para pintar la franja oscura completa en el gráfico (tiene prioridad sobre su fecha/plazo)">
