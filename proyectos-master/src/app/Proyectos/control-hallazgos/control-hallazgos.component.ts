@@ -16,6 +16,8 @@ interface HallazgoItem {
   ambito?: string;
   tipoRegistro?: string;
   idUsuarioCreador?: number;
+  /** Momento real en que se creó (ISO). Lo usa Mis Proyectos para marcar los hallazgos nuevos. */
+  fechaCreacion?: string;
   fecha: string;
   anio: number;
   numero: number;
@@ -52,6 +54,8 @@ interface HallazgoItem {
 interface BitacoraHallazgo {
   id: string;
   fechaRegistro: string;
+  /** Quién creó el registro (Mis Proyectos no marca como nuevo lo que hizo uno mismo). */
+  idUsuarioCreador?: number;
   prioridad: string;
   descripcionHallazgo: string;
   analisisCausa: string;
@@ -322,10 +326,12 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
     this.nuevoHallazgo.idSubProyecto = this.getIdSubProyectoActual();
 
     const datosAGuardar = { ...this.nuevoHallazgo, bloqueado: false };
+    // Quién y cuándo se creó: con esto Mis Proyectos marca el sub-proyecto con un puntito de "nuevo"
+    datosAGuardar.idUsuarioCreador = Number(this.usuario && this.usuario.idUsuario) || null;
+    datosAGuardar.fechaCreacion = new Date().toISOString();
     if (this.esOficina) {
       datosAGuardar.ambito = 'oficina';
       datosAGuardar.tipoRegistro = 'hallazgo-oficina';
-      datosAGuardar.idUsuarioCreador = Number(this.usuario && this.usuario.idUsuario);
     }
     datosAGuardar.archivos = [];
     delete datosAGuardar.id;
@@ -700,6 +706,9 @@ export class ControlHallazgosComponent implements OnInit, OnDestroy {
         const nuevaEntrada: BitacoraHallazgo = {
           id: idBitacora,
           fechaRegistro: registroPrevio ? registroPrevio.fechaRegistro : new Date().toISOString(),
+          idUsuarioCreador: registroPrevio
+            ? (registroPrevio.idUsuarioCreador || null)
+            : (Number(this.usuario && this.usuario.idUsuario) || null),
           prioridad: this.nuevaBitacoraForm.prioridad || 'MEDIA',
           descripcionHallazgo: this.nuevaBitacoraForm.descripcionHallazgo || '',
           analisisCausa: this.nuevaBitacoraForm.analisisCausa || '',

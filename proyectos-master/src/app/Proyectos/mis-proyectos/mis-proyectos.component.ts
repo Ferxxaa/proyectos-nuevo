@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 
 //Share
 import { PopUps } from '../../Share/PopUps';
@@ -26,6 +26,23 @@ declare var jQuery: any;
 declare var $: any;
 
 const MS_DIA = 1000 * 60 * 60 * 24;
+/** La primera vez que un usuario entra, se le muestra como nuevo lo de los últimos N días. */
+const DIAS_NOVEDADES_INICIALES = 7;
+
+/** Lo nuevo de un sub-proyecto desde la última vez que el usuario lo vio. */
+interface NovedadesSubProyecto {
+  hallazgos: number;
+  avance: number;
+  bitacora: number;
+  total: number;
+}
+
+/** Última vez que el usuario vio cada tipo de novedad de un sub-proyecto (ISO). */
+interface VistoSubProyecto {
+  hallazgo?: string;
+  avance?: string;
+  bitacora?: string;
+}
 
 @Component({
   selector: 'app-mis-proyectos',
@@ -103,6 +120,18 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
   private unsubscribeControlesAvance: () => void;
   private unsubscribeHallazgos: () => void;
 
+  // ---- Novedades (puntito en la fila): hallazgo, control de avance o bitácora nuevos ----
+  /** idSubProyecto → cantidad de cosas nuevas por tipo. Solo trae los que tienen algo. */
+  novedades: { [idSubProyecto: number]: NovedadesSubProyecto } = {};
+  private docsControlesAvance: any[] = [];
+  private docsHallazgos: any[] = [];
+  /** Lo que el usuario ya vio, por sub-proyecto (colección misProyectosVistos, un doc por usuario). */
+  private vistos: { [idSubProyecto: string]: VistoSubProyecto } = {};
+  /** Desde cuándo cuenta "nuevo" para un sub-proyecto que el usuario nunca abrió (su primer ingreso). */
+  private vistosDesde: string = '';
+  private vistosCargados: boolean = false;
+  private unsubscribeVistos: () => void;
+
   constructor(
     private _http: Http,
     private _sMis_Proyectos: sMis_Proyectos,
@@ -112,7 +141,8 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     private _sProyecto: sProyecto,
     private _sEstadoProyecto: sEstadoProyecto,
     private ClienteProyecto: sUsuarioClienteProyecto,
-    private _sDetalleSubProyecto: sDetalleSubProyecto
+    private _sDetalleSubProyecto: sDetalleSubProyecto,
+    private _ngZone: NgZone
   ) {
     this.MisProyectos = [];
     this.MisProyectosOriginal = [];
@@ -135,6 +165,7 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.suscribirVistos();
     this.suscribirControlesAvance();
     this.cargarTodo();
 
@@ -158,6 +189,9 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     }
     if (this.unsubscribeHallazgos) {
       this.unsubscribeHallazgos();
+    }
+    if (this.unsubscribeVistos) {
+      this.unsubscribeVistos();
     }
   }
 
@@ -285,6 +319,9 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     // Guardar miProyecto de inmediato
     localStorage.setItem('miProyecto', JSON.stringify(miProyecto));
 
+    // Al entrar al sub-proyecto, todo lo nuevo queda como visto (se apaga el puntito)
+    this.marcarVisto([miProyecto.idSubProyecto], ['hallazgo', 'avance', 'bitacora']);
+
     // Feedback visual mientras se obtiene el SubProyecto
     this.LoadingTabla = true;
 
@@ -317,13 +354,19 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     this.unsubscribeControlesAvance = firestoreDB.collection('controlAvance')
       .onSnapshot((snapshot: any) => {
         const ids = new Set<number>();
+        const docs: any[] = [];
         snapshot.forEach((doc: any) => {
           const control = doc.data();
           if (control.activo !== false && control.idSubProyecto) {
             ids.add(Number(control.idSubProyecto));
+            docs.push(control);
           }
         });
-        this.subProyectosConControlAvance = ids;
+        this._ngZone.run(() => {
+          this.subProyectosConControlAvance = ids;
+          this.docsControlesAvance = docs;
+          this.calcularNovedades();
+        });
       }, (error: any) => {
         console.error('Error al cargar controles de avance existentes:', error);
       });
@@ -331,14 +374,20 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     this.unsubscribeHallazgos = firestoreDB.collection('hallazgos')
       .onSnapshot((snapshot: any) => {
         const ids = new Set<number>();
+        const docs: any[] = [];
         snapshot.forEach((doc: any) => {
           const hallazgo = doc.data();
           const idSubProyecto = Number(hallazgo && hallazgo.idSubProyecto);
           if (hallazgo && hallazgo.ambito !== 'oficina' && idSubProyecto > 0) {
             ids.add(idSubProyecto);
+            docs.push(hallazgo);
           }
         });
-        this.subProyectosConHallazgos = ids;
+        this._ngZone.run(() => {
+          this.subProyectosConHallazgos = ids;
+          this.docsHallazgos = docs;
+          this.calcularNovedades();
+        });
       }, (error: any) => {
         console.error('Error al cargar hallazgos existentes:', error);
       });
@@ -372,15 +421,190 @@ export class MisProyectosComponent implements OnInit, OnDestroy {
     }
 
     localStorage.setItem('subProyectosGanttSeleccionados', JSON.stringify(this.subProyectosSeleccionados));
+    // Ver su Carta Gantt cuenta como ver el control de avance y sus notas de bitácora
+    this.marcarVisto(this.subProyectosSeleccionados, ['avance', 'bitacora']);
     this.router.navigate(['/Proyectos-CartasGantt']);
   }
 
   verControlHallazgos() {
+    this.marcarVisto(this.subProyectosHallazgosSeleccionados, ['hallazgo']);
     localStorage.setItem(
       'subProyectosHallazgosSeleccionados',
       JSON.stringify(this.subProyectosHallazgosSeleccionados)
     );
     this.router.navigate(['/Proyectos-ControlHallazgosSeleccionados']);
+  }
+
+  // =========================================================================
+  // NOVEDADES: puntito en la fila cuando hay un hallazgo, control de avance
+  // o bitácora nuevos que el usuario todavía no ha visto
+  // =========================================================================
+
+  private getIdUsuario(): number {
+    return Number(this.usuario && this.usuario.idUsuario) || 0;
+  }
+
+  private claveVistosLocal(): string {
+    return 'misProyectosVistos_' + this.getIdUsuario();
+  }
+
+  /** Copia local de lo visto: respaldo si Firestore no responde (ej. falta la regla de la colección). */
+  private leerVistosLocal(): { desde: string; vistos: any } | null {
+    try {
+      const raw = localStorage.getItem(this.claveVistosLocal());
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  private guardarVistosLocal() {
+    try {
+      localStorage.setItem(this.claveVistosLocal(), JSON.stringify({ desde: this.vistosDesde, vistos: this.vistos }));
+    } catch (e) { }
+  }
+
+  /** Punto de partida para un usuario nuevo: hace N días (así ve lo reciente, pero no todo lo antiguo). */
+  private desdeInicial(): string {
+    return new Date(Date.now() - DIAS_NOVEDADES_INICIALES * MS_DIA).toISOString();
+  }
+
+  /** Lee (y escucha) lo que este usuario ya vio. */
+  private suscribirVistos() {
+    const idUsuario = this.getIdUsuario();
+    if (!idUsuario) { return; }
+
+    // Mientras llega Firestore, se usa la copia local (o los últimos días) para no esperar
+    const local = this.leerVistosLocal();
+    const inicialLocal = this.desdeInicial();
+    this.vistosDesde = local && local.desde && local.desde < inicialLocal ? local.desde : inicialLocal;
+    this.vistos = (local && local.vistos) || {};
+    this.vistosCargados = true;
+    this.calcularNovedades();
+
+    const ref = firestoreDB.collection('misProyectosVistos').doc(String(idUsuario));
+    this.unsubscribeVistos = ref.onSnapshot((doc: any) => {
+      this._ngZone.run(() => {
+        if (!doc.exists) {
+          // Primera vez en Firestore: parte desde la copia local o desde hace N días
+          ref.set({ idUsuario: idUsuario, desde: this.vistosDesde, vistos: this.vistos }, { merge: true })
+            .catch((error: any) => console.error('No se pudo crear el registro de vistos (revisa la regla de misProyectosVistos):', error));
+          this.guardarVistosLocal();
+          this.calcularNovedades();
+          return;
+        }
+        const data = doc.data() || {};
+        // Nunca más reciente que hace N días: si el registro se creó "hoy" (versión anterior), igual se ve lo reciente
+        const inicial = this.desdeInicial();
+        const guardado = data.desde || '';
+        this.vistosDesde = guardado && guardado < inicial ? guardado : inicial;
+        this.vistos = data.vistos || {};
+        this.guardarVistosLocal();
+        this.calcularNovedades();
+      });
+    }, (error: any) => {
+      // Sin permiso / sin conexión: sigue funcionando con la copia local
+      console.error('No se pudo leer lo visto en Mis Proyectos (revisa la regla de misProyectosVistos):', error);
+    });
+  }
+
+  /** Marca como visto (ahora) los tipos indicados de esos sub-proyectos. */
+  private marcarVisto(idsSubProyecto: number[], tipos: Array<'hallazgo' | 'avance' | 'bitacora'>) {
+    const idUsuario = this.getIdUsuario();
+    if (!idUsuario || !idsSubProyecto || !idsSubProyecto.length) { return; }
+    const ahora = new Date().toISOString();
+    const cambios: any = {};
+    idsSubProyecto.forEach(id => {
+      const clave = String(Number(id));
+      if (!Number(clave)) { return; }
+      const actual: VistoSubProyecto = { ...(this.vistos[clave] || {}) };
+      tipos.forEach(tipo => {
+        actual[tipo] = ahora;
+        cambios['vistos.' + clave + '.' + tipo] = ahora;
+      });
+      this.vistos[clave] = actual;
+    });
+    if (!Object.keys(cambios).length) { return; }
+    this.guardarVistosLocal();
+    this.calcularNovedades();
+    firestoreDB.collection('misProyectosVistos').doc(String(idUsuario)).update(cambios)
+      .catch(() => {
+        // Si el doc todavía no existía, se crea con lo visto
+        firestoreDB.collection('misProyectosVistos').doc(String(idUsuario))
+          .set({ idUsuario: idUsuario, desde: this.vistosDesde || ahora, vistos: this.vistos }, { merge: true })
+          .catch((error: any) => console.error('No se pudo guardar lo visto:', error));
+      });
+  }
+
+  /** Desde qué momento cuenta como "nuevo" ese tipo en ese sub-proyecto. */
+  private desdeNovedad(idSubProyecto: number, tipo: 'hallazgo' | 'avance' | 'bitacora'): string {
+    const visto = this.vistos[String(idSubProyecto)];
+    return (visto && visto[tipo]) || this.vistosDesde || '';
+  }
+
+  /** Lo creó otra persona (lo propio no se marca como nuevo). Sin creador registrado, cuenta. */
+  private esDeOtro(idUsuarioCreador: any): boolean {
+    const creador = Number(idUsuarioCreador) || 0;
+    return !creador || creador !== this.getIdUsuario();
+  }
+
+  private calcularNovedades() {
+    if (!this.vistosCargados || !this.vistosDesde) { this.novedades = {}; return; }
+    const resultado: { [id: number]: NovedadesSubProyecto } = {};
+    const sumar = (id: number, tipo: 'hallazgos' | 'avance' | 'bitacora') => {
+      if (!id) { return; }
+      if (!resultado[id]) { resultado[id] = { hallazgos: 0, avance: 0, bitacora: 0, total: 0 }; }
+      resultado[id][tipo]++;
+      resultado[id].total++;
+    };
+
+    // Control de avance: láminas / títulos nuevos y notas de bitácora nuevas
+    (this.docsControlesAvance || []).forEach(control => {
+      const id = Number(control.idSubProyecto);
+      if (!id) { return; }
+      const desdeAvance = this.desdeNovedad(id, 'avance');
+      if (control.fechaCreacion && control.fechaCreacion > desdeAvance && this.esDeOtro(control.idUsuarioCreador)) {
+        sumar(id, 'avance');
+      }
+      const desdeBitacora = this.desdeNovedad(id, 'bitacora');
+      (Array.isArray(control.bitacora) ? control.bitacora : []).forEach((nota: any) => {
+        if (nota && nota.fechaCreacion && nota.fechaCreacion > desdeBitacora && this.esDeOtro(nota.idUsuarioCreador)) {
+          sumar(id, 'bitacora');
+        }
+      });
+    });
+
+    // Hallazgos nuevos y registros nuevos en la bitácora de cada hallazgo
+    (this.docsHallazgos || []).forEach(hallazgo => {
+      const id = Number(hallazgo.idSubProyecto);
+      if (!id) { return; }
+      const desdeHallazgo = this.desdeNovedad(id, 'hallazgo');
+      if (hallazgo.fechaCreacion && hallazgo.fechaCreacion > desdeHallazgo && this.esDeOtro(hallazgo.idUsuarioCreador)) {
+        sumar(id, 'hallazgos');
+      }
+      const desdeBitacora = this.desdeNovedad(id, 'bitacora');
+      (Array.isArray(hallazgo.bitacoras) ? hallazgo.bitacoras : []).forEach((registro: any) => {
+        if (registro && registro.fechaRegistro && registro.fechaRegistro > desdeBitacora && this.esDeOtro(registro.idUsuarioCreador)) {
+          sumar(id, 'bitacora');
+        }
+      });
+    });
+
+    this.novedades = resultado;
+  }
+
+  getNovedades(idSubProyecto: number): NovedadesSubProyecto | null {
+    const n = this.novedades[Number(idSubProyecto)];
+    return n && n.total > 0 ? n : null;
+  }
+
+  textoNovedad(cantidad: number, singular: string, plural: string): string {
+    return cantidad + ' ' + (cantidad === 1 ? singular : plural) + ' sin ver';
+  }
+
+  /** Cuántos sub-proyectos de la tabla tienen algo nuevo. */
+  get totalConNovedades(): number {
+    return (this.MisProyectos || []).filter(p => !!this.getNovedades(p.idSubProyecto)).length;
   }
 
   Buscar() {

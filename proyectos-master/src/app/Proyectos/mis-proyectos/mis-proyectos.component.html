@@ -72,6 +72,9 @@
               <div class="mp-total">
                 <strong>{{MisProyectos.length}}</strong>
                 <span>{{MisProyectos.length === 1 ? 'sub-proyecto' : 'sub-proyectos'}}</span>
+                <span class="mp-total-nuevos" *ngIf="totalConNovedades > 0" title="Sub-proyectos con algo nuevo que no has visto">
+                  <i></i> {{totalConNovedades}} con novedades
+                </span>
                 <span class="mp-cargando" *ngIf="LoadingTabla"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Actualizando...</span>
               </div>
               <!-- Reseña compacta de los semáforos -->
@@ -89,6 +92,12 @@
                   <span><i class="mp-semaforo sem-verde"></i> baja</span>
                   <span><i class="mp-semaforo sem-amarillo"></i> media</span>
                   <span><i class="mp-semaforo sem-rojo"></i> alta</span>
+                </span>
+                <span class="mp-ley-grupo" title="Lo nuevo que aún no has visto. Se apaga al abrir el sub-proyecto.">
+                  <b>Nuevo</b>
+                  <span><i class="mp-nov-ley mp-nov-hallazgo"></i> hallazgo</span>
+                  <span><i class="mp-nov-ley mp-nov-avance"></i> avance</span>
+                  <span><i class="mp-nov-ley mp-nov-bitacora"></i> bitácora</span>
                 </span>
                 <span class="mp-ley-grupo" title="Borde amarillo: tiene control de avance · Borde naranjo: tiene hallazgos">
                   <span><i class="mp-ley-check mp-ley-avance"></i> con avance</span>
@@ -147,20 +156,36 @@
                       (click)="Detalle(MiProyecto)" class="proyecto-row"
                       [title]="'Abrir ' + MiProyecto.nombreSubProyecto">
                     <td class="c-centro gantt-selection-column" (click)="$event.stopPropagation()">
+                      <span class="mp-sel-wrap">
                       <input type="checkbox"
                         [checked]="estaSeleccionadoParaGantt(MiProyecto.idSubProyecto)"
                         [class.gantt-control-disponible]="tieneControlAvance(MiProyecto.idSubProyecto)"
                         [title]="tieneControlAvance(MiProyecto.idSubProyecto) ? 'Tiene control de avance' : 'Sin control de avance creado'"
                         (click)="cambiarSeleccionGantt(MiProyecto, $event)"
                         [attr.aria-label]="'Seleccionar ' + MiProyecto.nombreSubProyecto + ' para Carta Gantt'">
+                      <!-- Novedad: filas nuevas en el control de avance que aún no has visto -->
+                      <span class="mp-nov-badge mp-nov-avance"
+                            *ngIf="getNovedades(MiProyecto.idSubProyecto)?.avance"
+                            [title]="textoNovedad(getNovedades(MiProyecto.idSubProyecto).avance, 'fila nueva en el control de avance', 'filas nuevas en el control de avance')">
+                        {{getNovedades(MiProyecto.idSubProyecto).avance}}
+                      </span>
+                      </span>
                     </td>
                     <td class="c-centro hallazgos-selection-column" (click)="$event.stopPropagation()">
+                      <span class="mp-sel-wrap">
                       <input type="checkbox"
                         [checked]="estaSeleccionadoParaHallazgos(MiProyecto.idSubProyecto)"
                         [class.hallazgos-control-disponible]="tieneControlHallazgos(MiProyecto.idSubProyecto)"
                         [title]="tieneControlHallazgos(MiProyecto.idSubProyecto) ? 'Tiene hallazgos registrados' : 'Sin hallazgos'"
                         (click)="cambiarSeleccionHallazgos(MiProyecto, $event)"
                         [attr.aria-label]="'Seleccionar ' + MiProyecto.nombreSubProyecto + ' para Control de hallazgos'">
+                      <!-- Novedad: hallazgos nuevos que aún no has visto -->
+                      <span class="mp-nov-badge mp-nov-hallazgo"
+                            *ngIf="getNovedades(MiProyecto.idSubProyecto)?.hallazgos"
+                            [title]="textoNovedad(getNovedades(MiProyecto.idSubProyecto).hallazgos, 'hallazgo nuevo', 'hallazgos nuevos')">
+                        {{getNovedades(MiProyecto.idSubProyecto).hallazgos}}
+                      </span>
+                      </span>
                     </td>
                     <td class="c-tenue">{{MiProyecto.nombreProyectoMatriz}}</td>
                     <td>{{MiProyecto.nombreProyecto}}</td>
@@ -203,11 +228,20 @@
                       </div>
                     </td>
                     <td class="c-centro">
+                      <span class="mp-sel-wrap mp-bit-wrap">
                       <span class="mp-prioridad" *ngIf="MiProyecto.UltBitacora"
                             [class.pri-alta]="MiProyecto.UltBitacora == 'Alta'"
                             [class.pri-media]="MiProyecto.UltBitacora == 'Media'"
                             [class.pri-baja]="MiProyecto.UltBitacora == 'Baja'"
                             [title]="'Última bitácora: prioridad ' + MiProyecto.UltBitacora"><i></i></span>
+                      <!-- Novedad: bitácoras nuevas (control de avance y hallazgos) que aún no has visto -->
+                      <span class="mp-nov-badge mp-nov-bitacora"
+                            [class.mp-nov-badge-solo]="!MiProyecto.UltBitacora"
+                            *ngIf="getNovedades(MiProyecto.idSubProyecto)?.bitacora"
+                            [title]="textoNovedad(getNovedades(MiProyecto.idSubProyecto).bitacora, 'bitácora nueva', 'bitácoras nuevas')">
+                        {{getNovedades(MiProyecto.idSubProyecto).bitacora}}
+                      </span>
+                      </span>
                     </td>
                   </tr>
                   <tr *ngIf="!LoadingTabla && !MisProyectos.length" class="mp-vacio-fila">

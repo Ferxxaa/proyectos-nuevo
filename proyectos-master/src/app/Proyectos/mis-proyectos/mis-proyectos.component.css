@@ -492,3 +492,79 @@
 @media (max-width: 1399px) {
   .mp-ley-mini { order: 3; width: 100%; margin: 4px 0 0; justify-content: center; border-radius: 10px; }
 }
+
+/* ---------- novedades: burbujita con número en la columna que corresponde ---------- */
+/* Avance → cuadrito Avance · Hallazgo → cuadrito Hallazgo · Bitácora → punto de Bitácora */
+.mp-sel-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.mp-bit-wrap { min-width: 20px; min-height: 20px; }
+
+.mp-nov-badge {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  z-index: 2;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 2px solid #fff;
+  border-radius: 9px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 13px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(20, 34, 45, .3);
+  cursor: help;
+  pointer-events: auto;
+}
+/* pulso suave para que se note sin molestar */
+.mp-nov-badge::after {
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  background: inherit;
+  opacity: 0;
+  content: '';
+  z-index: -1;
+  animation: mp-nov-pulso 1.8s ease-out infinite;
+}
+@keyframes mp-nov-pulso {
+  from { transform: scale(.7); opacity: .45; }
+  to { transform: scale(1.5); opacity: 0; }
+}
+/* bitácora sin prioridad previa: la burbuja queda sola y centrada */
+.mp-nov-badge.mp-nov-badge-solo { position: static; }
+
+.mp-nov-hallazgo { background: #d9534f; }
+.mp-nov-avance { background: #d4a72c; }
+.mp-nov-bitacora { background: #075f91; }
+
+.mp-nov-ley {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.mp-total-nuevos {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 10px;
+  background: #e3eef6;
+  color: #075f91;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.mp-total-nuevos i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #075f91; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-nov-badge::after { animation: none; }
+}
