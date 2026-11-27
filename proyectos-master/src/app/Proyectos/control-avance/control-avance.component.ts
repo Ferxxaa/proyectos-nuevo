@@ -284,6 +284,19 @@ interface FilaEditorForecast {
   pond: number | null;
 }
 
+/** Calendario del control: qué días cuentan para el plazo, el % programado y la Curva S. */
+type TipoCalendario = 'corridos' | 'habiles' | 'lunesSabado' | 'turno';
+
+interface ConfigCalendario {
+  tipo: TipoCalendario;
+  /** Solo turno: días de trabajo del ciclo (ej. 10 en un 10x10). */
+  turnoDiasTrabajo: number;
+  /** Solo turno: días de descanso del ciclo (ej. 10 en un 10x10). */
+  turnoDiasDescanso: number;
+  /** Solo turno: primer día de trabajo de un ciclo cualquiera ('YYYY-MM-DD'); desde ahí se repite el ciclo hacia adelante y hacia atrás. */
+  turnoFechaInicio: string;
+}
+
 /** Plantilla creada por el propio usuario desde el modal de Plantillas, con ícono a elección y guardada en Firestore. */
 interface GrupoPlantillaPersonalizada extends GrupoPlantillas {
   id?: string;
@@ -502,9 +515,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   /** Si está activo, al mover una actividad se corren las que dependen de ella (preferencia por navegador). */
   reprogramarDependencias: boolean = true;
 
-  // ---- Calendario del control: días corridos o solo días hábiles (L–V) ----
-  /** true = el plazo cuenta solo de lunes a viernes (como las planillas con sábado/domingo en rosado). Se guarda por control. */
-  soloDiasHabiles: boolean = false;
+  // ---- Calendario del control: corridos, hábiles L–V, lunes a sábado o turno NxM (ej. 10x10) ----
+  /** Tipo de calendario del control. Se guarda por control en controlAvanceConfig. */
+  tipoCalendario: TipoCalendario = 'corridos';
+  /** Turno NxM: días de trabajo / descanso del ciclo y primer día de trabajo de un ciclo. */
+  turnoDiasTrabajo: number = 10;
+  turnoDiasDescanso: number = 10;
+  turnoFechaInicio: string = '';
+  private turnoInicioDate: Date | null = null;
   /** Mientras se recalculan y guardan los plazos al cambiar el calendario. */
   cambiandoDiasHabiles: boolean = false;
   private unsubscribeCalendario: (() => void) | null = null;
@@ -3526,18 +3544,70 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     const desde = this.parsearFechaISO(desdeStr);
     const hasta = this.parsearFechaISO(hastaStr);
     if (!desde || !hasta) { return 0; }
-    if (!this.soloDiasHabiles) {
+    if (!this.calendarioRestringido) {
       const msPorDia = 1000 * 60 * 60 * 24;
       return Math.round((hasta.getTime() - desde.getTime()) / msPorDia) + 1;
     }
     return this.contarDiasPlazo(desde, hasta);
   }
 
-  /** ¿Este día cuenta para el plazo? Con días corridos todos cuentan; con días hábiles, solo L–V. */
+  /** true si el calendario deja días fuera del plazo (cualquier cosa distinta de días corridos). */
+  get calendarioRestringido(): boolean {
+    return this.tipoCalendario !== 'corridos';
+  }
+
+  /** Nombre corto del calendario actual, para botones y textos. */
+  get descripcionCalendario(): string {
+    switch (this.tipoCalendario) {
+      case 'habiles': return 'Días hábiles (L–V)';
+      case 'lunesSabado': return 'Lunes a sábado';
+      case 'turno': return 'Turno ' + this.turnoDiasTrabajo + 'x' + this.turnoDiasDescanso;
+      default: return 'Días corridos';
+    }
+  }
+
+  /** Sufijo para "Plazo" en encabezados y etiquetas: '', ' háb.' o ' turno'. */
+  get sufijoPlazoCalendario(): string {
+    if (this.tipoCalendario === 'turno') { return ' turno'; }
+    return this.calendarioRestringido ? ' háb.' : '';
+  }
+
+  /** Texto largo (tooltips) de cómo cuenta el plazo el calendario actual. */
+  get detalleCalendario(): string {
+    switch (this.tipoCalendario) {
+      case 'habiles': return 'Plazo en días hábiles (L–V)';
+      case 'lunesSabado': return 'Plazo en días de lunes a sábado (domingo no cuenta)';
+      case 'turno': return 'Plazo en días de trabajo del turno ' + this.turnoDiasTrabajo + 'x' + this.turnoDiasDescanso
+        + (this.turnoFechaInicio ? ' (ciclo desde el ' + this.fechaVista(this.turnoFechaInicio) + ')' : '')
+        + ': los días de descanso no cuentan';
+      default: return 'Plazo en días corridos';
+    }
+  }
+
+  /** ¿Este día cuenta para el plazo? Depende del calendario: corridos, L–V, L–S o turno NxM. */
   private esDiaDePlazo(fecha: Date): boolean {
-    if (!this.soloDiasHabiles) { return true; }
-    const dia = fecha.getDay();
-    return dia !== 0 && dia !== 6;
+    switch (this.tipoCalendario) {
+      case 'habiles': {
+        const dia = fecha.getDay();
+        return dia !== 0 && dia !== 6;
+      }
+      case 'lunesSabado':
+        return fecha.getDay() !== 0;
+      case 'turno': {
+        const ancla = this.turnoInicioDate;
+        const trabajo = Number(this.turnoDiasTrabajo) || 0;
+        const descanso = Number(this.turnoDiasDescanso) || 0;
+        if (!ancla || trabajo <= 0) { return true; }
+        const ciclo = trabajo + descanso;
+        const f = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+        // Math.round absorbe el desfase de 1 hora del cambio de horario
+        const diff = Math.round((f.getTime() - ancla.getTime()) / (1000 * 60 * 60 * 24));
+        const pos = ((diff % ciclo) + ciclo) % ciclo;
+        return pos < trabajo;
+      }
+      default:
+        return true;
+    }
   }
 
   /** Días que cuentan para el plazo entre dos fechas, ambas inclusive (0 si hasta < desde). */
@@ -3548,7 +3618,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (fin < ini) { return 0; }
     const msPorDia = 1000 * 60 * 60 * 24;
     const total = Math.round((fin.getTime() - ini.getTime()) / msPorDia) + 1;
-    if (!this.soloDiasHabiles) { return total; }
+    if (!this.calendarioRestringido) { return total; }
     let n = 0;
     const f = new Date(ini.getTime());
     for (let i = 0; i < total; i++) {
@@ -3558,11 +3628,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return n;
   }
 
-  /** Con días hábiles, si la fecha cae sábado o domingo la corre al lunes siguiente. */
+  /** Si la fecha cae en un día que no cuenta (fin de semana o descanso del turno), la corre al siguiente día que sí cuenta. */
   private ajustarAInicioHabil(fecha: Date): Date {
     const f = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
     let guardia = 0;
-    while (!this.esDiaDePlazo(f) && guardia++ < 7) { f.setDate(f.getDate() + 1); }
+    while (!this.esDiaDePlazo(f) && guardia++ < 400) { f.setDate(f.getDate() + 1); }
     return f;
   }
 
@@ -3579,12 +3649,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (!fechaInicio || !plazoDias || plazoDias <= 0) {
       return '';
     }
-    if (!this.soloDiasHabiles) {
+    if (!this.calendarioRestringido) {
       const fechaTermino = new Date(fechaInicio);
       fechaTermino.setDate(fechaTermino.getDate() + (plazoDias - 1));
       return this.formatearFechaISO(fechaTermino);
     }
-    // Días hábiles: avanza contando solo L–V hasta completar el plazo (sábado y domingo no suman)
+    // Calendario restringido: avanza contando solo los días que cuentan (hábiles o de trabajo del turno)
     const f = new Date(fechaInicio.getFullYear(), fechaInicio.getMonth(), fechaInicio.getDate());
     let contados = 0;
     let guardia = 0;
@@ -4849,7 +4919,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     if (!ini || !fin) { return 0; }
     if (fecha < ini) { return 0; }
     if (fecha >= fin) { return 1; }
-    // Corridos o solo hábiles: sábado y domingo no suman avance si el control cuenta días hábiles
+    // Según el calendario: fines de semana o días de descanso del turno no suman avance
     const plazoDias = this.contarDiasPlazo(ini, fin);
     if (plazoDias <= 0) { return 0; }
     return this.contarDiasPlazo(ini, fecha) / plazoDias;
@@ -5499,7 +5569,11 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     for (let i = 0; i < totalDias; i++) {
       const fecha = new Date(inicioRango);
       fecha.setDate(fecha.getDate() + i);
-      if (fecha.getDay() === 0 || fecha.getDay() === 6) {
+      // Días corridos: guía visual de fines de semana. Con otro calendario: los días que no cuentan (incluye descansos del turno)
+      const noCuenta = this.calendarioRestringido
+        ? !this.esDiaDePlazo(fecha)
+        : (fecha.getDay() === 0 || fecha.getDay() === 6);
+      if (noCuenta) {
         findesDeSemana.push(i);
       }
     }
@@ -6062,7 +6136,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     } else {
       const avanceReal = Math.min(Math.max(Number(barra.item.avanceReal) || 0, 0), 100);
       barra.anchoRelleno = Math.round(barra.ancho * avanceReal / 100);
-      this.dragGanttEtiqueta = `${this.etiquetaDiaGantt(barra.offset)} → ${this.etiquetaDiaGantt(barra.offset + barra.ancho - 1)} · ${this.plazoVivoGantt(barra)} día${this.plazoVivoGantt(barra) === 1 ? '' : 's'}${this.soloDiasHabiles ? ' háb.' : ''}`;
+      this.dragGanttEtiqueta = `${this.etiquetaDiaGantt(barra.offset)} → ${this.etiquetaDiaGantt(barra.offset + barra.ancho - 1)} · ${this.plazoVivoGantt(barra)} día${this.plazoVivoGantt(barra) === 1 ? '' : 's'}${this.sufijoPlazoCalendario}`;
 
       // La fecha va apareciendo en el calendario a medida que la barra se mueve o se alarga.
       this.dragGuiaFinPx = this.ganttDiaAPixel(barra.offset) + this.ganttDiasAPixel(barra.offset, barra.ancho);
@@ -6104,14 +6178,14 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       const modoDrag = drag.modo;
       this.aplicarCambioFechasGantt(item, () => {
         const inicioSoltado = this.fechaDesdeOffsetGantt(offsetFinal);
-        // Con días hábiles, si se suelta en sábado/domingo parte el lunes
-        const inicio = this.soloDiasHabiles && !esHito ? this.ajustarAInicioHabil(inicioSoltado) : inicioSoltado;
+        // Si se suelta en un día que no cuenta (fin de semana / descanso del turno) parte el siguiente día que cuenta
+        const inicio = this.calendarioRestringido && !esHito ? this.ajustarAInicioHabil(inicioSoltado) : inicioSoltado;
         item.fechaInicioProgramada = this.formatearFechaISO(inicio);
         item.fechaInicioProgramadaManual = true; // si no, el encadenamiento la devuelve al término de la anterior
 
         if (!esHito) {
           let plazo = anchoFinal;
-          if (this.soloDiasHabiles) {
+          if (this.calendarioRestringido) {
             if (modoDrag === 'mover' && Number(item.plazoProgramado) > 0) {
               // Mover no cambia la duración: se mantienen los días hábiles (si cruza un fin de semana, la barra se alarga)
               plazo = Number(item.plazoProgramado);
@@ -6502,16 +6576,16 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       this.unsubscribeCalendario();
       this.unsubscribeCalendario = null;
     }
-    this.soloDiasHabiles = false;
+    this.aplicarConfigCalendario(this.normalizarConfigCalendario(null));
     if (!Number(this.idProyecto)) { return; }
 
     this.unsubscribeCalendario = firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocCalendario())
       .onSnapshot((doc: any) => {
         this._ngZone.run(() => {
           const data = doc.exists ? doc.data() : null;
-          const valor = !!(data && data.soloDiasHabiles);
-          if (valor === this.soloDiasHabiles) { return; }
-          this.soloDiasHabiles = valor;
+          const cfg = this.normalizarConfigCalendario(data);
+          if (this.esMismoCalendario(cfg)) { return; }
+          this.aplicarConfigCalendario(cfg);
           this.refrescarTrasCambioCalendario();
         });
       }, (error: any) => {
@@ -6529,7 +6603,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
   /** Plazo que se muestra en vivo mientras se arrastra/estira una barra (corridos o hábiles). */
   plazoVivoGantt(barra: BarraGantt): number {
     if (!barra) { return 0; }
-    if (!this.soloDiasHabiles) { return barra.ancho; }
+    if (!this.calendarioRestringido) { return barra.ancho; }
     if (this.dragGantt && this.dragGantt.modo === 'mover' && Number(barra.item.plazoProgramado) > 0) {
       return Number(barra.item.plazoProgramado);
     }
@@ -6538,37 +6612,165 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
     return this.contarDiasPlazo(ini, fin);
   }
 
-  /**
-   * Cambia el calendario del control. Las FECHAS no se mueven: se recalcula el plazo de cada lámina
-   * con sus fechas actuales (ej: 26/11 → 30/11 pasa de 5 días corridos a 3 hábiles) y se guarda.
-   */
-  async toggleSoloDiasHabiles(valor: boolean, input?: any) {
-    const revertir = () => { if (input) { input.checked = this.soloDiasHabiles; } };
-    if (!this.puedeEditarAvance || this.cambiandoDiasHabiles || valor === this.soloDiasHabiles) { revertir(); return; }
+  /** Lee la config guardada (soporta el formato viejo con solo "soloDiasHabiles"). */
+  private normalizarConfigCalendario(data: any): ConfigCalendario {
+    const cfg: ConfigCalendario = { tipo: 'corridos', turnoDiasTrabajo: 10, turnoDiasDescanso: 10, turnoFechaInicio: '' };
+    if (!data) { return cfg; }
+    const tipos: TipoCalendario[] = ['corridos', 'habiles', 'lunesSabado', 'turno'];
+    if (data.tipoCalendario && tipos.indexOf(data.tipoCalendario) >= 0) {
+      cfg.tipo = data.tipoCalendario;
+    } else if (data.soloDiasHabiles) {
+      cfg.tipo = 'habiles';
+    }
+    const trabajo = Math.round(Number(data.turnoDiasTrabajo));
+    const descanso = Math.round(Number(data.turnoDiasDescanso));
+    if (trabajo > 0) { cfg.turnoDiasTrabajo = trabajo; }
+    if (descanso >= 0 && !isNaN(descanso) && data.turnoDiasDescanso !== undefined && data.turnoDiasDescanso !== null) { cfg.turnoDiasDescanso = descanso; }
+    cfg.turnoFechaInicio = typeof data.turnoFechaInicio === 'string' ? data.turnoFechaInicio : '';
+    // Un turno sin fecha de inicio no se puede calcular: se trata como días corridos
+    if (cfg.tipo === 'turno' && !this.parsearFechaISO(cfg.turnoFechaInicio)) { cfg.tipo = 'corridos'; }
+    return cfg;
+  }
 
-    const laminas = (this.ControlesAvance || []).filter(it => it.id && it.activo !== false && !it.esTitulo);
-    const r: any = await Swal.fire({
-      icon: 'question',
-      title: valor ? 'Contar solo días hábiles (L–V)' : 'Contar días corridos',
-      html: (valor
-        ? 'Sábados y domingos <strong>no cuentan</strong> en el plazo, el % programado ni la Curva S.'
-        : 'Todos los días cuentan, incluidos sábados y domingos.')
-        + '<br><br>Las fechas de las láminas <strong>no cambian</strong>: se recalcula el plazo de '
-        + laminas.length + ' lámina(s) según sus fechas actuales.',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, cambiar',
-      cancelButtonText: 'Cancelar'
+  private configCalendarioActual(): ConfigCalendario {
+    return {
+      tipo: this.tipoCalendario,
+      turnoDiasTrabajo: this.turnoDiasTrabajo,
+      turnoDiasDescanso: this.turnoDiasDescanso,
+      turnoFechaInicio: this.turnoFechaInicio
+    };
+  }
+
+  private esMismoCalendario(cfg: ConfigCalendario): boolean {
+    if (cfg.tipo !== this.tipoCalendario) { return false; }
+    if (cfg.tipo !== 'turno') { return true; }
+    return cfg.turnoDiasTrabajo === this.turnoDiasTrabajo
+      && cfg.turnoDiasDescanso === this.turnoDiasDescanso
+      && cfg.turnoFechaInicio === this.turnoFechaInicio;
+  }
+
+  private aplicarConfigCalendario(cfg: ConfigCalendario) {
+    this.tipoCalendario = cfg.tipo;
+    this.turnoDiasTrabajo = cfg.turnoDiasTrabajo;
+    this.turnoDiasDescanso = cfg.turnoDiasDescanso;
+    this.turnoFechaInicio = cfg.turnoFechaInicio;
+    this.turnoInicioDate = this.parsearFechaISO(cfg.turnoFechaInicio);
+  }
+
+  /** Primera fecha de inicio programada de las láminas (sugerencia para el inicio del ciclo del turno). */
+  private primeraFechaInicioLaminas(): string {
+    let min = '';
+    (this.ControlesAvance || []).forEach(it => {
+      if (it && !it.esTitulo && it.activo !== false && it.fechaInicioProgramada && (!min || it.fechaInicioProgramada < min)) {
+        min = it.fechaInicioProgramada;
+      }
     });
-    if (!r || !(r.value || r.isConfirmed)) { revertir(); return; }
+    return min || this.formatearFechaISO(new Date());
+  }
 
-    const anterior = this.soloDiasHabiles;
+  /**
+   * Abre el selector de calendario (corridos, L–V, L–S o turno NxM como 10x10 / 7x7 / 14x14).
+   * Las FECHAS no se mueven: se recalcula el plazo de cada lámina con sus fechas actuales y se guarda.
+   */
+  async configurarCalendario() {
+    if (!this.puedeEditarAvance || this.cambiandoDiasHabiles) { return; }
+
+    const actual = this.configCalendarioActual();
+    const fechaSugerida = actual.turnoFechaInicio || this.primeraFechaInicioLaminas();
+    const laminas = (this.ControlesAvance || []).filter(it => it.id && it.activo !== false && !it.esTitulo);
+    const sel = (t: TipoCalendario) => actual.tipo === t ? ' selected' : '';
+    const preset = (t: number, d: number) =>
+      `<button type="button" class="ca-cal-preset" onclick="document.getElementById('ca-cal-trabajo').value=${t};document.getElementById('ca-cal-descanso').value=${d};">${t}x${d}</button>`;
+
+    const html = `
+      <div class="ca-cal-form">
+        <label class="ca-cal-label" for="ca-cal-tipo">¿Qué días cuentan para el plazo?</label>
+        <select id="ca-cal-tipo" class="ca-cal-input"
+                onchange="document.getElementById('ca-cal-turno').style.display = this.value === 'turno' ? 'block' : 'none'">
+          <option value="corridos"${sel('corridos')}>Días corridos (todos los días)</option>
+          <option value="habiles"${sel('habiles')}>Días hábiles (lunes a viernes)</option>
+          <option value="lunesSabado"${sel('lunesSabado')}>Lunes a sábado</option>
+          <option value="turno"${sel('turno')}>Turno por ciclo (ej. 10x10, 7x7, 14x14)</option>
+        </select>
+
+        <div id="ca-cal-turno" class="ca-cal-turno" style="display:${actual.tipo === 'turno' ? 'block' : 'none'}">
+          <div class="ca-cal-presets">
+            <span>Rápido:</span>
+            ${preset(4, 3)}${preset(5, 2)}${preset(7, 7)}${preset(10, 10)}${preset(14, 14)}${preset(4, 4)}
+          </div>
+          <div class="ca-cal-fila">
+            <label class="ca-cal-campo">
+              <span>Días de trabajo</span>
+              <input id="ca-cal-trabajo" type="number" min="1" max="60" step="1" class="ca-cal-input" value="${actual.turnoDiasTrabajo}">
+            </label>
+            <span class="ca-cal-x">x</span>
+            <label class="ca-cal-campo">
+              <span>Días de descanso</span>
+              <input id="ca-cal-descanso" type="number" min="0" max="60" step="1" class="ca-cal-input" value="${actual.turnoDiasDescanso}">
+            </label>
+          </div>
+          <label class="ca-cal-campo">
+            <span>Primer día de trabajo del turno</span>
+            <input id="ca-cal-inicio" type="date" class="ca-cal-input" value="${fechaSugerida}">
+          </label>
+          <small class="ca-cal-ayuda">Desde ese día se repite el ciclo: N días de trabajo y M de descanso. Los días de descanso no suman plazo, % programado ni Curva S, y en la Carta Gantt se ven sombreados.</small>
+        </div>
+
+        <p class="ca-cal-nota">Las fechas de las láminas <strong>no cambian</strong>: se recalcula el plazo de ${laminas.length} lámina(s) según sus fechas actuales.</p>
+      </div>`;
+
+    const r: any = await Swal.fire({
+      title: 'Calendario del control',
+      html: html,
+      showCancelButton: true,
+      confirmButtonText: 'Aplicar',
+      cancelButtonText: 'Cancelar',
+      focusConfirm: false,
+      preConfirm: () => {
+        const valorDe = (id: string) => {
+          const el = document.getElementById(id) as HTMLInputElement;
+          return el ? el.value : '';
+        };
+        const tipo = valorDe('ca-cal-tipo') as TipoCalendario;
+        const cfg: ConfigCalendario = {
+          tipo: tipo,
+          turnoDiasTrabajo: actual.turnoDiasTrabajo,
+          turnoDiasDescanso: actual.turnoDiasDescanso,
+          turnoFechaInicio: actual.turnoFechaInicio
+        };
+        if (tipo === 'turno') {
+          const trabajo = Math.round(Number(valorDe('ca-cal-trabajo')));
+          const descanso = Math.round(Number(valorDe('ca-cal-descanso')));
+          const inicio = valorDe('ca-cal-inicio');
+          let error = '';
+          if (!(trabajo >= 1 && trabajo <= 60)) { error = 'Los días de trabajo deben ser entre 1 y 60.'; }
+          else if (!(descanso >= 0 && descanso <= 60)) { error = 'Los días de descanso deben ser entre 0 y 60.'; }
+          else if (!this.parsearFechaISO(inicio)) { error = 'Indica el primer día de trabajo del turno.'; }
+          if (error) {
+            if ((Swal as any).showValidationMessage) { (Swal as any).showValidationMessage(error); }
+            return false;
+          }
+          cfg.turnoDiasTrabajo = trabajo;
+          cfg.turnoDiasDescanso = descanso;
+          cfg.turnoFechaInicio = inicio;
+        }
+        return cfg;
+      }
+    });
+    if (!r || !r.value || r.dismiss) { return; }
+    const nueva: ConfigCalendario = r.value;
+    if (this.esMismoCalendario(nueva)) { return; }
+
+    const anterior = this.configCalendarioActual();
     this.cambiandoDiasHabiles = true;
-    this.soloDiasHabiles = valor;
+    this.aplicarConfigCalendario(nueva);
 
     // Plazos nuevos a partir de las fechas que ya tiene cada lámina
     const cambios: Array<{ id: string; datos: any }> = [];
+    const respaldo: Array<{ it: ControlAvanceItem; plazoProgramado: any; plazoReal: any }> = [];
     laminas.forEach(it => {
       const datos: any = {};
+      respaldo.push({ it: it, plazoProgramado: it.plazoProgramado, plazoReal: it.plazoReal });
       if (it.fechaInicioProgramada && it.fechaTerminoProgramada) {
         const plazo = this.diasEntreFechasISO(it.fechaInicioProgramada, it.fechaTerminoProgramada);
         if (plazo > 0 && plazo !== Number(it.plazoProgramado)) { it.plazoProgramado = plazo; datos.plazoProgramado = plazo; }
@@ -6591,7 +6793,12 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         await batch.commit();
       }
       await firestoreDB.collection('controlAvanceConfig').doc(this.getIdDocCalendario()).set({
-        soloDiasHabiles: valor,
+        tipoCalendario: nueva.tipo,
+        // Se mantiene por compatibilidad con versiones que solo leen este campo
+        soloDiasHabiles: nueva.tipo === 'habiles',
+        turnoDiasTrabajo: nueva.turnoDiasTrabajo,
+        turnoDiasDescanso: nueva.turnoDiasDescanso,
+        turnoFechaInicio: nueva.turnoFechaInicio || '',
         idProyecto: Number(this.idProyecto) || 0,
         idSubProyecto: Number(this.getIdSubProyectoActual()) || 0,
         idUsuario: Number(this.usuario && this.usuario.idUsuario) || null,
@@ -6602,7 +6809,7 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
         this.cambiandoDiasHabiles = false;
         Swal.fire({
           icon: 'success',
-          title: valor ? 'Ahora cuenta solo días hábiles' : 'Ahora cuenta días corridos',
+          title: 'Calendario: ' + this.descripcionCalendario,
           text: cambios.length + ' plazo(s) recalculado(s).',
           timer: 1800,
           showConfirmButton: false
@@ -6610,9 +6817,9 @@ export class ControlAvanceComponent implements OnInit, OnChanges, OnDestroy {
       });
     } catch (error) {
       this._ngZone.run(() => {
-        this.soloDiasHabiles = anterior;
+        respaldo.forEach(b => { b.it.plazoProgramado = b.plazoProgramado; b.it.plazoReal = b.plazoReal; });
+        this.aplicarConfigCalendario(anterior);
         this.cambiandoDiasHabiles = false;
-        revertir();
         this.refrescarTrasCambioCalendario();
         Swal.fire('Error', 'No se pudo cambiar el calendario: ' + this.getMensajeError(error), 'error');
       });

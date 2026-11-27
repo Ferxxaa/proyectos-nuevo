@@ -363,11 +363,11 @@
         </tr>
         <tr class="fila-subgrupos-thead">
           <th class="col-fecha sub-programado">F. inicio</th>
-          <th class="col-plazo sub-programado" [title]="soloDiasHabiles ? 'Plazo en días hábiles (L–V)' : 'Plazo en días corridos'">Plazo{{ soloDiasHabiles ? ' háb.' : '' }}</th>
+          <th class="col-plazo sub-programado" [title]="detalleCalendario">Plazo{{ sufijoPlazoCalendario }}</th>
           <th class="col-fecha-auto sub-programado">F. término</th>
           <th class="col-avance sub-programado">% avance</th>
           <th class="col-fecha sub-real">F. inicio</th>
-          <th class="col-plazo sub-real" [title]="soloDiasHabiles ? 'Plazo en días hábiles (L–V)' : 'Plazo en días corridos'">Plazo{{ soloDiasHabiles ? ' háb.' : '' }}</th>
+          <th class="col-plazo sub-real" [title]="detalleCalendario">Plazo{{ sufijoPlazoCalendario }}</th>
           <th class="col-fecha-auto sub-real">F. término</th>
           <th class="col-avance sub-real">% avance</th>
         </tr>
@@ -1163,16 +1163,18 @@
         <i class="fa fa-link"></i> Mover dependientes
       </label>
 
-      <!-- Calendario del control: con esto marcado, sábados y domingos no cuentan en plazos, % programado ni Curva S -->
-      <label class="gantt-reprogramar gantt-dias-habiles" *ngIf="!modoSoloLectura"
-             [class.activo]="soloDiasHabiles"
-             title="Marcado: el plazo cuenta solo de lunes a viernes (sábado y domingo no suman avance). Al cambiarlo, las fechas no se mueven: se recalcula el plazo de cada lámina. Aplica a todo este control.">
-        <input type="checkbox" [checked]="soloDiasHabiles" [disabled]="cambiandoDiasHabiles || !puedeEditarAvance"
-               (change)="toggleSoloDiasHabiles($event.target.checked, $event.target)">
-        <i class="fa" [ngClass]="cambiandoDiasHabiles ? 'fa-spinner fa-spin' : 'fa-calendar-check-o'"></i> Solo días hábiles (L–V)
-      </label>
-      <span class="gantt-dias-habiles-info" *ngIf="modoSoloLectura && soloDiasHabiles" title="Este control cuenta solo días hábiles">
-        <i class="fa fa-calendar-check-o"></i> Días hábiles (L–V)
+      <!-- Calendario del control: corridos, L–V, L–S o turno NxM (ej. 10x10). Los días que no cuentan no suman plazo, % programado ni Curva S -->
+      <button type="button" class="gantt-reprogramar gantt-dias-habiles" *ngIf="!modoSoloLectura"
+              [class.activo]="calendarioRestringido"
+              [disabled]="cambiandoDiasHabiles || !puedeEditarAvance"
+              (click)="configurarCalendario()"
+              [title]="detalleCalendario + '. Clic para cambiar el calendario (días corridos, hábiles, lunes a sábado o turno 10x10, 7x7, etc.). Las fechas no se mueven: se recalcula el plazo de cada lámina. Aplica a todo este control.'">
+        <i class="fa" [ngClass]="cambiandoDiasHabiles ? 'fa-spinner fa-spin' : 'fa-calendar-check-o'"></i>
+        Calendario: {{ descripcionCalendario }}
+        <i class="fa fa-caret-down gantt-dias-habiles-caret"></i>
+      </button>
+      <span class="gantt-dias-habiles-info" *ngIf="modoSoloLectura && calendarioRestringido" [title]="detalleCalendario">
+        <i class="fa fa-calendar-check-o"></i> {{ descripcionCalendario }}
       </span>
 
       <ng-container *ngIf="!modoSoloLectura && pasosDeshacerGantt > 0">
@@ -1398,7 +1400,7 @@
           </div>
 
           <ng-container *ngIf="ganttEscala === 'normal'">
-            <div class="gantt-finde" *ngFor="let offsetFinde of ganttFinesDeSemanaOffsets" [style.left.px]="ganttDiaAPixel(offsetFinde)" [style.width.px]="ganttDiasAPixel(offsetFinde, 1)"></div>
+            <div class="gantt-finde" *ngFor="let offsetFinde of ganttFinesDeSemanaOffsets" [class.gantt-finde-descanso]="tipoCalendario === 'turno'" [style.left.px]="ganttDiaAPixel(offsetFinde)" [style.width.px]="ganttDiasAPixel(offsetFinde, 1)"></div>
           </ng-container>
 
           <div class="gantt-linea-hoy" *ngIf="ganttHoyOffset >= 0" [style.left.px]="ganttDiaAPixel(ganttHoyOffset)">
